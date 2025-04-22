@@ -1,16 +1,177 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title><%= title %></title>
-  <link rel="stylesheet" href="/libs/bootstrap/bootstrap.min.css" />
-  <link rel="stylesheet" href="/css/style.css" />
-</head>
-<body>
-  <div class="container mt-5">
-    <h1 class="text-center text-primary">Bem-vindo ao Connect Skills!</h1>
-    <p class="text-center">Projeto de TCC com MVC e tecnologias modernas 💻🚀</p>
-  </div>
-</body>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Connect Skills</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7" crossorigin="anonymous">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/img/logo.png">
+  </head>
+  <body id="home">
+      <nav class="navbar navbar-expand-lg fixed-top">
+        <div class="container-fluid">
+          <a class="navbar-brand" href="#"> 
+            <img src="/img/logo.png" class="logo-header" alt="Logo Header">
+          </a>
+          
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+              <li class="nav-item">
+                <a class="nav-link" href="#home">Início</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#about">Sobre</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#contact">Contato</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+
+      <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
+        <div class="carousel-inner">
+          <div class="carousel-item active">
+            <img src="/img/Banner.png" class="d-block w-100" alt="...">
+          </div>
+        </div>
+      </div>
+      <section id="button" class="d-flex align-items-center mt-5">
+        <div class="container mt-5">
+            <div class="row justify-content-center text-center">
+                <div class="col-12 col-md-6 mb-4 d-flex flex-column align-items-center">
+                    <p class="fs-5">Não possui conta?</p>
+                    <button class="btn btn-custom btn-cadastrar">CADASTRAR</button>
+                </div>
+                <div class="col-12 col-md-6 mb-4 d-flex flex-column align-items-center">
+                    <p class="fs-5">Já possui conta?</p>
+                    <button class="btn btn-custom btn-login">LOGIN</button>
+                </div>
+            </div>
+          </div>
+          </section>
+
+          <div class="container py-5" id="about">
+            <div class="row text-center mb-5">
+                <div class="col-12">
+                    <h2 class="text-primary">O que fazer como candidato?</h2>
+                </div>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-3 col-sm-6">
+                    <div class="card text-center shadow-sm p-4 rounded-3">
+                        <div class="circle bg-primary text-white rounded-circle fw-bold mb-3" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">1</div>
+                        <p>Crie seu perfil e adicione informações sobre você.</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="card text-center shadow-sm p-4 rounded-3">
+                        <div class="circle bg-primary text-white rounded-circle fw-bold mb-3" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">2</div>
+                        <p>Nosso sistema identifica as melhores empresas para você aplicar de acordo com sua área de interesse.</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="card text-center shadow-sm p-4 rounded-3">
+                        <div class="circle bg-primary text-white rounded-circle fw-bold mb-3" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">3</div>
+                        <p>Ao se interessar por uma vaga, faça seu teste com nossa inteligência artificial.</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="card text-center shadow-sm p-4 rounded-3">
+                        <div class="circle bg-primary text-white rounded-circle fw-bold mb-3" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">4</div>
+                        <p>Depois de responder às perguntas, sua solicitação será enviada e será retornada em breve.</p>
+                    </div>
+                </div>
+            </div>
+        
+            <div class="row text-center mb-5 mt-5">
+                <div class="col-12">
+                    <h2 class="text-primary">O que fazer como empresa?</h2>
+                </div>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-3 col-sm-6">
+                    <div class="card text-center shadow-sm p-4 rounded-3">
+                        <div class="circle bg-primary text-white rounded-circle fw-bold mb-3" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">1</div>
+                        <p>Cadastre-se como empresa utilizando suas informações.</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="card text-center shadow-sm p-4 rounded-3">
+                        <div class="circle bg-primary text-white rounded-circle fw-bold mb-3" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">2</div>
+                        <p>Publique vagas com informações e áreas de interesse da pessoa.</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="card text-center shadow-sm p-4 rounded-3">
+                        <div class="circle bg-primary text-white rounded-circle fw-bold mb-3" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">3</div>
+                        <p>Quando algum candidato se interessar pela vaga, ele fará o teste com nossa inteligência artificial e ela mostrará o quão compatível essa pessoa é com a vaga.</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="card text-center shadow-sm p-4 rounded-3">
+                        <div class="circle bg-primary text-white rounded-circle fw-bold mb-3" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">4</div>
+                        <p>Acompanhe o processo seletivo e encontre o profissional perfeito para sua equipe!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        
+    
+      <section id="contact" class="contact section-padding">
+        <div class="container">
+          <div class="row">
+            <div class="col-md-12">
+              <div class="section-header text-center pb-5">
+                  <h2>Contate-nos!</h2>
+                  <p>É sempre importante aceitar sugestões e entender o que está acontecendo com nosso site. Precisa de algo? Não hesite em nos contatar!</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="row m-0">
+            <div class="col-md-12 p-0 pt-4 pb-4">
+              <form action="#" class="p-4.m-auto">
+                <div class="row">
+                  <div class="col-md-12">
+                      <div class="mb-3">
+                        <input type="text" name="" class="form-control" required placeholder="Nome completo">
+                      </div>
+                  </div>
+                  <div class="col-md-12">
+                    <div class="mb-3">
+                      <input type="email" name="" class="form-control" required placeholder="Seu e-mail">
+                    </div>
+                </div>
+                <div class="col-md-12">
+                  <div class="mb-3">
+                    <textarea rows="3" required class="form-control" placeholder="Assunto"></textarea>
+                  </div>
+                </div>
+                <div class="col-md-12">
+                  <div class="mb-3">
+                    <textarea rows="3" required class="form-control" placeholder="Descrição"></textarea>
+                  </div>
+                </div>
+                <button class="btn btn-warning btn-lg btn-block mt-3 mb-5">Enviar agora</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+      <footer class="p-2 text-center">
+        <div class="container">
+          <p class="text-white">&copy; Connect Skills</p>
+          <p class="text-white">Todos os direitos reservados</p>
+        </div>
+      </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  </body>
 </html>

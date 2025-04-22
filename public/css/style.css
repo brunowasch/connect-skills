@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@100..900&display=swap');
+
+* {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 16px;
+}
+
+body {
+  padding-top: 80px; 
+  background-color: #EDEDED;
+}
+
+@media (max-width: 992px) {
+  body {
+    padding-top: 100px; 
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    padding-top: 120px; 
+  }
+}
+
+.navbar {
+  background-color: #015EDB !important;
+}
+ 
+.nav-link {
+  color: white;
+}
+
+.navbar-nav .nav-link {
+  position: relative;
+  color: white; 
+  transition: color 0.3s ease-in-out;
+}
+
+.navbar-nav .nav-link::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 0;
+  height: 2px; 
+  background-color: white; 
+  transition: width 0.3s ease-in-out, left 0.3s ease-in-out;
+}
+
+.navbar-nav .nav-link:hover::after {
+  width: 100%;
+  left: 0;
+}
+
+.logo-header {
+    width: 100px; 
+    height: auto;
+    transition: all 0.3s ease-in-out;
+  }
+  
+  @media (max-width: 768px) {
+    .logo-header {
+      width: 90px; 
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .logo-header {
+      width: 70px;
+    }
+  }
+
+  .btn-custom {
+    font-size: 24px;
+    padding: 20px 40px;
+    border: 2px solid black;
+    cursor: pointer;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 300px;
+}
+.btn-cadastrar {
+    background-color: #015EDB;
+    color: white;
+    font-weight: bold;
+}
+.btn-login {
+    background-color: white;
+    color: #015EDB;
+   font-weight: bold;
+}
+
+.btn-cadastrar:hover {
+  color: #015EDB;
+  background-color: white;
+  border: 2px solid black;
+  box-shadow: 2px 2px 2px black;
+}
+
+.btn-login:hover {
+  background-color: #015EDB;
+  color: white;
+  border: 2px solid black;
+  box-shadow: 2px 2px 2px black;
+}
+
+section h1 {
+  color: #015EDB;
+}
+
+.card {
+  max-width: 300px;
+  height: 250px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: auto;
+  text-align: justify-all;
+}
+
+.circle {
+  width: 50px;
+  height: 50px;
+  line-height: 50px;
+  font-size: 20px;
+  text-align: center;
+  margin-bottom: 10px;
+}
+.row.g-4 {
+  row-gap: 2rem;
+}
+
+#contact .btn {
+  background-color: #015EDB !important;
+  color: #FFFFFF;
+}
+
+footer {
+  background-color: #015EDB !important;
+}
