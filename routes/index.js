@@ -12,4 +12,9 @@ router.get('/cadastro', (req, res) => {
   res.render('cadastro', { title: 'Cadastro - Connect Skills' });
 });
 
+
+router.get('/login', (req, res) => {
+  res.render('login', { title: 'Login- Connect Skills' });
+});
+
 module.exports = router;
