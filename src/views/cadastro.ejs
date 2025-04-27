@@ -33,12 +33,29 @@
           </div>
         </div>
       </nav>
-    <h1>Hello World!</h1>
-    <footer class="p-2 text-center">
-        <div class="container">
-          <p class="text-white">&copy; Connect Skills</p>
-          <p class="text-white">Todos os direitos reservados.</p>
+        <img src="assets/logo1.png" alt="Logo" class="logo"> 
+        <h2 class="text-center mb-4">Cadastre-se!</h2>
+        <div class="card shadow">
+          <form>
+            <div class="mb-3">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipo" id="fisica" onclick="window.location.href='/pessoafisica.ejs'">
+                <label class="form-check-label" for="fisica">Pessoa Física</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipo" id="juridica" onclick="window.location.href='cadastro-pessoa-juridica.html'">
+                <label class="form-check-label" for="juridica">Pessoa Jurídica</label>
+              </div>
+            </div>
+          </form>
         </div>
-      </footer>
+
+  <footer class="p-2 text-center fixed-bottom">
+    <div class="container">
+        <p class="text-white">&copy; Connect Skills</p>
+        <p class="text-white">Todos os direitos reservados.</p>
+    </div>
+</footer>
+
 </body>
 </html>
