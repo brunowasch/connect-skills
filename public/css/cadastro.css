@@ -1,20 +1,12 @@
 body {
-    background-color: #eeeeee;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-  .logo {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    width: 150px;
-    height: 150px;
-  }
-  .card {
-    padding: 20px;
-    width: 100%;
-    max-width: 400px;
-  }
+  background-color: #f2f2f2;
+}
+
+.logo {
+  width: 50px;
+}
+
+.card {
+  background-color: #fff;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}

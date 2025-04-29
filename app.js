@@ -11,10 +11,12 @@ const db = require('./src/config/db');
 app.set('views', path.join(__dirname, 'src', 'views'));
 app.set('view engine', 'ejs');
 
-// Middleware
+// Arquivos estáticos
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Middlewares
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
 // Rotas
 const routes = require('./src/routes/index');

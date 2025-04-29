@@ -1,61 +1,34 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connect Skills - Cadastro</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7" crossorigin="anonymous">
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="stylesheet" href="/css/cadastro.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cadastro - Escolha</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg fixed-top">
-        <div class="container-fluid">
-          <a class="navbar-brand" href="#"> 
-            <img src="/img/logo.png" class="logo-header" alt="Logo Header">
-          </a>
-          
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-          </button>
-          <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-              <li class="nav-item">
-                <a class="nav-link" href="#home">Início</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="#about">Sobre</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="#contact">Contato</a>
-              </li>
-            </ul>
+<body class="bg-light">
+
+  <div class="container d-flex flex-column align-items-center justify-content-center min-vh-100">
+    <img src="/img/logo1.png" alt="Logo" class="logo mb-1" style="width: 250px; height: 250px;"> 
+
+    <h2 class="text-center mb-2 fw-bold">Cadastre-se!</h2>
+
+    <div class="card shadow p-4 border-0 rounded-3 mt-2 " style="min-width: 320px;">
+      <form>
+        <div class="d-flex justify-content-center gap-4">
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="tipo" id="fisica" onclick="window.location.href='/cadastro-pessoa-fisica'">
+            <label class="form-check-label" for="fisica">Pessoa Física</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="tipo" id="juridica" onclick="window.location.href='/cadastro-pessoa-juridica'">
+            <label class="form-check-label" for="juridica">Pessoa Jurídica</label>
           </div>
         </div>
-      </nav>
-        <img src="assets/logo1.png" alt="Logo" class="logo"> 
-        <h2 class="text-center mb-4">Cadastre-se!</h2>
-        <div class="card shadow">
-          <form>
-            <div class="mb-3">
-              <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="tipo" id="fisica" onclick="window.location.href='/pessoafisica.ejs'">
-                <label class="form-check-label" for="fisica">Pessoa Física</label>
-              </div>
-              <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="tipo" id="juridica" onclick="window.location.href='cadastro-pessoa-juridica.html'">
-                <label class="form-check-label" for="juridica">Pessoa Jurídica</label>
-              </div>
-            </div>
-          </form>
-        </div>
-
-  <footer class="p-2 text-center fixed-bottom">
-    <div class="container">
-        <p class="text-white">&copy; Connect Skills</p>
-        <p class="text-white">Todos os direitos reservados.</p>
+      </form>
     </div>
-</footer>
+  </div>
 
 </body>
 </html>
