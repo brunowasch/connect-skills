@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cadastro - Pessoa Física</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/css/cpessoafisica.css"> <!-- Caminho adaptado para Express -->
+  <link rel="stylesheet" href="/css/cpessoafisica.css">
 </head>
 <body>
   <img src="/img/logo1.png" alt="Logo" class="logo" width="150px" height="150px">
@@ -15,28 +15,28 @@
     <h2 class="text-center mb-4">Seu futuro profissional começa hoje!</h2>
 
     <div class="card shadow p-4 w-100" style="max-width: 400px;">
-      <form>
+      <form action="/home-candidatos" method="GET">
         <div class="mb-3">
           <label for="cpf" class="form-label">CPF</label>
-          <input type="text" class="form-control" id="cpf" placeholder="Digite seu CPF">
+          <input type="text" class="form-control" id="cpf" name="cpf" placeholder="Digite seu CPF">
         </div>
         <div class="mb-3">
           <label for="email" class="form-label">E-mail ou número de telefone</label>
-          <input type="email" class="form-control" id="email" placeholder="Digite seu e-mail ou telefone">
+          <input type="email" class="form-control" id="email" name="email" placeholder="Digite seu e-mail ou telefone">
         </div>
         <div class="mb-3">
           <label for="senha" class="form-label">Senha</label>
-          <input type="password" class="form-control" id="senha" placeholder="Digite sua senha">
+          <input type="password" class="form-control" id="senha" name="senha" placeholder="Digite sua senha">
         </div>
         <div class="mb-3 form-check">
-          <input type="checkbox" class="form-check-input" id="termos">
+          <input type="checkbox" class="form-check-input" id="termos" required>
           <label class="form-check-label" for="termos">Li e aceito os <a href="#">Termos de uso</a></label>
         </div>
         <div class="d-grid">
           <button type="submit" class="btn btn-primary">Cadastrar</button>
         </div>
       </form>
-    </div>
+      
 
   </div>
 

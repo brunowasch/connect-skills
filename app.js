@@ -22,6 +22,20 @@ app.use(bodyParser.json());
 const routes = require('./src/routes/index');
 app.use('/', routes);
 
+app.use(express.urlencoded({ extended: true }));
+
+app.get('/cadastro-pessoa-juridica', (req, res) => {
+  res.render('cadastro-pessoa-juridica');
+});
+
+app.post('/home-empresas', (req, res) => {
+  // Aqui você pode pegar os dados do form se quiser
+  const { cnpj, email, senha } = req.body;
+
+  // Por enquanto, só redireciona mesmo para a tela da home das empresas
+  res.render('home-empresas');
+});
+
 // Iniciando servidor
 app.listen(port, () => {
   console.log(`Servidor rodando em http://localhost:${port}`);
