@@ -1,0 +1,49 @@
+body {
+    background-color: #f1f1f1;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .logo {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+  }
+
+  .logo img {
+    height: 60px;
+  }
+
+  .form-container {
+    max-width: 400px;
+    margin: auto;
+    background-color: #fff;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+  }
+
+  .btn-custom {
+    border: 2px solid #0055e0;
+    color: #0055e0;
+    font-weight: bold;
+    font-size: 20px;
+    border-radius: 12px;
+    transition: 0.3s;
+  }
+
+  .btn-custom:hover {
+    background-color: #0055e0;
+    color: white;
+  }
+
+  footer {
+    background-color: #0055e0;
+    color: white;
+    text-align: center;
+    padding: 15px 0;
+    margin-top: auto;
+    font-size: 14px;
+  }

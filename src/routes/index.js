@@ -14,6 +14,34 @@ router.post('/home-empresas', (req, res) => {
   res.render('home-empresas');
 });
 
+// Cadastro de nome e sobrenome
+
+router.get('/cadastro-nome', (req, res) => {
+  res.render('cadastro-de-nome-e-sobrenome-candidatos');
+});
+
+router.post('/cadastro-nome', (req, res) => {
+  const { nome, sobrenome } = req.body;
+  // Aqui você pode salvar na sessão, banco ou passar via query
+  req.session.nome = nome;
+  req.session.sobrenome = sobrenome;
+  res.redirect('/localização-login-candidato');
+});
+
+router.get('/localizacao-login-candidato', (req, res) => {
+  res.render('localizacao-login-candidato');
+});
+
+router.post('/localizacao', (req, res) => {
+  const { localidade } = req.body;
+  // Você pode armazenar localidade também, se quiser
+  req.session.localidade = localidade;
+  // Redireciona para a próxima etapa
+  res.redirect('/oportunidades'); // ou qualquer próxima rota
+});
+
+//FIM DO CADASTRO DE NOME E SOBRENOME
+
 // Página inicial
 router.get('/', (req, res) => {
   res.render('home', { title: 'Connect Skills - Início' });
