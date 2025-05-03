@@ -3,6 +3,9 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const app = express();
 const port = 3000;
+const vagasRoutes = require('./src/routes/index');
+
+app.use('/', vagasRoutes);
 
 // Conexão com banco de dados
 const db = require('./src/config/db');
@@ -27,6 +30,7 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/cadastro-pessoa-juridica', (req, res) => {
   res.render('cadastro-pessoa-juridica');
 });
+
 
 app.post('/home-empresas', (req, res) => {
   // Aqui você pode pegar os dados do form se quiser

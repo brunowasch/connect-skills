@@ -64,9 +64,16 @@ router.get('/cadastro-pessoa-juridica', (req, res) => {
   res.render('cadastro-pessoa-juridica');
  });
 
-
 router.get('/login', (req, res) => {
   res.render('login', { title: 'Login- Connect Skills' });
+});
+
+router.get('/detalhes-da-vaga', (req, res) => {
+  res.render('detalhes-da-vaga');
+});
+
+router.get('/candidatos-encontrados', (req, res) => {
+  res.render('candidatos-encontrados');
 });
 
 
