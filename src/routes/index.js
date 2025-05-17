@@ -25,22 +25,50 @@ router.post('/cadastro-nome', (req, res) => {
   // Aqui você pode salvar na sessão, banco ou passar via query
   req.session.nome = nome;
   req.session.sobrenome = sobrenome;
-  res.redirect('/localização-login-candidato');
+  req.session.ddd = null;
+  req.session.telefone = null;
+  //console.log('Nome salvo na sessão:', req.session.nome, req.session.sobrenome);
+  res.redirect('/localizacao-login-candidato');
 });
 
 router.get('/localizacao-login-candidato', (req, res) => {
   res.render('localizacao-login-candidato');
 });
 
-router.post('/localizacao', (req, res) => {
+router.post('/localizacao-login-candidato', (req, res) => {
   const { localidade } = req.body;
-  // Você pode armazenar localidade também, se quiser
+
+  // VERIFICAÇÃO: Se nome/sobrenome não estão definidos na sessão
+  if (!req.session.nome || !req.session.sobrenome) {
+    console.log('Nome ou sobrenome ausente ao salvar localidade');
+    return res.redirect('/cadastro-nome');
+  }
+
   req.session.localidade = localidade;
-  // Redireciona para a próxima etapa
-  res.redirect('/oportunidades'); // ou qualquer próxima rota
+
+  //console.log('Sessão final:', req.session);
+  res.redirect('/meu-perfil');
 });
 
 //FIM DO CADASTRO DE NOME E SOBRENOME
+
+router.get('/editar-perfil', (req, res) => {
+  const { nome, sobrenome, localidade, ddd, telefone } = req.session;
+  res.render('editar-perfil', { nome, sobrenome, localidade, ddd, telefone });
+});
+
+// POST
+router.post('/editar-perfil', (req, res) => {
+  const { nome, sobrenome, localidade, ddd, telefone } = req.body;
+  req.session.nome = nome;
+  req.session.sobrenome = sobrenome;
+  req.session.localidade = localidade;
+  req.session.ddd = ddd;
+  req.session.telefone = telefone;
+
+  //console.log('Perfil atualizado na sessão:', req.session);
+  res.redirect('/meu-perfil');
+});
 
 // Página inicial
 router.get('/', (req, res) => {
@@ -74,6 +102,30 @@ router.get('/detalhes-da-vaga', (req, res) => {
 
 router.get('/candidatos-encontrados', (req, res) => {
   res.render('candidatos-encontrados');
+});
+
+router.get('/meu-perfil', (req, res) => {
+  const { nome, sobrenome, localidade, ddd, telefone } = req.session;
+
+  //console.log('Sessão:', req.session); // DEBUG
+  
+  // Redireciona se ainda não preencheu os dados
+  if (!nome || !sobrenome) {
+    return res.redirect('/cadastro-nome');
+  }
+
+  if (!localidade) {
+    return res.redirect('/localizacao-login-candidato');
+  }
+
+  // Tudo preenchido, pode renderizar
+  res.render('meu-perfil', {
+    nome,
+    sobrenome,
+    localidade,
+    ddd,
+    telefone
+  });
 });
 
 

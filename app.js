@@ -1,14 +1,27 @@
 const express = require('express');
+const session = require('express-session');
 const path = require('path');
 const bodyParser = require('body-parser');
+const db = require('./src/config/db');
+const routes = require('./src/routes/index');
+
 const app = express();
 const port = 3000;
-const vagasRoutes = require('./src/routes/index');
 
-app.use('/', vagasRoutes);
+app.use(session({
+  secret: 'connectskills_secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: false, // IMPORTANTE: true apenas se estiver usando HTTPS
+    maxAge: 1000 * 60 * 60 * 2 // 2 horas
+  }
+}));
 
-// Conexão com banco de dados
-const db = require('./src/config/db');
+// Middlewares
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
 // Configuração do EJS
 app.set('views', path.join(__dirname, 'src', 'views'));
@@ -17,15 +30,10 @@ app.set('view engine', 'ejs');
 // Arquivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Middlewares
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+
 
 // Rotas
-const routes = require('./src/routes/index');
 app.use('/', routes);
-
-app.use(express.urlencoded({ extended: true }));
 
 app.get('/cadastro-pessoa-juridica', (req, res) => {
   res.render('cadastro-pessoa-juridica');
