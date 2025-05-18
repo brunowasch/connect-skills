@@ -27,14 +27,14 @@
               <li class="nav-item">
                 <a class="nav-link" href="#about">Sobre</a>
               </li>
+              </li>
               <li class="nav-item">
                 <a class="nav-link" href="/meu-perfil">Meu perfil</a>
-              </li>              
+              </li>             
             </ul>
           </div>
         </div>
       </nav>
-
   <!-- HEADER -->
   <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
     <div class="carousel-inner">
@@ -44,6 +44,11 @@
     </div>
   </div>
 
+  <% if (nome && sobrenome && localidade) { %>
+  <div class="container mt-5">
+    <h5 class="text-primary fw-bold">Olá, <%= nome %>!</h5>
+  </div>
+  <% } %>
   <!-- COMO FUNCIONA -->
   <section class="container my-5">
 <h3>
@@ -85,7 +90,7 @@
   </section>
 
   <!-- FORMULARIO -->
-  <section class="bg-light py-5">
+  <section style="background-color: #EDEDED;" class="py-5">
     <div class="container text-center">
       <a href="/publicar-vaga" class="btn btn-primary btn-lg">VER EMPRESAS</a>
     </div>

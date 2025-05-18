@@ -1,8 +1,36 @@
 // routes/index.js
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
 const router = express.Router();
 
 router.use(express.urlencoded({ extended: true }));
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'public/uploads');
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+const upload = multer({ storage });
+
+// Exibe a tela
+router.get('/foto-perfil', (req, res) => {
+  res.render('foto-perfil');
+});
+
+// Recebe o upload
+router.post('/foto-perfil', upload.single('foto'), (req, res) => {
+  if (req.file) {
+    req.session.fotoPerfil = '/uploads/' + req.file.filename;
+  }
+
+  // Redirecionar para próxima etapa: seleção de áreas
+  res.redirect('/selecionar-areas');
+});
 
 router.get('/cadastro-pessoa-juridica', (req, res) => {
   res.render('cadastro-pessoa-juridica');
@@ -21,10 +49,11 @@ router.get('/cadastro-nome', (req, res) => {
 });
 
 router.post('/cadastro-nome', (req, res) => {
-  const { nome, sobrenome } = req.body;
+  const { nome, sobrenome, dataNascimento  } = req.body;
   // Aqui você pode salvar na sessão, banco ou passar via query
   req.session.nome = nome;
   req.session.sobrenome = sobrenome;
+  req.session.dataNascimento = dataNascimento;
   req.session.ddd = null;
   req.session.telefone = null;
   //console.log('Nome salvo na sessão:', req.session.nome, req.session.sobrenome);
@@ -47,7 +76,7 @@ router.post('/localizacao-login-candidato', (req, res) => {
   req.session.localidade = localidade;
 
   //console.log('Sessão final:', req.session);
-  res.redirect('/meu-perfil');
+  res.redirect('/telefone'); 
 });
 
 //FIM DO CADASTRO DE NOME E SOBRENOME
@@ -85,8 +114,27 @@ router.get('/cadastro-pessoa-fisica', (req, res) => {
 });
 
 router.get('/home-candidatos', (req, res) => {
-  res.render('home-candidatos');
+  res.render('home-candidatos', {
+    nome: req.session.nome,
+    sobrenome: req.session.sobrenome,
+    localidade: req.session.localidade
+  });
 });
+
+router.get('/selecionar-areas', (req, res) => {
+  res.render('selecionar-areas');
+});
+
+router.post('/selecionar-areas', (req, res) => {
+  const areasSelecionadas = req.body.areasSelecionadas?.split(',') || [];
+
+  if (areasSelecionadas.length === 3) {
+    req.session.areas = areasSelecionadas;
+  }
+
+  res.redirect('/home-candidatos');
+});
+
 
 router.get('/cadastro-pessoa-juridica', (req, res) => {
   res.render('cadastro-pessoa-juridica');
@@ -105,7 +153,8 @@ router.get('/candidatos-encontrados', (req, res) => {
 });
 
 router.get('/meu-perfil', (req, res) => {
-  const { nome, sobrenome, localidade, ddd, telefone } = req.session;
+  const { nome, sobrenome, localidade, ddd, telefone, dataNascimento, fotoPerfil } = req.session;
+  const areas = req.session.areas || [];
 
   //console.log('Sessão:', req.session); // DEBUG
   
@@ -124,9 +173,27 @@ router.get('/meu-perfil', (req, res) => {
     sobrenome,
     localidade,
     ddd,
-    telefone
+    telefone,
+    dataNascimento,
+    fotoPerfil,
+    areas
   });
 });
+// Mostrar a tela de telefone após localização
+router.get('/telefone', (req, res) => {
+  res.render('telefone'); // nome do ejs criado
+});
+
+// Salvar telefone e redirecionar para upload de foto
+router.post('/telefone', (req, res) => {
+  const { ddd, telefone } = req.body;
+  req.session.ddd = ddd;
+  req.session.telefone = telefone;
+
+  // Redirecionar para a próxima etapa (upload de foto)
+  res.redirect('/foto-perfil'); // ajuste conforme nome da sua rota de personalização
+});
+
 
 
 
