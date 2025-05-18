@@ -15,18 +15,18 @@
     <h2 class="text-center mb-4">Seu futuro profissional começa hoje!</h2>
 
     <div class="card shadow p-4 w-100" style="max-width: 400px;">
-      <form action="/home-candidatos" method="GET">
+      <form action="/cadastro-pessoa-fisica" method="POST">
         <div class="mb-3">
           <label for="cpf" class="form-label">CPF</label>
-          <input type="text" class="form-control" id="cpf" name="cpf" placeholder="Digite seu CPF">
+          <input type="text" class="form-control" id="cpf" name="cpf" placeholder="Digite seu CPF" required>
         </div>
         <div class="mb-3">
-          <label for="email" class="form-label">E-mail ou número de telefone</label>
-          <input type="email" class="form-control" id="email" name="email" placeholder="Digite seu e-mail ou telefone">
+          <label for="contato" class="form-label">E-mail ou número de telefone</label>
+          <input type="text" class="form-control" id="contato" name="contato" placeholder="Digite seu e-mail ou telefone" required>
         </div>
         <div class="mb-3">
           <label for="senha" class="form-label">Senha</label>
-          <input type="password" class="form-control" id="senha" name="senha" placeholder="Digite sua senha">
+          <input type="password" class="form-control" id="senha" name="senha" placeholder="Digite sua senha" required>
         </div>
         <div class="mb-3 form-check">
           <input type="checkbox" class="form-check-input" id="termos" required>
@@ -36,9 +36,10 @@
           <button type="submit" class="btn btn-primary">Cadastrar</button>
         </div>
       </form>
-      
-
+    </div>
+    
   </div>
-  <%-include('partials/footer') %>
+
+  <%- include('partials/footer') %>
 </body>
 </html>

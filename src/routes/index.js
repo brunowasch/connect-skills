@@ -1,4 +1,3 @@
-// routes/index.js
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
@@ -6,6 +5,7 @@ const router = express.Router();
 
 router.use(express.urlencoded({ extended: true }));
 
+// Configuração do multer para upload de imagens
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'public/uploads');
@@ -17,49 +17,38 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Exibe a tela
-router.get('/foto-perfil', (req, res) => {
-  res.render('foto-perfil');
+// ===== ROTAS DE CADASTRO =====
+
+// Cadastro pessoa física
+router.get('/cadastro-pessoa-fisica', (req, res) => {
+  res.render('cadastro-pessoa-fisica');
 });
 
-// Recebe o upload
-router.post('/foto-perfil', upload.single('foto'), (req, res) => {
-  if (req.file) {
-    req.session.fotoPerfil = '/uploads/' + req.file.filename;
-  }
+router.post('/cadastro-pessoa-fisica', (req, res) => {
+  const { cpf, contato, senha } = req.body;
+  req.session.cpf = cpf;
+  req.session.contato = contato;
+  req.session.senha = senha;
 
-  // Redirecionar para próxima etapa: seleção de áreas
-  res.redirect('/selecionar-areas');
+  res.redirect('/cadastro-nome');
 });
 
-router.get('/cadastro-pessoa-juridica', (req, res) => {
-  res.render('cadastro-pessoa-juridica');
-});
-
-router.post('/home-empresas', (req, res) => {
-  const { cnpj, email, senha } = req.body;
-  console.log(`CNPJ: ${cnpj}, Email: ${email}`); // opcional
-  res.render('home-empresas');
-});
-
-// Cadastro de nome e sobrenome
-
+// Cadastro nome/sobrenome/dataNascimento
 router.get('/cadastro-nome', (req, res) => {
   res.render('cadastro-de-nome-e-sobrenome-candidatos');
 });
 
 router.post('/cadastro-nome', (req, res) => {
-  const { nome, sobrenome, dataNascimento  } = req.body;
-  // Aqui você pode salvar na sessão, banco ou passar via query
+  const { nome, sobrenome, dataNascimento } = req.body;
   req.session.nome = nome;
   req.session.sobrenome = sobrenome;
   req.session.dataNascimento = dataNascimento;
   req.session.ddd = null;
   req.session.telefone = null;
-  //console.log('Nome salvo na sessão:', req.session.nome, req.session.sobrenome);
   res.redirect('/localizacao-login-candidato');
 });
 
+// Localização
 router.get('/localizacao-login-candidato', (req, res) => {
   res.render('localizacao-login-candidato');
 });
@@ -67,60 +56,39 @@ router.get('/localizacao-login-candidato', (req, res) => {
 router.post('/localizacao-login-candidato', (req, res) => {
   const { localidade } = req.body;
 
-  // VERIFICAÇÃO: Se nome/sobrenome não estão definidos na sessão
   if (!req.session.nome || !req.session.sobrenome) {
-    console.log('Nome ou sobrenome ausente ao salvar localidade');
     return res.redirect('/cadastro-nome');
   }
 
   req.session.localidade = localidade;
-
-  //console.log('Sessão final:', req.session);
-  res.redirect('/telefone'); 
+  res.redirect('/telefone');
 });
 
-//FIM DO CADASTRO DE NOME E SOBRENOME
-
-router.get('/editar-perfil', (req, res) => {
-  const { nome, sobrenome, localidade, ddd, telefone } = req.session;
-  res.render('editar-perfil', { nome, sobrenome, localidade, ddd, telefone });
+// Telefone
+router.get('/telefone', (req, res) => {
+  res.render('telefone');
 });
 
-// POST
-router.post('/editar-perfil', (req, res) => {
-  const { nome, sobrenome, localidade, ddd, telefone } = req.body;
-  req.session.nome = nome;
-  req.session.sobrenome = sobrenome;
-  req.session.localidade = localidade;
+router.post('/telefone', (req, res) => {
+  const { ddd, telefone } = req.body;
   req.session.ddd = ddd;
   req.session.telefone = telefone;
-
-  //console.log('Perfil atualizado na sessão:', req.session);
-  res.redirect('/meu-perfil');
+  res.redirect('/foto-perfil');
 });
 
-// Página inicial
-router.get('/', (req, res) => {
-  res.render('home', { title: 'Connect Skills - Início' });
+// Foto de perfil
+router.get('/foto-perfil', (req, res) => {
+  res.render('foto-perfil');
 });
 
-// Página de cadastro
-router.get('/cadastro', (req, res) => {
-  res.render('cadastro', { title: 'Cadastro - Connect Skills' });
+router.post('/foto-perfil', upload.single('foto'), (req, res) => {
+  if (req.file) {
+    req.session.fotoPerfil = '/uploads/' + req.file.filename;
+  }
+  res.redirect('/selecionar-areas');
 });
 
-router.get('/cadastro-pessoa-fisica', (req, res) => {
-  res.render('cadastro-pessoa-fisica'); 
-});
-
-router.get('/home-candidatos', (req, res) => {
-  res.render('home-candidatos', {
-    nome: req.session.nome,
-    sobrenome: req.session.sobrenome,
-    localidade: req.session.localidade
-  });
-});
-
+// Seleção de áreas
 router.get('/selecionar-areas', (req, res) => {
   res.render('selecionar-areas');
 });
@@ -135,30 +103,19 @@ router.post('/selecionar-areas', (req, res) => {
   res.redirect('/home-candidatos');
 });
 
-
-router.get('/cadastro-pessoa-juridica', (req, res) => {
-  res.render('cadastro-pessoa-juridica');
- });
-
-router.get('/login', (req, res) => {
-  res.render('login', { title: 'Login- Connect Skills' });
-});
-
-router.get('/detalhes-da-vaga', (req, res) => {
-  res.render('detalhes-da-vaga');
-});
-
-router.get('/candidatos-encontrados', (req, res) => {
-  res.render('candidatos-encontrados');
-});
-
+// Página do perfil
 router.get('/meu-perfil', (req, res) => {
-  const { nome, sobrenome, localidade, ddd, telefone, dataNascimento, fotoPerfil } = req.session;
+  const {
+    nome,
+    sobrenome,
+    localidade,
+    ddd,
+    telefone,
+    dataNascimento,
+    fotoPerfil
+  } = req.session;
   const areas = req.session.areas || [];
 
-  //console.log('Sessão:', req.session); // DEBUG
-  
-  // Redireciona se ainda não preencheu os dados
   if (!nome || !sobrenome) {
     return res.redirect('/cadastro-nome');
   }
@@ -167,7 +124,6 @@ router.get('/meu-perfil', (req, res) => {
     return res.redirect('/localizacao-login-candidato');
   }
 
-  // Tudo preenchido, pode renderizar
   res.render('meu-perfil', {
     nome,
     sobrenome,
@@ -179,22 +135,64 @@ router.get('/meu-perfil', (req, res) => {
     areas
   });
 });
-// Mostrar a tela de telefone após localização
-router.get('/telefone', (req, res) => {
-  res.render('telefone'); // nome do ejs criado
+
+// Editar perfil
+router.get('/editar-perfil', (req, res) => {
+  const { nome, sobrenome, localidade, ddd, telefone } = req.session;
+  res.render('editar-perfil', { nome, sobrenome, localidade, ddd, telefone });
 });
 
-// Salvar telefone e redirecionar para upload de foto
-router.post('/telefone', (req, res) => {
-  const { ddd, telefone } = req.body;
+router.post('/editar-perfil', (req, res) => {
+  const { nome, sobrenome, localidade, ddd, telefone } = req.body;
+  req.session.nome = nome;
+  req.session.sobrenome = sobrenome;
+  req.session.localidade = localidade;
   req.session.ddd = ddd;
   req.session.telefone = telefone;
-
-  // Redirecionar para a próxima etapa (upload de foto)
-  res.redirect('/foto-perfil'); // ajuste conforme nome da sua rota de personalização
+  res.redirect('/meu-perfil');
 });
 
+// Home dos candidatos
+router.get('/home-candidatos', (req, res) => {
+  res.render('home-candidatos', {
+    nome: req.session.nome,
+    sobrenome: req.session.sobrenome,
+    localidade: req.session.localidade
+  });
+});
 
+// Página inicial
+router.get('/', (req, res) => {
+  res.render('home', { title: 'Connect Skills - Início' });
+});
 
+// Página de cadastro geral
+router.get('/cadastro', (req, res) => {
+  res.render('cadastro', { title: 'Cadastro - Connect Skills' });
+});
+
+// Login
+router.get('/login', (req, res) => {
+  res.render('login', { title: 'Login - Connect Skills' });
+});
+
+// Cadastro PJ
+router.get('/cadastro-pessoa-juridica', (req, res) => {
+  res.render('cadastro-pessoa-juridica');
+});
+
+router.post('/home-empresas', (req, res) => {
+  const { cnpj, email, senha } = req.body;
+  res.render('home-empresas');
+});
+
+// Vagas e candidatos
+router.get('/detalhes-da-vaga', (req, res) => {
+  res.render('detalhes-da-vaga');
+});
+
+router.get('/candidatos-encontrados', (req, res) => {
+  res.render('candidatos-encontrados');
+});
 
 module.exports = router;
