@@ -11,6 +11,19 @@
 <body>
   <%- include('partials/logo') %>
 
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Número de Telefone - Connect Skills</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/telefone.css">
+</head>
+<body>
+  <%- include('partials/logo') %>
+
   <main class="d-flex flex-column align-items-center justify-content-center mt-5">
     <h3 class="text-center mb-4">Digite seu número de telefone:</h3>
 
@@ -20,15 +33,17 @@
           <label class="form-label fw-bold">DDD</label>
           <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
             <span class="border border-dark px-2 py-1 rounded-pill">+55</span>
-            <div>
-              <input type="text" class="form-control d-inline-block text-center" name="ddd" id="ddd" maxlength="2" style="width: 60px;" required>
+
+            <!-- DDD -->
+            <div class="d-flex flex-column align-items-start">
+              <input type="text" class="form-control text-center" name="ddd" id="ddd" maxlength="2" style="width: 60px;" required>
               <div class="invalid-feedback text-danger">Informe um DDD válido com 2 dígitos.</div>
             </div>
-            <div>
-              <input type="text" class="form-control d-inline-block text-center" name="telefone" id="telefone" maxlength="10" placeholder="Número" style="width: 180px;" required>
-              <div class="invalid-feedback text-danger">
-                Informe um número válido entre 8 e 11 dígitos.
-              </div>
+
+            <!-- Número -->
+            <div class="d-flex flex-column align-items-start">
+              <input type="text" class="form-control text-center" name="telefone" id="telefone" maxlength="11" placeholder="Número" style="width: 180px;" required>
+              <div class="invalid-feedback text-danger">Informe um número válido entre 8 e 11 dígitos.</div>
             </div>
           </div>
         </div>
@@ -39,8 +54,9 @@
       </div>
     </form>
   </main>
+
   <%- include('partials/footer') %>
-  <script src="/src/numeroTelefone.js"></script>
+  <script src="/js/numeroTelefone.js"></script>
 
 </body>
 </html>

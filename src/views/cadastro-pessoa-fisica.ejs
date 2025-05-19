@@ -5,10 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cadastro - Pessoa Física</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/cpessoafisica.css">
 </head>
-<body class="d-flex flex-column min-vh-100 bg-white">
+<body>
+  <main class="d-flex flex-column min-vh-100 bg-white">
   <%- include('partials/logo') %>
 
   <div class="container container-page d-flex flex-column justify-content-center align-items-center min-vh-100">
@@ -22,20 +24,34 @@
           <input type="text" class="form-control" id="cpf" name="cpf" placeholder="Digite seu CPF" required>
         </div>
         <div class="mb-3">
-          <label for="contato" class="form-label">E-mail ou número de telefone</label>
-          <input type="text" class="form-control" id="contato" name="contato" placeholder="Digite seu e-mail ou telefone" required>
+          <label for="contato" class="form-label">E-mail</label>
+          <input type="email" class="form-control" id="contato" name="contato" placeholder="Digite seu e-mail" required>
         </div>
-        <div class="mb-3">
-          <label for="senha" class="form-label">Senha</label>
-          <input type="password" class="form-control" id="senha" name="senha" placeholder="Digite sua senha" required>
-        </div>
-        <div class="mb-3">
-          <label for="confirmarSenha" class="form-label">Confirmar Senha</label>
+      <div class="mb-3 position-relative">
+  <label for="senha" class="form-label">Senha</label>
+  <div class="input-group">
+    <input type="password" class="form-control" id="senha" name="senha" placeholder="Digite sua senha" required>
+    <button type="button" class="btn btn-outline-secondary" id="toggleSenha">
+      <i class="bi bi-eye" id="iconSenha"></i>
+    </button>
+  </div>
+  <div id="erro-senha-requisitos" class="invalid-feedback d-none">
+    A senha deve ter no mínimo 8 caracteres e pelo menos 1 caractere especial.
+  </div>
+</div>
+      <div class="mb-3 position-relative">
+        <label for="confirmarSenha" class="form-label">Confirmar Senha</label>
+        <div class="input-group">
           <input type="password" class="form-control" id="confirmarSenha" name="confirmarSenha" placeholder="Confirme sua senha" required>
-          <div id="erro-senha" class="invalid-feedback d-none">
-            As senhas não coincidem. Por favor, verifique.
-          </div>
+          <button type="button" class="btn btn-outline-secondary" id="toggleConfirmar">
+            <i class="bi bi-eye" id="iconConfirmar"></i>
+          </button>
         </div>
+        <div id="erro-senha" class="invalid-feedback d-none">
+          As senhas não coincidem. Por favor, verifique.
+        </div>
+      </div>
+
         <div class="mb-3 form-check">
           <input type="checkbox" class="form-check-input" id="termos" required>
           <label class="form-check-label" for="termos">Li e aceito os <a href="#">Termos de uso</a></label>
@@ -47,6 +63,7 @@
     </div>
 
   </div>
+</main>
 <%- include('partials/footer') %>  
 
 <script src="/js/confirmarSenha.js"></script>
