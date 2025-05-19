@@ -1,0 +1,106 @@
+body {
+      background-color: #fff;
+      font-family: 'Montserrat', sans-serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .logo {
+      position: absolute;
+      top: 30px;
+      left: 30px;
+    }
+
+    main {
+      flex: 1;
+    }
+
+    .foto-icon {
+      width: 160px;
+      height: 160px;
+      margin: 30px auto 10px;
+      display: none;
+      object-fit: cover;
+      border-radius: 50%;
+      border: 2px solid #ccc;
+    }
+
+    .upload-btn {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 160px;
+      height: 160px;
+      background-color: white;
+      color: #2f84f5;
+      font-weight: 600;
+      border: 2px solid #2f84f5;
+      border-radius: 20px;
+      transition: 0.3s;
+      text-align: center;
+      font-size: 1rem;
+      padding: 0.5rem;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+      cursor: pointer;
+    }
+
+    .upload-btn:hover {
+      background-color: #e0f0ff;
+      color: #1c6ed5;
+      border-color: #1c6ed5;
+    }
+
+    .hidden-input {
+      display: none;
+    }
+
+    #video {
+      display: none;
+      margin: 30px auto 0;
+      width: 320px;
+      max-width: 100%;
+      border-radius: 12px;
+    }
+
+    #canvas {
+      display: none;
+    }
+
+    .acoesFoto {
+      display: none;
+      margin-top: 20px;
+    }
+
+.btn-acao {
+  padding: 12px 24px;
+  font-weight: 600;
+  font-size: 1rem;
+  border-radius: 50px;
+  transition: 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.btn-confirmar {
+  background-color: #2f84f5;
+  color: white;
+  border-color: #2f84f5;
+}
+
+.btn-confirmar:hover {
+  background-color: #1c6ed5;
+  border-color: #1c6ed5;
+}
+
+.btn-cancelar {
+  background-color: white;
+  color: #2f84f5;
+  border: 2px solid #2f84f5;
+}
+
+.btn-cancelar:hover {
+  background-color: #e0f0ff;
+  color: #1c6ed5;
+  border-color: #1c6ed5;
+}

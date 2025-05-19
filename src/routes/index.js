@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const router = express.Router();
 
 router.use(express.urlencoded({ extended: true }));
@@ -82,7 +83,13 @@ router.get('/foto-perfil', (req, res) => {
 });
 
 router.post('/foto-perfil', upload.single('foto'), (req, res) => {
-  if (req.file) {
+  if (req.body.fotoBase64) {
+    const base64Data = req.body.fotoBase64.replace(/^data:image\/png;base64,/, '');
+    const filename = Date.now() + '.png';
+    const filepath = path.join(__dirname, '../../public/uploads', filename);
+    fs.writeFileSync(filepath, base64Data, 'base64');
+    req.session.fotoPerfil = '/uploads/' + filename;
+  } else if (req.file) {
     req.session.fotoPerfil = '/uploads/' + req.file.filename;
   }
   res.redirect('/selecionar-areas');
