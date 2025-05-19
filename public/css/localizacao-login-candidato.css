@@ -1,3 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@100..900&display=swap');
+
+* {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 16px;
+}
+
 body {
   background-color: #f8f9fa;
   min-height: 100vh;
@@ -5,19 +12,25 @@ body {
   flex-direction: column;
 }
 
+ .logo {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+}
+
 .logo img {
   width: 100px;
   height: auto;
 }
 
-.form-container {
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-  max-width: 400px;
-  width: 100%;
-}
+   .form-container {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 400px;
+    }
 
 .btn-custom {
   border: 2px solid #007bff;

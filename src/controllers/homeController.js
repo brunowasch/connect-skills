@@ -6,6 +6,6 @@ exports.salvarPerfil = (req, res) => {
 
     // Aqui você atualizaria o banco de dados com os dados do perfil (não está incluído aqui)
     req.session.nomeUsuario = nomeDoUsuario;
-
+  
     res.redirect('/home-candidatos');
 };
