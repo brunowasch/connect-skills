@@ -32,6 +32,30 @@ body {
       max-width: 400px;
     }
 
+.btn-localizacao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+  border: 2px solid #2f84f5;
+  color: #2f84f5;
+  padding: 8px 20px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-radius: 50px;
+  max-width: 100%;
+  white-space: nowrap;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-localizacao:hover {
+  background-color: #e0f0ff;
+  color: #1c6ed5;
+  text-decoration: none;
+}
+
+
+
 .btn-custom {
   border: 2px solid #007bff;
   color: #007bff;
