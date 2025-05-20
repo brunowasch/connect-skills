@@ -10,7 +10,7 @@ form.addEventListener('submit', function (e) {
   senha.classList.remove('is-invalid');
   confirmarSenha.classList.remove('is-invalid');
   erroSenha.classList.add('d-none');
-  erroRequisitos.classList.add('d-none');
+  erroRequisitos.style.display = 'none';
 
   const senhaValor = senha.value.trim();
   const confirmarValor = confirmarSenha.value.trim();
@@ -19,7 +19,7 @@ form.addEventListener('submit', function (e) {
   // 👇 Adiciona classe e mostra a mensagem corretamente
   if (!senhaValida) {
     senha.classList.add('is-invalid');
-    erroRequisitos.classList.remove('d-none');
+    erroRequisitos.style.display = 'block';
     valido = false;
   }
 
