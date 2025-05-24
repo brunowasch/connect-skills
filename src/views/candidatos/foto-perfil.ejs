@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/css/fotoPerfil.css">
 </head>
 <body>
-  <%- include('partials/logo') %>
+  <%- include('../partials/logo') %>
 
   <main class="d-flex flex-column align-items-center justify-content-center px-3 text-center">
     <img src="/img/avatar.png" alt="Avatar provisório" width="150" height="150">
@@ -18,7 +18,7 @@
 
     <img src="/img/avatar.png" alt="Prévia da Foto" id="previewFoto" class="foto-icon">
 
-    <form action="/foto-perfil" method="POST" enctype="multipart/form-data" id="formFoto" class="text-center">
+<form action="/candidato/foto" method="POST" enctype="multipart/form-data" id="formFoto" class="text-center">
 
 
       <div class="d-flex gap-4 flex-wrap justify-content-center botoes-container" id="opcoesFoto">
@@ -44,7 +44,7 @@
       <input type="hidden" name="fotoBase64" id="fotoBase64">
     </form>
   </main>
-  <%- include('partials/footer') %>
+<%- include('../partials/footer') %>
   <script src="/js/fotoPerfil.js"></script>
 </body>
 </html>

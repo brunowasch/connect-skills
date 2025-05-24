@@ -10,30 +10,8 @@
     <link rel="icon" href="/img/logo.png">
   </head>
   <body id="home">
-      <nav class="navbar navbar-expand-lg fixed-top">
-        <div class="container-fluid">
-          <a class="navbar-brand" href="#"> 
-            <img src="/img/logo.png" class="logo-header" alt="Logo Header">
-          </a>
-          
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-          </button>
-          <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-              <li class="nav-item">
-                <a class="nav-link" href="#home">Início</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="#about">Sobre</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="#contact">Contato</a>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </nav>
+    <main>
+<%- include('../partials/header-candidato') %>
 
   <!-- HEADER -->
   <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
@@ -44,11 +22,22 @@
     </div>
   </div>
 
+  <% if (nome && sobrenome && localidade) { %>
+  <div class="container mt-5">
+    <h5 class="text-primary fw-bold">Olá, <%= nome %>!</h5>
+  </div>
+  <% } %>
   <!-- COMO FUNCIONA -->
   <section class="container my-5">
-    <h3>Encontre o profissional certo para sua empresa, <span class="text-primary" style="font-size: inherit; font-weight: inherit;">de forma rápida e eficiente!</span></h3>
+<h3>
+  Encontre-se no mercado de trabalho, 
+  <span class="text-primary" style="font-size: inherit; font-weight: inherit;">
+    de forma rápida e eficiente!
+  </span>
+</h3>
+
     <p><strong>Como Funciona?</strong></p>
-    <p>No Connect Skills, facilitamos a conexão entre empresas e talentos ideais. Utilize nossa tecnologia para encontrar candidatos que realmente fazem a diferença no seu time!</p>
+    <p> Nós conectamos você às oportunidades certas! Com base no nosso chatbot, analisamos as vagas disponíveis em nossa plataforma e indicamos aquelas que mais combinam com suas habilidades e interesses. No Connect Skills, encontrar o emprego ideal fica mais fácil e eficiente!</p>
 
     <div class="row text-center mt-4">
       <div class="col-md-3">
@@ -79,14 +68,14 @@
   </section>
 
   <!-- FORMULARIO -->
-  <section class="bg-light py-5">
+  <section class="py-5">
     <div class="container text-center">
-      <a href="/publicar-vaga" class="btn btn-primary btn-lg">PUBLICAR UMA VAGA</a>
+      <a href="/publicar-vaga" class="btn btn-primary btn-lg">VER EMPRESAS</a>
     </div>
   </section>
-
+</main>
   <!-- RODAPÉ -->
-  <%-include('partials/footer') %>
+<%- include('../partials/footer') %>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>

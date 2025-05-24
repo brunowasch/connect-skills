@@ -11,14 +11,14 @@
 </head>
 <body>
   <main class="d-flex flex-column min-vh-100 bg-white">
-  <%- include('partials/logo') %>
+  <%- include('../partials/logo') %>
 
   <div class="container container-page d-flex flex-column justify-content-center align-items-center min-vh-100">
 
     <h2 class="text-center mb-4">Seu futuro profissional começa hoje!</h2>
 
     <div class="card shadow p-4 w-100" style="max-width: 400px;">
-      <form action="/cadastro-pessoa-fisica" method="POST">
+      <form action="/candidato/cadastro" method="POST">
         <div class="mb-3">
           <label for="cpf" class="form-label">CPF</label>
           <input type="text" class="form-control" id="cpf" name="cpf" placeholder="Digite seu CPF" required>
@@ -64,7 +64,7 @@
 
   </div>
 </main>
-<%- include('partials/footer') %>  
+<%- include('../partials/footer') %>
 
 <script src="/js/confirmarSenha.js"></script>
 </body>

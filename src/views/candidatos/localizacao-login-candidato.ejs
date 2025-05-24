@@ -11,14 +11,14 @@
 <body class="d-flex flex-column min-vh-100">
 
   <!-- LOGO -->
-  <%- include('partials/logo') %>
+  <%- include('../partials/logo') %>
 
   <!-- CONTEÚDO -->
   <main class="flex-grow-1 d-flex flex-column justify-content-center align-items-center text-center px-3">
     <h1 class="mb-4">Para saber as melhores oportunidades, digite sua região:</h1>
 
     <div class="form-container">
-      <form id="formLocalizacao" action="/localizacao-login-candidato" method="POST" novalidate>
+      <form id="formLocalizacao" action="/candidato/localizacao" method="POST" novalidate>
         <div class="mb-3 text-start">
           <label for="localidade" class="form-label">Localidade</label>
 
@@ -40,7 +40,7 @@
     </div>
   </main>
 
-  <%- include('partials/footer') %>
+<%- include('../partials/footer') %>
 
   <script src="/js/localizacaoAPI.js"></script>
 </body>

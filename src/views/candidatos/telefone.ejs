@@ -9,25 +9,12 @@
   <link rel="stylesheet" href="/css/telefone.css">
 </head>
 <body>
-  <%- include('partials/logo') %>
-
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Número de Telefone - Connect Skills</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css">
-  <link rel="stylesheet" href="/css/telefone.css">
-</head>
-<body>
-  <%- include('partials/logo') %>
+  <%- include('../partials/logo') %>
 
   <main class="d-flex flex-column align-items-center justify-content-center mt-5">
     <h3 class="text-center mb-4">Digite seu número de telefone:</h3>
 
-    <form action="/telefone" method="POST" id="formTelefone" novalidate>
+    <form action="/candidato/telefone" method="POST" id="formTelefone" novalidate>
       <div class="form-card">
         <div class="mb-4">
           <label class="form-label fw-bold">DDD</label>
@@ -55,7 +42,7 @@
     </form>
   </main>
 
-  <%- include('partials/footer') %>
+  <%- include('../partials/footer') %>
   <script src="/js/numeroTelefone.js"></script>
 
 </body>

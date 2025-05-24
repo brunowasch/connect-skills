@@ -18,11 +18,11 @@
       <form>
         <div class="d-flex justify-content-center gap-4">
           <div class="form-check">
-            <input class="form-check-input" type="radio" name="tipo" id="fisica" onclick="window.location.href='/cadastro-pessoa-fisica'">
+            <input class="form-check-input" type="radio" name="tipo" id="fisica" onclick="window.location.href='/candidato/cadastro'">
             <label class="form-check-label" for="fisica">Pessoa Física</label>
           </div>
           <div class="form-check">
-            <input class="form-check-input" type="radio" name="tipo" id="juridica" onclick="window.location.href='/cadastro-pessoa-juridica'">
+            <input class="form-check-input" type="radio" name="tipo" id="juridica" onclick="window.location.href='empresa/cadastro'">
             <label class="form-check-label" for="juridica">Pessoa Jurídica</label>
           </div>
         </div>
@@ -31,7 +31,7 @@
   </main>
 
   <!-- FOOTER INCLUÍDO -->
-  <%- include('partials/footer') %>
+<%- include('../partials/footer') %>
 
 </body>
 </html>

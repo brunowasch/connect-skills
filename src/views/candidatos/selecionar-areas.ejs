@@ -9,19 +9,19 @@
   <link rel="stylesheet" href="/css/selecionar-areas.css">
 </head>
 <body>
-  <%- include('partials/logo') %>
+  <%- include('../partials/logo') %>
 
   <main class="container text-center mt-5">
     <h5 class="mb-4">Selecione a seguir três áreas a quais você deseja trabalhar:</h5>
 
-    <form action="/selecionar-areas" method="POST" id="formAreas">
+    <form action="/candidato/areas" method="POST" id="formAreas">
       <div id="botoes" class="d-flex flex-wrap justify-content-center">
         <% const opcoes = [
           "Administração", "Agropecuária / Agricultura", "Comunicação / Jornalismo", "Construção Civil", "Design / Criação",
           "Educação / Ensino", "Engenharia", "Eventos / Produção Cultural", "Finanças / Contabilidade", "Gastronomia / Alimentação",
           "Hotelaria / Turismo", "Jurídico", "Logística", "Marketing", "Mecânica / Manutenção",
           "Moda / Estilo", "Meio Ambiente", "Produção / Operacional", "Recursos Humanos (RH)", "Saúde",
-          "Segurança / Vigilância", "Transporte / Motorista", "Tecnologia da Informação", "Outro.."
+          "Segurança / Vigilância", "Transporte / Motorista", "Tecnologia da Informação"
         ]; %>
 
         <% opcoes.forEach((opcao, index) => { %>
@@ -36,7 +36,7 @@
     </form>
   </main>
 
-  <%- include('partials/footer') %>
+<%- include('../partials/footer') %>
   <script src="/js/selecionar-areas.js"></script>
 
 </body>
