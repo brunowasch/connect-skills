@@ -1,4 +1,3 @@
-// src/routes/candidatoRoutes.js
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
@@ -19,20 +18,22 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Cadastro pessoa física
+/*---------------------------
+    CADASTRO E LOGIN
+----------------------------*/
 router.get('/cadastro', (req, res) => {
   res.render('candidatos/cadastro-pessoa-fisica');
 });
 
 router.post('/cadastro', (req, res) => {
   const { cpf, contato, senha } = req.body;
-    req.session.cpf = cpf;
-    req.session.contato = contato;
-    req.session.senha = senha;
+  Object.assign(req.session, { cpf, contato, senha });
   res.redirect('/candidato/nome');
 });
 
-// Nome e data de nascimento
+/*---------------------------
+    ETAPA NOME
+----------------------------*/
 router.get('/nome', (req, res) => {
   res.render('candidatos/cadastro-de-nome-e-sobrenome-candidatos');
 });
@@ -43,7 +44,9 @@ router.post('/nome', (req, res) => {
   res.redirect('/candidato/localizacao');
 });
 
-// Localização
+/*---------------------------
+    ETAPA LOCALIZAÇÃO
+----------------------------*/
 router.get('/localizacao', (req, res) => {
   res.render('candidatos/localizacao-login-candidato');
 });
@@ -55,7 +58,9 @@ router.post('/localizacao', (req, res) => {
   res.redirect('/candidato/telefone');
 });
 
-// Telefone
+/*---------------------------
+    ETAPA TELEFONE
+----------------------------*/
 router.get('/telefone', (req, res) => {
   res.render('candidatos/telefone');
 });
@@ -66,7 +71,9 @@ router.post('/telefone', (req, res) => {
   res.redirect('/candidato/foto');
 });
 
-// Foto de perfil
+/*---------------------------
+    ETAPA FOTO DE PERFIL
+----------------------------*/
 router.get('/foto', (req, res) => {
   res.render('candidatos/foto-perfil');
 });
@@ -84,30 +91,70 @@ router.post('/foto', upload.single('foto'), (req, res) => {
   res.redirect('/candidato/areas');
 });
 
-// Seleção de áreas
+/*---------------------------
+    ETAPA ÁREAS DE INTERESSE
+----------------------------*/
 router.get('/areas', (req, res) => {
   res.render('candidatos/selecionar-areas');
 });
 
 router.post('/areas', (req, res) => {
   const areasSelecionadas = req.body.areasSelecionadas?.split(',') || [];
-  if (areasSelecionadas.length === 3) req.session.areas = areasSelecionadas;
+  if (areasSelecionadas.length === 3) {
+    req.session.areas = areasSelecionadas;
+  }
   res.redirect('/candidato/home');
 });
 
-// Perfil
+/*---------------------------
+    PERFIL
+----------------------------*/
 router.get('/meu-perfil', (req, res) => {
-  const { nome, sobrenome, localidade, ddd, telefone, dataNascimento, fotoPerfil } = req.session;
-  const areas = req.session.areas || [];
+  const {
+    nome,
+    sobrenome,
+    localidade,
+    ddd,
+    telefone,
+    dataNascimento,
+    fotoPerfil,
+    areas = []
+  } = req.session;
+
   if (!nome || !sobrenome) return res.redirect('/candidato/nome');
   if (!localidade) return res.redirect('/candidato/localizacao');
-  res.render('candidatos/meu-perfil', { nome, sobrenome, localidade, ddd, telefone, dataNascimento, fotoPerfil, areas });
+
+  res.render('candidatos/meu-perfil', {
+    nome,
+    sobrenome,
+    localidade,
+    ddd,
+    telefone,
+    dataNascimento,
+    fotoPerfil,
+    areas
+  });
 });
 
-// Editar perfil
+/*---------------------------
+    EDITAR PERFIL
+----------------------------*/
 router.get('/editar-perfil', (req, res) => {
-  const { nome, sobrenome, localidade, ddd, telefone } = req.session;
-  res.render('candidatos/editar-perfil', { nome, sobrenome, localidade, ddd, telefone });
+  const {
+    nome,
+    sobrenome,
+    localidade,
+    ddd,
+    telefone
+  } = req.session;
+
+  res.render('candidatos/editar-perfil', {
+    nome,
+    sobrenome,
+    localidade,
+    ddd,
+    telefone
+  });
 });
 
 router.post('/editar-perfil', (req, res) => {
@@ -116,13 +163,12 @@ router.post('/editar-perfil', (req, res) => {
   res.redirect('/candidato/meu-perfil');
 });
 
-// Home dos candidatos
+/*---------------------------
+    HOME DOS CANDIDATOS
+----------------------------*/
 router.get('/home', (req, res) => {
-  res.render('candidatos/home-candidatos', {
-    nome: req.session.nome,
-    sobrenome: req.session.sobrenome,
-    localidade: req.session.localidade
-  });
+  const { nome, sobrenome, localidade } = req.session;
+  res.render('candidatos/home-candidatos', { nome, sobrenome, localidade });
 });
 
 module.exports = router;
