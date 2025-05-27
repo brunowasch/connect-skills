@@ -12,5 +12,7 @@ router.get('/login', (req, res) => {
   res.render('auth/login', { title: 'Login - Connect Skills' });
 });
 
+
+
 module.exports = router;
 
