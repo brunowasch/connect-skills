@@ -18,31 +18,32 @@
 
     <img src="/img/avatar.png" alt="Prévia da Foto" id="previewFoto" class="foto-icon">
 
-<form action="/candidato/foto" method="POST" enctype="multipart/form-data" id="formFoto" class="text-center">
+<form action="/candidato/foto" method="POST" id="formFoto" class="text-center">
+  <div class="d-flex gap-4 flex-wrap justify-content-center botoes-container" id="opcoesFoto">
+    <label class="upload-btn" for="upload">📁<br>Fazer upload</label>
+    <input type="file" id="upload" accept="image/*" class="hidden-input">
+
+    <button type="button" class="upload-btn" id="tirarFotoBtn">📸<br>Capturar agora</button>
+  </div>
+
+  <video id="video" autoplay playsinline style="display: none;"></video>
+  <canvas id="canvas" style="display: none;"></canvas>
+  <img id="previewFoto" class="rounded-circle mt-3" style="max-width: 200px; display: none;" />
+
+  <p id="erroFoto" class="text-danger fw-semibold mt-2" style="display: none;">
+    Por favor, selecione ou tire uma foto antes de continuar.
+  </p>
+
+  <div id="acoesFoto" class="acoesFoto flex-wrap justify-content-center gap-3 mt-4" style="display: none;">
+    <button type="button" class="btn-acao btn-cancelar" id="outraFoto">Tirar outra</button>
+    <button type="submit" class="btn-acao btn-confirmar">Confirmar e continuar</button>
+  </div>
+
+  <!-- Este campo será preenchido em base64 tanto para upload quanto para câmera -->
+  <input type="hidden" name="fotoBase64" id="fotoBase64">
+</form>
 
 
-      <div class="d-flex gap-4 flex-wrap justify-content-center botoes-container" id="opcoesFoto">
-        <label class="upload-btn" for="upload">📁<br>Fazer upload</label>
-        <input type="file" id="upload" name="foto" accept="image/*" class="hidden-input">
-
-        <button type="button" class="upload-btn" id="tirarFotoBtn">📸<br>Capturar agora</button>
-      </div>
-
-    
-      <video id="video" autoplay playsinline></video>
-      <canvas id="canvas"></canvas>
- 
-      <p id="erroFoto" class="text-danger fw-semibold mt-2" style="display: none;">
-        Por favor, selecione ou tire uma foto antes de continuar.
-      </p>
-
-<div id="acoesFoto" class="acoesFoto flex-wrap justify-content-center gap-3 mt-4" style="display: none;">
-  <button type="button" class="btn-acao btn-cancelar" id="outraFoto">Tirar outra</button>
-  <button type="submit" class="btn-acao btn-confirmar">Confirmar e continuar</button>
-</div>
-
-      <input type="hidden" name="fotoBase64" id="fotoBase64">
-    </form>
   </main>
 <%- include('../partials/footer') %>
   <script src="/js/fotoPerfil.js"></script>

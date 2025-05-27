@@ -9,6 +9,15 @@ const empresaRoutes = require('./src/routes/empresaRoutes');
 const app = express();
 const port = 3000;
 
+
+// ESSENCIAIS:
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '10mb' }));
+
+
+// Para servir arquivos estáticos como imagens:
+app.use(express.static(path.join(__dirname, '../public')));
+
 // Configuração de sessão
 app.use(session({
   secret: 'connectskills_secret',
@@ -42,6 +51,7 @@ app.use('/empresas', empresaRoutes);
 // Arquivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+app.use(express.static('public'));
 
 // Middleware global para formulário
 app.use(express.urlencoded({ extended: true }));

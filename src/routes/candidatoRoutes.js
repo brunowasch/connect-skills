@@ -78,18 +78,33 @@ router.get('/foto', (req, res) => {
   res.render('candidatos/foto-perfil');
 });
 
-router.post('/foto', upload.single('foto'), (req, res) => {
-  if (req.body.fotoBase64) {
-    const base64Data = req.body.fotoBase64.replace(/^data:image\/png;base64,/, '');
-    const filename = Date.now() + '.png';
-    const filepath = path.join(__dirname, '../../public/uploads', filename);
-    fs.writeFileSync(filepath, base64Data, 'base64');
-    req.session.fotoPerfil = '/uploads/' + filename;
-  } else if (req.file) {
-    req.session.fotoPerfil = '/uploads/' + req.file.filename;
+router.post('/foto', (req, res) => {
+  const base64Data = req.body.fotoBase64;
+
+  if (!base64Data || base64Data.trim() === '') {
+    return res.redirect('/candidato/foto');
   }
-  res.redirect('/candidato/areas');
+
+  const matches = base64Data.match(/^data:image\/(\w+);base64,(.+)$/);
+  if (!matches) {
+    return res.redirect('/candidato/foto');
+  }
+
+  const ext = matches[1]; // png, jpg, jpeg
+  const data = matches[2]; // conteúdo da imagem
+  const filename = Date.now() + '.' + ext;
+  const filepath = path.join(__dirname, '../../public/uploads', filename);
+
+  try {
+    fs.writeFileSync(filepath, data, 'base64');
+    req.session.fotoPerfil = '/uploads/' + filename;
+    res.redirect('/candidato/areas');
+  } catch (err) {
+    console.error('Erro ao salvar imagem:', err);
+    res.redirect('/candidato/foto');
+  }
 });
+
 
 /*---------------------------
     ETAPA ÁREAS DE INTERESSE
