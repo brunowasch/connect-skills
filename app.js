@@ -8,6 +8,7 @@ const routes = require('./src/routes/index');
 const empresaRoutes = require('./src/routes/empresaRoutes');
 const app = express();
 const port = 3000;
+require('dotenv').config();
 
 
 // ESSENCIAIS:
@@ -20,13 +21,13 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // Configuração de sessão
 app.use(session({
-  secret: 'connectskills_secret',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
     secure: false, // true apenas se estiver usando HTTPS
-    maxAge: 1000 * 60 * 60 * 2 // 2 horas
+    maxAge: 1000 * 60 * 60 * 24 * 7 // 7 dias
   }
 }));
 
