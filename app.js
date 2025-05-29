@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -8,7 +9,6 @@ const routes = require('./src/routes/index');
 const empresaRoutes = require('./src/routes/empresaRoutes');
 const app = express();
 const port = 3000;
-require('dotenv').config();
 
 
 // ESSENCIAIS:
@@ -21,7 +21,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // Configuração de sessão
 app.use(session({
-  secret: process.env.SESSION_SECRET,
+  secret: process.env.SECRET_SESSION,
   resave: false,
   saveUninitialized: false,
   cookie: {
