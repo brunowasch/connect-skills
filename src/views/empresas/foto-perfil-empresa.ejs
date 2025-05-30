@@ -18,10 +18,11 @@
 
     <img src="/img/avatar.png" alt="Prévia da Foto" id="previewFoto" class="foto-icon">
 
-<form action="/candidato/foto" method="POST" id="formFoto" class="text-center">
+<form action="/empresa/foto-perfil" method="POST" id="formFoto" class="text-center"  enctype="multipart/form-data">
   <div class="d-flex gap-4 flex-wrap justify-content-center botoes-container" id="opcoesFoto">
     <label class="upload-btn" for="upload">📁<br>Fazer upload</label>
-    <input type="file" id="upload" accept="image/*" class="hidden-input">
+    <input type="file" name="upload" id="upload" accept="image/*" class="hidden-input" required>
+
 
     <button type="button" class="upload-btn" id="tirarFotoBtn">📸<br>Capturar agora</button>
   </div>
