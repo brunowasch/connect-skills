@@ -23,7 +23,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use(session({
   secret: process.env.SECRET_SESSION,
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true,
   cookie: {
     httpOnly: true,
     secure: false, // true apenas se estiver usando HTTPS
@@ -31,13 +31,15 @@ app.use(session({
   }
 }));
 
-app.get('/logout', (req, res) => {
+app.use('/uploads', express.static('uploads'));
+
+app.get('/logout', (req, res) => {app.use('/uploads', express.static('uploads'));
+
   // Exemplo: destruir sessão
   req.session.destroy(err => {
     res.redirect('/');
   });
 });
-
 
 // Body parsers
 app.use(bodyParser.urlencoded({ extended: false }));

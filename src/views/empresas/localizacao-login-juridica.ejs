@@ -18,12 +18,12 @@
     <h1 class="mb-4">Para saber encontrar os melhores candidatos, digite sua região:</h1>
 
     <div class="form-container">
-    <form action="/empresas/telefone" method="POST" id="formTelefone" novalidate>
+    <form action="/empresa/localizacao" method="POST" id="formTelefone" novalidate>
         <div class="mb-3 text-start">
           <label for="localidade" class="form-label">Localidade</label>
 
           <div class="position-relative">
-            <input type="text" class="form-control" id="localidade" name="localidade" autocomplete="off" required>
+            <input type="text" class="form-control" id="localidade" name="localidade" autocomplete="off" placeholder="Cidade, Estado, País" required>
             <ul id="sugestoesLocalidade" class="list-group position-absolute w-100 d-none" style="z-index: 1000;"></ul>
           </div>
           <button type="button" class="btn-localizacao mt-2 w-100 text-center" id="btnLocalizacao">
