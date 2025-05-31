@@ -100,3 +100,51 @@ exports.telaPerfilEmpresa = (req, res) => {
 
   res.render('empresas/meu-perfil', { empresa });
 };
+
+// Publicação da Vaga
+exports.telaPublicarVaga = (req, res) => {
+  res.render('empresas/publicar-vaga');
+};
+
+exports.salvarVaga = (req, res) => {
+  const { cargo, tipo, areasSelecionadas, habilidadesSelecionadas } = req.body;
+
+  // Garante que exista a empresa na sessão
+  if (!req.session.empresa) {
+    return res.redirect('/login');
+  }
+
+  // Inicializa o array de vagas se não existir
+  if (!req.session.empresa.vagas) {
+    req.session.empresa.vagas = [];
+  }
+
+  // Cria uma nova vaga e adiciona ao array da sessão
+  const novaVaga = {
+    cargo,
+    tipo,
+    areas: areasSelecionadas.split(','),
+    habilidades: habilidadesSelecionadas.split(','),
+    data: new Date().toLocaleString('pt-BR')
+  };
+
+  req.session.empresa.vagas.push(novaVaga);
+
+  res.redirect('/empresa/meu-perfil');
+};
+exports.mostrarPerfil = (req, res) => {
+  const empresa = req.session.empresa;
+
+  if (!empresa) {
+    return res.redirect('/login');
+  }
+
+  res.render('empresas/meu-perfil', {
+    nomeFantasia: empresa.nomeFantasia,
+    area: empresa.area,
+    localidade: empresa.localidade,
+    telefone: empresa.telefone,
+    fotoPerfil: empresa.fotoPerfil,
+    vagasPublicadas: empresa.vagas || []
+  });
+};
