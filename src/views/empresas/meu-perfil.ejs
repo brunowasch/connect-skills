@@ -34,12 +34,17 @@
         <% if (empresa.vagas && empresa.vagas.length) { %>
           <% empresa.vagas.forEach(vaga => { %>
             <li class="list-group-item d-flex justify-content-between align-items-center">
-              <%= vaga.titulo %>
+              <%= vaga.cargo %>
               <a href="/empresa/vaga/<%= vaga.id %>" class="btn btn-outline-primary btn-sm">Ver detalhes</a>
             </li>
           <% }) %>
         <% } else { %>
-          <li class="list-group-item">Nenhuma vaga publicada.</li>
+          <li class="list-group-item">
+            <strong><%= vaga.cargo %></strong> — <%= vaga.tipo %><br>
+            <small>Áreas: <%= vaga.areas.join(', ') %></small><br>
+            <em>Soft Skills: <%= vaga.habilidades.join(', ') %></em><br>
+            <span class="text-muted">Publicado em: <%= vaga.data %></span>
+          </li>
         <% } %>
       </ul>
     </div>

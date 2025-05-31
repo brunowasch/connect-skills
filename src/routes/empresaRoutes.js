@@ -45,6 +45,10 @@ router.post('/home', empresaController.homeEmpresa); // se for necessário mante
 // Perfil da empresa
 router.get('/meu-perfil', empresaController.telaPerfilEmpresa);
 
+//Publicação da vaga
+router.get('/publicar-vaga', empresaController.telaPublicarVaga);
+router.post('/publicar-vaga', empresaController.salvarVaga);
+
 // Detalhes da vaga
 router.get('/detalhes-da-vaga', (req, res) => {
   res.render('empresas/detalhes-da-vaga');
