@@ -16,7 +16,7 @@
   <%- include('../partials/header-empresa') %>
  
   <div class="perfil-card bg-white p-4 rounded shadow-sm">
-   <h2>Meu perfil</h>
+   <h2>Meu perfil</h2>
     <div class="d-flex align-items-center perfil-header mb-4">
     <img  src="<%= empresa.fotoPerfil.startsWith('data:image') ? empresa.fotoPerfil : '/' + empresa.fotoPerfil %>"  alt="Logo da Empresa" class="perfil-foto rounded-circle me-3">
       <div>
@@ -28,8 +28,12 @@
       <a href="/empresa/editar-perfil" class="btn btn-primary btn-sm ms-auto">Editar perfil</a>
     </div>
 
-    <div>
-      <h5>Vagas Publicadas</h5>
+ <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5>Vagas Publicadas</h5> 
+      <a href="/empresas/publicar-vaga" class="text-decoration-none" title="Editar áreas">
+        <i class="bi bi-pencil-square fs-6"></i>
+        </a>
+          </div>
       <ul class="list-group">
         <% if (empresa.vagas && empresa.vagas.length) { %>
           <% empresa.vagas.forEach(vaga => { %>
@@ -39,15 +43,10 @@
             </li>
           <% }) %>
         <% } else { %>
-          <li class="list-group-item">
-            <strong><%= vaga.cargo %></strong> — <%= vaga.tipo %><br>
-            <small>Áreas: <%= vaga.areas.join(', ') %></small><br>
-            <em>Soft Skills: <%= vaga.habilidades.join(', ') %></em><br>
-            <span class="text-muted">Publicado em: <%= vaga.data %></span>
-          </li>
+          <li class="list-group-item text-muted">Nenhuma vaga publicada ainda.</li>
+          
         <% } %>
       </ul>
-    </div>
   </div>
 </main>
 
