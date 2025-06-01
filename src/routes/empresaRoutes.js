@@ -33,9 +33,10 @@ router.post('/localizacao', empresaController.salvarLocalizacao);
 router.get('/telefone', empresaController.telaTelefone);
 router.post('/telefone', empresaController.salvarTelefone);
 
-// Foto de perfil (logo)
+
 router.get('/foto-perfil', empresaController.telaFotoPerfil);
-router.post('/foto-perfil', upload.single('upload'), empresaController.salvarFotoPerfil);
+router.post('/foto-perfil', upload.single('fotoPerfil'), empresaController.salvarFotoPerfil);
+upload.single('fotoPerfil')
 
 
 // Home da empresa
