@@ -23,24 +23,14 @@ Suporte a jovens talentos, ajudando-os a encontrar a primeira oportunidade de tr
 Siga a ODS 8: Emprego Digno e Crescimento Econômico 💪🏽📈.
 
 🛠 Tecnologias utilizadas
-Front-End: HTML5, CSS3, JavaScript, Bootstrap
+Front-End: EJS (HTML5 embutido), CSS3, JavaScript, Bootstrap
 
-Back-End: Node.js, Express
+Back-End: JavaScipt, Node.js e Express.js
 
-Banco de Dados: (Em desenvolvimento, caso necessário)
+Banco de Dados: MySQL
 
 Inteligência Artificial: Algoritmos de filtragem de habilidades
 
-🌍 Como contribuir?
-Faça um fork deste repositório.
-
-Crie uma branch para a sua funcionalidade (git checkout -b feature/nova-funcionalidade).
-
-Faça suas alterações e commit (git commit -am 'Adiciona nova funcionalidade').
-
-Envie para o branch principal (git push origin feature/nova-funcionalidade).
-
-Abra um Pull Request!
 
 Esperamos que o Connect Skills seja a chave para novos começos, conectando pessoas com grandes talentos às oportunidades que merecem! 💼💡
 
