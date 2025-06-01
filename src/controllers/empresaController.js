@@ -1,4 +1,5 @@
-// Tela inicial de cadastro (CNPJ, email, senha)
+const path = require('path');
+
 exports.telaCadastro = (req, res) => {
   res.render('empresas/cadastro-pessoa-juridica');
 };
@@ -77,12 +78,14 @@ exports.salvarFotoPerfil = (req, res) => {
   } else if (req.file) {
     req.session.empresa = {
       ...req.session.empresa,
-      fotoPerfil: `/uploads/${req.file.filename}`
+      fotoPerfil: `/uploads/${req.file.filename}` // ✅ caminho público
     };
   }
 
   res.redirect('/empresa/home');
 };
+
+
 
 
 // Página inicial da empresa (dashboard)

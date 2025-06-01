@@ -22,9 +22,36 @@
         <a class="nav-link" href="/empresa/meu-perfil">Meu perfil</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/logout">Sair</a>
+        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modalLogout">
+          Sair
+        </a>
         </li>
       </ul>
     </div>
   </div>
 </nav>
+
+<!-- Modal de confirmação de logout -->
+<div class="modal fade" id="modalLogout" tabindex="-1" aria-labelledby="modalLogoutLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalLogoutLabel">Confirmar logout</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        Tem certeza que deseja sair da sua conta?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form action="/logout" method="GET">
+          <button type="submit" class="btn btn-outline-primary">Sair</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
