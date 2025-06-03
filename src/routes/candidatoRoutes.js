@@ -97,7 +97,7 @@ router.post('/foto', (req, res) => {
 
   try {
     fs.writeFileSync(filepath, data, 'base64');
-    req.session.fotoPerfil = '/uploads/' + filename;
+    req.session.fotoPerfil = path.posix.join('/uploads', filename);
     res.redirect('/candidato/areas');
   } catch (err) {
     console.error('Erro ao salvar imagem:', err);
@@ -160,7 +160,8 @@ router.get('/editar-perfil', (req, res) => {
     sobrenome,
     localidade,
     ddd,
-    telefone
+    telefone,
+    fotoPerfil
   } = req.session;
 
   res.render('candidatos/editar-perfil', {
@@ -168,13 +169,35 @@ router.get('/editar-perfil', (req, res) => {
     sobrenome,
     localidade,
     ddd,
-    telefone
+    telefone,
+    fotoPerfil
   });
 });
 
-router.post('/editar-perfil', (req, res) => {
-  const { nome, sobrenome, localidade, ddd, telefone } = req.body;
+router.post('/editar-perfil', upload.single('novaFoto'), (req, res) => {
+  const { nome, sobrenome, localidade, ddd, telefone, fotoBase64 } = req.body;
+
+  // Atualiza os dados principais
   Object.assign(req.session, { nome, sobrenome, localidade, ddd, telefone });
+
+  // Salvar imagem da câmera (base64)
+  if (fotoBase64 && fotoBase64.startsWith('data:image')) {
+    const matches = fotoBase64.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (matches) {
+      const ext = matches[1];
+      const data = matches[2];
+      const filename = `${Date.now()}.${ext}`;
+      const filepath = path.join(__dirname, '../../public/uploads', filename);
+      fs.writeFileSync(filepath, data, 'base64');
+      req.session.fotoPerfil = `/uploads/${filename}`;
+    }
+  }
+
+  // Salvar imagem do dispositivo (file)
+  else if (req.file) {
+    req.session.fotoPerfil = `/uploads/${req.file.filename}`;
+  }
+
   res.redirect('/candidato/meu-perfil');
 });
 

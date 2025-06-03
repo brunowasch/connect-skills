@@ -6,15 +6,14 @@ const path = require('path');
 const upload = require('../config/multer'); 
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+  destination: function (req, file, cb) {
+    cb(null, 'public/uploads');
   },
-  filename: (req, file, cb) => {
-    const uniqueName = Date.now() + '-' + file.originalname;
-    cb(null, uniqueName);
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    cb(null, Date.now() + '-' + file.originalname);
   }
 });
-
 
 
 // Cadastro inicial (CNPJ, email, senha)
@@ -60,4 +59,9 @@ router.get('/candidatos-encontrados', (req, res) => {
   res.render('empresas/candidatos-encontrados');
 });
 
-module.exports = router;
+//Editar perfil empresas
+router.get('/editar-empresa', empresaController.telaEditarPerfil);
+
+router.post('/editar-empresa', upload.single('novaFoto'), empresaController.salvarEdicaoPerfil);
+
+module.exports = router;  
