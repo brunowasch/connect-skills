@@ -18,7 +18,7 @@
     <h1 class="mb-4">Para saber encontrar os melhores candidatos, digite sua região:</h1>
 
     <div class="form-container">
-    <form action="/empresa/localizacao" method="POST" id="formTelefone" novalidate>
+    <form action="/empresa/localizacao" method="POST" id="formLocalizacao" novalidate>
         <div class="mb-3 text-start">
           <label for="localidade" class="form-label">Localidade</label>
 
@@ -28,6 +28,9 @@
           </div>
           <button type="button" class="btn-localizacao mt-2 w-100 text-center" id="btnLocalizacao">
             📍 Usar minha localização
+          </button>
+          <button type="button" class="btn btn-link mt-2 w-100 text-center text-decoration-none d-none" id="btnEditarLocal">
+            ✏️ Editar localização
           </button>
           <div id="erro-localidade" class="invalid-feedback d-none mt-2">
             Informe sua localidade para continuar.
