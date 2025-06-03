@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 
 exports.telaCadastro = (req, res) => {
@@ -98,7 +99,7 @@ exports.telaPerfilEmpresa = (req, res) => {
   const empresa = req.session.empresa;
 
   if (!empresa) {
-    return res.send('Dados da empresa não encontrados na sessão.');
+    return res.redirect('/login');
   }
 
   res.render('empresas/meu-perfil', { empresa });
@@ -150,4 +151,45 @@ exports.mostrarPerfil = (req, res) => {
     fotoPerfil: empresa.fotoPerfil,
     vagasPublicadas: empresa.vagas || []
   });
+};
+exports.telaEditarPerfil = (req, res) => {
+  const empresa = req.session.empresa;
+
+  if (!empresa) return res.redirect('/login');
+
+  res.render('empresas/editar-empresa', {
+    nome: empresa.nome,
+    descricao: empresa.descricao,
+    telefone: empresa.telefone,
+    localidade: empresa.localidade,
+    fotoPerfil: empresa.fotoPerfil
+  });
+};
+
+exports.salvarEdicaoPerfil = (req, res) => {
+  const { nome, descricao, telefone, localidade, fotoBase64 } = req.body;
+
+  // Atualiza os dados da sessão
+  Object.assign(req.session.empresa, {
+    nome,
+    descricao,
+    telefone,
+    localidade
+  });
+
+     if (fotoBase64 && fotoBase64.startsWith('data:image')) {
+    const matches = fotoBase64.match(/^data:image\/(\w+);base64,(.+)$/);
+    const ext = matches[1];
+    const data = matches[2];
+    const filename = Date.now() + '-camera.' + ext;
+    const filepath = path.join(__dirname, '../../public/uploads', filename);
+    fs.writeFileSync(filepath, data, 'base64');
+    req.session.empresa.fotoPerfil = '/uploads/' + filename;
+  }
+
+  if (req.file) {
+    req.session.empresa.fotoPerfil = '/uploads/' + req.file.filename;
+  }
+
+  res.redirect('/empresa/meu-perfil');
 };
