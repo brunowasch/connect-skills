@@ -23,19 +23,30 @@
                 alt="Foto do perfil" 
                 class="rounded-circle mb-3" 
                 width="100" height="100">
-            <div class="d-flex justify-content-center gap-2 flex-wrap">
-              <button type="button" class="btn btn-outline-primary btn-sm" onclick="abrirCamera()">Tirar foto com a câmera</button>
-
-              <input type="file" name="novaFoto" id="fotoArquivo" accept="image/*" class="d-none" onchange="previewFoto(this)">
-              <label for="fotoArquivo" class="btn btn-outline-secondary btn-sm mb-0">Selecionar do dispositivo</label>
-            </div>
-          <div id="cameraContainer" class="mt-3 d-none">
-              <video id="camera" width="200" autoplay class="rounded"></video>
-              <button type="button" class="btn btn-success btn-sm mt-2" onclick="capturarFoto()">Capturar</button>
+           <div class="mt-2">
+            <button type="button" id="btnAlterarFoto" class="btn btn-primary btn-sm">Alterar foto</button>
           </div>
-              <canvas id="canvas" class="d-none"></canvas>
-              <input type="hidden" name="fotoBase64" id="fotoBase64">
+
+          <!-- Botões reais (inicialmente escondidos) -->
+        <div id="botoesFoto" class="d-flex justify-content-center gap-2 flex-wrap mt-3 d-none">
+          <button type="button" class="btn btn-outline-primary btn-sm px-2 w-auto text-nowrap" onclick="abrirCamera()">Tirar foto com a câmera</button>
+
+          <input type="file" name="novaFoto" id="fotoArquivo" accept="image/*" class="d-none" onchange="previewFoto(this)">
+          <label for="fotoArquivo" class="btn btn-outline-secondary btn-sm px-2 w-auto text-nowrap mb-0">Selecionar do dispositivo</label>
         </div>
+
+
+
+
+          <!-- Câmera e captura -->
+          <div id="cameraContainer" class="mt-3 d-none">
+            <video id="camera" width="200" autoplay class="rounded"></video>
+            <button type="button" class="btn btn-success btn-sm mt-2" onclick="capturarFoto()">Capturar</button>
+          </div>
+          <canvas id="canvas" class="d-none"></canvas>
+          <input type="hidden" name="fotoBase64" id="fotoBase64">
+        </div>
+
         <div class="col-md-8">
           <div class="mb-3">
             <label for="nome" class="form-label">Nome</label>
@@ -89,7 +100,9 @@
 
 <%- include('../partials/footer') %>
 </body>
+
   <script src="/js/confirmarLocalizacaoEditar-perfil.js"></script>
   <script src="/js/numeroTelefone.js"></script>
   <script src="/js/empresas/previewImagem.js"></script>
+  <script src="/js/botoesFotosEditarPerfil.js"></script>
 </html>
