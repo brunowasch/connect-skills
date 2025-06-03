@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputLocalidade = document.getElementById('localidade');
   const sugestoes = document.getElementById('sugestoesLocalidade');
   const btnLocalizacao = document.getElementById('btnLocalizacao');
-  const form = document.getElementById('formLocalizacao') || document.querySelector('form');
+  const form = document.querySelector('form');
   const erroLocalidade = document.getElementById('erro-localidade');
   const btnEditarLocal = document.getElementById('btnEditarLocal');
 
@@ -125,10 +125,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnEditarLocal) {
     btnEditarLocal.addEventListener('click', () => {
-      inputLocalidade.readOnly = false;
-      localidadeValida = false;
-      inputLocalidade.focus();
-      btnEditarLocal.classList.add('d-none');
+        inputLocalidade.readOnly = false;
+        inputLocalidade.value = ''; // limpa o valor antigo!
+        localidadeValida = false;
+        inputLocalidade.classList.remove('is-invalid');
+        erroLocalidade.classList.add('d-none');
+        sugestoes.classList.add('d-none');
+        btnEditarLocal.classList.add('d-none');
+        inputLocalidade.focus();
     });
   }
 
