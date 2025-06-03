@@ -46,8 +46,10 @@
 
           li.addEventListener('click', () => {
             inputLocalidade.value = texto;
+            inputLocalidade.readOnly = true;
             sugestoes.classList.add('d-none');
             localidadeValida = true;
+            btnEditarLocal.classList.remove('d-none'); // 👈 mostra o botão
           });
 
           sugestoes.appendChild(li);
@@ -105,7 +107,9 @@
           const textoFinal = partes.filter((item, index) => partes.indexOf(item) === index).join(', ');
 
           inputLocalidade.value = textoFinal;
+          inputLocalidade.readOnly = true;
           localidadeValida = true;
+          btnEditarLocal.classList.remove('d-none');
         } catch (error) {
           alert('Erro ao obter sua localização. Tente novamente.');
         }
@@ -115,6 +119,14 @@
     } else {
       alert('Seu navegador não suporta geolocalização.');
     }
+  });
+
+  const btnEditarLocal = document.getElementById('btnEditarLocal');
+  btnEditarLocal.addEventListener('click', () => {
+    inputLocalidade.readOnly = false;
+    inputLocalidade.focus(); // já coloca o cursor no campo
+    localidadeValida = false;
+    btnEditarLocal.classList.add('d-none');
   });
 
   // ✅ Validação no envio do formulário
