@@ -102,7 +102,10 @@ exports.telaPerfilEmpresa = (req, res) => {
     return res.redirect('/login');
   }
 
-  res.render('empresas/meu-perfil', { empresa });
+   res.render('empresas/meu-perfil', {
+    empresa,
+    vagasPublicadas: req.session.vagasPublicadas || [] 
+  });
 };
 
 // Publicação da Vaga
@@ -111,7 +114,7 @@ exports.telaPublicarVaga = (req, res) => {
 };
 
 exports.salvarVaga = (req, res) => {
-  const { cargo, tipo, areasSelecionadas, habilidadesSelecionadas } = req.body;
+  const { cargo, tipo, descricao, areasSelecionadas, habilidadesSelecionadas } = req.body;
 
   // Garante que exista a empresa na sessão
   if (!req.session.empresa) {
@@ -119,20 +122,26 @@ exports.salvarVaga = (req, res) => {
   }
 
   // Inicializa o array de vagas se não existir
-  if (!req.session.empresa.vagas) {
-    req.session.empresa.vagas = [];
+  if (!req.session.vagasPublicadas) {
+    req.session.vagasPublicadas = [];
   }
 
   // Cria uma nova vaga e adiciona ao array da sessão
   const novaVaga = {
+    id: Date.now(),
+    empresa: {
+      nome: req.session.empresa.nome,
+      logo: req.session.empresa.fotoPerfil || '/img/logo-default.png'
+    },
     cargo,
     tipo,
+    descricao,
     areas: areasSelecionadas.split(','),
     habilidades: habilidadesSelecionadas.split(','),
     data: new Date().toLocaleString('pt-BR')
   };
 
-  req.session.empresa.vagas.push(novaVaga);
+  req.session.vagasPublicadas.push(novaVaga);
 
   res.redirect('/empresa/meu-perfil');
 };
@@ -149,7 +158,7 @@ exports.mostrarPerfil = (req, res) => {
     localidade: empresa.localidade,
     telefone: empresa.telefone,
     fotoPerfil: empresa.fotoPerfil,
-    vagasPublicadas: empresa.vagas || []
+    vagasPublicadas: req.session.vagasPublicadas || [] 
   });
 };
 exports.telaEditarPerfil = (req, res) => {
@@ -192,4 +201,9 @@ exports.salvarEdicaoPerfil = (req, res) => {
   }
 
   res.redirect('/empresa/meu-perfil');
+};
+
+exports.mostrarVagas = (req, res) => {
+  const vagas = req.session.vagasPublicadas || [];
+  res.render('empresas/vagas', { vagas });
 };

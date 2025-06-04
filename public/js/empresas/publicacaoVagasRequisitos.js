@@ -131,4 +131,5 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log("Formulário válido, será enviado");
     }
   });
+  
 });

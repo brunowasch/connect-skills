@@ -28,49 +28,48 @@
       <a href="/empresa/editar-empresa" class="btn btn-primary btn-sm ms-auto">Editar perfil</a>
     </div>
 
- <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="d-flex justify-content-between align-items-center mb-2">
       <h5>Vagas Publicadas</h5> 
-      <a href="/empresas/publicar-vaga" class="text-decoration-none" title="Editar áreas">
+      <a href="/empresas/publicar-vaga" class="text-decoration-none" title="Publicar vaga">
         <i class="bi bi-pencil-square fs-6"></i>
-        </a>
-          </div>
-        <ul class="list-group">
-          <% if (empresa.vagas && empresa.vagas.length) { %>
-            <% empresa.vagas.forEach(vaga => { %>
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                <span><%= vaga.cargo %></span>
-                <div class="d-flex gap-2">
+      </a>
+    </div>
 
-                  <!-- Ver detalhes -->
-                <a href="/empresas/detalhes-da-vaga" class="btn btn-outline-primary btn-sm">
-                  Ver detalhes
-                </a>
+    <ul class="list-group">
+      <% if (vagasPublicadas.length > 0) { %>
+        <% vagasPublicadas.forEach(vaga => { %>
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span><%= vaga.cargo %></span>
+            <div class="d-flex gap-2">
+              <a href="/empresas/detalhes-da-vaga" class="btn btn-outline-primary btn-sm">
+                Ver detalhes
+              </a>
 
-                  <% if (vaga.status === 'fechada') { %>
-                    <button class="btn btn-secondary btn-sm" disabled>
-                      Vaga fechada
-                    </button>
-                  <% } else { %>
-                    <form action="/empresa/fechar-vaga/<%= vaga.id %>" method="POST">
-                      <button type="submit" class="btn btn-outline-secondary btn-sm">
-                        Fechar vaga
-                      </button>
-                    </form>
-                  <% } %>
-                  <!-- Editar vaga -->
-                  <a href="/empresa/editar-vaga/<%= vaga.id %>" class="btn btn-outline-primary btn-sm">
-                     <i class="bi bi-pencil-square fs-6"></i>
-                  </a>
-                  <button type="button" class="btn btn-outline-danger btn-sm" title="Excluir vaga" onclick="confirmarExclusao('<%= vaga.id %>')">
-                    <i class="bi bi-trash"></i>
+              <% if (vaga.status === 'fechada') { %>
+                <button class="btn btn-secondary btn-sm" disabled>
+                  Vaga fechada
+                </button>
+              <% } else { %>
+                <form action="/empresa/fechar-vaga/<%= vaga.id %>" method="POST">
+                  <button type="submit" class="btn btn-outline-secondary btn-sm">
+                    Fechar vaga
                   </button>
-                </div>
-              </li>
-            <% }) %>
-          <% } else { %>
-            <li class="list-group-item text-muted">Nenhuma vaga publicada ainda.</li>
-          <% } %>
-        </ul>
+                </form>
+              <% } %>
+
+              <a href="/empresa/editar-vaga/<%= vaga.id %>" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-pencil-square fs-6"></i>
+              </a>
+              <button type="button" class="btn btn-outline-danger btn-sm" title="Excluir vaga" onclick="confirmarExclusao('<%= vaga.id %>')">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </li>
+        <% }) %>
+      <% } else { %>
+        <li class="list-group-item text-muted">Nenhuma vaga publicada ainda.</li>
+      <% } %>
+    </ul>
   </div>
   <!-- Modal de Confirmação -->
 <div class="modal fade" id="modalConfirmacaoExclusao" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">

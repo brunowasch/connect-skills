@@ -64,4 +64,7 @@ router.get('/editar-empresa', empresaController.telaEditarPerfil);
 
 router.post('/editar-empresa', upload.single('novaFoto'), empresaController.salvarEdicaoPerfil);
 
+//Tela de vagas criadas
+router.get('/vagas', empresaController.mostrarVagas);
+
 module.exports = router;  
