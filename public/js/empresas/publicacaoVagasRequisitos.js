@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
   tipo.addEventListener('change', () => {
     const valor = tipo.value;
 
-    // Reset
     campoPresencial.style.display = 'none';
     campoHomeOffice.style.display = 'none';
     diasPresenciais.value = '';
@@ -27,7 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
     diasPresenciais.removeAttribute('required');
     diasHomeOffice.removeAttribute('required');
 
-    // Exibição e obrigatoriedade
     if (valor === 'Presencial') {
       campoPresencial.style.display = 'flex';
       diasPresenciais.setAttribute('required', 'required');
@@ -82,17 +80,58 @@ document.addEventListener('DOMContentLoaded', () => {
     salarioInput.value = `${inteiroFormatado},${decimal}`;
   });
 
+  // Áreas e habilidades
+  const areaBtns = document.querySelectorAll('.area-btn');
+  const skillBtns = document.querySelectorAll('.skill-btn');
+  const areasSelecionadasInput = document.getElementById('areasSelecionadas');
+  const habilidadesSelecionadasInput = document.getElementById('habilidadesSelecionadas');
+
+  const areasSelecionadas = new Set();
+  const habilidadesSelecionadas = new Set();
+
+  areaBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const area = btn.textContent;
+      if (areasSelecionadas.has(area)) {
+        areasSelecionadas.delete(area);
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-primary');
+      } else {
+        if (areasSelecionadas.size >= 3) return;
+        areasSelecionadas.add(area);
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-primary');
+      }
+      areasSelecionadasInput.value = Array.from(areasSelecionadas).join(',');
+    });
+  });
+
+  skillBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const habilidade = btn.textContent;
+      if (habilidadesSelecionadas.has(habilidade)) {
+        habilidadesSelecionadas.delete(habilidade);
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-primary');
+      } else {
+        if (habilidadesSelecionadas.size >= 3) return;
+        habilidadesSelecionadas.add(habilidade);
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-primary');
+      }
+      habilidadesSelecionadasInput.value = Array.from(habilidadesSelecionadas).join(',');
+    });
+  });
+
+  // Validação final no envio
   form.addEventListener('submit', (e) => {
-    console.log("Tentando enviar o formulário");
     let valido = true;
 
-    // Reset mensagens
     document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
     document.getElementById('erroAreas').innerText = '';
     document.getElementById('erroHabilidades').innerText = '';
     erroDias.textContent = '';
 
-    // Validações
     if (!validarDiasHibrido()) valido = false;
 
     const cargo = document.getElementById('cargo');
@@ -112,13 +151,13 @@ document.addEventListener('DOMContentLoaded', () => {
       valido = false;
     }
 
-    const areas = document.getElementById('areasSelecionadas').value.split(',').filter(v => v.trim() !== '');
+    const areas = areasSelecionadasInput.value.split(',').filter(v => v.trim() !== '');
     if (areas.length < 1) {
       document.getElementById('erroAreas').innerText = 'Selecione pelo menos uma área de atuação.';
       valido = false;
     }
 
-    const habilidades = document.getElementById('habilidadesSelecionadas').value.split(',').filter(v => v.trim() !== '');
+    const habilidades = habilidadesSelecionadasInput.value.split(',').filter(v => v.trim() !== '');
     if (habilidades.length < 1) {
       document.getElementById('erroHabilidades').innerText = 'Selecione pelo menos uma habilidade comportamental.';
       valido = false;
@@ -131,5 +170,5 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log("Formulário válido, será enviado");
     }
   });
-  
+  console.log("JS de publicação de vaga carregado");
 });

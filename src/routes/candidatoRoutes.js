@@ -147,7 +147,8 @@ router.get('/meu-perfil', (req, res) => {
     telefone,
     dataNascimento,
     fotoPerfil,
-    areas
+    areas,
+    activePage: 'perfil'
   });
 });
 
@@ -206,7 +207,23 @@ router.post('/editar-perfil', upload.single('novaFoto'), (req, res) => {
 ----------------------------*/
 router.get('/home', (req, res) => {
   const { nome, sobrenome, localidade } = req.session;
-  res.render('candidatos/home-candidatos', { nome, sobrenome, localidade });
+  res.render('candidatos/home-candidatos', { nome, sobrenome, localidade, activePage: 'home' });
 });
+
+router.get('/vagas', (req, res) => {
+  const candidatoAreas = req.session.areas || [];
+  const todasAsVagas = global.vagasPublicadas || [];
+  
+  const vagasCompatíveis = todasAsVagas.filter(vaga =>
+    vaga.areas.some(area => candidatoAreas.includes(area))
+  );
+
+  res.render('candidatos/vagas', {
+    vagas: vagasCompatíveis,
+    activePage: 'vagas'
+  });
+});
+
+
 
 module.exports = router;

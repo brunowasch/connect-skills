@@ -97,14 +97,16 @@ exports.homeEmpresa = (req, res) => {
 // Tela do perfil da empresa
 exports.telaPerfilEmpresa = (req, res) => {
   const empresa = req.session.empresa;
-
+  const vagasDaEmpresa = (global.vagasPublicadas || []).filter(vaga =>
+    vaga.empresa.nome === req.session.empresa.nome
+  );
   if (!empresa) {
     return res.redirect('/login');
   }
 
-   res.render('empresas/meu-perfil', {
+  res.render('empresas/meu-perfil', {
     empresa,
-    vagasPublicadas: req.session.vagasPublicadas || [] 
+    vagasPublicadas: vagasDaEmpresa
   });
 };
 
@@ -114,6 +116,9 @@ exports.telaPublicarVaga = (req, res) => {
 };
 
 exports.salvarVaga = (req, res) => {
+  console.log('========== RECEBENDO POST DE PUBLICAÇÃO ==========');
+  console.log('req.body:', req.body);
+
   const { cargo, tipo, descricao, areasSelecionadas, habilidadesSelecionadas } = req.body;
 
   // Garante que exista a empresa na sessão
@@ -121,10 +126,7 @@ exports.salvarVaga = (req, res) => {
     return res.redirect('/login');
   }
 
-  // Inicializa o array de vagas se não existir
-  if (!req.session.vagasPublicadas) {
-    req.session.vagasPublicadas = [];
-  }
+
 
   // Cria uma nova vaga e adiciona ao array da sessão
   const novaVaga = {
@@ -141,7 +143,9 @@ exports.salvarVaga = (req, res) => {
     data: new Date().toLocaleString('pt-BR')
   };
 
-  req.session.vagasPublicadas.push(novaVaga);
+  global.vagasPublicadas = global.vagasPublicadas || [];
+  global.vagasPublicadas.push(novaVaga);
+  
 
   res.redirect('/empresa/meu-perfil');
 };
@@ -204,6 +208,11 @@ exports.salvarEdicaoPerfil = (req, res) => {
 };
 
 exports.mostrarVagas = (req, res) => {
-  const vagas = req.session.vagasPublicadas || [];
+  const empresa = req.session.empresa;
+  const vagas = (global.vagasPublicadas || []).filter(vaga =>
+    vaga.empresa.nome === empresa.nome
+  );
+
   res.render('empresas/vagas', { vagas });
 };
+
