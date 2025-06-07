@@ -1,0 +1,16 @@
+.badge.text-bg-primary {
+  background-color: #2F84F5;
+  font-size: 0.75rem;
+}
+.botao-ia {
+    font-size: 0.85rem;
+    padding: 4px 10px;
+    margin-bottom: 10px;
+    position: absolute;
+    bottom: 15px;
+    right: 15px;
+}
+.card-body-wrapper {
+    position: relative;
+    padding-bottom: 100px;
+}
