@@ -33,9 +33,38 @@
                 <% }) %>
               </div>
             </div>
-              <div class="mt-3">
-                <a href="/teste-disc?vaga=<%= vaga.id %>" class="btn btn-outline-success fw-bold botao-ia">Iniciar teste com a IA</a>
-              </div>
+            <div class="mt-3 text-center">
+  <button id="botaoIA" class="btn btn-outline-primary fw-bold botao-ia">Iniciar teste com a IA</button>
+</div>
+
+<!-- Container do iframe centralizado -->
+<div id="iframeContainer" style="display: none; justify-content: center; align-items: center; flex-direction: column; margin-top: 30px;">
+  <div style="width: 80%; max-width: 800px;">
+    <iframe 
+      src="https://www.stadyo.com/ai_assis/SUDXZZ7Rznv8IL09" 
+      style="width: 100%; height: 500px; border: none;" 
+      seamless>
+    </iframe>
+  </div>
+  <button id="fecharIA" class="btn btn-outline-danger mt-3 my-4">Fechar teste</button>
+</div>
+
+<script>
+  const botaoIA = document.getElementById("botaoIA");
+  const iframeContainer = document.getElementById("iframeContainer");
+  const fecharIA = document.getElementById("fecharIA");
+
+  botaoIA.addEventListener("click", function () {
+    iframeContainer.style.display = "flex";
+    botaoIA.style.display = "none";
+  });
+
+  fecharIA.addEventListener("click", function () {
+    iframeContainer.style.display = "none";
+    botaoIA.style.display = "inline-block";
+  });
+</script>
+
           </div>
         </div>
       <% }) %>
