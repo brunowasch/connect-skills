@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Minhas Vagas - Connect Skills</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="/img/logo.png">
+</head>
+<body class="bg-light">
+
+  <%- include('../partials/header-empresa') %>
+
+  <main class="container py-5">
+    <h4 class="mb-4 fw-bold mt-4">Minhas vagas</h4>
+
+    <% if (vagas.length > 0) { %>
+      <% vagas.forEach(vaga => { %>
+        <div class="bg-white rounded p-4 mb-4 shadow-sm">
+          <div class="d-flex gap-4 align-items-start flex-wrap">
+            <!-- Logo e informações da vaga -->
+            <div class="d-flex gap-4 align-items-start flex-grow-1">
+              <img src="<%= vaga.empresa.logo %>" alt="Logo da empresa" style="width: 70px; height: 70px;">
+              <div>
+                <h5 class="mb-0 fw-bold"><%= vaga.empresa.nome %></h5>
+                <small class="text-muted"><%= vaga.cargo %> (<%= vaga.tipo %>)</small>
+                <p class="mb-1 mt-2"><%= vaga.descricao %></p>
+                <small class="text-muted">Vaga atua nas áreas de:</small><br>
+                <% vaga.areas.forEach(area => { %>
+                  <span class="badge bg-outline-primary text-primary border border-primary me-1"><%= area %></span>
+                <% }) %>
+              </div>
+            </div>
+
+            <!-- Ícone de edição -->
+            <div class="text-end" style="min-width: 50px;">
+              <a href="#" title="Editar"><i class="bi bi-pencil fs-5"></i></a>
+            </div>
+          </div>
+
+          <!-- Texto e botão alinhados à direita -->
+          <div class="d-flex justify-content-end mt-3">
+            <div class="text-end">
+              <p class="text-muted mb-2">Candidatos encontrados!</p>
+              <a href="#" class="btn btn-outline-primary btn-sm">Ver ranqueamento</a>
+            </div>
+          </div>
+        </div>
+      <% }) %>
+
+      <!-- Após o loop -->
+      <div class="d-flex flex-column justify-content-center align-items-center" style="min-height: 30vh;">
+        <p class="text-center fs-5">Essas são as vagas registradas. <br /> Deseja adicionar novas vagas?</p>
+        <a href="/empresa/publicar-vaga" class="btn btn-outline-primary px-4 mt-3">Publicar vaga</a>
+      </div>
+    <% } else { %>
+      <div class="d-flex flex-column justify-content-center align-items-center" style="min-height: 50vh;">
+        <p class="text-center fs-5">Parece que você não possui nenhuma vaga publicada</p>
+        <a href="/empresa/publicar-vaga" class="btn btn-outline-primary px-4 mt-3">Publicar vaga</a>
+      </div>
+    <% } %>
+
+  </main>
+
+  <%- include('../partials/footer') %>
+  
+</body>
+</html>

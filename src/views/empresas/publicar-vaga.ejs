@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Publicar Vaga - Connect Skills</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <%- include('../partials/header-empresa') %>
+
+  <main class="container py-5" style="max-width: 800px;">
+    <a href="/empresas/meu-perfil" class="text-decoration-none" title="Voltar ao perfil">
+      <i class="bi bi-x fs-6"></i>
+    </a>
+    <h2 class="text-center text-primary fw-bold mb-4 mt-4">Publicar vaga</h2>
+
+  <form id="formPublicarVaga" action="/empresa/publicar-vaga" method="POST">
+      <div class="row mb-4">
+  <div class="col-md-6">
+    <label for="cargo" class="form-label">Cargo</label>
+    <input type="text" id="cargo" name="cargo" class="form-control" placeholder="Ex: Gerente de produtos" required>
+    <div class="invalid-feedback">Preencha o cargo.</div>
+  </div>
+
+  <div class="col-md-6">
+    <label for="tipo" class="form-label">Tipo de local de trabalho</label>
+    <select id="tipo" name="tipo" class="form-select" required>
+      <option value="" selected disabled>Selecione uma opção</option>
+      <option value="Presencial">Presencial</option>
+      <option value="Home Office">Home Office</option>
+      <option value="Híbrido">Híbrido</option>
+    </select>
+    <div class="invalid-feedback">Selecione o tipo de local de trabalho.</div>
+  </div>
+
+  <div class="col-md-6 mt-3">
+    <label for="escala" class="form-label">Escala de trabalho</label>
+    <input type="text" id="escala" name="escala" class="form-control" placeholder="Ex: Segunda a sexta, 8h às 17h" required>
+    <div class="invalid-feedback">Descreva a escala de trabalho.</div>
+  </div>
+
+  <div class="col-md-6 mt-3 d-flex align-items-end" id="campo-presencial-hibrido">
+    <div class="me-3" id="campoPresencial" style="display: none;">
+      <label for="diasPresenciais" class="form-label small">Dias presenciais</label>
+      <input type="number" class="form-control form-control-sm" id="diasPresenciais" name="diasPresenciais" min="0" max="7" style="width: 80px;" required>
+    </div>
+    <div id="campoHomeOffice" style="display: none;">
+      <label for="diasHomeOffice" class="form-label small">Dias home office</label>
+      <input type="number" class="form-control form-control-sm" id="diasHomeOffice" name="diasHomeOffice" min="0" max="7" style="width: 80px;" required>
+    </div>
+    <div id="erroDias" class="text-danger small mt-1 ms-3"></div>
+  </div>
+
+<div class="col-md-6 mt-3">
+  <label class="form-label">Salário (opcional)</label>
+  <div class="input-group">
+    <select class="form-select" id="moeda" name="moeda" style="max-width: 110px;">
+      <% const moedas = {
+        'BRL': 'R$', 'USD': 'US$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'ARS': 'AR$', 'CAD': 'C$', 'AUD': 'A$', 
+        'CHF': 'CHF', 'CNY': '¥', 'INR': '₹', 'MXN': 'MX$', 'ZAR': 'R', 'KRW': '₩', 'SEK': 'kr', 'RUB': '₽'
+      }; %>
+      <% for (const codigo in moedas) { %>
+        <option value="<%= codigo %>" <%= codigo === 'BRL' ? 'selected' : '' %>><%= moedas[codigo] %></option>
+      <% } %>
+    </select>
+    <span class="input-group-text" id="simboloMoeda">R$</span>
+    <input type="text" id="salario" name="salario" class="form-control" placeholder="0,00" inputmode="decimal">
+  </div>
+  <div class="invalid-feedback">Informe um valor válido.</div>
+
+
+</div>
+  <div class="mb-4 mt-4">
+    <label for="descricao" class="form-label">Descrição da vaga</label>
+    <textarea class="form-control" name="descricao" id="descricao" rows="5" placeholder="Descreva as atividades, responsabilidades, benefícios etc." style="resize: none;" required></textarea>
+  </div>
+</div>
+
+</div>
+
+
+      <div class="mb-4">
+        <h5 class="fw-bold text-center">Áreas de atuação da vaga (máximo 3):</h5>
+        <div class="d-flex flex-wrap gap-2 justify-content-center">
+          <% const areas = ['Administração', 'Agropecuária / Agricultura', 'Comunicação / Jornalismo', 'Construção Civil', 'Design / Criação', 'Educação / Ensino', 'Engenharia', 'Eventos / Produção Cultural', 'Finanças / Contabilidade', 'Gastronomia / Alimentação', 'Hotelaria / Turismo', 'Jurídico', 'Logística', 'Marketing', 'Mecânica / Manutenção', 'Moda / Estilo', 'Meio Ambiente', 'Produção / Operacional', 'Recursos Humanos (RH)', 'Saúde', 'Segurança / Vigilância', 'Transporte / Motorista', 'Tecnologia da Informação']; %>
+          <% areas.forEach(area => { %>
+            <button type="button" class="btn btn-outline-primary area-btn"><%= area %></button>
+          <% }); %>
+        </div>
+        <input type="hidden" name="areasSelecionadas" id="areasSelecionadas">
+        <div id="erroAreas" class="text-danger small mt-1"></div>
+      </div>
+
+      <div class="mb-4">
+        <h5 class="fw-bold text-center">Habilidades comportamentais que mais se encaixam à vaga (máximo 3):</h5>
+        <div class="d-flex flex-wrap gap-2 justify-content-center">
+          <% const habilidades = ['Comunicação eficaz', 'Pensamento crítico', 'Resolução de problemas', 'Tomada de decisão', 'Capacidade de aprender continuamente', 'Trabalho em equipe', 'Relacionamento interpessoal', 'Colaboração', 'Liderança', 'Proatividade', 'Flexibilidade/adaptabilidade', 'Gestão do tempo', 'Foco em resultados', 'Autoconfiança', 'Resiliência', 'Organização', 'Ética profissional', 'Responsabilidade']; %>
+          <% habilidades.forEach(hab => { %>
+            <button type="button" class="btn btn-outline-primary skill-btn"><%= hab %></button>
+          <% }); %>
+        </div>
+        <input type="hidden" name="habilidadesSelecionadas" id="habilidadesSelecionadas">
+        <div id="erroHabilidades" class="text-danger small mt-1"></div>
+      </div>
+
+      <div class="text-center mt-4">
+        <a href="/empresas/meu-perfil" class="btn btn-outline-danger px-5 fw-bold me-2">Cancelar</a>
+        <button type="submit" class="btn btn-outline-primary px-5 fw-bold">Continuar</button>
+      </div>
+    </form>
+  </main>
+
+  <%- include('../partials/footer') %>
+
+  <script src="/js/empresas/selecionarHabilidadeseAreas.js"></script>
+  <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
+</body>
+</html>

@@ -23,11 +23,14 @@
           <label for="localidade" class="form-label">Localidade</label>
 
           <div class="position-relative">
-            <input type="text" class="form-control" id="localidade" name="localidade" autocomplete="off" required>
+            <input type="text" class="form-control" id="localidade" name="localidade" autocomplete="off" placeholder="Cidade, Estado, País" required>
             <ul id="sugestoesLocalidade" class="list-group position-absolute w-100 d-none" style="z-index: 1000;"></ul>
           </div>
           <button type="button" class="btn-localizacao mt-2 w-100 text-center" id="btnLocalizacao">
             📍 Usar minha localização
+          </button>
+          <button type="button" class="btn btn-link mt-2 w-100 text-center text-decoration-none d-none" id="btnEditarLocal">
+            ✏️ Editar localização
           </button>
           <div id="erro-localidade" class="invalid-feedback d-none mt-2">
             Informe sua localidade para continuar.

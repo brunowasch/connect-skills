@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -8,7 +9,6 @@ const routes = require('./src/routes/index');
 const empresaRoutes = require('./src/routes/empresaRoutes');
 const app = express();
 const port = 3000;
-require('dotenv').config();
 
 
 // ESSENCIAIS:
@@ -21,9 +21,9 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // Configuração de sessão
 app.use(session({
-  secret: process.env.SESSION_SECRET,
+  secret: process.env.SECRET_SESSION,
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true,
   cookie: {
     httpOnly: true,
     secure: false, // true apenas se estiver usando HTTPS
@@ -31,13 +31,15 @@ app.use(session({
   }
 }));
 
-app.get('/logout', (req, res) => {
+app.use('/uploads', express.static('uploads'));
+
+app.get('/logout', (req, res) => {app.use('/uploads', express.static('uploads'));
+
   // Exemplo: destruir sessão
   req.session.destroy(err => {
     res.redirect('/');
   });
 });
-
 
 // Body parsers
 app.use(bodyParser.urlencoded({ extended: false }));
