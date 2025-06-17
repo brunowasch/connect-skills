@@ -1,0 +1,54 @@
+  body {
+      font-family: 'Montserrat', sans-serif;
+      background-color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .logo {
+      position: absolute;
+      top: 30px;
+      left: 30px;
+    }
+
+    main {
+      flex: 1;
+    }
+
+    .area-btn {
+      border: 2px solid #015EDB;
+      color: #015EDB;
+      background-color: white;
+      border-radius: 20px;
+      padding: 8px 20px;
+      margin: 6px;
+      transition: all 0.3s ease-in-out;
+    }
+
+    .area-btn.selected {
+      background-color: #015EDB;
+      color: white;
+    }
+
+    .btn-continuar {
+      font-weight: bold;
+      color: #015EDB;
+      border: 2px solid black;
+      background-color: white;
+      padding: 10px 30px;
+      border-radius: 12px;
+      transition: 0.3s;
+    }
+
+    .btn-continuar:hover {
+      background-color: #015EDB;
+      color: white;
+    }
+
+    footer {
+      background-color: #015EDB;
+      color: white;
+      text-align: center;
+      padding: 20px 0;
+    }

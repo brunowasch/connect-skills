@@ -1,0 +1,64 @@
+body {
+    background-color: #fff;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  main {
+    flex: 1;
+    margin-top: 100px;
+  }
+
+  .nav-link {
+    color: white !important;
+    font-size: 0.9rem;
+  }
+
+  .card-candidato {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .foto-perfil {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+  }
+
+  .btn-ver {
+    background-color: #015EDB;
+    color: white;
+    font-weight: bold;
+    font-size: 1.2rem;
+    padding: 10px 30px;
+    border-radius: 10px;
+    transition: 0.3s;
+  }
+
+  .btn-ver:hover {
+    background-color: #004bb8;
+  }
+
+  footer {
+    background-color: #015EDB;
+    color: white;
+    text-align: center;
+    padding: 14px 0;
+    font-size: 0.9rem;
+  }
+
+  .form-check-input {
+    width: 24px;
+    height: 24px;
+    margin-left: 10px;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+  }
+  form {
+    margin-bottom: 50px; /* ou ajuste conforme o espaço desejado */
+  }
