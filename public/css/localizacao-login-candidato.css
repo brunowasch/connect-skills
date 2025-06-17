@@ -12,17 +12,6 @@ body {
   flex-direction: column;
 }
 
- .logo {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-}
-
-.logo img {
-  width: 100px;
-  height: auto;
-}
-
    .form-container {
       background-color: #fff;
       padding: 30px;
@@ -32,27 +21,6 @@ body {
       max-width: 400px;
     }
 
-.btn-localizacao {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #fff;
-  border: 2px solid #2f84f5;
-  color: #2f84f5;
-  padding: 8px 20px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  border-radius: 50px;
-  max-width: 100%;
-  white-space: nowrap;
-  transition: all 0.2s ease-in-out;
-}
-
-.btn-localizacao:hover {
-  background-color: #e0f0ff;
-  color: #1c6ed5;
-  text-decoration: none;
-}
 
 
 
@@ -78,4 +46,18 @@ footer {
   padding: 1rem 0;
   margin-top: auto;
   font-size: 0.875rem;
+}
+
+.btn-localizacao {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.btn-localizacao:hover {
+  background-color: #0056b3;
 }
