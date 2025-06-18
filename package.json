@@ -10,12 +10,13 @@
   "license": "ISC",
   "dependencies": {
     "body-parser": "^2.2.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "ejs": "^3.1.10",
     "express": "^5.1.0",
     "express-session": "^1.18.1",
     "multer": "^1.4.5-lts.2",
-    "mysql2": "^3.14.0"
+    "mysql2": "^3.14.1"
   },
   "description": "Connect Skills 🌐💼\r Conectando recém-formados ao mercado de trabalho com base em suas habilidades!",
   "repository": {
@@ -25,5 +26,6 @@
   "bugs": {
     "url": "https://github.com/brunowasch/connect-skills/issues"
   },
-  "homepage": "https://github.com/brunowasch/connect-skills#readme"
+  "homepage": "https://github.com/brunowasch/connect-skills#readme",
+  "devDependencies": {}
 }

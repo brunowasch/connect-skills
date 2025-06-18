@@ -19,7 +19,6 @@
         .then(stream => {
           video.srcObject = stream;
           video.style.display = 'block';
-          tirarFotoBtn.textContent = '📸 Capturar agora';
           cameraAtiva = true;
         })
         .catch(err => alert('Erro ao acessar a câmera: ' + err));
@@ -39,7 +38,6 @@
       opcoesFoto.style.display = 'none';
       acoesFoto.style.display = 'flex';
       cameraAtiva = false;
-      tirarFotoBtn.textContent = '📸 Capturar agora';
     }
   });
 
