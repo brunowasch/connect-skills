@@ -20,15 +20,13 @@ exports.telaNomeEmpresa = (req, res) => {
 };
 
 exports.salvarNomeEmpresa = (req, res) => {
-  const { nome, descricao } = req.body;
+  const { usuario_id, nome_empresa, descricao } = req.body;
 
-  req.session.empresa = {
-    ...req.session.empresa,
-    nome,
-    descricao
-  };
+  // Salva temporariamente em sessão ou redireciona com query
+  req.session.dadosEmpresa = { usuario_id, nome_empresa, descricao };
 
-  res.redirect('/empresa/localizacao');
+  // Vai para a próxima etapa
+  res.redirect(`/empresa/localizacao`);
 };
 
 // Tela e salvamento da localização

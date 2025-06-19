@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/css/shared/style.css">
 </head>
 <body>
-       <%- include('../partials/header') %>
+  <%- include('../partials/header') %>
 <main>
   <div class="container container-page d-flex flex-column justify-content-start align-items-center mt-5 mb-5">
 
@@ -20,11 +20,11 @@
     <div class="card shadow p-4 border-0 rounded-3 mt-2 mb-4" style="min-width: 320px;">
       <div class="d-flex justify-content-center gap-4">
         <div class="form-check">
-          <input class="form-check-input" type="radio" name="tipo" id="fisica" value="fisica">
+          <input class="form-check-input" type="radio" name="tipoSelecao" id="fisica" value="fisica">
           <label class="form-check-label" for="fisica">Pessoa Física</label>
         </div>
         <div class="form-check">
-          <input class="form-check-input" type="radio" name="tipo" id="juridica" value="juridica">
+          <input class="form-check-input" type="radio" name="tipoSelecao" id="juridica" value="juridica">
           <label class="form-check-label" for="juridica">Pessoa Jurídica</label>
         </div>
       </div>
@@ -32,10 +32,13 @@
 
     <!-- FORMULÁRIO DE CADASTRO -->
     <div class="card shadow p-4 w-100 d-none" id="formularioCadastro" style="max-width: 400px;">
-      <form id="formCadastro" method="POST">
+      <form id="formCadastro" method="POST" action="/usuarios/cadastrar">
+        <!-- Campo oculto com o tipo correto (empresa ou candidato) -->
+        <input type="hidden" name="tipo" id="tipoHidden">
+
         <div class="mb-3">
-          <label for="contato" class="form-label">E-mail</label>
-          <input type="email" class="form-control" id="contato" name="contato" placeholder="Digite seu e-mail" required>
+          <label for="email" class="form-label">E-mail</label>
+          <input type="email" class="form-control" id="email" name="email" placeholder="Digite seu e-mail" required>
         </div>
 
         <div class="mb-3 position-relative">
@@ -84,14 +87,15 @@
   const radioJuridica = document.getElementById('juridica');
   const form = document.getElementById('formCadastro');
   const formContainer = document.getElementById('formularioCadastro');
+  const tipoHidden = document.getElementById('tipoHidden');
 
   radioFisica.addEventListener('change', () => {
-    form.action = '/candidato/cadastro';
+    tipoHidden.value = 'candidato'; // valor aceito pelo ENUM no banco
     formContainer.classList.remove('d-none');
   });
 
   radioJuridica.addEventListener('change', () => {
-    form.action = '/empresa/cadastro';
+    tipoHidden.value = 'empresa'; // valor aceito pelo ENUM no banco
     formContainer.classList.remove('d-none');
   });
 
