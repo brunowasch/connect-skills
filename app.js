@@ -7,13 +7,17 @@ const bodyParser = require('body-parser');
 const db = require('./src/config/db'); // Se estiver usando MySQL ou outro banco
 const routes = require('./src/routes/index');
 const empresaRoutes = require('./src/routes/empresaRoutes');
+const usuarioRoutes = require('./src/routes/usuarioRoutes');
 const app = express();
 const port = 3000;
 
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+app.use('/usuarios', usuarioRoutes);
 
 // ESSENCIAIS:
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(express.json({ limit: '10mb' }));
+
 
 
 // Para servir arquivos estáticos como imagens:
