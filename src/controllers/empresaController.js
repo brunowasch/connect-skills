@@ -151,19 +151,28 @@ exports.salvarFotoPerfil = (req, res) => {
   let caminhoFoto = '';
 
   if (req.file) {
+    // Upload tradicional
     caminhoFoto = `/uploads/${req.file.filename}`;
   } else if (fotoBase64 && fotoBase64.startsWith('data:image')) {
-    // (opcional) salvar a base64 como arquivo e gerar caminho
+    // Foto tirada da câmera (base64)
     const base64Data = fotoBase64.replace(/^data:image\/\w+;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
     const nomeArquivo = `${Date.now()}-camera.png`;
-    const caminho = path.join(__dirname, '..', 'public', 'uploads', nomeArquivo);
-    require('fs').writeFileSync(caminho, buffer);
+
+    // Caminho correto: connect-skills/public/uploads
+    const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const caminho = path.join(uploadDir, nomeArquivo);
+    fs.writeFileSync(caminho, buffer);
     caminhoFoto = `/uploads/${nomeArquivo}`;
   } else {
     return res.status(400).send("Nenhuma imagem recebida.");
   }
 
+  // Atualiza o caminho da imagem no banco de dados
   empresaModel.atualizarFotoPerfil({ usuario_id, foto_perfil: caminhoFoto }, (err) => {
     if (err) {
       console.error("Erro ao salvar foto no banco:", err);
