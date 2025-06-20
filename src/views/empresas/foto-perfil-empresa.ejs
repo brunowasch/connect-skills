@@ -16,35 +16,41 @@
     <img src="/img/avatar.png" alt="Avatar provisório" width="150" height="150">
     <h3 class="text-center mt-5 mb-3">Adicione uma foto de perfil</h3>
 
+    <!-- FORMULÁRIO CORRETAMENTE POSICIONADO -->
+    <form action="/empresa/foto-perfil" method="POST" id="formFoto" class="text-center" enctype="multipart/form-data">
 
-    <img src="/img/avatar.png" alt="Prévia da Foto" id="previewFoto" class="foto-icon">
+      <!-- Campo oculto necessário para persistência -->
+      <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
+      <input type="hidden" name="fotoBase64" id="fotoBase64">
 
-<form action="/empresas/foto-perfil" method="POST" id="formFoto" class="text-center"  enctype="multipart/form-data">
-  <div class="d-flex gap-4 flex-wrap justify-content-center botoes-container" id="opcoesFoto">
-    <label class="upload-btn" for="upload"><i class="bi bi-file-earmark-arrow-up"></i>Fazer upload</label>
-    <input type="file" id="upload" accept="image/*" class="hidden-input">
+      <!-- Prévia da Foto -->
+      <img src="/img/avatar.png" alt="Prévia da Foto" id="previewFoto" class="foto-icon">
 
-    <button type="button" class="upload-btn" id="tirarFotoBtn"><i class="bi bi-camera"></i>Capturar agora</button>
-  </div>
+      <!-- Upload e Captura -->
+      <div class="d-flex gap-4 flex-wrap justify-content-center botoes-container" id="opcoesFoto">
+        <label class="upload-btn" for="upload"><i class="bi bi-file-earmark-arrow-up"></i>Fazer upload</label>
+        <input type="file" id="upload" name="foto" accept="image/*" class="hidden-input">
 
-  <video id="video" autoplay playsinline style="display: none;"></video>
-  <canvas id="canvas" style="display: none;"></canvas>
-  <img id="previewFoto" class="rounded-circle mt-3" style="max-width: 200px; display: none;" />
+        <button type="button" class="upload-btn" id="tirarFotoBtn"><i class="bi bi-camera"></i>Capturar agora</button>
+      </div>
 
-  <p id="erroFoto" class="text-danger fw-semibold mt-2" style="display: none;">
-    Por favor, selecione ou tire uma foto antes de continuar.
-  </p>
+      <video id="video" autoplay playsinline style="display: none;"></video>
+      <canvas id="canvas" style="display: none;"></canvas>
+      <img id="previewFoto" class="rounded-circle mt-3" style="max-width: 200px; display: none;" />
 
-  <div id="acoesFoto" class="acoesFoto flex-wrap justify-content-center gap-3 mt-4" style="display: none;">
-    <button type="button" class="btn-acao btn-cancelar" id="outraFoto">Tirar outra</button>
-    <button type="submit" class="btn-acao btn-confirmar">Confirmar e continuar</button>
-  </div>
+      <p id="erroFoto" class="text-danger fw-semibold mt-2" style="display: none;">
+        Por favor, selecione ou tire uma foto antes de continuar.
+      </p>
 
-  <!-- Este campo será preenchido em base64 tanto para upload quanto para câmera -->
-  <input type="hidden" name="fotoBase64" id="fotoBase64">
-</form>
+      <!-- Ações após a foto -->
+      <div id="acoesFoto" class="acoesFoto flex-wrap justify-content-center gap-3 mt-4" style="display: none;">
+        <button type="button" class="btn-acao btn-cancelar" id="outraFoto">Tirar outra</button>
+        <button type="submit" class="btn-acao btn-confirmar">Confirmar e continuar</button>
+      </div>
+    </form>
   </main>
-<%- include('../partials/footer') %>
+
+  <%- include('../partials/footer') %>
   <script src="/js/shared/fotoPerfil.js"></script>
 </body>
 </html>

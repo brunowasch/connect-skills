@@ -20,16 +20,18 @@
 
     <div class="form-container">
     <form action="/empresa/localizacao" method="POST" id="formLocalizacao" novalidate>
-        <div class="mb-3 text-start">
-          <label for="localidade" class="form-label">Localidade</label>
+    <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
 
-          <div class="position-relative">
-            <input type="text" class="form-control" id="localidade" name="localidade" autocomplete="off" placeholder="Cidade, Estado, País" required>
-            <ul id="sugestoesLocalidade" class="list-group position-absolute w-100 d-none" style="z-index: 1000;"></ul>
-          </div>
-                      <button type="button" class="btn btn-outline-secondary mt-2 w-100 text-center" id="btnLocalizacao">
+    <div class="mb-3 text-start">
+      <label for="localidade" class="form-label">Localidade</label>
+
+      <div class="position-relative">
+        <input type="text" class="form-control" id="localidade" name="localidade" autocomplete="off" placeholder="Cidade, Estado, País" required>
+        <ul id="sugestoesLocalidade" class="list-group position-absolute w-100 d-none" style="z-index: 1000;"></ul>
+      </div>
+      <button type="button" class="btn btn-outline-secondary mt-2 w-100 text-center" id="btnLocalizacao">
               <i class="bi bi-geo-alt-fill me-2"></i> Usar minha localização
-              </button>
+      </button>
 
         <button type="button" class="btn btn-link mt-2 w-100 text-center text-decoration-none d-none" id="btnEditarLocal">
           <i class="bi bi-pencil-fill me-2"></i> Editar localização

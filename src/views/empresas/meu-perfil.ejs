@@ -18,12 +18,12 @@
   <div class="perfil-card bg-white p-4 rounded shadow-sm">
    <h2>Meu perfil</h2>
     <div class="d-flex align-items-center perfil-header mb-4">
-    <img src="<%= empresa.fotoPerfil ? empresa.fotoPerfil : '/img/placeholder-empresa.png' %>" alt="Logo da Empresa" class="perfil-foto rounded-circle me-3">
+    <img src="<%= empresa.foto_perfil %>" alt="Logo da Empresa" class="perfil-foto rounded-circle me-3">
       <div>
-          <h4><%= empresa.nome %></h4>
+          <h2><%= empresa.nome_empresa %></h2>
           <p><%= empresa.descricao %></p>
           <p><%= empresa.localidade %></p>
-          <small>+55 <%= empresa.ddd %> <%= empresa.telefone %></small>
+          <small><%= empresa.ddd %> <%= empresa.telefone %></small>
       </div>
       <a href="/empresa/editar-empresa" class="btn btn-primary btn-sm ms-auto">Editar perfil</a>
     </div>
