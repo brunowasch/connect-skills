@@ -16,10 +16,10 @@
   <div class="login-container">
     <div class="login-box">
       <div class="login-title">Faça seu login</div>
-      <form>
+      <form method="POST" action="/usuarios/login">
         <div class="mb-3">
-          <label for="contato" class="form-label">E-mail</label>
-          <input type="email" class="form-control" id="contato" name="contato" placeholder="Digite seu e-mail" required>
+          <label for="email" class="form-label">E-mail</label>
+          <input type="email" class="form-control" id="email" name="email" placeholder="Digite seu e-mail" required>
         </div>
 
         <div class="mb-3 position-relative">
@@ -34,10 +34,10 @@
             A senha deve ter no mínimo 8 caracteres e pelo menos 1 caractere especial.
           </div>
         </div>
+
         <div class="d-grid">
-          <button type="submit" class="btn btn-primary">Cadastrar</button>
+          <button type="submit" class="btn btn-primary">Entrar</button>
         </div>
-        </section>
       </form>
     </div>
   </div>

@@ -23,11 +23,12 @@
     </div>
   </div>
 
-  <% if (nome && sobrenome && localidade) { %>
+<% if (typeof nome !== 'undefined' && nome && sobrenome && localidade) { %>
   <div class="container mt-5">
     <h5 class="text-primary fw-bold">Olá, <%= nome %>!</h5>
   </div>
-  <% } %>
+<% } %>
+
   <!-- COMO FUNCIONA -->
   <section class="container my-5">
 <h3>

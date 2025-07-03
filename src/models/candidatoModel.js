@@ -44,10 +44,33 @@ exports.atualizarFotoPerfil = (dados, callback) => {
 };
 
 exports.buscarPorUsuarioId = (usuario_id, callback) => {
-  const sql = 'SELECT * FROM candidato WHERE usuario_id = ?';
+  const sql = `
+    SELECT 
+      c.id,
+      c.nome,
+      c.sobrenome,
+      c.data_nascimento,
+      c.telefone,
+      c.foto_perfil,
+      c.cidade,
+      c.estado,
+      c.pais,
+      GROUP_CONCAT(ai.nome) AS areas
+    FROM candidato c
+    LEFT JOIN candidato_area ca ON ca.candidato_id = c.id
+    LEFT JOIN area_interesse ai ON ai.id = ca.area_interesse_id
+    WHERE c.usuario_id = ?
+    GROUP BY c.id
+  `;
+
   db.query(sql, [usuario_id], (err, resultados) => {
     if (err) return callback(err);
-    callback(null, resultados[0]);
+    if (resultados.length === 0) return callback(null, null);
+
+    const candidato = resultados[0];
+    candidato.areas = candidato.areas ? candidato.areas.split(',') : [];
+
+    callback(null, candidato);
   });
 };
 

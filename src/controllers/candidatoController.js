@@ -119,52 +119,54 @@ exports.salvarAreas = (req, res) => {
 };
 
 exports.telaHomeCandidato = (req, res) => {
-  const usuario_id = req.session.usuario_id;
-  if (!usuario_id) return res.redirect('/login');
+  console.log('Sessão acessada em /candidato/home:', req.session);
 
-  candidatoModel.buscarPorUsuarioId(usuario_id, (err, usuario) => {
-    if (err || !usuario) return res.redirect('/login');
+  const usuario = req.session.usuario;
+  if (!usuario) {
+    console.warn('Sessão de candidato vazia, redirecionando para login.');
+    return res.redirect('/login');
+  }
 
-    res.render('candidatos/home-candidatos', {
-      nome: usuario.nome,
-      sobrenome: usuario.sobrenome,
-      localidade: `${usuario.cidade}, ${usuario.estado}, ${usuario.pais}`,
-      activePage: 'home'
-    });
+  res.render('candidatos/home-candidatos', {
+    nome: usuario.nome,
+    sobrenome: usuario.sobrenome,
+    localidade: usuario.localidade,
+    activePage: 'home',
+    usuario
   });
 };
 
 exports.mostrarPerfil = (req, res) => {
-  const usuario_id = req.session.usuario_id;
+  const usuario = req.session.usuario;
 
-  if (!usuario_id) return res.redirect('/login');
+  if (!usuario) {
+    console.warn('Sessão de candidato não encontrada em /meu-perfil');
+    return res.redirect('/login');
+  }
 
-  candidatoModel.buscarPorUsuarioId(usuario_id, (err, usuario) => {
-    if (err || !usuario) return res.redirect('/login');
+  let ddd = '';
+  let telefone = usuario.telefone;
 
-    // Quebra o DDD e o número, se possível
-    let ddd = '';
-    let telefone = usuario.telefone;
+  const match = /\((\d{2})\)\s*(.*)/.exec(usuario.telefone);
+  if (match) {
+    ddd = match[1];
+    telefone = match[2];
+  }
 
-    const match = /\((\d{2})\)\s*(.*)/.exec(usuario.telefone); // Ex: (51) 91234-5678
-    if (match) {
-      ddd = match[1];
-      telefone = match[2];
-    }
-
-    res.render('candidatos/meu-perfil', {
-      nome: usuario.nome,
-      sobrenome: usuario.sobrenome,
-      localidade: `${usuario.cidade}, ${usuario.estado}, ${usuario.pais}`,
-      telefone,
-      ddd,
-      dataNascimento: usuario.data_nascimento.toISOString().split('T')[0],
-      fotoPerfil: usuario.foto_perfil,
-      areas: usuario.areas || [],
-      activePage: 'perfil'
-    });
+  res.render('candidatos/meu-perfil', {
+    nome: usuario.nome,
+    sobrenome: usuario.sobrenome,
+    localidade: usuario.localidade,
+    telefone,
+    ddd,
+    dataNascimento: new Date(usuario.dataNascimento).toISOString().split('T')[0],
+    fotoPerfil: usuario.fotoPerfil,
+    areas: usuario.areas || [],
+    activePage: 'perfil',
+    usuario
   });
 };
+
 
 
 exports.mostrarVagas = (req, res) => {
