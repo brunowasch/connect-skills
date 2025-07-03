@@ -18,12 +18,12 @@
   <div class="perfil-card bg-white p-4 rounded shadow-sm">
    <h2>Meu perfil</h2>
     <div class="d-flex align-items-center perfil-header mb-4">
-    <img src="<%= empresa.foto_perfil %>" alt="Logo da Empresa" class="perfil-foto rounded-circle me-3">
-      <div>
-          <h2><%= empresa.nome_empresa %></h2>
-          <p><%= empresa.descricao %></p>
-          <p><%= empresa.localidade %></p>
-          <small><%= empresa.ddd %> <%= empresa.telefone %></small>
+    <img src="<%= candidato.fotoPerfil || 'https://via.placeholder.com/80' %>" alt="Foto" class="perfil-foto rounded-circle me-3">
+    <div>
+      <h4 class="mb-1"><%= candidato.nome || 'Usuário' %> <%= candidato.sobrenome || '' %></h4>
+      <p class="mb-1"><%= candidato.localidade || '' %></p>
+      <small class="d-block">+55 <%= candidato.ddd || '51' %> <%= candidato.telefone || 'xxxxxxxxxx' %></small>
+      <small class="d-block">Data de nascimento: <%= candidato.dataNascimento || 'não informada' %></small>
       </div>
       <a href="/empresa/editar-empresa" class="btn btn-primary btn-sm ms-auto">Editar perfil</a>
     </div>

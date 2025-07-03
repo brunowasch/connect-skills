@@ -19,13 +19,14 @@ app.use(express.json({ limit: '10mb' }));
 app.use(session({
   secret: process.env.SECRET_SESSION || 'default_secret',
   resave: false,
-  saveUninitialized: true,
+  saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: false,
+    secure: false, // coloque `true` só se estiver em HTTPS (produção)
     maxAge: 1000 * 60 * 60 * 24 * 7 // 7 dias
   }
 }));
+
 
 // View engine
 app.set('view engine', 'ejs');

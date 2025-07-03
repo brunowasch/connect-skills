@@ -256,19 +256,16 @@ exports.salvarVaga = (req, res) => {
 exports.mostrarPerfil = (req, res) => {
   const empresa = req.session.empresa;
 
-  if (!empresa) {
-    return res.redirect('/login');
-  }
+  if (!empresa) return res.redirect('/login');
 
   res.render('empresas/meu-perfil', {
-    nomeFantasia: empresa.nomeFantasia,
-    area: empresa.area,
-    localidade: empresa.localidade,
-    telefone: empresa.telefone,
-    fotoPerfil: empresa.fotoPerfil,
-    vagasPublicadas: req.session.vagasPublicadas || [] 
+    empresa,
+    nome: empresa.nome_empresa,
+    vagasPublicadas: req.session.vagasPublicadas || [],
+    activePage: 'perfil'
   });
 };
+
 exports.telaEditarPerfil = (req, res) => {
   const empresa = req.session.empresa;
 
@@ -317,6 +314,7 @@ exports.mostrarVagas = (req, res) => {
     vaga.empresa.nome === empresa.nome
   );
 
+console.log("DADOS NA SESSÃO EMPRESA:", empresa);
   res.render('empresas/vagas', { vagas });
 };
 
