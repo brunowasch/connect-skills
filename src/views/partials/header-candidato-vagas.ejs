@@ -19,7 +19,7 @@
           <a class="nav-link <%= activePage === 'vagas' ? 'active' : '' %>" href="/candidato/vagas">Vagas</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link <%= activePage === 'perfil' ? 'active' : '' %>" href="/candidato/meu-perfil">Meu perfil</a>
+          <a class="nav-link <%= activePage === 'perfil' ? 'active' : '' %>" href="/candidato/meu-perfil?usuario_id=<%= usuario_id %>">Meu perfil</a>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modalLogout">

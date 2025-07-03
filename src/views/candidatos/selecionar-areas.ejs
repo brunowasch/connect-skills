@@ -16,6 +16,7 @@
 
     <h2 class="mb-4">Selecione a seguir três áreas a quais você deseja trabalhar:</h5>
     <form action="/candidato/areas" method="POST" id="formAreas">
+      <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
       <div id="botoes" class="d-flex flex-wrap justify-content-center">
         <% const opcoes = [
           "Administração", "Agropecuária / Agricultura", "Comunicação / Jornalismo", "Construção Civil", "Design / Criação",
