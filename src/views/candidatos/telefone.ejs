@@ -16,6 +16,13 @@
     <h3 class="text-center mb-4">Digite seu número de telefone:</h3>
 
     <form action="/candidato/telefone" method="POST" id="formTelefone" novalidate>
+
+      <!-- Campo oculto com ID do usuário -->
+      <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
+
+      <!-- Campo oculto com DDI fixo -->
+      <input type="hidden" name="ddi" value="+55">
+
       <div class="form-card">
         <div class="mb-4">
           <label class="form-label fw-bold">DDD</label>
@@ -45,6 +52,5 @@
 
   <%- include('../partials/footer') %>
   <script src="/js/shared/numeroTelefone.js"></script>
-
 </body>
 </html>

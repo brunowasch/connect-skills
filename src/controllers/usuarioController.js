@@ -9,11 +9,9 @@ exports.criarUsuario = async (req, res) => {
   }
 
   try {
-    // Criptografa a senha antes de salvar
     const salt = await bcrypt.genSalt(10);
     const senhaCriptografada = await bcrypt.hash(senha, salt);
 
-    // Salva no banco com a senha criptografada
     usuarioModel.cadastrar({ email, senha: senhaCriptografada, tipo }, (err, result) => {
       if (err) {
         console.error('Erro ao cadastrar no banco:', err);
