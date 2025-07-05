@@ -12,9 +12,9 @@
 <body>
   <%- include('../partials/header') %>
 
-  <main class="d-flex flex-column align-items-center justify-content-center px-3 text-center">
+  <main class="main-ajustado-header d-flex flex-column align-items-center justify-content-center px-3 text-center mb-3">
     <img src="/img/avatar.png" alt="Avatar provisório" width="150" height="150">
-    <h3 class="text-center mt-5 mb-3">Adicione uma foto de perfil</h3>
+    <h3 class="text-center mt-5 mb-4">Adicione uma foto de perfil</h3>
 
     <!-- FORMULÁRIO CORRETAMENTE POSICIONADO -->
     <form action="/empresa/foto-perfil" method="POST" id="formFoto" class="text-center" enctype="multipart/form-data">
@@ -28,10 +28,10 @@
 
       <!-- Upload e Captura -->
       <div class="d-flex gap-4 flex-wrap justify-content-center botoes-container" id="opcoesFoto">
-        <label class="upload-btn" for="upload"><i class="bi bi-file-earmark-arrow-up"></i>Fazer upload</label>
+        <label class="upload-btn" for="upload">📁 Fazer upload</label>
         <input type="file" id="upload" name="foto" accept="image/*" class="hidden-input">
 
-        <button type="button" class="upload-btn" id="tirarFotoBtn"><i class="bi bi-camera"></i>Capturar agora</button>
+        <button type="button" class="upload-btn" id="tirarFotoBtn">📷 Capturar agora</button>
       </div>
 
       <video id="video" autoplay playsinline style="display: none;"></video>

@@ -104,3 +104,6 @@ body {
   color: #1c6ed5;
   border-color: #1c6ed5;
 }
+.main-ajustado-header {
+  padding-top: 100px; /* Ajuste conforme altura real do header */
+}

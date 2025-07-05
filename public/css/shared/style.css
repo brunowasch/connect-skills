@@ -98,6 +98,10 @@ body {
     }
   }
 
+.main-ajustado-header {
+  padding-top: 100px; /* ou ajuste conforme a altura real do seu header */
+}
+
 footer {
   background-color: #2F84F5 !important;
 }
