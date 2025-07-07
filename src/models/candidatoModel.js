@@ -1,49 +1,79 @@
-// candidatoModel.js
 const db = require('../config/db');
 
-exports.inserirNomeSobrenome = (candidato, callback) => {
+/**
+ * Cria um novo candidato com nome, sobrenome e data de nascimento.
+ * @param {Object} candidato
+ * @param {number} candidato.usuario_id
+ * @param {string} candidato.nome
+ * @param {string} candidato.sobrenome
+ * @param {string} candidato.data_nascimento
+ */
+exports.criarCandidato = async ({ usuario_id, nome, sobrenome, data_nascimento }) => {
   const sql = `
     INSERT INTO candidato
     (usuario_id, nome, sobrenome, data_nascimento, pais, estado, cidade, telefone, foto_perfil)
     VALUES (?, ?, ?, ?, '', '', '', '', '')
   `;
-
-  db.query(sql, [
-    candidato.usuario_id,
-    candidato.nome,
-    candidato.sobrenome,
-    candidato.data_nascimento
-  ], callback);
+  const [resultado] = await db.query(sql, [usuario_id, nome, sobrenome, data_nascimento]);
+  return resultado;
 };
 
-exports.atualizarLocalizacao = (dados, callback) => {
+/**
+ * Atualiza a localização do candidato.
+ * @param {Object} dados
+ * @param {number} dados.usuario_id
+ * @param {string} dados.pais
+ * @param {string} dados.estado
+ * @param {string} dados.cidade
+ */
+exports.atualizarLocalizacao = async ({ usuario_id, pais, estado, cidade }) => {
   const sql = `
     UPDATE candidato
     SET pais = ?, estado = ?, cidade = ?
     WHERE usuario_id = ?
   `;
-  db.query(sql, [dados.pais, dados.estado, dados.cidade, dados.usuario_id], callback);
+  const [resultado] = await db.query(sql, [pais, estado, cidade, usuario_id]);
+  return resultado;
 };
 
-exports.atualizarTelefone = (dados, callback) => {
+/**
+ * Atualiza o telefone do candidato.
+ * @param {Object} dados
+ * @param {number} dados.usuario_id
+ * @param {string} dados.telefone
+ */
+exports.atualizarTelefone = async ({ usuario_id, telefone }) => {
   const sql = `
     UPDATE candidato
     SET telefone = ?
     WHERE usuario_id = ?
   `;
-  db.query(sql, [dados.telefone, dados.usuario_id], callback);
+  const [resultado] = await db.query(sql, [telefone, usuario_id]);
+  return resultado;
 };
 
-exports.atualizarFotoPerfil = (dados, callback) => {
+/**
+ * Atualiza a foto de perfil do candidato.
+ * @param {Object} dados
+ * @param {number} dados.usuario_id
+ * @param {string} dados.foto_perfil
+ */
+exports.atualizarFotoPerfil = async ({ usuario_id, foto_perfil }) => {
   const sql = `
     UPDATE candidato
     SET foto_perfil = ?
     WHERE usuario_id = ?
   `;
-  db.query(sql, [dados.foto_perfil, dados.usuario_id], callback);
+  const [resultado] = await db.query(sql, [foto_perfil, usuario_id]);
+  return resultado;
 };
 
-exports.buscarPorUsuarioId = (usuario_id, callback) => {
+/**
+ * Busca candidato e suas áreas de interesse pelo ID do usuário.
+ * @param {number} usuario_id
+ * @returns {Promise<Object|null>}
+ */
+exports.obterCandidatoPorUsuarioId = async (usuario_id) => {
   const sql = `
     SELECT 
       c.id,
@@ -63,35 +93,39 @@ exports.buscarPorUsuarioId = (usuario_id, callback) => {
     GROUP BY c.id
   `;
 
-  db.query(sql, [usuario_id], (err, resultados) => {
-    if (err) return callback(err);
-    if (resultados.length === 0) return callback(null, null);
+  const [resultados] = await db.query(sql, [usuario_id]);
+  if (resultados.length === 0) return null;
 
-    const candidato = resultados[0];
-    candidato.areas = candidato.areas ? candidato.areas.split(',') : [];
-
-    callback(null, candidato);
-  });
+  const candidato = resultados[0];
+  candidato.areas = candidato.areas ? candidato.areas.split(',') : [];
+  return candidato;
 };
 
-exports.salvarAreasDeInteresse = (candidato_id, areas, callback) => {
+/**
+ * Salva as áreas de interesse para o candidato.
+ * @param {Object} dados
+ * @param {number} dados.candidato_id
+ * @param {number[]} dados.areas
+ */
+exports.salvarAreasDeInteresse = async ({ candidato_id, areas }) => {
   const sql = `
     INSERT INTO candidato_area (candidato_id, area_interesse_id)
     VALUES ?
   `;
-
   const values = areas.map(areaId => [candidato_id, areaId]);
-  db.query(sql, [values], callback);
+  const [resultado] = await db.query(sql, [values]);
+  return resultado;
 };
 
-exports.buscarIdsDasAreas = (nomes, callback) => {
+/**
+ * Busca os IDs das áreas de interesse pelos nomes.
+ * @param {Object} dados
+ * @param {string[]} dados.nomes
+ * @returns {Promise<number[]>}
+ */
+exports.buscarIdsDasAreas = async ({ nomes }) => {
   const placeholders = nomes.map(() => '?').join(',');
   const sql = `SELECT id FROM area_interesse WHERE nome IN (${placeholders})`;
-
-  db.query(sql, nomes, (err, resultados) => {
-    if (err) return callback(err);
-    const ids = resultados.map(r => r.id);
-    callback(null, ids);
-  });
+  const [resultados] = await db.query(sql, nomes);
+  return resultados.map(r => r.id);
 };
-
