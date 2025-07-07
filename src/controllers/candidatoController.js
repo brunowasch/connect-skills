@@ -7,14 +7,22 @@ exports.telaNomeCandidato = (req, res) => {
   res.render('candidatos/cadastro-de-nome-e-sobrenome-candidatos', { usuario_id });
 };
 
-exports.salvarNomeCandidato = (req, res) => {
+exports.salvarNomeCandidato = async (req, res) => {
   const { usuario_id, nome, sobrenome, data_nascimento } = req.body;
-  const dados = { usuario_id, nome, sobrenome, data_nascimento };
 
-  candidatoModel.inserirNomeSobrenome(dados, (err) => {
-    if (err) return res.status(500).send("Erro ao salvar dados iniciais.");
+  try {
+    await candidatoModel.criarCandidato({
+      usuario_id: Number(usuario_id),
+      nome,
+      sobrenome,
+      data_nascimento: new Date(data_nascimento),
+    });
+
     res.redirect(`/candidato/localizacao?usuario_id=${usuario_id}`);
-  });
+  } catch (err) {
+    console.error('Erro ao salvar nome e sobrenome:', err);
+    res.status(500).send("Erro ao salvar dados iniciais.");
+  }
 };
 
 exports.telaLocalizacao = (req, res) => {
@@ -22,7 +30,7 @@ exports.telaLocalizacao = (req, res) => {
   res.render('candidatos/localizacao-login-candidato', { usuario_id });
 };
 
-exports.salvarLocalizacao = (req, res) => {
+exports.salvarLocalizacao = async (req, res) => {
   const { usuario_id, localidade } = req.body;
 
   if (!usuario_id || !localidade) {
@@ -35,10 +43,20 @@ exports.salvarLocalizacao = (req, res) => {
   }
 
   const [cidade, estado, pais] = partes;
-  candidatoModel.atualizarLocalizacao({ usuario_id, pais, estado, cidade }, (err) => {
-    if (err) return res.status(500).send('Erro ao salvar localização.');
+
+  try {
+    await candidatoModel.atualizarLocalizacao({
+      usuario_id: Number(usuario_id),
+      pais,
+      estado,
+      cidade,
+    });
+
     res.redirect(`/candidato/telefone?usuario_id=${usuario_id}`);
-  });
+  } catch (err) {
+    console.error('Erro ao salvar localização:', err);
+    res.status(500).send('Erro ao salvar localização.');
+  }
 };
 
 exports.telaTelefone = (req, res) => {
@@ -46,7 +64,7 @@ exports.telaTelefone = (req, res) => {
   res.render('candidatos/telefone', { usuario_id });
 };
 
-exports.salvarTelefone = (req, res) => {
+exports.salvarTelefone = async (req, res) => {
   const { usuario_id, ddi, ddd, telefone } = req.body;
 
   if (!usuario_id || !ddi || !ddd || !telefone) {
@@ -54,10 +72,14 @@ exports.salvarTelefone = (req, res) => {
   }
 
   const telefoneCompleto = `${ddi} (${ddd}) ${telefone}`;
-  candidatoModel.atualizarTelefone({ usuario_id, telefone: telefoneCompleto }, (err) => {
-    if (err) return res.status(500).send("Erro ao salvar telefone.");
+
+  try {
+    await candidatoModel.atualizarTelefone({ usuario_id: Number(usuario_id), telefone: telefoneCompleto });
     res.redirect(`/candidato/foto-perfil?usuario_id=${usuario_id}`);
-  });
+  } catch (err) {
+    console.error('Erro ao salvar telefone:', err);
+    res.status(500).send("Erro ao salvar telefone.");
+  }
 };
 
 exports.telaFotoPerfil = (req, res) => {
@@ -65,7 +87,7 @@ exports.telaFotoPerfil = (req, res) => {
   res.render('candidatos/foto-perfil', { usuario_id });
 };
 
-exports.salvarFotoPerfil = (req, res) => {
+exports.salvarFotoPerfil = async (req, res) => {
   const { usuario_id, fotoBase64 } = req.body;
 
   if (!fotoBase64 || !fotoBase64.startsWith('data:image')) {
@@ -85,10 +107,13 @@ exports.salvarFotoPerfil = (req, res) => {
   fs.writeFileSync(caminho, buffer);
   const caminhoFoto = `/uploads/${nomeArquivo}`;
 
-  candidatoModel.atualizarFotoPerfil({ usuario_id, foto_perfil: caminhoFoto }, (err) => {
-    if (err) return res.status(500).send("Erro ao salvar foto.");
+  try {
+    await candidatoModel.atualizarFotoPerfil({ usuario_id: Number(usuario_id), foto_perfil: caminhoFoto });
     res.redirect(`/candidato/areas?usuario_id=${usuario_id}`);
-  });
+  } catch (err) {
+    console.error('Erro ao salvar foto:', err);
+    res.status(500).send("Erro ao salvar foto.");
+  }
 };
 
 exports.telaSelecionarAreas = (req, res) => {
@@ -96,31 +121,31 @@ exports.telaSelecionarAreas = (req, res) => {
   res.render('candidatos/selecionar-areas', { usuario_id });
 };
 
-exports.salvarAreas = (req, res) => {
+exports.salvarAreas = async (req, res) => {
   const { usuario_id, areasSelecionadas } = req.body;
   const nomes = areasSelecionadas.split(',');
 
-  candidatoModel.buscarPorUsuarioId(usuario_id, (err, candidato) => {
-    if (err || !candidato) return res.status(500).send("Candidato não encontrado.");
+  try {
+    const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
+    if (!candidato) return res.status(404).send("Candidato não encontrado.");
 
-    candidatoModel.buscarIdsDasAreas(nomes, (err, ids) => {
-      if (err || ids.length !== 3) return res.status(500).send("Erro ao encontrar áreas.");
+    const ids = await candidatoModel.buscarIdsDasAreas({ nomes });
+    if (ids.length !== 3) return res.status(400).send("Selecione exatamente 3 áreas válidas.");
 
-      candidatoModel.salvarAreasDeInteresse(candidato.id, ids, (err) => {
-        if (err) return res.status(500).send("Erro ao salvar áreas de interesse.");
-
-        // ✅ Salva usuario_id na sessão para futuras requisições
-        req.session.usuario_id = usuario_id;
-
-        res.redirect(`/candidato/home`);
-      });
+    await candidatoModel.salvarAreasDeInteresse({
+      candidato_id: candidato.id,
+      areas: ids
     });
-  });
+
+    req.session.usuario_id = usuario_id;
+    res.redirect(`/candidato/home`);
+  } catch (err) {
+    console.error('Erro ao salvar áreas de interesse:', err);
+    res.status(500).send("Erro ao salvar áreas de interesse.");
+  }
 };
 
 exports.telaHomeCandidato = (req, res) => {
-  console.log('Sessão acessada em /candidato/home:', req.session);
-
   const usuario = req.session.usuario;
   if (!usuario) {
     console.warn('Sessão de candidato vazia, redirecionando para login.');
@@ -138,7 +163,6 @@ exports.telaHomeCandidato = (req, res) => {
 
 exports.mostrarPerfil = (req, res) => {
   const usuario = req.session.usuario;
-
   if (!usuario) {
     console.warn('Sessão de candidato não encontrada em /meu-perfil');
     return res.redirect('/login');
@@ -166,8 +190,6 @@ exports.mostrarPerfil = (req, res) => {
     usuario
   });
 };
-
-
 
 exports.mostrarVagas = (req, res) => {
   const vagas = req.session.vagasPublicadas || [];

@@ -8,231 +8,155 @@ exports.telaCadastro = (req, res) => {
 
 exports.cadastrarEmpresa = (req, res) => {
   const { email, senha } = req.body;
-
-  // Simulação: salvando dados iniciais na sessão
   req.session.empresa = { email, senha };
-
   res.redirect('/empresa/nome-empresa');
 };
 
-// Tela e salvamento do nome e descrição
 exports.telaNomeEmpresa = (req, res) => {
   const { usuario_id } = req.query;
-
-  if (!usuario_id) {
-    return res.status(400).send("ID do usuário não foi informado.");
-  }
-
+  if (!usuario_id) return res.status(400).send("ID do usuário não foi informado.");
   res.render('empresas/nome-empresa', { usuario_id });
 };
 
+exports.salvarNomeEmpresa = async (req, res) => {
+  try {
+    let { usuario_id, nome_empresa, descricao } = req.body;
 
-exports.salvarNomeEmpresa = (req, res) => {
-  const { usuario_id, nome_empresa, descricao } = req.body;
-
-  if (!usuario_id || !nome_empresa || !descricao) {
-    return res.status(400).send("Todos os campos são obrigatórios.");
-  }
-
-  const dados = {
-    usuario_id,
-    nome_empresa,
-    descricao
-  };
-
-  empresaModel.inserirNomeDescricao(dados, (err, result) => {
-    if (err) {
-      console.error("Erro ao inserir empresa:", err);
-      return res.status(500).send("Erro ao salvar os dados da empresa.");
+    if (!usuario_id || !nome_empresa || !descricao) {
+      return res.status(400).send("Todos os campos são obrigatórios.");
     }
 
-    // Redireciona para a próxima etapa com o ID preservado
+    usuario_id = parseInt(usuario_id, 10);
+    if (isNaN(usuario_id)) {
+      return res.status(400).send("ID do usuário inválido.");
+    }
+
+    const empresaExistente = await empresaModel.obterEmpresaPorUsuarioId(usuario_id);
+    if (empresaExistente) {
+      return res.status(400).send("Empresa já cadastrada para esse usuário.");
+    }
+
+    await empresaModel.criarEmpresa({ usuario_id, nome_empresa, descricao });
     res.redirect(`/empresa/localizacao?usuario_id=${usuario_id}`);
-  });
+  } catch (err) {
+    console.error("Erro ao inserir empresa:", err);
+    res.status(500).send("Erro ao salvar os dados da empresa.");
+  }
 };
 
-
-// Tela e salvamento da localização
-// Tela de localização (GET)
 exports.telaLocalizacao = (req, res) => {
   const { usuario_id } = req.query;
-
-  if (!usuario_id) {
-    return res.status(400).send("ID do usuário não informado.");
-  }
-
+  if (!usuario_id) return res.status(400).send("ID do usuário não informado.");
   res.render('empresas/localizacao-login-juridica', { usuario_id });
 };
 
+exports.salvarLocalizacao = async (req, res) => {
+  try {
+    let { usuario_id, localidade } = req.body;
 
-// Salvar localização (POST)
-exports.salvarLocalizacao = (req, res) => {
-  const { usuario_id, localidade } = req.body;
+    if (!usuario_id || !localidade) return res.status(400).send('Informe sua localidade.');
 
-  if (!usuario_id || !localidade) {
-    return res.status(400).send('Informe sua localidade para continuar.');
-  }
+    usuario_id = parseInt(usuario_id, 10);
+    if (isNaN(usuario_id)) return res.status(400).send('ID do usuário inválido.');
 
-  // Quebra a string em partes: cidade, estado, país
-  const partes = localidade.split(',').map(p => p.trim());
+    const partes = localidade.split(',').map(p => p.trim());
+    if (partes.length < 3) return res.status(400).send('Formato inválido. Use: Cidade, Estado, País.');
 
-  if (partes.length < 3) {
-    return res.status(400).send('Formato de localidade inválido. Use: Cidade, Estado, País.');
-  }
-
-  const [cidade, estado, pais] = partes;
-
-  empresaModel.atualizarLocalizacao({ usuario_id, pais, estado, cidade }, (err) => {
-    if (err) {
-      console.error('Erro ao salvar localização:', err);
-      return res.status(500).send('Erro ao salvar localização.');
-    }
+    const [cidade, estado, pais] = partes;
+    await empresaModel.atualizarLocalizacao({ usuario_id, pais, estado, cidade });
 
     res.redirect(`/empresa/telefone?usuario_id=${usuario_id}`);
-  });
+  } catch (err) {
+    console.error('Erro ao salvar localização:', err);
+    res.status(500).send('Erro ao salvar localização.');
+  }
 };
 
-// Tela e salvamento do telefone
 exports.telaTelefone = (req, res) => {
   const { usuario_id } = req.query;
-
-  if (!usuario_id) {
-    return res.status(400).send("ID do usuário não informado.");
-  }
-
+  if (!usuario_id) return res.status(400).send("ID do usuário não informado.");
   res.render('empresas/telefone-empresa', { usuario_id });
 };
 
+exports.salvarTelefone = async (req, res) => {
+  try {
+    let { usuario_id, ddi, ddd, telefone } = req.body;
 
+    if (!usuario_id || !ddi || !ddd || !telefone)
+      return res.status(400).send("Preencha todos os campos de telefone.");
 
-exports.salvarTelefone = (req, res) => {
+    usuario_id = parseInt(usuario_id, 10);
+    if (isNaN(usuario_id)) return res.status(400).send("ID do usuário inválido.");
 
-  const { usuario_id, ddi, ddd, telefone } = req.body;
-
-  if (!usuario_id || !ddi || !ddd || !telefone) {
-    return res.status(400).send("Preencha todos os campos de telefone.");
-  }
-
-  const telefoneCompleto = `${ddi} (${ddd}) ${telefone}`;
-
-  empresaModel.atualizarTelefone({ usuario_id, telefone: telefoneCompleto }, (err) => {
-    if (err) {
-      console.error("Erro ao salvar telefone:", err);
-      return res.status(500).send("Erro ao salvar telefone.");
-    }
+    const telefoneCompleto = `${ddi} (${ddd}) ${telefone}`;
+    await empresaModel.atualizarTelefone({ usuario_id, telefone: telefoneCompleto });
 
     res.redirect(`/empresa/foto-perfil?usuario_id=${usuario_id}`);
-  });
+  } catch (err) {
+    console.error("Erro ao salvar telefone:", err);
+    res.status(500).send("Erro ao salvar telefone.");
+  }
 };
-
-
-
-
-// Tela da foto (logo da empresa)
 
 exports.telaFotoPerfil = (req, res) => {
   const { usuario_id } = req.query;
-
-  if (!usuario_id) {
-    return res.status(400).send("ID do usuário não informado.");
-  }
-
+  if (!usuario_id) return res.status(400).send("ID do usuário não informado.");
   res.render('empresas/foto-perfil-empresa', { usuario_id });
 };
 
-// Salva imagem como base64 ou arquivo na sessão
-exports.salvarFotoPerfil = (req, res) => {
-  const { usuario_id, fotoBase64 } = req.body;
+exports.salvarFotoPerfil = async (req, res) => {
+  try {
+    let { usuario_id, fotoBase64 } = req.body;
+    if (!usuario_id) return res.status(400).send('ID do usuário não fornecido.');
 
-  if (!usuario_id) {
-    return res.status(400).send('ID do usuário não fornecido.');
-  }
+    usuario_id = parseInt(usuario_id, 10);
+    if (isNaN(usuario_id)) return res.status(400).send('ID do usuário inválido.');
 
-  let caminhoFoto = '';
-
-  if (req.file) {
-    // Upload tradicional
-    caminhoFoto = `/uploads/${req.file.filename}`;
-  } else if (fotoBase64 && fotoBase64.startsWith('data:image')) {
-    // Foto tirada da câmera (base64)
-    const base64Data = fotoBase64.replace(/^data:image\/\w+;base64,/, '');
-    const buffer = Buffer.from(base64Data, 'base64');
-    const nomeArquivo = `${Date.now()}-camera.png`;
-
-    // Caminho correto: connect-skills/public/uploads
-    const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    let caminhoFoto = '';
+    if (req.file) {
+      caminhoFoto = `/uploads/${req.file.filename}`;
+    } else if (fotoBase64?.startsWith('data:image')) {
+      const base64Data = fotoBase64.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      const nomeArquivo = `${Date.now()}-camera.png`;
+      const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
+      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+      fs.writeFileSync(path.join(uploadDir, nomeArquivo), buffer);
+      caminhoFoto = `/uploads/${nomeArquivo}`;
+    } else {
+      return res.status(400).send("Nenhuma imagem recebida.");
     }
 
-    const caminho = path.join(uploadDir, nomeArquivo);
-    fs.writeFileSync(caminho, buffer);
-    caminhoFoto = `/uploads/${nomeArquivo}`;
-  } else {
-    return res.status(400).send("Nenhuma imagem recebida.");
+    await empresaModel.atualizarFotoPerfil({ usuario_id, foto_perfil: caminhoFoto });
+    const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario_id);
+    if (!empresa) return res.redirect('/login');
+    req.session.empresa = empresa;
+    res.redirect('/empresa/home');
+  } catch (err) {
+    console.error("Erro ao salvar foto:", err);
+    res.status(500).send("Erro ao salvar foto.");
   }
-
-  // Atualiza o caminho da imagem no banco de dados
-  empresaModel.atualizarFotoPerfil({ usuario_id, foto_perfil: caminhoFoto }, (err) => {
-    if (err) {
-      console.error("Erro ao salvar foto no banco:", err);
-      return res.status(500).send("Erro ao salvar foto.");
-    }
-
-    // Recarrega empresa completa na sessão
-    empresaModel.buscarPorUsuarioId(usuario_id, (err, empresa) => {
-      if (err || !empresa) {
-        return res.redirect('/login');
-      }
-
-      req.session.empresa = empresa;
-      res.redirect('/empresa/home');
-    });
-  });
 };
 
-
-
-// Página inicial da empresa (dashboard)
 exports.homeEmpresa = (req, res) => {
   res.render('empresas/home-empresas');
 };
 
-// Tela do perfil da empresa
 exports.telaPerfilEmpresa = (req, res) => {
   const empresa = req.session.empresa;
-  const vagasDaEmpresa = (global.vagasPublicadas || []).filter(vaga =>
-    vaga.empresa.nome === req.session.empresa.nome
-  );
-  if (!empresa) {
-    return res.redirect('/login');
-  }
-
-  res.render('empresas/meu-perfil', {
-    empresa,
-    vagasPublicadas: vagasDaEmpresa
-  });
+  if (!empresa) return res.redirect('/login');
+  const vagasDaEmpresa = (global.vagasPublicadas || []).filter(vaga => vaga.empresa.nome === empresa.nome);
+  res.render('empresas/meu-perfil', { empresa, vagasPublicadas: vagasDaEmpresa });
 };
 
-// Publicação da Vaga
 exports.telaPublicarVaga = (req, res) => {
   res.render('empresas/publicar-vaga');
 };
 
 exports.salvarVaga = (req, res) => {
-  console.log('========== RECEBENDO POST DE PUBLICAÇÃO ==========');
-  console.log('req.body:', req.body);
-
   const { cargo, tipo, descricao, areasSelecionadas, habilidadesSelecionadas } = req.body;
+  if (!req.session.empresa) return res.redirect('/login');
 
-  // Garante que exista a empresa na sessão
-  if (!req.session.empresa) {
-    return res.redirect('/login');
-  }
-
-
-
-  // Cria uma nova vaga e adiciona ao array da sessão
   const novaVaga = {
     id: Date.now(),
     empresa: {
@@ -249,28 +173,23 @@ exports.salvarVaga = (req, res) => {
 
   global.vagasPublicadas = global.vagasPublicadas || [];
   global.vagasPublicadas.push(novaVaga);
-  
-
   res.redirect('/empresa/meu-perfil');
 };
+
 exports.mostrarPerfil = (req, res) => {
   const empresa = req.session.empresa;
-
   if (!empresa) return res.redirect('/login');
-
   res.render('empresas/meu-perfil', {
     empresa,
     nome: empresa.nome_empresa,
-    vagasPublicadas: req.session.vagasPublicadas || [],
+    vagasPublicadas: global.vagasPublicadas || [],
     activePage: 'perfil'
   });
 };
 
 exports.telaEditarPerfil = (req, res) => {
   const empresa = req.session.empresa;
-
   if (!empresa) return res.redirect('/login');
-
   res.render('empresas/editar-empresa', {
     nome: empresa.nome,
     descricao: empresa.descricao,
@@ -282,16 +201,9 @@ exports.telaEditarPerfil = (req, res) => {
 
 exports.salvarEdicaoPerfil = (req, res) => {
   const { nome, descricao, telefone, localidade, fotoBase64 } = req.body;
+  Object.assign(req.session.empresa, { nome, descricao, telefone, localidade });
 
-  // Atualiza os dados da sessão
-  Object.assign(req.session.empresa, {
-    nome,
-    descricao,
-    telefone,
-    localidade
-  });
-
-     if (fotoBase64 && fotoBase64.startsWith('data:image')) {
+  if (fotoBase64?.startsWith('data:image')) {
     const matches = fotoBase64.match(/^data:image\/(\w+);base64,(.+)$/);
     const ext = matches[1];
     const data = matches[2];
@@ -310,11 +222,7 @@ exports.salvarEdicaoPerfil = (req, res) => {
 
 exports.mostrarVagas = (req, res) => {
   const empresa = req.session.empresa;
-  const vagas = (global.vagasPublicadas || []).filter(vaga =>
-    vaga.empresa.nome === empresa.nome
-  );
-
-console.log("DADOS NA SESSÃO EMPRESA:", empresa);
+  if (!empresa) return res.redirect('/login');
+  const vagas = (global.vagasPublicadas || []).filter(v => v.empresa.nome === empresa.nome);
   res.render('empresas/vagas', { vagas });
 };
-

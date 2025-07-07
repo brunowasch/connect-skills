@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  @@map("usuario")
+
+  id               Int      @id @default(autoincrement())
+  email            String   @unique
+  senha            String
+  tipo             String   // 'candidato' | 'empresa'
+  email_verificado Boolean  @default(false)
+
+  candidato        Candidato?
+  empresa          Empresa?
+}
+
+model Empresa {
+  @@map("empresa")
+
+  id           Int     @id @default(autoincrement())
+  usuario_id   Int     @unique
+  nome_empresa String
+  descricao    String
+  telefone     String?
+  pais         String?
+  estado       String?
+  cidade       String?
+  foto_perfil  String?
+
+  usuario      Usuario @relation(fields: [usuario_id], references: [id])
+}
+
+model Candidato {
+  @@map("candidato")
+
+  id              Int     @id @default(autoincrement())
+  usuario_id      Int     @unique
+  nome            String?
+  sobrenome       String?
+  data_nascimento DateTime?
+  pais            String?
+  estado          String?
+  cidade          String?
+  telefone        String?
+  foto_perfil     String?
+
+  usuario         Usuario        @relation(fields: [usuario_id], references: [id])
+  areas           CandidatoArea[]
+}
+
+model AreaInteresse {
+  @@map("area_interesse")
+
+  id          Int              @id @default(autoincrement())
+  nome        String           @unique
+  candidatos  CandidatoArea[]
+}
+
+model CandidatoArea {
+  @@map("candidato_area")
+
+  candidato_id        Int
+  area_interesse_id   Int
+
+  candidato           Candidato       @relation(fields: [candidato_id], references: [id])
+  area_interesse      AreaInteresse   @relation(fields: [area_interesse_id], references: [id])
+
+  @@id([candidato_id, area_interesse_id])
+}

@@ -1,0 +1,49 @@
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+async function main() {
+  const areas = [
+    'Administração',
+    'Agropecuária / Agricultura',
+    'Comunicação / Jornalismo',
+    'Construção Civil',
+    'Design / Criação',
+    'Educação / Ensino',
+    'Engenharia',
+    'Eventos / Produção Cultural',
+    'Finanças / Contabilidade',
+    'Gastronomia / Alimentação',
+    'Hotelaria / Turismo',
+    'Jurídico',
+    'Logística',
+    'Marketing',
+    'Mecânica / Manutenção',
+    'Moda / Estilo',
+    'Meio Ambiente',
+    'Produção / Operacional',
+    'Recursos Humanos (RH)',
+    'Saúde',
+    'Segurança / Vigilância',
+    'Transporte / Motorista',
+    'Tecnologia da Informação'
+  ];
+
+  for (const nome of areas) {
+    await prisma.areaInteresse.upsert({
+      where: { nome },
+      update: {}, // se já existir, não faz nada
+      create: { nome },
+    });
+  }
+
+  console.log('Áreas de interesse inseridas com sucesso!');
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
