@@ -9,12 +9,12 @@ async function main() {
   await prisma.empresa.deleteMany();
   await prisma.usuario.deleteMany();
 
-  console.log('✅ Todos os dados foram apagados com sucesso.');
+  console.log('odos os dados foram apagados com sucesso.');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Erro ao apagar os dados:', e);
+    console.error('Erro ao apagar os dados:', e);
   })
   .finally(async () => {
     await prisma.$disconnect();
