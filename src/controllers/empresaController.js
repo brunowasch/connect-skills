@@ -1,4 +1,4 @@
-// controllers/empresaController.js (refatorado com boas práticas)
+// controllers/empresaController.js
 const fs = require('fs');
 const path = require('path');
 const empresaModel = require('../models/empresaModel');
@@ -9,7 +9,7 @@ exports.telaCadastro = (req, res) => {
 
 exports.cadastrarEmpresa = (req, res) => {
   const { email, senha } = req.body;
-  req.session.empresa = { email, senha }; // simulação
+  req.session.empresa = { email, senha };
   res.redirect('/empresa/nome-empresa');
 };
 
@@ -21,9 +21,21 @@ exports.telaNomeEmpresa = (req, res) => {
 
 exports.salvarNomeEmpresa = async (req, res) => {
   try {
-    const { usuario_id, nome_empresa, descricao } = req.body;
-    if (!usuario_id || !nome_empresa || !descricao)
+    let { usuario_id, nome_empresa, descricao } = req.body;
+
+    if (!usuario_id || !nome_empresa || !descricao) {
       return res.status(400).send("Todos os campos são obrigatórios.");
+    }
+
+    usuario_id = parseInt(usuario_id, 10);
+    if (isNaN(usuario_id)) {
+      return res.status(400).send("ID do usuário inválido.");
+    }
+
+    const empresaExistente = await empresaModel.obterEmpresaPorUsuarioId(usuario_id);
+    if (empresaExistente) {
+      return res.status(400).send("Empresa já cadastrada para esse usuário.");
+    }
 
     await empresaModel.criarEmpresa({ usuario_id, nome_empresa, descricao });
     res.redirect(`/empresa/localizacao?usuario_id=${usuario_id}`);
@@ -41,13 +53,14 @@ exports.telaLocalizacao = (req, res) => {
 
 exports.salvarLocalizacao = async (req, res) => {
   try {
-    const { usuario_id, localidade } = req.body;
-    if (!usuario_id || !localidade)
-      return res.status(400).send('Informe sua localidade para continuar.');
+    let { usuario_id, localidade } = req.body;
+
+    if (!usuario_id || !localidade) return res.status(400).send('Informe sua localidade.');
+    usuario_id = parseInt(usuario_id, 10);
+    if (isNaN(usuario_id)) return res.status(400).send('ID do usuário inválido.');
 
     const partes = localidade.split(',').map(p => p.trim());
-    if (partes.length < 3)
-      return res.status(400).send('Formato inválido. Use: Cidade, Estado, País.');
+    if (partes.length < 3) return res.status(400).send('Formato inválido. Use: Cidade, Estado, País.');
 
     const [cidade, estado, pais] = partes;
     await empresaModel.atualizarLocalizacao({ usuario_id, pais, estado, cidade });
@@ -66,12 +79,17 @@ exports.telaTelefone = (req, res) => {
 
 exports.salvarTelefone = async (req, res) => {
   try {
-    const { usuario_id, ddi, ddd, telefone } = req.body;
+    let { usuario_id, ddi, ddd, telefone } = req.body;
+
     if (!usuario_id || !ddi || !ddd || !telefone)
       return res.status(400).send("Preencha todos os campos de telefone.");
 
+    usuario_id = parseInt(usuario_id, 10);
+    if (isNaN(usuario_id)) return res.status(400).send("ID do usuário inválido.");
+
     const telefoneCompleto = `${ddi} (${ddd}) ${telefone}`;
     await empresaModel.atualizarTelefone({ usuario_id, telefone: telefoneCompleto });
+
     res.redirect(`/empresa/foto-perfil?usuario_id=${usuario_id}`);
   } catch (err) {
     console.error("Erro ao salvar telefone:", err);
@@ -87,8 +105,11 @@ exports.telaFotoPerfil = (req, res) => {
 
 exports.salvarFotoPerfil = async (req, res) => {
   try {
-    const { usuario_id, fotoBase64 } = req.body;
+    let { usuario_id, fotoBase64 } = req.body;
     if (!usuario_id) return res.status(400).send('ID do usuário não fornecido.');
+
+    usuario_id = parseInt(usuario_id, 10);
+    if (isNaN(usuario_id)) return res.status(400).send('ID do usuário inválido.');
 
     let caminhoFoto = '';
     if (req.file) {
@@ -111,7 +132,7 @@ exports.salvarFotoPerfil = async (req, res) => {
     req.session.empresa = empresa;
     res.redirect('/empresa/home');
   } catch (err) {
-    console.error("Erro ao salvar foto no banco:", err);
+    console.error("Erro ao salvar foto:", err);
     res.status(500).send("Erro ao salvar foto.");
   }
 };
@@ -179,7 +200,6 @@ exports.telaEditarPerfil = (req, res) => {
 
 exports.salvarEdicaoPerfil = (req, res) => {
   const { nome, descricao, telefone, localidade, fotoBase64 } = req.body;
-
   Object.assign(req.session.empresa, { nome, descricao, telefone, localidade });
 
   if (fotoBase64?.startsWith('data:image')) {

@@ -1,17 +1,24 @@
 // models/usuarioModel.js
-const db = require('../config/db');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 /**
  * Cadastra um novo usuário.
  * @param {Object} dados
  * @param {string} dados.email
  * @param {string} dados.senha
- * @param {string} dados.tipo
+ * @param {string} dados.tipo - 'empresa' ou 'candidato'
+ * @returns {Promise<Object>}
  */
 exports.cadastrar = async ({ email, senha, tipo }) => {
-  const sql = 'INSERT INTO usuario (email, senha, tipo) VALUES (?, ?, ?)';
-  const [resultado] = await db.query(sql, [email, senha, tipo]);
-  return resultado;
+  return await prisma.usuario.create({
+    data: {
+      email,
+      senha,
+      tipo,
+      email_verificado: false
+    }
+  });
 };
 
 /**
@@ -20,16 +27,21 @@ exports.cadastrar = async ({ email, senha, tipo }) => {
  * @returns {Promise<Object|null>}
  */
 exports.buscarPorEmail = async (email) => {
-  const [linhas] = await db.query('SELECT * FROM usuario WHERE email = ?', [email]);
-  return linhas[0] || null;
+  return await prisma.usuario.findUnique({
+    where: { email }
+  });
 };
 
 /**
- * Marca o e-mail como verificado para um usuário.
- * @param {number} id
+ * Marca o e-mail como verificado.
+ * @param {number} usuario_id
+ * @returns {Promise<void>}
  */
-exports.marcarEmailComoVerificado = async (id) => {
-  await db.query('UPDATE usuario SET email_verificado = 1 WHERE id = ?', [id]);
+exports.marcarEmailComoVerificado = async (usuario_id) => {
+  await prisma.usuario.update({
+    where: { id: usuario_id },
+    data: { email_verificado: true }
+  });
 };
 
 /**
@@ -38,6 +50,7 @@ exports.marcarEmailComoVerificado = async (id) => {
  * @returns {Promise<Object|null>}
  */
 exports.buscarPorId = async (id) => {
-  const [linhas] = await db.query('SELECT * FROM usuario WHERE id = ?', [id]);
-  return linhas[0] || null;
+  return await prisma.usuario.findUnique({
+    where: { id }
+  });
 };

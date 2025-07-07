@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "delete-user": "ts-node scripts/deleteUsuario.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^6.11.1",
     "bcryptjs": "^3.0.2",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
@@ -29,5 +31,10 @@
   "bugs": {
     "url": "https://github.com/brunowasch/connect-skills/issues"
   },
-  "homepage": "https://github.com/brunowasch/connect-skills#readme"
+  "homepage": "https://github.com/brunowasch/connect-skills#readme",
+  "devDependencies": {
+    "prisma": "^6.11.1"
+    
+  }
+  
 }

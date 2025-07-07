@@ -16,22 +16,25 @@
     <img src="/img/avatar.png" alt="Avatar provisório" width="150" height="150">
     <h3 class="text-center mt-5 mb-4">Adicione uma foto de perfil</h3>
 
-    <!-- FORMULÁRIO CORRETAMENTE POSICIONADO -->
     <form action="/empresa/foto-perfil" method="POST" id="formFoto" class="text-center" enctype="multipart/form-data">
 
-      <!-- Campo oculto necessário para persistência -->
+      <!-- Campos ocultos -->
       <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
       <input type="hidden" name="fotoBase64" id="fotoBase64">
 
       <!-- Prévia da Foto -->
       <img src="/img/avatar.png" alt="Prévia da Foto" id="previewFoto" class="foto-icon">
 
-      <!-- Upload e Captura -->
+      <!-- Opções de envio -->
       <div class="d-flex gap-4 flex-wrap justify-content-center botoes-container" id="opcoesFoto">
-        <label class="upload-btn" for="upload">📁 Fazer upload</label>
+        <label class="upload-btn" for="upload">
+          <i class="bi bi-upload me-1"></i> Fazer upload
+        </label>
         <input type="file" id="upload" name="foto" accept="image/*" class="hidden-input">
 
-        <button type="button" class="upload-btn" id="tirarFotoBtn">📷 Capturar agora</button>
+        <button type="button" class="upload-btn" id="tirarFotoBtn">
+          <i class="bi bi-camera me-1"></i> Capturar agora
+        </button>
       </div>
 
       <video id="video" autoplay playsinline style="display: none;"></video>
@@ -42,10 +45,14 @@
         Por favor, selecione ou tire uma foto antes de continuar.
       </p>
 
-      <!-- Ações após a foto -->
+      <!-- Ações após captura -->
       <div id="acoesFoto" class="acoesFoto flex-wrap justify-content-center gap-3 mt-4" style="display: none;">
-        <button type="button" class="btn-acao btn-cancelar" id="outraFoto">Tirar outra</button>
-        <button type="submit" class="btn-acao btn-confirmar">Confirmar e continuar</button>
+        <button type="button" class="btn-acao btn-cancelar" id="outraFoto">
+          <i class="bi bi-arrow-clockwise me-1"></i> Tirar outra
+        </button>
+        <button type="submit" class="btn-acao btn-confirmar">
+          <i class="bi bi-check-circle me-1"></i> Confirmar e continuar
+        </button>
       </div>
     </form>
   </main>

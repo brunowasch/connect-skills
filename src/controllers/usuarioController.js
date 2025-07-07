@@ -1,4 +1,3 @@
-// controllers/usuarioController.js (refatorado com boas práticas e alinhado aos models)
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
@@ -31,11 +30,14 @@ exports.criarUsuario = async (req, res) => {
   if (!email || !senha || !tipo) return res.status(400).send('Preencha todos os campos.');
 
   try {
+    const usuarioExistente = await usuarioModel.buscarPorEmail(email);
+    if (usuarioExistente) return res.status(400).send('Este e-mail já está cadastrado.');
+
     const salt = await bcrypt.genSalt(10);
     const senhaCriptografada = await bcrypt.hash(senha, salt);
 
     const resultado = await usuarioModel.cadastrar({ email, senha: senhaCriptografada, tipo });
-    const usuario_id = resultado.insertId;
+    const usuario_id = resultado.id || resultado.insertId;
 
     await enviarEmailVerificacao(email, usuario_id);
     res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(email)}`);
@@ -88,16 +90,12 @@ exports.login = async (req, res) => {
         areas: candidato.areas || []
       };
 
-      req.session.save(err => {
-        if (err) {
-          console.error('Erro ao salvar sessão do candidato:', err);
-          return res.redirect('/login');
-        }
+      return req.session.save(() => {
         res.redirect('/candidato/home');
       });
     }
   } catch (err) {
-    console.error('Erro durante o login:', err);
+    console.error('Erro ao realizar login:', err);
     res.status(500).send('Erro ao realizar login.');
   }
 };

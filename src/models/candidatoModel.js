@@ -1,21 +1,28 @@
-const db = require('../config/db');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 /**
- * Cria um novo candidato com nome, sobrenome e data de nascimento.
- * @param {Object} candidato
- * @param {number} candidato.usuario_id
- * @param {string} candidato.nome
- * @param {string} candidato.sobrenome
- * @param {string} candidato.data_nascimento
+ * Cria um novo candidato com dados básicos.
+ * @param {Object} dados
+ * @param {number} dados.usuario_id
+ * @param {string} dados.nome
+ * @param {string} dados.sobrenome
+ * @param {string|Date} dados.data_nascimento
  */
 exports.criarCandidato = async ({ usuario_id, nome, sobrenome, data_nascimento }) => {
-  const sql = `
-    INSERT INTO candidato
-    (usuario_id, nome, sobrenome, data_nascimento, pais, estado, cidade, telefone, foto_perfil)
-    VALUES (?, ?, ?, ?, '', '', '', '', '')
-  `;
-  const [resultado] = await db.query(sql, [usuario_id, nome, sobrenome, data_nascimento]);
-  return resultado;
+  return await prisma.candidato.create({
+    data: {
+      usuario_id,
+      nome,
+      sobrenome,
+      data_nascimento,
+      pais: '',
+      estado: '',
+      cidade: '',
+      telefone: '',
+      foto_perfil: ''
+    }
+  });
 };
 
 /**
@@ -27,13 +34,10 @@ exports.criarCandidato = async ({ usuario_id, nome, sobrenome, data_nascimento }
  * @param {string} dados.cidade
  */
 exports.atualizarLocalizacao = async ({ usuario_id, pais, estado, cidade }) => {
-  const sql = `
-    UPDATE candidato
-    SET pais = ?, estado = ?, cidade = ?
-    WHERE usuario_id = ?
-  `;
-  const [resultado] = await db.query(sql, [pais, estado, cidade, usuario_id]);
-  return resultado;
+  return await prisma.candidato.update({
+    where: { usuario_id },
+    data: { pais, estado, cidade }
+  });
 };
 
 /**
@@ -43,13 +47,10 @@ exports.atualizarLocalizacao = async ({ usuario_id, pais, estado, cidade }) => {
  * @param {string} dados.telefone
  */
 exports.atualizarTelefone = async ({ usuario_id, telefone }) => {
-  const sql = `
-    UPDATE candidato
-    SET telefone = ?
-    WHERE usuario_id = ?
-  `;
-  const [resultado] = await db.query(sql, [telefone, usuario_id]);
-  return resultado;
+  return await prisma.candidato.update({
+    where: { usuario_id },
+    data: { telefone }
+  });
 };
 
 /**
@@ -59,73 +60,69 @@ exports.atualizarTelefone = async ({ usuario_id, telefone }) => {
  * @param {string} dados.foto_perfil
  */
 exports.atualizarFotoPerfil = async ({ usuario_id, foto_perfil }) => {
-  const sql = `
-    UPDATE candidato
-    SET foto_perfil = ?
-    WHERE usuario_id = ?
-  `;
-  const [resultado] = await db.query(sql, [foto_perfil, usuario_id]);
-  return resultado;
+  return await prisma.candidato.update({
+    where: { usuario_id },
+    data: { foto_perfil }
+  });
 };
 
 /**
- * Busca candidato e suas áreas de interesse pelo ID do usuário.
+ * Busca candidato com suas áreas de interesse pelo ID do usuário.
  * @param {number} usuario_id
  * @returns {Promise<Object|null>}
  */
 exports.obterCandidatoPorUsuarioId = async (usuario_id) => {
-  const sql = `
-    SELECT 
-      c.id,
-      c.nome,
-      c.sobrenome,
-      c.data_nascimento,
-      c.telefone,
-      c.foto_perfil,
-      c.cidade,
-      c.estado,
-      c.pais,
-      GROUP_CONCAT(ai.nome) AS areas
-    FROM candidato c
-    LEFT JOIN candidato_area ca ON ca.candidato_id = c.id
-    LEFT JOIN area_interesse ai ON ai.id = ca.area_interesse_id
-    WHERE c.usuario_id = ?
-    GROUP BY c.id
-  `;
+  const candidato = await prisma.candidato.findUnique({
+    where: { usuario_id },
+    include: {
+      areas: {
+        include: {
+          area_interesse: true
+        }
+      }
+    }
+  });
 
-  const [resultados] = await db.query(sql, [usuario_id]);
-  if (resultados.length === 0) return null;
+  if (!candidato) return null;
 
-  const candidato = resultados[0];
-  candidato.areas = candidato.areas ? candidato.areas.split(',') : [];
-  return candidato;
+  return {
+    ...candidato,
+    areas: candidato.areas.map((relacao) => relacao.area_interesse.nome)
+  };
 };
 
 /**
- * Salva as áreas de interesse para o candidato.
+ * Salva as áreas de interesse para um candidato.
  * @param {Object} dados
  * @param {number} dados.candidato_id
  * @param {number[]} dados.areas
  */
 exports.salvarAreasDeInteresse = async ({ candidato_id, areas }) => {
-  const sql = `
-    INSERT INTO candidato_area (candidato_id, area_interesse_id)
-    VALUES ?
-  `;
-  const values = areas.map(areaId => [candidato_id, areaId]);
-  const [resultado] = await db.query(sql, [values]);
-  return resultado;
+  const data = areas.map(area_interesse_id => ({
+    candidato_id,
+    area_interesse_id
+  }));
+
+  return await prisma.candidatoArea.createMany({ data });
 };
 
 /**
- * Busca os IDs das áreas de interesse pelos nomes.
+ * Busca os IDs das áreas com base em seus nomes.
  * @param {Object} dados
  * @param {string[]} dados.nomes
  * @returns {Promise<number[]>}
  */
 exports.buscarIdsDasAreas = async ({ nomes }) => {
-  const placeholders = nomes.map(() => '?').join(',');
-  const sql = `SELECT id FROM area_interesse WHERE nome IN (${placeholders})`;
-  const [resultados] = await db.query(sql, nomes);
+  const resultados = await prisma.areaInteresse.findMany({
+    where: {
+      nome: {
+        in: nomes
+      }
+    },
+    select: {
+      id: true
+    }
+  });
+
   return resultados.map(r => r.id);
 };
