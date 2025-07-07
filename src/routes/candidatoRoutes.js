@@ -3,7 +3,7 @@ const router = express.Router();
 const candidatoController = require('../controllers/candidatoController');
 const upload = require('../config/multer');
 
-// ETAPAS DO CADASTRO (GET + POST)
+// Cadastro passo a passo
 router.get('/cadastro/nome', candidatoController.telaNomeCandidato);
 router.post('/cadastro/nome', candidatoController.salvarNomeCandidato);
 
@@ -19,7 +19,7 @@ router.post('/foto-perfil', upload.single('fotoUpload'), candidatoController.sal
 router.get('/areas', candidatoController.telaSelecionarAreas);
 router.post('/areas', candidatoController.salvarAreas);
 
-// HOME, PERFIL, VAGAS
+// Acesso autenticado
 router.get('/home', candidatoController.telaHomeCandidato);
 router.get('/meu-perfil', candidatoController.mostrarPerfil);
 router.get('/vagas', candidatoController.mostrarVagas);
