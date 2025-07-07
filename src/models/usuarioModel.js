@@ -1,3 +1,4 @@
+// models/usuarioModel.js
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -36,7 +37,7 @@ exports.buscarPorEmail = async (email) => {
  * @param {number} usuario_id
  * @returns {Promise<void>}
  */
-exports.verificarEmail = async (usuario_id) => {
+exports.marcarEmailComoVerificado = async (usuario_id) => {
   await prisma.usuario.update({
     where: { id: usuario_id },
     data: { email_verificado: true }

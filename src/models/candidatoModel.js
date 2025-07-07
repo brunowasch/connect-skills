@@ -3,6 +3,11 @@ const prisma = new PrismaClient();
 
 /**
  * Cria um novo candidato com dados básicos.
+ * @param {Object} dados
+ * @param {number} dados.usuario_id
+ * @param {string} dados.nome
+ * @param {string} dados.sobrenome
+ * @param {string|Date} dados.data_nascimento
  */
 exports.criarCandidato = async ({ usuario_id, nome, sobrenome, data_nascimento }) => {
   return await prisma.candidato.create({
@@ -22,6 +27,11 @@ exports.criarCandidato = async ({ usuario_id, nome, sobrenome, data_nascimento }
 
 /**
  * Atualiza a localização do candidato.
+ * @param {Object} dados
+ * @param {number} dados.usuario_id
+ * @param {string} dados.pais
+ * @param {string} dados.estado
+ * @param {string} dados.cidade
  */
 exports.atualizarLocalizacao = async ({ usuario_id, pais, estado, cidade }) => {
   return await prisma.candidato.update({
@@ -32,6 +42,9 @@ exports.atualizarLocalizacao = async ({ usuario_id, pais, estado, cidade }) => {
 
 /**
  * Atualiza o telefone do candidato.
+ * @param {Object} dados
+ * @param {number} dados.usuario_id
+ * @param {string} dados.telefone
  */
 exports.atualizarTelefone = async ({ usuario_id, telefone }) => {
   return await prisma.candidato.update({
@@ -42,6 +55,9 @@ exports.atualizarTelefone = async ({ usuario_id, telefone }) => {
 
 /**
  * Atualiza a foto de perfil do candidato.
+ * @param {Object} dados
+ * @param {number} dados.usuario_id
+ * @param {string} dados.foto_perfil
  */
 exports.atualizarFotoPerfil = async ({ usuario_id, foto_perfil }) => {
   return await prisma.candidato.update({
@@ -52,6 +68,8 @@ exports.atualizarFotoPerfil = async ({ usuario_id, foto_perfil }) => {
 
 /**
  * Busca candidato com suas áreas de interesse pelo ID do usuário.
+ * @param {number} usuario_id
+ * @returns {Promise<Object|null>}
  */
 exports.obterCandidatoPorUsuarioId = async (usuario_id) => {
   const candidato = await prisma.candidato.findUnique({
@@ -75,6 +93,9 @@ exports.obterCandidatoPorUsuarioId = async (usuario_id) => {
 
 /**
  * Salva as áreas de interesse para um candidato.
+ * @param {Object} dados
+ * @param {number} dados.candidato_id
+ * @param {number[]} dados.areas
  */
 exports.salvarAreasDeInteresse = async ({ candidato_id, areas }) => {
   const data = areas.map(area_interesse_id => ({
@@ -87,6 +108,9 @@ exports.salvarAreasDeInteresse = async ({ candidato_id, areas }) => {
 
 /**
  * Busca os IDs das áreas com base em seus nomes.
+ * @param {Object} dados
+ * @param {string[]} dados.nomes
+ * @returns {Promise<number[]>}
  */
 exports.buscarIdsDasAreas = async ({ nomes }) => {
   const resultados = await prisma.areaInteresse.findMany({

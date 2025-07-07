@@ -4,14 +4,17 @@ const session = require('express-session');
 const path = require('path');
 const bodyParser = require('body-parser');
 const db = require('./src/config/db');
-const routes = require('./src/routes/index');
-const empresaRoutes = require('./src/routes/empresaRoutes');
+
+const authRoutes = require('./src/routes/authRoutes');
 const usuarioRoutes = require('./src/routes/usuarioRoutes');
 const candidatoRoutes = require('./src/routes/candidatoRoutes');
+const empresaRoutes = require('./src/routes/empresaRoutes');
+const mainRoutes = require('./src/routes/index');
+
 const app = express();
 const port = 3000;
 
-// Middleware de leitura de dados dos formulários
+// Middleware para leitura de dados dos formulários
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.json({ limit: '10mb' }));
 
@@ -22,24 +25,39 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: false, // coloque `true` só se estiver em HTTPS (produção)
+    secure: false, // use true em produção com HTTPS
     maxAge: 1000 * 60 * 60 * 24 * 7 // 7 dias
   }
 }));
 
-
-// View engine
+// View engine e diretório de views
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'src', 'views'));
 
-// Arquivos estáticos (CSS, imagens, JS)
+// Arquivos estáticos (CSS, imagens, JS, uploads)
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
-// Rotas específicas primeiro
-app.use('/usuarios', usuarioRoutes);
-app.use('/empresas', empresaRoutes);
-app.use('/candidato', candidatoRoutes);
+// Middleware de autenticação (opcional, se quiser proteger rotas)
+const autenticar = (req, res, next) => {
+  if (!req.session.usuario && !req.session.empresa) {
+    return res.redirect('/login');
+  }
+  next();
+};
+
+// ROTAS
+
+// Rotas públicas
+app.use('/', authRoutes); // /cadastro, /login
+app.use('/usuarios', usuarioRoutes); // cadastro, login, verificação
+
+// Rotas autenticadas por tipo
+app.use('/candidatos', candidatoRoutes); // etapa de cadastro e acesso
+app.use('/empresas', empresaRoutes);     // etapa de cadastro e acesso
+
+// Rota principal
+app.use('/', mainRoutes);
 
 // Rota de logout
 app.get('/logout', (req, res) => {
@@ -49,10 +67,7 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// Rotas genéricas por último
-app.use('/', routes);
-
-// Inicia servidor
+// Iniciar servidor
 app.listen(port, () => {
   console.log(`Servidor rodando em http://localhost:${port}`);
 });

@@ -33,14 +33,10 @@ exports.telaLocalizacao = (req, res) => {
 exports.salvarLocalizacao = async (req, res) => {
   const { usuario_id, localidade } = req.body;
 
-  if (!usuario_id || !localidade) {
-    return res.status(400).send('ID ou localidade ausente.');
-  }
+  if (!usuario_id || !localidade) return res.status(400).send('ID ou localidade ausente.');
 
   const partes = localidade.split(',').map(p => p.trim());
-  if (partes.length < 3) {
-    return res.status(400).send('Formato de localidade inválido. Use: Cidade, Estado, País.');
-  }
+  if (partes.length < 3) return res.status(400).send('Formato inválido. Use: Cidade, Estado, País.');
 
   const [cidade, estado, pais] = partes;
 
@@ -91,7 +87,7 @@ exports.salvarFotoPerfil = async (req, res) => {
   const { usuario_id, fotoBase64 } = req.body;
 
   if (!fotoBase64 || !fotoBase64.startsWith('data:image')) {
-    return res.status(400).send("Nenhuma imagem recebida.");
+    return res.status(400).send('Imagem inválida.');
   }
 
   const base64Data = fotoBase64.replace(/^data:image\/\w+;base64,/, '');
@@ -99,9 +95,7 @@ exports.salvarFotoPerfil = async (req, res) => {
   const nomeArquivo = `${Date.now()}-foto-candidato.png`;
   const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
 
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
+  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
   const caminho = path.join(uploadDir, nomeArquivo);
   fs.writeFileSync(caminho, buffer);
@@ -147,10 +141,7 @@ exports.salvarAreas = async (req, res) => {
 
 exports.telaHomeCandidato = (req, res) => {
   const usuario = req.session.usuario;
-  if (!usuario) {
-    console.warn('Sessão de candidato vazia, redirecionando para login.');
-    return res.redirect('/login');
-  }
+  if (!usuario) return res.redirect('/login');
 
   res.render('candidatos/home-candidatos', {
     nome: usuario.nome,
@@ -168,10 +159,10 @@ exports.mostrarPerfil = (req, res) => {
     return res.redirect('/login');
   }
 
+  let { telefone } = usuario;
   let ddd = '';
-  let telefone = usuario.telefone;
 
-  const match = /\((\d{2})\)\s*(.*)/.exec(usuario.telefone);
+  const match = /\((\d{2})\)\s*(.*)/.exec(telefone);
   if (match) {
     ddd = match[1];
     telefone = match[2];

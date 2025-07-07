@@ -1,4 +1,3 @@
-// controllers/usuarioController.js (refatorado com Prisma e async/await)
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
@@ -6,8 +5,8 @@ const usuarioModel = require('../models/usuarioModel');
 const candidatoModel = require('../models/candidatoModel');
 const empresaModel = require('../models/empresaModel');
 
-async function enviarEmailVerificacao(email, usuarioId) {
-  const token = jwt.sign({ id: usuarioId }, process.env.JWT_SECRET, { expiresIn: '1d' });
+async function enviarEmailVerificacao(email, usuario_id) {
+  const token = jwt.sign({ id: usuario_id }, process.env.JWT_SECRET, { expiresIn: '1d' });
   const link = `http://localhost:3000/usuarios/verificar-email?token=${token}`;
 
   const transporter = nodemailer.createTransport({
@@ -19,50 +18,38 @@ async function enviarEmailVerificacao(email, usuarioId) {
   });
 
   await transporter.sendMail({
-    from: '"Connect Skills" <no-reply@connectskills.com>',
+    from: 'Connect Skills <no-reply@connectskills.com>',
     to: email,
     subject: 'Confirmação de e-mail',
-    html: `<p>Olá!</p>
-           <p>Confirme seu e-mail clicando no link abaixo:</p>
-           <a href="${link}">Verificar e-mail</a>`
+    html: `<p>Olá!</p><p>Confirme seu e-mail clicando no link abaixo:</p><a href="${link}">Verificar e-mail</a>`
   });
 }
 
 exports.criarUsuario = async (req, res) => {
   const { email, senha, tipo } = req.body;
-
-  if (!email || !senha || !tipo) {
-    return res.status(400).send('Preencha todos os campos.');
-  }
+  if (!email || !senha || !tipo) return res.status(400).send('Preencha todos os campos.');
 
   try {
-    // 🛡️ Verifica se o e-mail já está cadastrado
     const usuarioExistente = await usuarioModel.buscarPorEmail(email);
-    if (usuarioExistente) {
-      return res.status(400).send('Este e-mail já está cadastrado.');
-    }
+    if (usuarioExistente) return res.status(400).send('Este e-mail já está cadastrado.');
 
     const salt = await bcrypt.genSalt(10);
     const senhaCriptografada = await bcrypt.hash(senha, salt);
 
-    const result = await usuarioModel.cadastrar({ email, senha: senhaCriptografada, tipo });
-    const usuarioId = result.id;
+    const resultado = await usuarioModel.cadastrar({ email, senha: senhaCriptografada, tipo });
+    const usuario_id = resultado.id || resultado.insertId;
 
-    await enviarEmailVerificacao(email, usuarioId);
-    res.redirect(`/usuarios/aguardando-verificacao?email=${email}`);
+    await enviarEmailVerificacao(email, usuario_id);
+    res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(email)}`);
   } catch (erro) {
     console.error('Erro ao criar usuário:', erro);
-    return res.status(500).send('Erro interno ao processar o cadastro.');
+    res.status(500).send('Erro interno ao processar o cadastro.');
   }
 };
 
-
 exports.login = async (req, res) => {
   const { email, senha } = req.body;
-
-  if (!email || !senha) {
-    return res.status(400).send('Preencha todos os campos.');
-  }
+  if (!email || !senha) return res.status(400).send('Preencha todos os campos.');
 
   try {
     const usuario = await usuarioModel.buscarPorEmail(email);
@@ -85,6 +72,7 @@ exports.login = async (req, res) => {
       };
 
       return res.redirect('/empresa/home');
+
     } else if (usuario.tipo === 'candidato') {
       const candidato = await candidatoModel.obterCandidatoPorUsuarioId(usuario.id);
       if (!candidato) return res.redirect('/login');
@@ -107,7 +95,7 @@ exports.login = async (req, res) => {
       });
     }
   } catch (err) {
-    console.error('Erro no login:', err);
+    console.error('Erro ao realizar login:', err);
     res.status(500).send('Erro ao realizar login.');
   }
 };
@@ -117,20 +105,20 @@ exports.verificarEmail = async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const usuarioId = decoded.id;
+    const usuario_id = decoded.id;
 
-    await usuarioModel.verificarEmail(usuarioId);
-    const usuario = await usuarioModel.buscarPorId(usuarioId);
+    await usuarioModel.marcarEmailComoVerificado(usuario_id);
+    const usuario = await usuarioModel.buscarPorId(usuario_id);
     if (!usuario) return res.status(404).send('Usuário não encontrado.');
 
     if (usuario.tipo === 'empresa') {
-      res.redirect(`/empresa/nome-empresa?usuario_id=${usuarioId}`);
+      res.redirect(`/empresa/nome-empresa?usuario_id=${usuario_id}`);
     } else {
-      res.redirect(`/candidato/cadastro/nome?usuario_id=${usuarioId}`);
+      res.redirect(`/candidato/cadastro/nome?usuario_id=${usuario_id}`);
     }
   } catch (error) {
     console.error('Erro ao verificar token:', error);
-    return res.status(400).send('Link inválido ou expirado.');
+    res.status(400).send('❌ Link inválido ou expirado.');
   }
 };
 
@@ -140,13 +128,10 @@ exports.reenviarEmail = async (req, res) => {
   try {
     const usuario = await usuarioModel.buscarPorEmail(email);
     if (!usuario) return res.status(400).send('Usuário não encontrado.');
-
-    if (usuario.email_verificado) {
-      return res.status(400).send('E-mail já foi verificado.');
-    }
+    if (usuario.email_verificado) return res.status(400).send('E-mail já foi verificado.');
 
     await enviarEmailVerificacao(email, usuario.id);
-    return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(email)}&reenviado=true`);
+    res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(email)}&reenviado=true`);
   } catch (error) {
     console.error('Erro ao reenviar e-mail:', error);
     res.status(500).send('Erro ao reenviar e-mail.');

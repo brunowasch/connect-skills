@@ -1,3 +1,4 @@
+// controllers/empresaController.js
 const fs = require('fs');
 const path = require('path');
 const empresaModel = require('../models/empresaModel');
@@ -55,7 +56,6 @@ exports.salvarLocalizacao = async (req, res) => {
     let { usuario_id, localidade } = req.body;
 
     if (!usuario_id || !localidade) return res.status(400).send('Informe sua localidade.');
-
     usuario_id = parseInt(usuario_id, 10);
     if (isNaN(usuario_id)) return res.status(400).send('ID do usuário inválido.');
 
@@ -64,7 +64,6 @@ exports.salvarLocalizacao = async (req, res) => {
 
     const [cidade, estado, pais] = partes;
     await empresaModel.atualizarLocalizacao({ usuario_id, pais, estado, cidade });
-
     res.redirect(`/empresa/telefone?usuario_id=${usuario_id}`);
   } catch (err) {
     console.error('Erro ao salvar localização:', err);

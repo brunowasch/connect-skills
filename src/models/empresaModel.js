@@ -8,6 +8,7 @@ const prisma = new PrismaClient();
  * @param {number} dados.usuario_id
  * @param {string} dados.nome_empresa
  * @param {string} dados.descricao
+ * @returns {Promise<Object>}
  */
 exports.criarEmpresa = async ({ usuario_id, nome_empresa, descricao }) => {
   return await prisma.empresa.create({
@@ -31,6 +32,7 @@ exports.criarEmpresa = async ({ usuario_id, nome_empresa, descricao }) => {
  * @param {string} dados.estado
  * @param {string} dados.cidade
  * @param {number} dados.usuario_id
+ * @returns {Promise<Object>}
  */
 exports.atualizarLocalizacao = async ({ pais, estado, cidade, usuario_id }) => {
   return await prisma.empresa.update({
@@ -44,6 +46,7 @@ exports.atualizarLocalizacao = async ({ pais, estado, cidade, usuario_id }) => {
  * @param {Object} dados
  * @param {string} dados.telefone
  * @param {number} dados.usuario_id
+ * @returns {Promise<Object>}
  */
 exports.atualizarTelefone = async ({ telefone, usuario_id }) => {
   return await prisma.empresa.update({
@@ -57,6 +60,7 @@ exports.atualizarTelefone = async ({ telefone, usuario_id }) => {
  * @param {Object} dados
  * @param {string} dados.foto_perfil
  * @param {number} dados.usuario_id
+ * @returns {Promise<Object>}
  */
 exports.atualizarFotoPerfil = async ({ foto_perfil, usuario_id }) => {
   return await prisma.empresa.update({
