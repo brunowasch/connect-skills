@@ -56,9 +56,9 @@ exports.atualizarTelefone = async ({ telefone, usuario_id }) => {
 };
 
 /**
- * Atualiza a foto de perfil da empresa.
+ * Atualiza a foto de perfil da empresa (com URL do Cloudinary).
  * @param {Object} dados
- * @param {string} dados.foto_perfil
+ * @param {string} dados.foto_perfil - URL da imagem (Cloudinary)
  * @param {number} dados.usuario_id
  * @returns {Promise<Object>}
  */

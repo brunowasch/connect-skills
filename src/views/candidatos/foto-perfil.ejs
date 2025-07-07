@@ -13,28 +13,27 @@
   <%- include('../partials/header') %>
 
   <main class="main-ajustado-header d-flex flex-column align-items-center justify-content-center px-3 text-center">
-    <img src="/img/avatar.png" alt="Avatar provisório" width="150" height="150">
-    <h3 class="text-center mt-5 mb-3">Adicione uma foto de perfil</h3>
+    <h3 class="text-center mt-4 mb-3">Adicione uma foto de perfil</h3>
 
     <form action="/candidato/foto-perfil" method="POST" enctype="multipart/form-data" id="formFoto" class="text-center">
-      <!-- Campo oculto com o ID do usuário -->
       <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
 
       <!-- Prévia da foto -->
-      <img src="/img/avatar.png" alt="Prévia da Foto" id="previewFoto" class="foto-icon mb-3">
+      <img src="/img/avatar.png" alt="Prévia da Foto" id="previewFoto" class="foto-icon mb-3" width="150" height="150">
 
       <!-- Opções -->
       <div class="d-flex gap-4 flex-wrap justify-content-center botoes-container" id="opcoesFoto">
         <label class="upload-btn" for="upload">
-          <i class="bi bi-upload me-1"></i> Fazer upload
+          📤 Fazer upload
         </label>
-        <input type="file" name="fotoUpload" id="upload" accept="image/*" class="hidden-input">
+        <input type="file" name="fotoUpload" id="upload" accept="image/*" class="hidden-input" required>
 
         <button type="button" class="upload-btn" id="tirarFotoBtn">
-          <i class="bi bi-camera me-1"></i> Capturar agora
+          📸 Capturar agora
         </button>
       </div>
 
+      <!-- Vídeo e canvas ocultos -->
       <video id="video" autoplay playsinline style="display: none;"></video>
       <canvas id="canvas" style="display: none;"></canvas>
 
@@ -42,6 +41,7 @@
         Por favor, selecione ou tire uma foto antes de continuar.
       </p>
 
+      <!-- Botões após foto -->
       <div id="acoesFoto" class="acoesFoto flex-wrap justify-content-center gap-3 mt-4" style="display: none;">
         <button type="button" class="btn-acao btn-cancelar" id="outraFoto">
           <i class="bi bi-arrow-clockwise me-1"></i> Tirar outra
@@ -50,9 +50,6 @@
           <i class="bi bi-check-circle me-1"></i> Confirmar e continuar
         </button>
       </div>
-
-      <!-- Campo que receberá a imagem codificada -->
-      <input type="hidden" name="fotoBase64" id="fotoBase64">
     </form>
   </main>
 

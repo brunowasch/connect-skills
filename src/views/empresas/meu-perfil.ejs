@@ -18,7 +18,7 @@
 <div class="perfil-card bg-white p-4 rounded shadow-sm">
     <h2 class="mb-4">Meu perfil</h2>
     <div class="d-flex align-items-center perfil-header mb-4">
-      <img src="<%= empresa.foto_perfil || 'https://via.placeholder.com/80' %>" alt="Foto da Empresa" class="perfil-foto rounded-circle me-3" width="80" height="80">
+      <img src="<%= empresa.foto_perfil || '/img/avatar.png' %>" class="perfil-foto rounded-circle me-3" alt="Foto da Empresa" width="80" height="80">
       <div>
         <h4 class="mb-1"><%= empresa.nome_empresa || 'Nome da Empresa' %></h4>
         <p class="mb-1"><%= empresa.descricao || 'Descrição não informada' %></p>

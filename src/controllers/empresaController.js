@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const empresaModel = require('../models/empresaModel');
+const { cloudinary } = require('../config/cloudinary');
 
 exports.telaCadastro = (req, res) => {
   res.render('empresas/cadastro-pessoa-juridica');
@@ -90,7 +91,7 @@ exports.salvarTelefone = async (req, res) => {
     const telefoneCompleto = `${ddi} (${ddd}) ${telefone}`;
     await empresaModel.atualizarTelefone({ usuario_id, telefone: telefoneCompleto });
 
-    res.redirect(`/empresa/foto-perfil?usuario_id=${usuario_id}`);
+    res.redirect(`/empresas/foto-perfil?usuario_id=${usuario_id}`);
   } catch (err) {
     console.error("Erro ao salvar telefone:", err);
     res.status(500).send("Erro ao salvar telefone.");
@@ -104,35 +105,36 @@ exports.telaFotoPerfil = (req, res) => {
 };
 
 exports.salvarFotoPerfil = async (req, res) => {
+  const { usuario_id } = req.body;
+
+  if (!req.file || !req.file.path) {
+    return res.status(400).send('Imagem não foi enviada corretamente.');
+  }
+
   try {
-    let { usuario_id, fotoBase64 } = req.body;
-    if (!usuario_id) return res.status(400).send('ID do usuário não fornecido.');
+    // Faz o upload da imagem local para o Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'connect-skills/empresas',
+    });
 
-    usuario_id = parseInt(usuario_id, 10);
-    if (isNaN(usuario_id)) return res.status(400).send('ID do usuário inválido.');
+    // Salva a URL segura do Cloudinary no banco
+    await empresaModel.atualizarFotoPerfil({
+      usuario_id: Number(usuario_id),
+      foto_perfil: result.secure_url
+    });
 
-    let caminhoFoto = '';
-    if (req.file) {
-      caminhoFoto = `/uploads/${req.file.filename}`;
-    } else if (fotoBase64?.startsWith('data:image')) {
-      const base64Data = fotoBase64.replace(/^data:image\/\w+;base64,/, '');
-      const buffer = Buffer.from(base64Data, 'base64');
-      const nomeArquivo = `${Date.now()}-camera.png`;
-      const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
-      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-      fs.writeFileSync(path.join(uploadDir, nomeArquivo), buffer);
-      caminhoFoto = `/uploads/${nomeArquivo}`;
-    } else {
-      return res.status(400).send("Nenhuma imagem recebida.");
+    const empresaAtualizada = await empresaModel.obterEmpresaPorUsuarioId(Number(usuario_id));
+    req.session.empresa = empresaAtualizada;
+
+    // Atualiza a sessão, se houver
+    if (req.session.empresa) {
+      req.session.empresa.foto_perfil = result.secure_url;
     }
 
-    await empresaModel.atualizarFotoPerfil({ usuario_id, foto_perfil: caminhoFoto });
-    const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario_id);
-    if (!empresa) return res.redirect('/login');
-    req.session.empresa = empresa;
+    // Redireciona para home da empresa
     res.redirect('/empresa/home');
   } catch (err) {
-    console.error("Erro ao salvar foto:", err);
+    console.error('Erro ao salvar foto no Cloudinary:', err);
     res.status(500).send("Erro ao salvar foto.");
   }
 };
