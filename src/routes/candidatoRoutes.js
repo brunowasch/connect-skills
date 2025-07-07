@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const candidatoController = require('../controllers/candidatoController');
-const upload = require('../config/multer');
+const upload = require('../middlewares/upload');
 
 // Cadastro passo a passo
 router.get('/cadastro/nome', candidatoController.telaNomeCandidato);

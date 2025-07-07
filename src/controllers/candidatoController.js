@@ -84,28 +84,28 @@ exports.telaFotoPerfil = (req, res) => {
 };
 
 exports.salvarFotoPerfil = async (req, res) => {
-  const { usuario_id, fotoBase64 } = req.body;
+  const { usuario_id } = req.body;
 
-  if (!fotoBase64 || !fotoBase64.startsWith('data:image')) {
-    return res.status(400).send('Imagem inválida.');
+  if (!req.file || !req.file.path) {
+    return res.status(400).send('Imagem não foi enviada corretamente.');
   }
 
-  const base64Data = fotoBase64.replace(/^data:image\/\w+;base64,/, '');
-  const buffer = Buffer.from(base64Data, 'base64');
-  const nomeArquivo = `${Date.now()}-foto-candidato.png`;
-  const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
-
-  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-  const caminho = path.join(uploadDir, nomeArquivo);
-  fs.writeFileSync(caminho, buffer);
-  const caminhoFoto = `/uploads/${nomeArquivo}`;
+  const fotoUrl = req.file.path; // URL retornada pelo Cloudinary
 
   try {
-    await candidatoModel.atualizarFotoPerfil({ usuario_id: Number(usuario_id), foto_perfil: caminhoFoto });
+    await candidatoModel.atualizarFotoPerfil({
+      usuario_id: Number(usuario_id),
+      foto_perfil: fotoUrl
+    });
+
+    // Atualiza a sessão do usuário, se necessário
+    if (req.session.usuario) {
+      req.session.usuario.fotoPerfil = fotoUrl;
+    }
+
     res.redirect(`/candidato/areas?usuario_id=${usuario_id}`);
   } catch (err) {
-    console.error('Erro ao salvar foto:', err);
+    console.error('Erro ao salvar foto no Cloudinary:', err);
     res.status(500).send("Erro ao salvar foto.");
   }
 };

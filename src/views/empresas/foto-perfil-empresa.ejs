@@ -13,10 +13,9 @@
   <%- include('../partials/header') %>
 
   <main class="main-ajustado-header d-flex flex-column align-items-center justify-content-center px-3 text-center mb-3">
-    <img src="/img/avatar.png" alt="Avatar provisório" width="150" height="150">
     <h3 class="text-center mt-5 mb-4">Adicione uma foto de perfil</h3>
 
-    <form action="/empresa/foto-perfil" method="POST" id="formFoto" class="text-center" enctype="multipart/form-data">
+    <form action="/empresa/foto-perfil" method="POST" enctype="multipart/form-data" id="formFoto">
 
       <!-- Campos ocultos -->
       <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
