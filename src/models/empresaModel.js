@@ -1,4 +1,3 @@
-// models/empresaModel.js
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -13,7 +12,7 @@ const prisma = new PrismaClient();
 exports.criarEmpresa = async ({ usuario_id, nome_empresa, descricao }) => {
   return await prisma.empresa.create({
     data: {
-      usuario_id,
+      usuario_id: Number(usuario_id),
       nome_empresa,
       descricao,
       telefone: '',
@@ -36,7 +35,7 @@ exports.criarEmpresa = async ({ usuario_id, nome_empresa, descricao }) => {
  */
 exports.atualizarLocalizacao = async ({ pais, estado, cidade, usuario_id }) => {
   return await prisma.empresa.update({
-    where: { usuario_id },
+    where: { usuario_id: Number(usuario_id) },
     data: { pais, estado, cidade }
   });
 };
@@ -50,7 +49,7 @@ exports.atualizarLocalizacao = async ({ pais, estado, cidade, usuario_id }) => {
  */
 exports.atualizarTelefone = async ({ telefone, usuario_id }) => {
   return await prisma.empresa.update({
-    where: { usuario_id },
+    where: { usuario_id: Number(usuario_id) },
     data: { telefone }
   });
 };
@@ -58,13 +57,13 @@ exports.atualizarTelefone = async ({ telefone, usuario_id }) => {
 /**
  * Atualiza a foto de perfil da empresa (com URL do Cloudinary).
  * @param {Object} dados
- * @param {string} dados.foto_perfil - URL da imagem (Cloudinary)
+ * @param {string} dados.foto_perfil
  * @param {number} dados.usuario_id
  * @returns {Promise<Object>}
  */
 exports.atualizarFotoPerfil = async ({ foto_perfil, usuario_id }) => {
   return await prisma.empresa.update({
-    where: { usuario_id },
+    where: { usuario_id: Number(usuario_id) },
     data: { foto_perfil }
   });
 };
@@ -76,6 +75,6 @@ exports.atualizarFotoPerfil = async ({ foto_perfil, usuario_id }) => {
  */
 exports.obterEmpresaPorUsuarioId = async (usuario_id) => {
   return await prisma.empresa.findUnique({
-    where: { usuario_id }
+    where: { usuario_id: Number(usuario_id) }
   });
 };

@@ -28,15 +28,44 @@ async function main() {
     'Tecnologia da Informação'
   ];
 
+  const habilidades = [
+    'Comunicação eficaz',
+    'Pensamento crítico',
+    'Resolução de problemas',
+    'Tomada de decisão',
+    'Capacidade de aprender continuamente',
+    'Trabalho em equipe',
+    'Relacionamento interpessoal',
+    'Colaboração',
+    'Liderança',
+    'Proatividade',
+    'Flexibilidade/adaptabilidade',
+    'Gestão do tempo',
+    'Foco em resultados',
+    'Autoconfiança',
+    'Resiliência',
+    'Organização',
+    'Ética profissional',
+    'Responsabilidade'
+  ];
+
   for (const nome of areas) {
     await prisma.areaInteresse.upsert({
       where: { nome },
-      update: {}, // se já existir, não faz nada
+      update: {},
       create: { nome },
     });
   }
 
-  console.log('Áreas de interesse inseridas com sucesso!');
+  for (const nome of habilidades) {
+    await prisma.softSkill.upsert({
+      where: { nome },
+      update: {},
+      create: { nome },
+    });
+  }
+
+  console.log('Seed finalizada com sucesso!');
 }
 
 main()

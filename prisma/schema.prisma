@@ -7,22 +7,39 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Usuario {
-  @@map("usuario")
-
-  id               Int      @id @default(autoincrement())
-  email            String   @unique
-  senha            String
-  tipo             String   // 'candidato' | 'empresa'
-  email_verificado Boolean  @default(false)
-
-  candidato        Candidato?
-  empresa          Empresa?
+model area_interesse {
+  id             Int              @id @default(autoincrement())
+  nome           String           @unique
+  candidato_area candidato_area[]
+  vaga_area      vaga_area[]
 }
 
-model Empresa {
-  @@map("empresa")
+model candidato {
+  id              Int              @id @default(autoincrement())
+  usuario_id      Int              @unique
+  nome            String?
+  sobrenome       String?
+  data_nascimento DateTime?
+  pais            String?
+  estado          String?
+  cidade          String?
+  telefone        String?
+  foto_perfil     String?
+  usuario         usuario          @relation(fields: [usuario_id], references: [id])
+  candidato_area  candidato_area[]
+}
 
+model candidato_area {
+  candidato_id      Int
+  area_interesse_id Int
+  area_interesse    area_interesse @relation(fields: [area_interesse_id], references: [id])
+  candidato         candidato      @relation(fields: [candidato_id], references: [id])
+
+  @@id([candidato_id, area_interesse_id])
+  @@index([area_interesse_id], map: "candidato_area_area_interesse_id_fkey")
+}
+
+model empresa {
   id           Int     @id @default(autoincrement())
   usuario_id   Int     @unique
   nome_empresa String
@@ -32,44 +49,68 @@ model Empresa {
   estado       String?
   cidade       String?
   foto_perfil  String?
+  usuario      usuario @relation(fields: [usuario_id], references: [id])
 
-  usuario      Usuario @relation(fields: [usuario_id], references: [id])
+  vagas vaga[]
 }
 
-model Candidato {
-  @@map("candidato")
-
-  id              Int     @id @default(autoincrement())
-  usuario_id      Int     @unique
-  nome            String?
-  sobrenome       String?
-  data_nascimento DateTime?
-  pais            String?
-  estado          String?
-  cidade          String?
-  telefone        String?
-  foto_perfil     String?
-
-  usuario         Usuario        @relation(fields: [usuario_id], references: [id])
-  areas           CandidatoArea[]
+model soft_skill {
+  id              Int               @id @unique(map: "id_UNIQUE") @default(autoincrement()) @db.UnsignedInt
+  nome            String
+  vaga_soft_skill vaga_soft_skill[]
 }
 
-model AreaInteresse {
-  @@map("area_interesse")
-
-  id          Int              @id @default(autoincrement())
-  nome        String           @unique
-  candidatos  CandidatoArea[]
+model usuario {
+  id               Int        @id @default(autoincrement())
+  email            String     @unique
+  senha            String
+  tipo             String
+  email_verificado Boolean    @default(false)
+  candidato        candidato?
+  empresa          empresa?
 }
 
-model CandidatoArea {
-  @@map("candidato_area")
+model vaga {
+  id                  Int                      @id @default(autoincrement()) @db.UnsignedInt
+  empresa_id          Int
+  empresa             empresa                  @relation(fields: [empresa_id], references: [id])
+  cargo               String
+  tipo_local_trabalho vaga_tipo_local_trabalho
+  escala_trabalho     String
+  dias_presenciais    Int?
+  dias_home_office    Int?
+  salario             Decimal?                 @db.Decimal(10, 2)
+  moeda               String?                  @db.VarChar(5)
+  descricao           String                   @db.Text
+  vaga_area           vaga_area[]
+  vaga_soft_skill     vaga_soft_skill[]
+}
 
-  candidato_id        Int
-  area_interesse_id   Int
 
-  candidato           Candidato       @relation(fields: [candidato_id], references: [id])
-  area_interesse      AreaInteresse   @relation(fields: [area_interesse_id], references: [id])
+model vaga_area {
+  vaga_id           Int            @db.UnsignedInt
+  area_interesse_id Int
+  area_interesse    area_interesse @relation(fields: [area_interesse_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vaga_has_area_interesse_area_interesse1")
+  vaga              vaga           @relation(fields: [vaga_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vaga_has_area_interesse_vaga1")
 
-  @@id([candidato_id, area_interesse_id])
+  @@id([vaga_id, area_interesse_id])
+  @@index([area_interesse_id], map: "fk_vaga_has_area_interesse_area_interesse1_idx")
+  @@index([vaga_id], map: "fk_vaga_has_area_interesse_vaga1_idx")
+}
+
+model vaga_soft_skill {
+  soft_skill_id Int        @db.UnsignedInt
+  vaga_id       Int        @db.UnsignedInt
+  soft_skill    soft_skill @relation(fields: [soft_skill_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_soft_skill_has_vaga_soft_skill1")
+  vaga          vaga       @relation(fields: [vaga_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_soft_skill_has_vaga_vaga1")
+
+  @@id([soft_skill_id, vaga_id])
+  @@index([soft_skill_id], map: "fk_soft_skill_has_vaga_soft_skill1_idx")
+  @@index([vaga_id], map: "fk_soft_skill_has_vaga_vaga1_idx")
+}
+
+enum vaga_tipo_local_trabalho {
+  Presencial
+  Home_Office @map("Home Office")
+  H_brido     @map("Híbrido")
 }
