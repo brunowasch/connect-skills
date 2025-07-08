@@ -9,35 +9,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
   areaBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      const area = btn.textContent;
-      if (areasSelecionadas.has(area)) {
-        areasSelecionadas.delete(area);
+      const id = btn.getAttribute('data-id');
+      if (areasSelecionadas.has(id)) {
+        areasSelecionadas.delete(id);
         btn.classList.remove('btn-primary');
         btn.classList.add('btn-outline-primary');
       } else {
         if (areasSelecionadas.size >= 3) return;
-        areasSelecionadas.add(area);
+        areasSelecionadas.add(id);
         btn.classList.remove('btn-outline-primary');
         btn.classList.add('btn-primary');
       }
-      areasSelecionadasInput.value = Array.from(areasSelecionadas).join(',');
+      areasSelecionadasInput.value = JSON.stringify([...areasSelecionadas]);
     });
   });
 
   skillBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      const skill = btn.textContent;
-      if (habilidadesSelecionadas.has(skill)) {
-        habilidadesSelecionadas.delete(skill);
+      const id = btn.getAttribute('data-id');
+      if (habilidadesSelecionadas.has(id)) {
+        habilidadesSelecionadas.delete(id);
         btn.classList.remove('btn-primary');
         btn.classList.add('btn-outline-primary');
       } else {
         if (habilidadesSelecionadas.size >= 3) return;
-        habilidadesSelecionadas.add(skill);
+        habilidadesSelecionadas.add(id);
         btn.classList.remove('btn-outline-primary');
         btn.classList.add('btn-primary');
       }
-      habilidadesSelecionadasInput.value = Array.from(habilidadesSelecionadas).join(',');
+      habilidadesSelecionadasInput.value = JSON.stringify([...habilidadesSelecionadas]);
     });
   });
 });

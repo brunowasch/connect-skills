@@ -1,8 +1,10 @@
-// controllers/empresaController.js
 const fs = require('fs');
 const path = require('path');
 const empresaModel = require('../models/empresaModel');
+const vagaModel = require('../models/vagaModel');
 const { cloudinary } = require('../config/cloudinary');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 exports.telaCadastro = (req, res) => {
   res.render('empresas/cadastro-pessoa-juridica');
@@ -112,12 +114,10 @@ exports.salvarFotoPerfil = async (req, res) => {
   }
 
   try {
-    // Faz o upload da imagem local para o Cloudinary
     const result = await cloudinary.uploader.upload(req.file.path, {
       folder: 'connect-skills/empresas',
     });
 
-    // Salva a URL segura do Cloudinary no banco
     await empresaModel.atualizarFotoPerfil({
       usuario_id: Number(usuario_id),
       foto_perfil: result.secure_url
@@ -126,12 +126,10 @@ exports.salvarFotoPerfil = async (req, res) => {
     const empresaAtualizada = await empresaModel.obterEmpresaPorUsuarioId(Number(usuario_id));
     req.session.empresa = empresaAtualizada;
 
-    // Atualiza a sessão, se houver
     if (req.session.empresa) {
       req.session.empresa.foto_perfil = result.secure_url;
     }
 
-    // Redireciona para home da empresa
     res.redirect('/empresa/home');
   } catch (err) {
     console.error('Erro ao salvar foto no Cloudinary:', err);
@@ -143,49 +141,126 @@ exports.homeEmpresa = (req, res) => {
   res.render('empresas/home-empresas');
 };
 
-exports.telaPerfilEmpresa = (req, res) => {
+exports.telaPerfilEmpresa = async (req, res) => {
   const empresa = req.session.empresa;
   if (!empresa) return res.redirect('/login');
-  const vagasDaEmpresa = (global.vagasPublicadas || []).filter(vaga => vaga.empresa.nome === empresa.nome);
-  res.render('empresas/meu-perfil', { empresa, vagasPublicadas: vagasDaEmpresa });
+
+  try {
+    const vagasDaEmpresa = await prisma.vaga.findMany({
+      where: { empresa_id: empresa.id },
+      include: {
+        vaga_area: { include: { area_interesse: true } },
+        vaga_soft_skill: { include: { soft_skill: true } },
+      },
+    });
+
+    res.render('empresas/meu-perfil', {
+      empresa,
+      vagasPublicadas: vagasDaEmpresa,
+    });
+  } catch (error) {
+    console.error('Erro ao buscar vagas da empresa:', error);
+    res.status(500).send('Erro ao carregar vagas.');
+  }
 };
 
-exports.telaPublicarVaga = (req, res) => {
-  res.render('empresas/publicar-vaga');
+exports.telaPublicarVaga = async (req, res) => {
+  try {
+    const areas = await vagaModel.buscarAreas();
+    const habilidades = await vagaModel.buscarSoftSkills();
+
+    res.render('empresas/publicar-vaga', { areas, habilidades });
+  } catch (err) {
+    console.error('Erro ao carregar áreas e habilidades:', err);
+    res.status(500).send('Erro ao carregar o formulário.');
+  }
 };
 
-exports.salvarVaga = (req, res) => {
-  const { cargo, tipo, descricao, areasSelecionadas, habilidadesSelecionadas } = req.body;
-  if (!req.session.empresa) return res.redirect('/login');
 
-  const novaVaga = {
-    id: Date.now(),
-    empresa: {
-      nome: req.session.empresa.nome,
-      logo: req.session.empresa.fotoPerfil || '/img/logo-default.png'
-    },
-    cargo,
-    tipo,
-    descricao,
-    areas: areasSelecionadas.split(','),
-    habilidades: habilidadesSelecionadas.split(','),
-    data: new Date().toLocaleString('pt-BR')
-  };
+exports.salvarVaga = async (req, res) => {
+  try {
+    if (!req.session.empresa) return res.redirect('/login');
 
-  global.vagasPublicadas = global.vagasPublicadas || [];
-  global.vagasPublicadas.push(novaVaga);
-  res.redirect('/empresa/meu-perfil');
+    const {
+      cargo = '',
+      tipo = '',
+      escala = '',
+      diasPresenciais,
+      diasHomeOffice,
+      salario,
+      moeda = '',
+      descricao = '',
+      areasSelecionadas = '[]',
+      habilidadesSelecionadas = '[]'
+    } = req.body;
+
+    const empresa_id = req.session.empresa.id;
+
+    const areas_ids = Array.isArray(JSON.parse(areasSelecionadas))
+      ? JSON.parse(areasSelecionadas).map(Number)
+      : [];
+
+    const soft_skills_ids = Array.isArray(JSON.parse(habilidadesSelecionadas))
+      ? JSON.parse(habilidadesSelecionadas).map(Number)
+      : [];
+
+    console.log({
+      empresa_id,
+      cargo,
+      tipo,
+      escala,
+      diasPresenciais,
+      diasHomeOffice,
+      salario,
+      moeda,
+      descricao,
+      areas_ids,
+      soft_skills_ids
+    });
+
+    await vagaModel.criarVaga({
+      empresa_id,
+      cargo,
+      tipo_local_trabalho: tipo,
+      escala_trabalho: escala,
+      dias_presenciais: diasPresenciais ? parseInt(diasPresenciais, 10) : null,
+      dias_home_office: diasHomeOffice ? parseInt(diasHomeOffice, 10) : null,
+      salario,
+      moeda,
+      descricao,
+      areas_ids,
+      soft_skills_ids
+    });
+
+    return res.redirect('/empresa/meu-perfil');
+  } catch (err) {
+    console.error('[ERRO] Falha ao salvar vaga:', err.message, err.stack);
+    res.status(500).send('Erro ao salvar vaga. Verifique os dados e tente novamente.');
+  }
 };
-
-exports.mostrarPerfil = (req, res) => {
+exports.mostrarPerfil = async (req, res) => {
   const empresa = req.session.empresa;
   if (!empresa) return res.redirect('/login');
-  res.render('empresas/meu-perfil', {
-    empresa,
-    nome: empresa.nome_empresa,
-    vagasPublicadas: global.vagasPublicadas || [],
-    activePage: 'perfil'
-  });
+
+  try {
+    const vagas = await prisma.vaga.findMany({
+      where: { empresa_id: empresa.id },
+      include: {
+        vaga_area: { include: { area_interesse: true } },
+        vaga_soft_skill: { include: { soft_skill: true } },
+      }
+    });
+
+    res.render('empresas/meu-perfil', {
+      empresa,
+      nome: empresa.nome_empresa,
+      vagasPublicadas: vagas,
+      activePage: 'perfil'
+    });
+  } catch (error) {
+    console.error('Erro ao carregar perfil da empresa:', error);
+    res.status(500).send('Erro ao carregar perfil.');
+  }
 };
 
 exports.telaEditarPerfil = (req, res) => {
@@ -221,9 +296,23 @@ exports.salvarEdicaoPerfil = (req, res) => {
   res.redirect('/empresa/meu-perfil');
 };
 
-exports.mostrarVagas = (req, res) => {
+exports.mostrarVagas = async (req, res) => {
   const empresa = req.session.empresa;
   if (!empresa) return res.redirect('/login');
-  const vagas = (global.vagasPublicadas || []).filter(v => v.empresa.nome === empresa.nome);
-  res.render('empresas/vagas', { vagas });
+
+  try {
+    const vagas = await vagaModel.buscarVagasPorEmpresaId(empresa.id);
+
+    const vagasTratadas = vagas.map(v => ({
+      ...v,
+      areas: v.vaga_area.map(a => a.area_interesse.nome),
+      habilidades: v.vaga_soft_skill.map(h => h.soft_skill.nome)
+    }));
+
+    res.render('empresas/vagas', { vagas: vagasTratadas });
+  } catch (error) {
+    console.error('Erro ao carregar vagas:', error);
+    res.status(500).send('Erro ao carregar vagas.');
+  }
 };
+
