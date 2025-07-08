@@ -204,7 +204,11 @@ exports.mostrarVagas = async (req, res) => {
   if (!usuario) return res.redirect('/login');
 
   try {
-    const vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
+    const usuario_id = req.session.usuario.id;  // Pega o id do candidato após login
+
+    // Chama a função correta para pegar as vagas
+    const vagas = await vagaModel.buscarVagasPorCandidatoId(usuario_id); // Corrigido
+
     res.render('candidatos/vagas', {
       vagas,
       activePage: 'vagas',

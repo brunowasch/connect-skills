@@ -58,41 +58,48 @@ exports.buscarAreas = async () => {
   return await prisma.area_interesse.findMany();
 };
 
+/**
+ * Busca todas as soft skills disponíveis.
+ * @returns {Promise<Array>}
+ */
 exports.buscarSoftSkills = async () => {
   return await prisma.soft_skill.findMany();
 };
 
-
 /**
- * Retorna todas as vagas cadastradas por uma empresa, incluindo áreas e habilidades.
+ * Retorna todas as vagas de uma empresa com suas áreas e soft skills.
  * @param {number} empresa_id
  * @returns {Promise<Array>}
  */
 exports.buscarVagasPorEmpresaId = async (empresa_id) => {
   try {
-    console.log('[DEBUG] Prisma client OK:', typeof prisma.vaga.findMany);
+    console.log('[DEBUG] Buscando vagas para empresa_id =', empresa_id);
     return await prisma.vaga.findMany({
       where: { empresa_id: Number(empresa_id) },
       include: {
         empresa: true,
-        vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } }
+        vaga_area: {
+          include: { area_interesse: true }
+        },
+        vaga_soft_skill: {
+          include: { soft_skill: true }
+        }
       }
     });
   } catch (error) {
-    console.error('[ERRO INTERNO] Falha ao buscar vagas:', error);
+    console.error('[ERRO INTERNO] Falha ao buscar vagas da empresa:', error);
     throw error;
   }
 };
 
 /**
- * Retorna as vagas que têm pelo menos uma área em comum com o candidato.
+ * Retorna as vagas compatíveis com o candidato durante o cadastro (usando usuario_id).
  * @param {number} usuario_id
  */
-exports.buscarVagasPorInteresseDoCandidato = async (usuario_id) => {
+exports.buscarVagasPorUsuarioId = async (usuario_id) => {
   const candidato = await prisma.candidato.findUnique({
     where: {
-      usuario_id: Number(usuario_id),
+      usuario_id: Number(usuario_id), // busca com usuario_id (para cadastro)
     },
     include: {
       candidato_area: true,
@@ -105,31 +112,54 @@ exports.buscarVagasPorInteresseDoCandidato = async (usuario_id) => {
 
   const areaIds = candidato.candidato_area.map(rel => rel.area_interesse_id);
 
-  const vagas = await prisma.vaga.findMany({
+  return await prisma.vaga.findMany({
     where: {
       vaga_area: {
         some: {
-          area_interesse_id: {
-            in: areaIds,
-          },
+          area_interesse_id: { in: areaIds },
         },
       },
     },
     include: {
       empresa: true,
-      vaga_area: {
-        include: {
-          area_interesse: true,
-        },
-      },
-      vaga_soft_skill: {
-        include: {
-          soft_skill: true,
-        },
-      },
+      vaga_area: { include: { area_interesse: true } },
+      vaga_soft_skill: { include: { soft_skill: true } },
+    },
+  });
+};
+
+/**
+ * Retorna as vagas que têm pelo menos uma área em comum com o candidato após o login (usando candidato_id).
+ * @param {number} candidato_id
+ */
+exports.buscarVagasPorCandidatoId = async (candidato_id) => {
+  const candidato = await prisma.candidato.findUnique({
+    where: {
+      id: Number(candidato_id), // busca com o id do candidato (após login)
+    },
+    include: {
+      candidato_area: true,
     },
   });
 
-  return vagas;
-};
+  if (!candidato || candidato.candidato_area.length === 0) {
+    return []; // Sem áreas escolhidas
+  }
 
+  const areaIds = candidato.candidato_area.map(rel => rel.area_interesse_id);
+
+  return await prisma.vaga.findMany({
+    where: {
+      vaga_area: {
+        some: {
+          area_interesse_id: { in: areaIds },
+        },
+      },
+    },
+    include: {
+      empresa: true,
+      vaga_area: { include: { area_interesse: true } },
+      vaga_soft_skill: { include: { soft_skill: true } },
+    },
+  });
+};
