@@ -243,13 +243,17 @@ exports.mostrarPerfil = async (req, res) => {
   if (!empresa) return res.redirect('/login');
 
   try {
-    const vagas = await prisma.vaga.findMany({
-      where: { empresa_id: empresa.id },
-      include: {
-        vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } },
-      }
-    });
+      const vagas = await prisma.vaga.findMany({
+        where: { empresa_id: req.session.empresa.id },
+        include: {
+          empresa: true,
+          vaga_area: {
+            include: {
+              area_interesse: true
+            }
+          }
+        }
+      });
 
     res.render('empresas/meu-perfil', {
       empresa,
