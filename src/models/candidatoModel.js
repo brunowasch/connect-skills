@@ -72,18 +72,18 @@ exports.atualizarFotoPerfil = async ({ usuario_id, foto_perfil }) => {
  */
 exports.obterCandidatoPorUsuarioId = async (usuario_id) => {
   const candidato = await prisma.candidato.findUnique({
-    where: {
-      usuario_id: Number(usuario_id),
-    },
-    include: {
-      usuario: true,
-      candidato_area: {
-        include: {
-          area_interesse: true,
-        },
-      },
-    },
-  });
+  where: { 
+    usuario_id: Number(usuario_id) 
+  },
+  include: {
+    candidato_area: {
+      include: {
+        area_interesse: true
+      }
+    }
+  }
+});
+
 
   if (!candidato) {
     console.warn(`Nenhum candidato encontrado com usuario_id=${usuario_id}`);
