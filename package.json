@@ -35,6 +35,8 @@
   },
   "homepage": "https://github.com/brunowasch/connect-skills#readme",
   "devDependencies": {
-    "prisma": "^6.11.1"
+    "prisma": "^6.11.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   }
 }

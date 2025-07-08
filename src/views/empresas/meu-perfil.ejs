@@ -22,7 +22,11 @@
       <div>
         <h4 class="mb-1"><%= empresa.nome_empresa || 'Nome da Empresa' %></h4>
         <p class="mb-1"><%= empresa.descricao || 'Descrição não informada' %></p>
-        <p class="mb-1"><%= empresa.localidade || 'Localidade não informada' %></p>
+        <p class="mb-1">
+        <%= empresa.cidade && empresa.estado && empresa.pais 
+            ? `${empresa.cidade}, ${empresa.estado}, ${empresa.pais}`
+            : 'Localidade não informada' %>
+      </p>
         <small class="d-block"><%= empresa.telefone || 'Telefone não informado' %></small>
       </div>
       <a href="/empresa/editar-empresa" class="btn btn-primary btn-sm ms-auto">Editar perfil</a>
