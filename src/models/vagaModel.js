@@ -62,45 +62,14 @@ exports.buscarSoftSkills = async () => {
   return await prisma.soft_skill.findMany();
 };
 
-
-/**
- * Retorna todas as vagas cadastradas por uma empresa, incluindo áreas e habilidades.
- * @param {number} empresa_id
- * @returns {Promise<Array>}
- */
-exports.buscarVagasPorEmpresaId = async (empresa_id) => {
-  try {
-    console.log('[DEBUG] Prisma client OK:', typeof prisma.vaga.findMany);
-    return await prisma.vaga.findMany({
-      where: { empresa_id: Number(empresa_id) },
-      include: {
-        empresa: true,
-        vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } }
-      }
-    });
-  } catch (error) {
-    console.error('[ERRO INTERNO] Falha ao buscar vagas:', error);
-    throw error;
-  }
-};
-
-/**
- * Retorna as vagas que têm pelo menos uma área em comum com o candidato.
- * @param {number} usuario_id
- */
-exports.buscarVagasPorInteresseDoCandidato = async (usuario_id) => {
+exports.buscarVagasPorInteresseDoCandidato = async (candidato_id) => {
   const candidato = await prisma.candidato.findUnique({
-    where: {
-      usuario_id: Number(usuario_id),
-    },
-    include: {
-      candidato_area: true,
-    },
+    where: { id: Number(candidato_id) },
+    include: { candidato_area: true },
   });
 
   if (!candidato || candidato.candidato_area.length === 0) {
-    return []; // Sem áreas escolhidas
+    return [];
   }
 
   const areaIds = candidato.candidato_area.map(rel => rel.area_interesse_id);
@@ -122,14 +91,31 @@ exports.buscarVagasPorInteresseDoCandidato = async (usuario_id) => {
           area_interesse: true,
         },
       },
-      vaga_soft_skill: {
-        include: {
-          soft_skill: true,
-        },
-      },
     },
   });
 
   return vagas;
 };
 
+/**
+ * Retorna todas as vagas cadastradas por uma empresa, incluindo áreas e habilidades.
+ * @param {number} empresa_id
+ * @returns {Promise<Array>}
+ */
+exports.mostrarVagas = async (req, res) => {
+  const usuario = req.session.usuario;
+  if (!usuario) return res.redirect('/login');
+
+  try {
+    const candidato_id = usuario.id; // esse é o ID da tabela 'candidato'
+    const vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(candidato_id);
+
+    res.render('candidatos/vagas', {
+      vagas,
+      activePage: 'vagas',
+    });
+  } catch (err) {
+    console.error('Erro ao buscar vagas para candidato:', err);
+    res.status(500).send('Erro ao buscar vagas.');
+  }
+};

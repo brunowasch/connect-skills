@@ -136,15 +136,16 @@ exports.salvarAreas = async (req, res) => {
 const candidatoAtualizado = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
 
 req.session.usuario = {
-  id: candidatoAtualizado.usuario_id,
-  nome: candidatoAtualizado.nome,
-  sobrenome: candidatoAtualizado.sobrenome,
-  localidade: `${candidatoAtualizado.cidade}, ${candidatoAtualizado.estado}, ${candidatoAtualizado.pais}`,
-  telefone: candidatoAtualizado.telefone,
-  fotoPerfil: candidatoAtualizado.foto_perfil,
-  dataNascimento: candidatoAtualizado.data_nascimento,
-  areas: candidatoAtualizado.candidato_area.map(rel => rel.area_interesse.nome),
-  tipo: 'candidato'
+  id: usuario.id, 
+  nome: candidato.nome,
+  sobrenome: candidato.sobrenome,
+  email: usuario.email,
+  tipo: usuario.tipo,
+  telefone: candidato.telefone,
+  dataNascimento: candidato.data_nascimento,
+  fotoPerfil: candidato.foto_perfil,
+  localidade: `${candidato.cidade}, ${candidato.estado}, ${candidato.pais}`,
+  areas: candidato.candidato_area?.map(rel => rel.area_interesse.nome) || []
 };
 
 res.redirect(`/candidato/home`);
@@ -204,7 +205,9 @@ exports.mostrarVagas = async (req, res) => {
   if (!usuario) return res.redirect('/login');
 
   try {
-    const vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
+    const candidato_id = usuario.id;
+    const vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(candidato_id);
+
     res.render('candidatos/vagas', {
       vagas,
       activePage: 'vagas',

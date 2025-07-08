@@ -89,7 +89,7 @@ exports.login = async (req, res) => {
         dataNascimento: candidato.data_nascimento,
         fotoPerfil: candidato.foto_perfil,
         localidade: `${candidato.cidade}, ${candidato.estado}, ${candidato.pais}`,
-        areas: candidato.areas || []
+        areas: candidato.candidato_area.map(rel => rel.area_interesse.nome)
       };
 
       return req.session.save(() => {
