@@ -67,43 +67,59 @@ exports.atualizarFotoPerfil = async ({ usuario_id, foto_perfil }) => {
 };
 
 /**
- * Busca candidato com suas áreas de interesse pelo ID do usuário.
- * @param {number} usuario_id
- * @returns {Promise<Object|null>}
+ * Busca candidato pelo usuário_id com suas áreas de interesse.
+ * @param {number} usuario_id 
  */
 exports.obterCandidatoPorUsuarioId = async (usuario_id) => {
   const candidato = await prisma.candidato.findUnique({
-    where: { usuario_id },
+    where: {
+      usuario_id: Number(usuario_id),
+    },
     include: {
-      areas: {
+      usuario: true,
+      candidato_area: {
         include: {
-          area_interesse: true
-        }
-      }
-    }
+          area_interesse: true,
+        },
+      },
+    },
   });
 
-  if (!candidato) return null;
+  if (!candidato) {
+    console.warn(`Nenhum candidato encontrado com usuario_id=${usuario_id}`);
+    return null;
+  }
 
-  return {
-    ...candidato,
-    areas: candidato.areas.map((relacao) => relacao.area_interesse.nome)
-  };
+  return candidato;
 };
 
+
 /**
- * Salva as áreas de interesse para um candidato.
+ * Salva as áreas de interesse para um candidato
  * @param {Object} dados
  * @param {number} dados.candidato_id
  * @param {number[]} dados.areas
  */
 exports.salvarAreasDeInteresse = async ({ candidato_id, areas }) => {
-  const data = areas.map(area_interesse_id => ({
-    candidato_id,
-    area_interesse_id
-  }));
+  try {
+    // Apaga áreas anteriores (caso o candidato esteja editando)
+    await prisma.candidato_area.deleteMany({
+      where: { candidato_id }
+    });
 
-  return await prisma.candidatoArea.createMany({ data });
+    // Insere novas
+    const registros = areas.map(area_id => ({
+      candidato_id,
+      area_interesse_id: area_id
+    }));
+
+    await prisma.candidato_area.createMany({
+      data: registros
+    });
+  } catch (err) {
+    console.error('Erro ao salvar áreas no banco:', err);
+    throw err;
+  }
 };
 
 /**
@@ -113,7 +129,7 @@ exports.salvarAreasDeInteresse = async ({ candidato_id, areas }) => {
  * @returns {Promise<number[]>}
  */
 exports.buscarIdsDasAreas = async ({ nomes }) => {
-  const resultados = await prisma.areaInteresse.findMany({
+  return await prisma.area_interesse.findMany({
     where: {
       nome: {
         in: nomes
@@ -122,7 +138,5 @@ exports.buscarIdsDasAreas = async ({ nomes }) => {
     select: {
       id: true
     }
-  });
-
-  return resultados.map(r => r.id);
+  }).then(areas => areas.map(a => a.id));
 };

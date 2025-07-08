@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const candidatoModel = require('../models/candidatoModel');
+const vagaModel = require('../models/vagaModel');
 
 exports.telaNomeCandidato = (req, res) => {
   const { usuario_id } = req.query;
@@ -127,12 +128,27 @@ exports.salvarAreas = async (req, res) => {
     if (ids.length !== 3) return res.status(400).send("Selecione exatamente 3 áreas válidas.");
 
     await candidatoModel.salvarAreasDeInteresse({
-      candidato_id: candidato.id,
-      areas: ids
-    });
+  candidato_id: candidato.id,
+  areas: ids
+});
 
-    req.session.usuario_id = usuario_id;
-    res.redirect(`/candidato/home`);
+// Buscar dados atualizados do candidato
+const candidatoAtualizado = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
+
+req.session.usuario = {
+  id: candidatoAtualizado.usuario_id,
+  nome: candidatoAtualizado.nome,
+  sobrenome: candidatoAtualizado.sobrenome,
+  localidade: `${candidatoAtualizado.cidade}, ${candidatoAtualizado.estado}, ${candidatoAtualizado.pais}`,
+  telefone: candidatoAtualizado.telefone,
+  fotoPerfil: candidatoAtualizado.foto_perfil,
+  dataNascimento: candidatoAtualizado.data_nascimento,
+  areas: candidatoAtualizado.candidato_area.map(rel => rel.area_interesse.nome),
+  tipo: 'candidato'
+};
+
+res.redirect(`/candidato/home`);
+
   } catch (err) {
     console.error('Erro ao salvar áreas de interesse:', err);
     res.status(500).send("Erro ao salvar áreas de interesse.");
@@ -182,7 +198,19 @@ exports.mostrarPerfil = (req, res) => {
   });
 };
 
-exports.mostrarVagas = (req, res) => {
-  const vagas = req.session.vagasPublicadas || [];
-  res.render('candidatos/vagas', { vagas, activePage: 'vagas' });
+
+exports.mostrarVagas = async (req, res) => {
+  const usuario = req.session.usuario;
+  if (!usuario) return res.redirect('/login');
+
+  try {
+    const vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
+    res.render('candidatos/vagas', {
+      vagas,
+      activePage: 'vagas',
+    });
+  } catch (err) {
+    console.error('Erro ao buscar vagas para candidato:', err);
+    res.status(500).send('Erro ao buscar vagas.');
+  }
 };

@@ -85,3 +85,51 @@ exports.buscarVagasPorEmpresaId = async (empresa_id) => {
   }
 };
 
+/**
+ * Retorna as vagas que têm pelo menos uma área em comum com o candidato.
+ * @param {number} usuario_id
+ */
+exports.buscarVagasPorInteresseDoCandidato = async (usuario_id) => {
+  const candidato = await prisma.candidato.findUnique({
+    where: {
+      usuario_id: Number(usuario_id),
+    },
+    include: {
+      candidato_area: true,
+    },
+  });
+
+  if (!candidato || candidato.candidato_area.length === 0) {
+    return []; // Sem áreas escolhidas
+  }
+
+  const areaIds = candidato.candidato_area.map(rel => rel.area_interesse_id);
+
+  const vagas = await prisma.vaga.findMany({
+    where: {
+      vaga_area: {
+        some: {
+          area_interesse_id: {
+            in: areaIds,
+          },
+        },
+      },
+    },
+    include: {
+      empresa: true,
+      vaga_area: {
+        include: {
+          area_interesse: true,
+        },
+      },
+      vaga_soft_skill: {
+        include: {
+          soft_skill: true,
+        },
+      },
+    },
+  });
+
+  return vagas;
+};
+
