@@ -63,13 +63,15 @@ exports.login = async (req, res) => {
       if (!empresa) return res.redirect('/login');
 
       req.session.empresa = {
-        id: empresa.id,
-        nome: empresa.nome_empresa,
-        descricao: empresa.descricao,
-        telefone: empresa.telefone,
-        localidade: `${empresa.cidade}, ${empresa.estado}, ${empresa.pais}`,
-        fotoPerfil: empresa.foto_perfil
-      };
+      id: empresa.id,
+      nome_empresa: empresa.nome_empresa,
+      descricao: empresa.descricao,
+      telefone: empresa.telefone,
+      cidade: empresa.cidade,
+      estado: empresa.estado,
+      pais: empresa.pais,
+      foto_perfil: empresa.foto_perfil,
+    };
 
       return res.redirect('/empresa/home');
 

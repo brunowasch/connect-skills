@@ -21,7 +21,7 @@
 
       <div class="form-card">
         <div class="mb-4">
-          <label class="form-label fw-bold">Telefone</label>
+          <label for="telefone" class="form-label fw-bold">Telefone</label>
           <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
 
             <!-- DDI fixo -->
@@ -31,13 +31,13 @@
 
             <!-- DDD -->
             <div class="d-flex flex-column align-items-start">
-              <input type="text" class="form-control text-center" name="ddd" id="ddd" maxlength="2" style="width: 60px;" required>
+              <input type="text" class="form-control text-center" name="ddd" id="ddd" maxlength="2" style="width: 60px;" required autocomplete="tel-area-code" aria-label="DDD">
               <div class="invalid-feedback text-danger">Informe um DDD válido com 2 dígitos.</div>
             </div>
 
             <!-- Número -->
             <div class="d-flex flex-column align-items-start">
-              <input type="text" class="form-control text-center" name="telefone" id="telefone" maxlength="11" placeholder="Número" style="width: 180px;" required>
+              <input type="text" class="form-control text-center" name="telefone" id="telefone" maxlength="15" placeholder="Número" style="width: 180px;" required autocomplete="tel-national" aria-label="Telefone">
               <div class="invalid-feedback text-danger">Informe um número válido entre 8 e 11 dígitos.</div>
             </div>
           </div>
