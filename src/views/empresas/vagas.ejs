@@ -16,39 +16,54 @@
   <main class="container py-5">
     <h4 class="mb-4 fw-bold mt-4">Minhas vagas</h4>
 
-    <% if (vagas.length > 0) { %>
-      <% vagas.forEach(vaga => { %>
-        <div class="bg-white rounded p-4 mb-4 shadow-sm">
-          <div class="d-flex gap-4 align-items-start flex-wrap">
-            <!-- Logo e informações da vaga -->
-            <div class="d-flex gap-4 align-items-start flex-grow-1">
-              <img src="<%= vaga.empresa.logo %>" alt="Logo da empresa" style="width: 70px; height: 70px;">
-              <div>
-                <h5 class="mb-0 fw-bold"><%= vaga.empresa.nome %></h5>
-                <small class="text-muted"><%= vaga.cargo %> (<%= vaga.tipo %>)</small>
-                <p class="mb-1 mt-2"><%= vaga.descricao %></p>
-                <small class="text-muted">Vaga atua nas áreas de:</small><br>
-                <% vaga.areas.forEach(area => { %>
-                  <span class="badge bg-outline-primary text-primary border border-primary me-1"><%= area %></span>
-                <% }) %>
-              </div>
+<% if (vagas.length > 0) { %>
+  <% vagas.forEach(vaga => { %>
+    <div class="bg-white rounded p-4 mb-4 shadow-sm">
+      <div class="d-flex gap-4 align-items-start flex-wrap">
+        <!-- Logo e informações da vaga -->
+        <div class="d-flex gap-4 align-items-start flex-grow-1">
+          <img src="<%= vaga.empresa?.foto_perfil || '/img/logo.png' %>" alt="Logo da empresa" style="width: 70px; height: 70px; object-fit: cover;">
+          <div>
+            <h5 class="mb-0 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>
+            <small class="text-muted"><%= vaga.cargo %> (<%= vaga.tipo_local_trabalho %>)</small>
+            <p class="mb-1 mt-2"><%= vaga.descricao %></p>
+
+            <div class="mb-2">
+              <strong>Escala:</strong> <%= vaga.escala_trabalho %><br>
+              <% if (vaga.salario) { %>
+                <strong>Salário:</strong> <%= vaga.salario.toFixed(2) %> <%= vaga.moeda %><br>
+              <% } %>
+              <% if (vaga.dias_presenciais) { %>
+                <strong>Dias presenciais:</strong> <%= vaga.dias_presenciais %><br>
+              <% } %>
+              <% if (vaga.dias_home_office) { %>
+                <strong>Dias home office:</strong> <%= vaga.dias_home_office %>
+              <% } %>
             </div>
 
-            <!-- Ícone de edição -->
-            <div class="text-end" style="min-width: 50px;">
-              <a href="#" title="Editar"><i class="bi bi-pencil fs-5"></i></a>
-            </div>
-          </div>
-
-          <!-- Texto e botão alinhados à direita -->
-          <div class="d-flex justify-content-end mt-3">
-            <div class="text-end">
-              <p class="text-muted mb-2">Candidatos encontrados!</p>
-              <a href="#" class="btn btn-outline-primary btn-sm">Ver ranqueamento</a>
-            </div>
+            <small class="text-muted">Vaga atua nas áreas de:</small><br>
+            <% vaga.vaga_area.forEach(va => { %>
+              <span class="badge bg-outline-primary text-primary border border-primary me-1"><%= va.area_interesse.nome %></span>
+            <% }) %>
           </div>
         </div>
-      <% }) %>
+
+        <!-- Ícone de edição -->
+        <div class="text-end" style="min-width: 50px;">
+          <a href="#" title="Editar"><i class="bi bi-pencil fs-5"></i></a>
+        </div>
+      </div>
+
+      <!-- Texto e botão alinhados à direita -->
+      <div class="d-flex justify-content-end mt-3">
+        <div class="text-end">
+          <p class="text-muted mb-2">Candidatos encontrados!</p>
+          <a href="#" class="btn btn-outline-primary btn-sm">Ver ranqueamento</a>
+        </div>
+      </div>
+    </div>
+  <% }) %>
+
 
       <!-- Após o loop -->
       <div class="d-flex flex-column justify-content-center align-items-center" style="min-height: 30vh;">
