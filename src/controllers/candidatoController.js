@@ -121,37 +121,45 @@ exports.salvarAreas = async (req, res) => {
   const nomes = areasSelecionadas.split(',');
 
   try {
+    // Verifica se os nomes das áreas estão sendo passados corretamente
+    console.log("Áreas selecionadas:", nomes);
+
+    // Buscar o candidato pelo usuário_id
     const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
     if (!candidato) return res.status(404).send("Candidato não encontrado.");
 
+    // Busca os IDs das áreas de interesse com base nos nomes
     const ids = await candidatoModel.buscarIdsDasAreas({ nomes });
+    console.log("IDs das áreas:", ids); // Verifique se os IDs estão corretos
+
     if (ids.length !== 3) return res.status(400).send("Selecione exatamente 3 áreas válidas.");
 
+    // Salva as áreas de interesse para o candidato
     await candidatoModel.salvarAreasDeInteresse({
-  candidato_id: candidato.id,
-  areas: ids
-});
+      candidato_id: candidato.id,
+      areas: ids
+    });
 
-// Buscar dados atualizados do candidato
-const candidatoAtualizado = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
+    // Busca os dados atualizados do candidato
+    const candidatoAtualizado = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
 
-req.session.usuario = {
-  id: usuario.id, 
-  nome: candidato.nome,
-  sobrenome: candidato.sobrenome,
-  email: usuario.email,
-  tipo: usuario.tipo,
-  telefone: candidato.telefone,
-  dataNascimento: candidato.data_nascimento,
-  fotoPerfil: candidato.foto_perfil,
-  localidade: `${candidato.cidade}, ${candidato.estado}, ${candidato.pais}`,
-  areas: candidato.candidato_area?.map(rel => rel.area_interesse.nome) || []
-};
+    req.session.usuario = {
+      id: candidato.id, 
+      nome: candidato.nome,
+      sobrenome: candidato.sobrenome,
+      email: candidato.email,
+      tipo: 'candidato',
+      telefone: candidato.telefone,
+      dataNascimento: candidato.data_nascimento,
+      fotoPerfil: candidato.foto_perfil,
+      localidade: `${candidato.cidade}, ${candidato.estado}, ${candidato.pais}`,
+      areas: candidato.candidato_area?.map(rel => rel.area_interesse.nome) || []
+    };
 
-res.redirect(`/candidato/home`);
 
-  } catch (err) {
-    console.error('Erro ao salvar áreas de interesse:', err);
+    return res.redirect('/candidatos/home');
+  } catch (error) {
+    console.error("Erro ao salvar áreas de interesse:", error);
     res.status(500).send("Erro ao salvar áreas de interesse.");
   }
 };
@@ -193,7 +201,7 @@ exports.mostrarPerfil = (req, res) => {
     ddd,
     dataNascimento: new Date(usuario.dataNascimento).toISOString().split('T')[0],
     fotoPerfil: usuario.fotoPerfil,
-    areas: usuario.areas || [],
+    areas: usuario.areas || [],  // Garante que se areas estiver vazia, será uma lista vazia
     activePage: 'perfil',
     usuario
   });
