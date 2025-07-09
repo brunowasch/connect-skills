@@ -9,7 +9,7 @@ const authRoutes = require('./src/routes/authRoutes');
 const usuarioRoutes = require('./src/routes/usuarioRoutes');
 const candidatoRoutes = require('./src/routes/candidatoRoutes');
 const empresaRoutes = require('./src/routes/empresaRoutes');
-const mainRoutes = require('./src/routes/index');
+const mainRoutes = require('./src/routes/index'); 
 
 const app = express();
 const port = 3000;
