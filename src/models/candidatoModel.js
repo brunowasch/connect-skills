@@ -59,12 +59,16 @@ exports.atualizarTelefone = async ({ usuario_id, telefone }) => {
  * @param {number} dados.usuario_id
  * @param {string} dados.foto_perfil
  */
-exports.atualizarFotoPerfil = async ({ usuario_id, foto_perfil }) => {
-  return await prisma.candidato.update({
-    where: { usuario_id },
+exports.atualizarFotoPerfil = async ({
+  candidato_id,
+  foto_perfil
+}) => {
+  return prisma.candidato.update({
+    where: { id: Number(candidato_id) },
     data: { foto_perfil }
   });
 };
+
 
 /**
  * Busca candidato pelo usuário_id com suas áreas de interesse.
@@ -139,4 +143,61 @@ exports.buscarIdsDasAreas = async ({ nomes }) => {
       id: true
     }
   }).then(areas => areas.map(a => a.id));
+};
+
+exports.atualizarPerfilBasico = async ({
+  candidato_id,
+  nome,
+  sobrenome,
+  pais,
+  estado,
+  cidade,
+  telefone,
+  data_nascimento      // <— novo
+}) => {
+  return prisma.candidato.update({
+    where: { id: Number(candidato_id) },
+    data: {
+      nome,
+      sobrenome,
+      pais,
+      estado,
+      cidade,
+      telefone,
+      data_nascimento    // <— aqui
+    }
+  });
+};
+
+/**
+ * Atualiza nome, sobrenome, localidade (cidade, estado, país) e telefone.
+ * @param {Object} dados
+ * @param {number} dados.usuario_id
+ * @param {string} dados.nome
+ * @param {string} dados.sobrenome
+ * @param {string} dados.pais
+ * @param {string} dados.estado
+ * @param {string} dados.cidade
+ * @param {string} dados.telefone 
+ */
+exports.atualizarPerfilBasico = async ({
+  candidato_id,  // agora usamos candidato.id como chave primária
+  nome,
+  sobrenome,
+  pais,
+  estado,
+  cidade,
+  telefone
+}) => {
+  return prisma.candidato.update({
+    where: { id: Number(candidato_id) },
+    data: {
+      nome,
+      sobrenome,
+      pais,
+      estado,
+      cidade,
+      telefone
+    }
+  });
 };
