@@ -11,8 +11,14 @@
 </head>
 <body>
   <%- include('../partials/header-candidato') %>
-
-  <main class="container py-5">
+  <%
+      const tipoMap = {
+        Presencial:   'Presencial',
+        Home_Office:  'Home Office',
+        H_brido:      'Híbrido'
+      };
+    %>
+    <main class="container py-5">
   <h2 class="mb-4 mt-5">Vagas disponíveis</h2>
 
   <% if (vagas.length === 0) { %>
@@ -23,15 +29,16 @@
         <div class="card-body d-flex align-items-start">
           <img src="<%= vaga.empresa.foto_perfil || '/img/empresa-padrao.png' %>" alt="Logo da empresa" class="rounded-circle me-3" width="60" height="60" style="object-fit: cover;">
 
-          <div class="flex-grow-1">
-            <h5 class="mb-0 fw-bold"><%= vaga.empresa.nome_empresa %></h5>
-            <p class="mb-1 text-muted"><%= vaga.cargo %> (<%= vaga.tipo_local_trabalho %>)</p>
-            <p class="mb-1"><%= vaga.descricao %></p>
-
+          <div>
+            <h5 class="mb-0 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>
+            <p class="mb-1 mt-2"><%= vaga.cargo %></p>
+            <p class="mb-1 mt-2"><%= vaga.descricao %></p>
+             <small class="text-muted"><%= tipoMap[vaga.tipo_local_trabalho] %>
+          </small>
             <div class="mb-2">
               <strong>Escala:</strong> <%= vaga.escala_trabalho %><br>
               <% if (vaga.salario) { %>
-                <strong>Salário:</strong> R$ <%= vaga.salario.toFixed(2) %> <%= vaga.moeda %><br>
+                <strong>Salário:</strong> <%= vaga.salario.toFixed(2) %> <%= vaga.moeda %><br>
               <% } %>
               <% if (vaga.dias_presenciais) { %>
                 <strong>Dias presenciais:</strong> <%= vaga.dias_presenciais %><br>

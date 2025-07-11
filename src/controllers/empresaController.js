@@ -267,6 +267,20 @@ exports.mostrarPerfil = async (req, res) => {
   }
 };
 
+exports.excluirVaga = async (req, res) => {
+  try {
+    if (!req.session.empresa) return res.redirect('/login');
+
+    const { id } = req.params;
+    await vagaModel.excluirVaga(id);
+
+    res.redirect('/empresa/meu-perfil');
+  } catch (error) {
+    console.error('Erro ao excluir vaga:', error);
+    res.status(500).send('Não foi possível excluir a vaga.');
+  }
+};
+
 exports.telaEditarPerfil = (req, res) => {
   const empresa = req.session.empresa;
   if (!empresa) return res.redirect('/login');
@@ -320,3 +334,88 @@ exports.mostrarVagas = async (req, res) => {
   }
 };
 
+exports.telaEditarVaga = async (req, res) => {
+  try {
+    const vagaId = Number(req.params.id);
+    const empresaId = req.session.empresa.id;
+
+    // busca vaga + relacionamentos
+    const vaga = await prisma.vaga.findUnique({
+      where: { id: vagaId },
+      include: {
+        vaga_area: { include: { area_interesse: true } },
+        vaga_soft_skill: { include: { soft_skill: true } }
+      }
+    });
+
+    // garante que a vaga pertence a esta empresa
+    if (!vaga || vaga.empresa_id !== empresaId) {
+      return res.status(403).send('Acesso negado.');
+    }
+
+    // busca todas as áreas e skills para popular checkboxes
+    const areas = await prisma.area_interesse.findMany();
+    const skills = await prisma.soft_skill.findMany();
+
+    // extrai IDs selecionados
+    const selectedAreas  = vaga.vaga_area.map(a  => a.area_interesse_id);
+    const selectedSkills = vaga.vaga_soft_skill.map(s => s.soft_skill_id);
+
+    res.render('empresas/editar-vaga', {
+      vaga,
+      areas,
+      skills,
+      selectedAreas,
+      selectedSkills
+    });
+  } catch (err) {
+    console.error('Erro na tela de editar vaga:', err);
+    res.status(500).send('Erro ao carregar edição de vaga.');
+  }
+};
+
+/** Recebe POST da edição e salva no banco */
+exports.salvarEditarVaga = async (req, res) => {
+  try {
+    const vagaId = Number(req.params.id);
+    const empresaId = req.session.empresa.id;
+
+    // parse dos campos
+    const {
+      cargo,
+      tipo,
+      escala,
+      diasPresenciais,
+      diasHomeOffice,
+      salario,
+      moeda,
+      descricao,
+      areasSelecionadas,
+      habilidadesSelecionadas
+    } = req.body;
+
+    const areaIds  = JSON.parse(areasSelecionadas);
+    const skillIds = JSON.parse(habilidadesSelecionadas);
+
+    // atualiza via model
+    await vagaModel.atualizarVaga({
+      id: vagaId,
+      empresa_id: empresaId,
+      cargo,
+      tipo,
+      escala,
+      dias_presenciais: Number(diasPresenciais)  || null,
+      dias_home_office: Number(diasHomeOffice)  || null,
+      salario: salario ? parseFloat(salario.replace(',', '.')) : null,
+      moeda,
+      descricao,
+      areas_ids: areaIds,
+      soft_skills_ids: skillIds
+    });
+
+    res.redirect('/empresa/meu-perfil');
+  } catch (err) {
+    console.error('[ERRO] Falha ao editar vaga:', err);
+    res.status(500).send('Não foi possível editar a vaga.');
+  }
+};

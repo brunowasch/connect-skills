@@ -1,174 +1,129 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const tipo = document.getElementById('tipo');
-  const campoPresencial = document.getElementById('campoPresencial');
-  const campoHomeOffice = document.getElementById('campoHomeOffice');
-  const diasPresenciais = document.getElementById('diasPresenciais');
-  const diasHomeOffice = document.getElementById('diasHomeOffice');
-  const erroDias = document.getElementById('erroDias');
-  const form = document.getElementById('formPublicarVaga');
-  const moedaSelect = document.getElementById('moeda');
-  const simboloSpan = document.getElementById('simboloMoeda');
+  const tipo         = document.getElementById('tipo');
+  const campoPres    = document.getElementById('campoPresencial');
+  const campoHome    = document.getElementById('campoHomeOffice');
+  const diasPres     = document.getElementById('diasPresenciais');
+  const diasHome     = document.getElementById('diasHomeOffice');
+  const erroDias     = document.getElementById('erroDias');
+  const moedaSelect  = document.getElementById('moeda');
+  const simboloSpan  = document.getElementById('simboloMoeda');
   const salarioInput = document.getElementById('salario');
+  const form         = document.getElementById('formPublicarVaga');
 
-  const simbolos = {
-    'BRL': 'R$', 'USD': 'US$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'ARS': 'AR$', 'CAD': 'C$', 'AUD': 'A$',
-    'CHF': 'CHF', 'CNY': '¥', 'INR': '₹', 'MXN': 'MX$', 'ZAR': 'R', 'KRW': '₩', 'SEK': 'kr', 'RUB': '₽'
-  };
+  const simbolos = { BRL:'R$', USD:'US$', EUR:'€', GBP:'£', JPY:'¥', /*…*/ };
 
+  // Ajusta campos dias
   tipo.addEventListener('change', () => {
-    const valor = tipo.value;
-
-    campoPresencial.style.display = 'none';
-    campoHomeOffice.style.display = 'none';
-    diasPresenciais.value = '';
-    diasHomeOffice.value = '';
+    const v = tipo.value; // Presencial | Home_Office | H_brido
+    campoPres.style.display = 'none';
+    campoHome.style.display = 'none';
+    diasPres.value = diasHome.value = '';
     erroDias.textContent = '';
-    diasPresenciais.removeAttribute('required');
-    diasHomeOffice.removeAttribute('required');
+    diasPres.removeAttribute('required');
+    diasHome.removeAttribute('required');
 
-    if (valor === 'Presencial') {
-      campoPresencial.style.display = 'flex';
-      diasPresenciais.setAttribute('required', 'required');
-    } else if (valor === 'Home Office') {
-      campoHomeOffice.style.display = 'flex';
-      diasHomeOffice.setAttribute('required', 'required');
-    } else if (valor === 'Híbrido') {
-      campoPresencial.style.display = 'flex';
-      campoHomeOffice.style.display = 'flex';
-      diasPresenciais.setAttribute('required', 'required');
-      diasHomeOffice.setAttribute('required', 'required');
+    if (v === 'Presencial') {
+      campoPres.style.display = 'flex';
+      diasPres.setAttribute('required','');
+    } else if (v === 'Home_Office') {
+      campoHome.style.display = 'flex';
+      diasHome.setAttribute('required','');
+    } else if (v === 'H_brido') {
+      campoPres.style.display = 'flex';
+      campoHome.style.display = 'flex';
+      diasPres.setAttribute('required','');
+      diasHome.setAttribute('required','');
     }
   });
 
-  function validarDiasHibrido() {
-    const tipoValor = tipo.value;
-    const p = parseInt(diasPresenciais.value) || 0;
-    const h = parseInt(diasHomeOffice.value) || 0;
-
-    if (tipoValor === 'Híbrido') {
-      if (!diasPresenciais.value || !diasHomeOffice.value) {
-        erroDias.textContent = 'Preencha os dois campos de dias.';
-        return false;
-      }
-      if (p + h > 7) {
-        erroDias.textContent = 'A soma dos dias não pode ser maior que 7.';
-        return false;
-      }
+  const validarDias = () => {
+    if (tipo.value !== 'H_brido') { erroDias.textContent = ''; return true; }
+    const p = parseInt(diasPres.value)||0, h = parseInt(diasHome.value)||0;
+    if (!diasPres.value||!diasHome.value) {
+      erroDias.textContent = 'Preencha ambos os dias.'; return false;
     }
-
+    if (p+h >7) {
+      erroDias.textContent = 'Total de dias não pode exceder 7.'; return false;
+    }
     erroDias.textContent = '';
     return true;
-  }
+  };
+  diasPres.addEventListener('input', validarDias);
+  diasHome.addEventListener('input', validarDias);
 
-  diasPresenciais.addEventListener('input', validarDiasHibrido);
-  diasHomeOffice.addEventListener('input', validarDiasHibrido);
+  // Máscara de salário
+  salarioInput.addEventListener('input', () => {
+    let s = salarioInput.value.replace(/\D/g,'');
+    if (!s) return salarioInput.value='';
+    if (s.length>11) s=s.slice(0,11);
+    const i = s.slice(0,-2), d = s.slice(-2);
+    salarioInput.value = `${parseInt(i||'0').toLocaleString('pt-BR')},${d}`;
+  });
 
   moedaSelect.addEventListener('change', () => {
-    const moeda = moedaSelect.value;
-    simboloSpan.textContent = simbolos[moeda] || moeda;
+    simboloSpan.textContent = simbolos[moedaSelect.value]||moedaSelect.value;
   });
 
-  salarioInput.addEventListener('input', () => {
-    let valor = salarioInput.value.replace(/\D/g, '');
-    if (!valor) return salarioInput.value = '';
-
-    if (valor.length > 11) valor = valor.slice(0, 11);
-    const inteiro = valor.slice(0, -2);
-    const decimal = valor.slice(-2);
-    const inteiroFormatado = parseInt(inteiro || '0').toLocaleString('pt-BR');
-
-    salarioInput.value = `${inteiroFormatado},${decimal}`;
-  });
-
-  // Áreas e habilidades
-  const areaBtns = document.querySelectorAll('.area-btn');
+  // Seleção de áreas e skills (JSON)
+  const areaBtns  = document.querySelectorAll('.area-btn');
   const skillBtns = document.querySelectorAll('.skill-btn');
-  const areasSelecionadasInput = document.getElementById('areasSelecionadas');
-  const habilidadesSelecionadasInput = document.getElementById('habilidadesSelecionadas');
-
-  const areasSelecionadas = new Set();
-  const habilidadesSelecionadas = new Set();
+  const areasIn   = document.getElementById('areasSelecionadas');
+  const skillsIn  = document.getElementById('habilidadesSelecionadas');
+  const areasSet  = new Set();
+  const skillsSet = new Set();
 
   areaBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      const area = btn.textContent;
-      if (areasSelecionadas.has(area)) {
-        areasSelecionadas.delete(area);
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-outline-primary');
-      } else {
-        if (areasSelecionadas.size >= 3) return;
-        areasSelecionadas.add(area);
-        btn.classList.remove('btn-outline-primary');
-        btn.classList.add('btn-primary');
+      const id = btn.dataset.id;
+      if (areasSet.has(id)) {
+        areasSet.delete(id);
+        btn.classList.replace('btn-primary','btn-outline-primary');
+      } else if (areasSet.size<3) {
+        areasSet.add(id);
+        btn.classList.replace('btn-outline-primary','btn-primary');
       }
-      areasSelecionadasInput.value = Array.from(areasSelecionadas).join(',');
+      areasIn.value = JSON.stringify([...areasSet]);
     });
   });
 
   skillBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      const habilidade = btn.textContent;
-      if (habilidadesSelecionadas.has(habilidade)) {
-        habilidadesSelecionadas.delete(habilidade);
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-outline-primary');
-      } else {
-        if (habilidadesSelecionadas.size >= 3) return;
-        habilidadesSelecionadas.add(habilidade);
-        btn.classList.remove('btn-outline-primary');
-        btn.classList.add('btn-primary');
+      const id = btn.dataset.id;
+      if (skillsSet.has(id)) {
+        skillsSet.delete(id);
+        btn.classList.replace('btn-primary','btn-outline-primary');
+      } else if (skillsSet.size<3) {
+        skillsSet.add(id);
+        btn.classList.replace('btn-outline-primary','btn-primary');
       }
-      habilidadesSelecionadasInput.value = Array.from(habilidadesSelecionadas).join(',');
+      skillsIn.value = JSON.stringify([...skillsSet]);
     });
   });
 
-  // Validação final no envio
+  // Validação final
   form.addEventListener('submit', (e) => {
-    let valido = true;
-
-    document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+    let ok = true;
+    document.querySelectorAll('.is-invalid').forEach(x=>x.classList.remove('is-invalid'));
     document.getElementById('erroAreas').innerText = '';
     document.getElementById('erroHabilidades').innerText = '';
     erroDias.textContent = '';
 
-    if (!validarDiasHibrido()) valido = false;
-
-    const cargo = document.getElementById('cargo');
-    if (!cargo.value.trim()) {
-      cargo.classList.add('is-invalid');
-      valido = false;
+    if (!validarDias()) ok = false;
+    if (!document.getElementById('cargo').value.trim()) {
+      document.getElementById('cargo').classList.add('is-invalid'); ok = false;
     }
-
     if (!tipo.value) {
-      tipo.classList.add('is-invalid');
-      valido = false;
+      tipo.classList.add('is-invalid'); ok = false;
     }
-
-    const escala = document.getElementById('escala');
-    if (!escala.value.trim()) {
-      escala.classList.add('is-invalid');
-      valido = false;
+    if (!document.getElementById('escala').value.trim()) {
+      document.getElementById('escala').classList.add('is-invalid'); ok = false;
     }
-
-    const areas = areasSelecionadasInput.value.split(',').filter(v => v.trim() !== '');
-    if (areas.length < 1) {
-      document.getElementById('erroAreas').innerText = 'Selecione pelo menos uma área de atuação.';
-      valido = false;
+    if (areasSet.size<1) {
+      document.getElementById('erroAreas').innerText='Selecione ao menos 1 área.'; ok=false;
     }
-
-    const habilidades = habilidadesSelecionadasInput.value.split(',').filter(v => v.trim() !== '');
-    if (habilidades.length < 1) {
-      document.getElementById('erroHabilidades').innerText = 'Selecione pelo menos uma habilidade comportamental.';
-      valido = false;
+    if (skillsSet.size<1) {
+      document.getElementById('erroHabilidades').innerText='Selecione ao menos 1 skill.'; ok=false;
     }
-
-    if (!valido) {
-      console.log("Formulário inválido");
-      e.preventDefault();
-    } else {
-      console.log("Formulário válido, será enviado");
-    }
+    if (!ok) e.preventDefault();
   });
-  console.log("JS de publicação de vaga carregado");
 });

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editar Vaga - Connect Skills</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/shared/style.css">
+</head>
+<body>
+  <%- include('../partials/header-empresa') %>
+  <%
+  const moedaMap = {
+    BRL: 'R$',
+    USD: 'US$',
+    EUR: '€',
+    GBP: '£',
+    JPY: '¥',
+    ARS: 'AR$',
+    CAD: 'C$',
+    AUD: 'A$',
+    CHF: 'CHF',
+    CNY: '¥',
+    INR: '₹',
+    MXN: 'MX$',
+    ZAR: 'R',
+    KRW: '₩',
+    SEK: 'kr',
+    RUB: '₽'
+  };
+%>
+
+  <main class="container py-5" style="max-width:800px">
+    <a href="/empresa/meu-perfil" class="text-decoration-none" title="Voltar">
+      <i class="bi bi-arrow-left fs-4"></i>
+    </a>
+    <h2 class="text-center text-primary fw-bold mb-4">Editar Vaga</h2>
+
+    <form id="formEditarVaga" action="/empresa/editar-vaga/<%= vaga.id %>" method="POST">
+      <div class="row mb-4">
+        <!-- Cargo -->
+        <div class="col-md-6">
+          <label class="form-label">Cargo</label>
+          <input type="text" name="cargo" class="form-control" value="<%= vaga.cargo %>" required>
+        </div>
+
+        <!-- Tipo -->
+        <div class="col-md-6">
+          <label class="form-label">Tipo de local de trabalho</label>
+          <select name="tipo" class="form-select" required>
+            <option value="Presencial"   <%= vaga.tipo_local_trabalho==='Presencial'  ? 'selected':'' %>>Presencial</option>
+            <option value="Home_Office"  <%= vaga.tipo_local_trabalho==='Home_Office' ? 'selected':'' %>>Home Office</option>
+            <option value="H_brido"      <%= vaga.tipo_local_trabalho==='H_brido'     ? 'selected':'' %>>Híbrido</option>
+          </select>
+        </div>
+
+        <!-- Escala -->
+        <div class="col-md-6 mt-3">
+          <label class="form-label">Escala de trabalho</label>
+          <input type="text" name="escala" class="form-control"
+                 value="<%= vaga.escala_trabalho %>" required>
+        </div>
+
+        <!-- Dias -->
+        <div class="col-md-6 mt-3 d-flex align-items-end" id="campo-presencial-hibrido">
+          <div id="campoPresencial" class="me-3" style="display:none;">
+            <label class="form-label small">Dias presenciais</label>
+            <input type="number" name="diasPresenciais" class="form-control form-control-sm"
+                   min="0" max="7" style="width:80px"
+                   value="<%= vaga.dias_presenciais || '' %>">
+          </div>
+          <div id="campoHomeOffice" style="display:none;">
+            <label class="form-label small">Dias home office</label>
+            <input type="number" name="diasHomeOffice" class="form-control form-control-sm"
+                   min="0" max="7" style="width:80px"
+                   value="<%= vaga.dias_home_office || '' %>">
+          </div>
+          <div id="erroDias" class="text-danger small ms-3"></div>
+        </div>
+
+        <!-- Salário -->
+        <div class="col-md-6 mt-3">
+          <label class="form-label">Salário (opcional)</label>
+          <div class="input-group">
+            <select id="moeda" name="moeda" class="form-select" style="max-width:110px">
+              <% const moedas = { BRL:'R$', USD:'US$', EUR:'€' /*…*/ }; %>
+              <% for (let c in moedas) { %>
+                <option value="<%=c%>" <%= vaga.moeda===c?'selected':'' %>><%= moedas[c] %></option>
+              <% } %>
+            </select>
+            <span class="input-group-text" id="simboloMoeda"><%= moedaMap[vaga.moeda] || vaga.moeda %></span>
+            <input type="text" id="salario" name="salario" class="form-control"
+                   value="<%= vaga.salario ? vaga.salario.toFixed(2).replace('.', ',') : '' %>">
+          </div>
+        </div>
+
+        <!-- Descrição -->
+        <div class="col-12 mt-4 mb-4">
+          <label class="form-label">Descrição</label>
+          <textarea name="descricao" class="form-control" rows="5" required><%= vaga.descricao %></textarea>
+        </div>
+      </div>
+
+      <!-- Áreas -->
+      <div class="mb-4">
+        <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
+        <div class="d-flex flex-wrap gap-2 justify-content-center">
+          <% areas.forEach(a => { %>
+            <button type="button"
+                    class="btn <%= selectedAreas.includes(a.id)?'btn-primary':'btn-outline-primary' %> area-btn"
+                    data-id="<%=a.id%>">
+              <%=a.nome%>
+            </button>
+          <% }) %>
+        </div>
+        <input type="hidden" name="areasSelecionadas" id="areasSelecionadas" value='<%= JSON.stringify(selectedAreas) %>'>
+        <div id="erroAreas" class="text-danger small mt-1"></div>
+      </div>
+
+      <!-- Soft Skills -->
+      <div class="mb-4">
+        <h5 class="fw-bold text-center">Habilidades comportamentais que mais se encaixam à vaga (máx. 3):</h5>
+        <div class="d-flex flex-wrap gap-2 justify-content-center">
+          <% skills.forEach(s => { %>
+            <button type="button"
+                    class="btn <%= selectedSkills.includes(s.id)?'btn-primary':'btn-outline-primary' %> skill-btn"
+                    data-id="<%=s.id%>">
+              <%=s.nome%>
+            </button>
+          <% }) %>
+        </div>
+        <input type="hidden" name="habilidadesSelecionadas" id="habilidadesSelecionadas" value='<%= JSON.stringify(selectedSkills) %>'>
+        <div id="erroHabilidades" class="text-danger small mt-1"></div>
+      </div>
+
+      <!-- Botões -->
+      <div class="text-center mt-4">
+        <a href="/empresa/meu-perfil" class="btn btn-outline-danger">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Salvar alterações</button>
+      </div>
+    </form>
+  </main>
+
+  <%- include('../partials/footer') %>
+  <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
+    <script src="/js/empresas/selecionarHabilidadeseAreas.js"></script>
+</body>
+</html>

@@ -12,7 +12,13 @@
 <body class="bg-light">
 
   <%- include('../partials/header-empresa') %>
-
+  <%
+    const tipoMap = {
+      Presencial:   'Presencial',
+      Home_Office:  'Home Office',
+      H_brido:      'Híbrido'
+    };
+  %>
   <main class="container py-5">
     <h4 class="mb-4 fw-bold mt-4">Minhas vagas</h4>
 
@@ -25,9 +31,10 @@
           <img src="<%= vaga.empresa?.foto_perfil || '/img/logo.png' %>" alt="Logo da empresa" style="width: 70px; height: 70px; object-fit: cover;">
           <div>
             <h5 class="mb-0 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>
-            <small class="text-muted"><%= vaga.cargo %> (<%= vaga.tipo_local_trabalho %>)</small>
+            <p class="mb-1 mt-2"><%= vaga.cargo %></p>
             <p class="mb-1 mt-2"><%= vaga.descricao %></p>
-
+             <small class="text-muted"><%= tipoMap[vaga.tipo_local_trabalho] %>
+          </small>
             <div class="mb-2">
               <strong>Escala:</strong> <%= vaga.escala_trabalho %><br>
               <% if (vaga.salario) { %>

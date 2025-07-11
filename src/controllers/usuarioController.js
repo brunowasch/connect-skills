@@ -63,23 +63,26 @@ exports.login = async (req, res) => {
       if (!empresa) return res.redirect('/login');
 
       req.session.empresa = {
-      id: empresa.id,
-      nome_empresa: empresa.nome_empresa,
-      descricao: empresa.descricao,
-      telefone: empresa.telefone,
-      cidade: empresa.cidade,
-      estado: empresa.estado,
-      pais: empresa.pais,
-      foto_perfil: empresa.foto_perfil,
-    };
+        id: empresa.id,
+        nome_empresa: empresa.nome_empresa,
+        descricao: empresa.descricao,
+        telefone: empresa.telefone,
+        cidade: empresa.cidade,
+        estado: empresa.estado,
+        pais: empresa.pais,
+        foto_perfil: empresa.foto_perfil,
+      };
 
-      return res.redirect('/empresa/home');
+      return req.session.save(() => {
+        res.redirect('/empresa/home');
+      });
 
     } else if (usuario.tipo === 'candidato') {
       const candidato = await candidatoModel.obterCandidatoPorUsuarioId(usuario.id);
       if (!candidato) return res.redirect('/login');
 
-      req.session.usuario = {
+      // Armazena sessão de candidato, não em req.session.usuario
+      req.session.candidato = {
         id: candidato.id,
         nome: candidato.nome,
         sobrenome: candidato.sobrenome,
@@ -87,13 +90,14 @@ exports.login = async (req, res) => {
         tipo: usuario.tipo,
         telefone: candidato.telefone,
         dataNascimento: candidato.data_nascimento,
-        fotoPerfil: candidato.foto_perfil,
+        foto_perfil: candidato.foto_perfil,
         localidade: `${candidato.cidade}, ${candidato.estado}, ${candidato.pais}`,
         areas: candidato.candidato_area.map(rel => rel.area_interesse.nome)
       };
 
       return req.session.save(() => {
-        res.redirect('/candidato/home');
+        // Redireciona para a rota correta dos candidatos
+        res.redirect('/candidatos/home');
       });
     }
   } catch (err) {
@@ -116,7 +120,7 @@ exports.verificarEmail = async (req, res) => {
     if (usuario.tipo === 'empresa') {
       res.redirect(`/empresa/nome-empresa?usuario_id=${usuario_id}`);
     } else {
-      res.redirect(`/candidato/cadastro/nome?usuario_id=${usuario_id}`);
+      res.redirect(`/candidatos/cadastro/nome?usuario_id=${usuario_id}`);
     }
   } catch (error) {
     console.error('Erro ao verificar token:', error);
