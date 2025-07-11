@@ -86,13 +86,13 @@ exports.login = async (req, res) => {
         id: candidato.id,
         nome: candidato.nome,
         sobrenome: candidato.sobrenome,
-        email: usuario.email,
-        tipo: usuario.tipo,
+        email: candidato.email,
+        tipo: 'candidato',
         telefone: candidato.telefone,
-        dataNascimento: candidato.data_nascimento,
+        data_nascimento: candidato.data_nascimento,
         foto_perfil: candidato.foto_perfil,
         localidade: `${candidato.cidade}, ${candidato.estado}, ${candidato.pais}`,
-        areas: candidato.candidato_area.map(rel => rel.area_interesse.nome)
+        areas: candidato.candidato_area?.map(rel => rel.area_interesse.nome) || []
       };
 
       return req.session.save(() => {

@@ -1,18 +1,14 @@
-// config/multer.js
 const multer = require('multer');
-const path = require('path');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('../config/cloudinary'); // config do Cloudinary separado
 
-// Armazenamento configurado
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.resolve('public/uploads')); // Caminho absoluto
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'connect-skills/candidatos',
+    allowed_formats: ['jpg', 'jpeg', 'png'],
+    transformation: [{ width: 300, height: 300, crop: 'fill' }]
   },
-  filename: (req, file, cb) => {
-    // Gera nome seguro: timestamp + extensão
-    const extensao = path.extname(file.originalname).toLowerCase();
-    const nomeSeguro = `${Date.now()}-${Math.floor(Math.random() * 1E9)}${extensao}`;
-    cb(null, nomeSeguro);
-  }
 });
 
 const upload = multer({ storage });
