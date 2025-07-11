@@ -15,8 +15,9 @@
 <main>
   <%- include('../partials/header-candidato') %>
     <div class="perfil-card bg-white p-4 rounded shadow-sm">
+      <h2 class="mb-4">Meu perfil</h2>
       <div class="d-flex align-items-center perfil-header mb-4">
-        <img src="<%= fotoPerfil || 'https://via.placeholder.com/80' %>" alt="Foto" class="perfil-foto rounded-circle me-3">
+        <img src="<%= usuario.foto_perfil || 'https://via.placeholder.com/80' %>" alt="Foto" class="perfil-foto rounded-circle me-3">
         <div>
           <h4 class="mb-1"><%= nome || 'Usuário' %> <%= sobrenome || '' %></h4>
           <p class="mb-1"><%= localidade || '' %></p>

@@ -181,3 +181,76 @@ exports.mostrarVagas = async (req, res) => {
     res.status(500).send('Erro ao buscar vagas.');
   }
 };
+
+exports.atualizarVaga = async ({
+  id,
+  empresa_id,
+  cargo,
+  tipo,
+  escala,
+  dias_presenciais,
+  dias_home_office,
+  salario,
+  moeda,
+  descricao,
+  areas_ids,
+  soft_skills_ids
+}) => {
+  const vagaId = Number(id);
+
+  // 1) garante que só a própria empresa atualize
+  // (optionally, você pode verificar antes no controller)
+
+  // 2) limpa relacionamentos antigos
+  await prisma.vaga_area.deleteMany({ where: { vaga_id: vagaId } });
+  await prisma.vaga_soft_skill.deleteMany({ where: { vaga_id: vagaId } });
+
+  // 3) atualiza campos + recria vínculos
+  return await prisma.vaga.update({
+    where: { id: vagaId },
+    data: {
+      cargo,
+      tipo_local_trabalho: tipo,
+      escala_trabalho: escala,
+      dias_presenciais,
+      dias_home_office,
+      salario,
+      moeda,
+      descricao,
+      vaga_area: {
+        create: areas_ids.map(aid => ({
+          area_interesse: { connect: { id: Number(aid) } }
+        }))
+      },
+      vaga_soft_skill: {
+        create: soft_skills_ids.map(sid => ({
+          soft_skill: { connect: { id: Number(sid) } }
+        }))
+      }
+    }
+  });
+};
+
+/**
+ * Exclui uma vaga e todos os seus vínculos de áreas e soft skills.
+ * @param {number|string} id — ID da vaga a ser excluída
+ * @returns {Promise<Object>}
+ */
+exports.excluirVaga = async (id) => {
+  const vagaId = Number(id);
+
+  // 1) Remove todos os vínculos na tabela pivô vaga_area
+  await prisma.vaga_area.deleteMany({
+    where: { vaga_id: vagaId }
+  });
+
+  // 2) Remove todos os vínculos na tabela pivô vaga_soft_skill
+  await prisma.vaga_soft_skill.deleteMany({
+    where: { vaga_id: vagaId }
+  });
+
+  // 3) Finalmente, apaga a vaga
+  return await prisma.vaga.delete({
+    where: { id: vagaId }
+  });
+};

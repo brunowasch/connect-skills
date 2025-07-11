@@ -30,7 +30,6 @@ app.use(session({
   }
 }));
 
-// View engine e diretório de views
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'src', 'views'));
 

@@ -10,54 +10,63 @@
 </head>
 <body>
   <%- include('../partials/header-empresa') %>
-
   <main class="container py-5" style="max-width: 800px;">
-    <a href="/empresas/meu-perfil" class="text-decoration-none" title="Voltar ao perfil">
+    <a href="/empresa/meu-perfil" class="text-decoration-none" title="Voltar ao perfil">
       <i class="bi bi-x fs-6"></i>
     </a>
     <h2 class="text-center text-primary fw-bold mb-4 mt-4">Publicar vaga</h2>
 
     <form id="formPublicarVaga" action="/empresa/publicar-vaga" method="POST">
       <div class="row mb-4">
+        <!-- Cargo -->
         <div class="col-md-6">
           <label for="cargo" class="form-label">Cargo</label>
           <input type="text" id="cargo" name="cargo" class="form-control" placeholder="Ex: Gerente de produtos" required>
         </div>
 
+        <!-- Tipo (enum) -->
         <div class="col-md-6">
           <label for="tipo" class="form-label">Tipo de local de trabalho</label>
           <select id="tipo" name="tipo" class="form-select" required>
-            <option value="" selected disabled>Selecione uma opção</option>
+            <option value="" disabled selected>Selecione</option>
             <option value="Presencial">Presencial</option>
-            <option value="Home Office">Home Office</option>
-            <option value="Híbrido">Híbrido</option>
+            <option value="Home_Office">Home Office</option>
+            <option value="H_brido">Híbrido</option>
           </select>
         </div>
 
+        <!-- Escala -->
         <div class="col-md-6 mt-3">
           <label for="escala" class="form-label">Escala de trabalho</label>
-          <input type="text" id="escala" name="escala" class="form-control" placeholder="Ex: Segunda a sexta, 8h às 17h" required>
+          <input type="text" id="escala" name="escala" class="form-control"
+                 placeholder="Ex: Segunda a sexta, 8h às 17h" required>
         </div>
 
+        <!-- Dias presenciais / home office -->
         <div class="col-md-6 mt-3 d-flex align-items-end" id="campo-presencial-hibrido">
-          <div class="me-3" id="campoPresencial" style="display: none;">
-            <label for="diasPresenciais" class="form-label small">Dias presenciais</label>
-            <input type="number" class="form-control form-control-sm" id="diasPresenciais" name="diasPresenciais" min="0" max="7" style="width: 80px;">
+          <div class="me-3" id="campoPresencial" style="display:none;">
+            <label class="form-label small">Dias presenciais</label>
+            <input type="number" id="diasPresenciais" name="diasPresenciais"
+                   class="form-control form-control-sm" min="0" max="7" style="width:80px;">
           </div>
-          <div id="campoHomeOffice" style="display: none;">
-            <label for="diasHomeOffice" class="form-label small">Dias home office</label>
-            <input type="number" class="form-control form-control-sm" id="diasHomeOffice" name="diasHomeOffice" min="0" max="7" style="width: 80px;">
+          <div id="campoHomeOffice" style="display:none;">
+            <label class="form-label small">Dias home office</label>
+            <input type="number" id="diasHomeOffice" name="diasHomeOffice"
+                   class="form-control form-control-sm" min="0" max="7" style="width:80px;">
           </div>
-          <div id="erroDias" class="text-danger small mt-1 ms-3"></div>
+          <div id="erroDias" class="text-danger small ms-3"></div>
         </div>
 
+        <!-- Salário -->
         <div class="col-md-6 mt-3">
           <label class="form-label">Salário (opcional)</label>
           <div class="input-group">
-            <select class="form-select" id="moeda" name="moeda" style="max-width: 110px;">
-              <% const moedas = { 'BRL': 'R$', 'USD': 'US$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'ARS': 'AR$', 'CAD': 'C$', 'AUD': 'A$', 'CHF': 'CHF', 'CNY': '¥', 'INR': '₹', 'MXN': 'MX$', 'ZAR': 'R', 'KRW': '₩', 'SEK': 'kr', 'RUB': '₽' }; %>
-              <% for (const codigo in moedas) { %>
-                <option value="<%= codigo %>" <%= codigo === 'BRL' ? 'selected' : '' %>><%= moedas[codigo] %></option>
+            <select id="moeda" name="moeda" class="form-select" style="max-width:110px;">
+              <% const moedas = { BRL:'R$', USD:'US$', EUR:'€', GBP:'£', JPY:'¥' /*…*/ }; %>
+              <% for (let code in moedas) { %>
+                <option value="<%= code %>" <%= code==='BRL'?'selected':'' %>>
+                  <%= moedas[code] %>
+                </option>
               <% } %>
             </select>
             <span class="input-group-text" id="simboloMoeda">R$</span>
@@ -65,71 +74,52 @@
           </div>
         </div>
 
-        <div class="mb-4 mt-4">
+        <!-- Descrição -->
+        <div class="col-12 mt-4 mb-4">
           <label for="descricao" class="form-label">Descrição da vaga</label>
-          <textarea class="form-control" name="descricao" id="descricao" rows="5" placeholder="Descreva as atividades, responsabilidades, benefícios etc." style="resize: none;" required></textarea>
+          <textarea id="descricao" name="descricao" class="form-control"
+                    rows="5" style="resize:none;" placeholder="Diga um pouco sobre a vaga..." required></textarea>
         </div>
       </div>
 
+      <!-- Áreas -->
       <div class="mb-4">
-        <h5 class="fw-bold text-center">Áreas de atuação da vaga (máximo 3):</h5>
+        <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
         <div class="d-flex flex-wrap gap-2 justify-content-center">
-          <% areas.forEach(area => { %>
-            <button type="button" class="btn btn-outline-primary area-btn" data-id="<%= area.id %>"><%= area.nome %></button>
+          <% areas.forEach(a => { %>
+            <button type="button" class="btn btn-outline-primary area-btn" data-id="<%=a.id%>">
+              <%=a.nome%>
+            </button>
           <% }) %>
         </div>
-        <input type="hidden" name="areasSelecionadas" id="areasSelecionadas">
+        <input type="hidden" id="areasSelecionadas" name="areasSelecionadas">
         <div id="erroAreas" class="text-danger small mt-1"></div>
       </div>
 
+      <!-- Soft Skills -->
       <div class="mb-4">
-        <h5 class="fw-bold text-center">Habilidades comportamentais que mais se encaixam à vaga (máximo 3):</h5>
+        <h5 class="fw-bold text-center">Habilidades comportamentais que mais se encaixam à vaga (máx. 3):</h5>
         <div class="d-flex flex-wrap gap-2 justify-content-center">
-          <% habilidades.forEach(hab => { %>
-            <button type="button" class="btn btn-outline-primary skill-btn" data-id="<%= hab.id %>"><%= hab.nome %></button>
+          <% habilidades.forEach(h => { %>
+            <button type="button" class="btn btn-outline-primary skill-btn" data-id="<%=h.id%>">
+              <%=h.nome%>
+            </button>
           <% }) %>
         </div>
-        <input type="hidden" name="habilidadesSelecionadas" id="habilidadesSelecionadas">
+        <input type="hidden" id="habilidadesSelecionadas" name="habilidadesSelecionadas">
         <div id="erroHabilidades" class="text-danger small mt-1"></div>
       </div>
 
+      <!-- Ações -->
       <div class="text-center mt-4">
-        <a href="/empresas/meu-perfil" class="btn btn-outline-danger px-5 fw-bold me-2">Cancelar</a>
-        <button type="submit" class="btn btn-outline-primary px-5 fw-bold">Continuar</button>
+        <a href="/empresa/meu-perfil" class="btn btn-outline-danger px-5 me-2">Cancelar</a>
+        <button type="submit" class="btn btn-outline-primary px-5">Continuar</button>
       </div>
     </form>
   </main>
 
   <%- include('../partials/footer') %>
-
   <script src="/js/empresas/selecionarHabilidadeseAreas.js"></script>
   <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
-
-  <script>
-    document.getElementById('formPublicarVaga').addEventListener('submit', function (e) {
-      const areasSelecionadas = [...document.querySelectorAll('.area-btn.active')].map(btn => btn.dataset.id);
-      const habilidadesSelecionadas = [...document.querySelectorAll('.skill-btn.active')].map(btn => btn.dataset.id);
-
-      document.getElementById('areasSelecionadas').value = JSON.stringify(areasSelecionadas);
-      document.getElementById('habilidadesSelecionadas').value = JSON.stringify(habilidadesSelecionadas);
-    });
-
-    // Marca visualmente os botões como selecionados
-    document.querySelectorAll('.area-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        btn.classList.toggle('active');
-        btn.classList.toggle('btn-primary');
-        btn.classList.toggle('btn-outline-primary');
-      });
-    });
-
-    document.querySelectorAll('.skill-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        btn.classList.toggle('active');
-        btn.classList.toggle('btn-primary');
-        btn.classList.toggle('btn-outline-primary');
-      });
-    });
-  </script>
 </body>
 </html>

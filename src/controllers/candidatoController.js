@@ -121,9 +121,6 @@ exports.salvarAreas = async (req, res) => {
   const nomes = areasSelecionadas.split(',');
 
   try {
-    // Verifica se os nomes das áreas estão sendo passados corretamente
-    console.log("Áreas selecionadas:", nomes);
-
     // Buscar o candidato pelo usuário_id
     const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
     if (!candidato) return res.status(404).send("Candidato não encontrado.");
@@ -165,7 +162,7 @@ exports.salvarAreas = async (req, res) => {
 };
 
 exports.telaHomeCandidato = (req, res) => {
-  const usuario = req.session.usuario;
+  const usuario = req.session.candidato;
   if (!usuario) return res.redirect('/login');
 
   res.render('candidatos/home-candidatos', {
@@ -178,7 +175,7 @@ exports.telaHomeCandidato = (req, res) => {
 };
 
 exports.mostrarPerfil = (req, res) => {
-  const usuario = req.session.usuario;
+  const usuario = req.session.candidato;
   if (!usuario) {
     console.warn('Sessão de candidato não encontrada em /meu-perfil');
     return res.redirect('/login');
@@ -209,7 +206,7 @@ exports.mostrarPerfil = (req, res) => {
 
 
 exports.mostrarVagas = async (req, res) => {
-  const usuario = req.session.usuario;
+  const usuario = req.session.candidato;
   if (!usuario) return res.redirect('/login');
 
   try {
@@ -228,3 +225,72 @@ exports.mostrarVagas = async (req, res) => {
   }
 };
 
+exports.telaEditarPerfil = async (req, res) => {
+  try {
+    const sess = req.session.candidato;
+    if (!sess) return res.redirect('/login');
+
+    const candidato = await candidatoModel.obterCandidatoPorUsuarioId(sess.id);
+    if (!candidato) return res.redirect('/login');
+
+    const localidade = [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ');
+    const selectedAreas = candidato.candidato_area.map(r => r.area_interesse_id);
+    const areasNomes = candidato.candidato_area.map(r => r.area_interesse.nome);
+
+    res.render('candidatos/editar-perfil', {
+      nome: candidato.nome || '',
+      sobrenome: candidato.sobrenome || '',
+      dataNascimento: candidato.data_nascimento ? candidato.data_nascimento.toISOString().split('T')[0] : '',
+      localidade,
+      telefone: candidato.telefone || '',
+      fotoPerfil: candidato.foto_perfil || '/img/avatar.png',
+      selectedAreas,
+      areasNomes
+    });
+  } catch (err) {
+    console.error('Erro telaEditarPerfil:', err);
+    res.status(500).send('Erro ao carregar edição de perfil.');
+  }
+};
+
+/**
+ * Processa POST da edição e salva no DB e na sessão.
+ */
+exports.salvarEditarPerfil = async (req, res) => {
+  try {
+    const sess = req.session.candidato;
+    if (!sess) return res.redirect('/login');
+
+    const usuario_id = sess.id;
+    const { nome, sobrenome, dataNascimento, localidade, telefone, areasSelecionadas } = req.body;
+
+    const [cidade, estado, pais] = localidade.split(',').map(s => s.trim());
+    await candidatoModel.atualizarDadosBasicos({ usuario_id, nome, sobrenome, data_nascimento: dataNascimento, pais, estado, cidade, telefone });
+
+    if (req.file) {
+      const foto_url = `/uploads/${req.file.filename}`;
+      await candidatoModel.atualizarFotoPerfil({ usuario_id, foto_perfil: foto_url });
+      req.session.candidato.fotoPerfil = foto_url
+    }
+
+    const areaIds = JSON.parse(areasSelecionadas);
+    await candidatoModel.salvarAreasDeInteresse({ candidato_id: usuario_id, areas: areaIds });
+
+    const atualizado = await candidatoModel.obterCandidatoPorUsuarioId(usuario_id);
+    req.session.candidato = {
+      id: atualizado.usuario_id,
+      nome: atualizado.nome,
+      sobrenome: atualizado.sobrenome,
+      data_nascimento: atualizado.data_nascimento,
+      telefone: atualizado.telefone,
+      foto_perfil: atualizado.foto_perfil,
+      localidade,
+      areas: atualizado.candidato_area.map(r => r.area_interesse.nome)
+    };
+
+    res.redirect('/candidatos/meu-perfil');
+  } catch (err) {
+    console.error('Erro salvarEditarPerfil:', err);
+    res.status(500).send('Não foi possível editar o perfil.');
+  }
+};
