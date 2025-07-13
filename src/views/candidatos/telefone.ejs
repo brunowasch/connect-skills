@@ -19,10 +19,14 @@
     <form action="/candidato/telefone" method="POST" id="formTelefone" novalidate>
 
       <!-- Campo oculto com ID do usuário -->
-      <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
+      <input type="hidden" name="usuario_id" value="<%= usuarioId %>">
 
       <!-- Campo oculto com DDI fixo -->
       <input type="hidden" name="ddi" value="+55">
+
+      <% if (error) { %>
+        <div class="alert alert-danger text-center"><%= error %></div>
+      <% } %>
 
       <div class="form-card">
         <div class="mb-4">

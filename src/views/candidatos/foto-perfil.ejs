@@ -4,8 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Foto de Perfil - Connect Skills</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
+  >
   <link rel="stylesheet" href="/css/shared/style.css">
   <link rel="stylesheet" href="/css/shared/fotoPerfil.css">
   <link rel="icon" href="/img/CONNECT.png">
@@ -13,41 +19,89 @@
 <body>
   <%- include('../partials/header') %>
 
-  <main class="main-ajustado-header d-flex flex-column align-items-center justify-content-center px-3 text-center">
+  <main
+    class="main-ajustado-header d-flex flex-column align-items-center justify-content-center px-3 text-center"
+  >
     <h3 class="text-center mt-4 mb-3">Adicione uma foto de perfil</h3>
 
-    <form action="/candidato/foto-perfil" method="POST" enctype="multipart/form-data" id="formFoto" class="text-center">
-      <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
+    <form
+      action="/candidato/cadastro/foto-perfil?usuario_id=<%= usuarioId %>"
+      method="POST"
+      enctype="multipart/form-data"
+      id="formFoto"
+      class="text-center"
+    >
+      <input type="hidden" name="usuario_id" value="<%= usuarioId %>">
+
+      <% if (error) { %>
+        <div class="alert alert-danger w-100 mb-3"><%= error %></div>
+      <% } %>
 
       <!-- Prévia da foto -->
-      <img src="/img/avatar.png" alt="Prévia da Foto" id="previewFoto" class="foto-icon mb-3" width="150" height="150">
+      <img
+        src="/img/avatar.png"
+        alt="Prévia da Foto"
+        id="previewFoto"
+        class="foto-icon mb-3"
+        width="150"
+        height="150"
+      >
 
-      <!-- Opções -->
-      <div class="d-flex gap-4 flex-wrap justify-content-center botoes-container" id="opcoesFoto">
-        <label class="upload-btn" for="upload">
+      <!-- Opções iniciais: upload ou câmera -->
+      <div
+        id="opcoesFoto"
+        class="d-flex gap-4 flex-wrap justify-content-center mb-3"
+      >
+        <label class="upload-btn" for="novaFoto">
           📤 Fazer upload
         </label>
-        <input type="file" name="fotoUpload" id="upload" accept="image/*" class="hidden-input" required>
+        <input
+          type="file"
+          name="novaFoto"
+          id="novaFoto"
+          accept="image/*"
+          class="hidden-input"
+        >
 
-        <button type="button" class="upload-btn" id="tirarFotoBtn">
+        <button
+          type="button"
+          class="upload-btn"
+          id="tirarFotoBtn"
+        >
           📸 Capturar agora
         </button>
       </div>
 
-      <!-- Vídeo e canvas ocultos -->
+      <!-- Vídeo e canvas, só aparecem durante captura -->
       <video id="video" autoplay playsinline style="display: none;"></video>
       <canvas id="canvas" style="display: none;"></canvas>
 
-      <p id="erroFoto" class="text-danger fw-semibold mt-2" style="display: none;">
+      <!-- Mensagem de erro de foto -->
+      <p
+        id="erroFoto"
+        class="text-danger fw-semibold mt-2"
+        style="display: none;"
+      >
         Por favor, selecione ou tire uma foto antes de continuar.
       </p>
 
-      <!-- Botões após foto -->
-      <div id="acoesFoto" class="acoesFoto flex-wrap justify-content-center gap-3 mt-4" style="display: none;">
-        <button type="button" class="btn-acao btn-cancelar" id="outraFoto">
+      <!-- Ações após foto: confirmar/continuar ou trocar -->
+      <div
+        id="acoesFoto"
+        class="acoesFoto flex-wrap justify-content-center gap-3 mt-4"
+        style="display: none;"
+      >
+        <button
+          type="button"
+          class="btn-acao btn-cancelar"
+          id="outraFoto"
+        >
           <i class="bi bi-arrow-clockwise me-1"></i> Tirar outra
         </button>
-        <button type="submit" class="btn-acao btn-confirmar">
+        <button
+          type="submit"
+          class="btn-acao btn-confirmar"
+        >
           <i class="bi bi-check-circle me-1"></i> Confirmar e continuar
         </button>
       </div>

@@ -1,10 +1,9 @@
-const path = require('path');
-const fs = require('fs');
+// controllers/candidatoController.js
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-const candidatoModel = require('../models/candidatoModel');
-const vagaModel = require('../models/vagaModel');
-const { cloudinary } = require('../config/cloudinary');
+const prisma          = new PrismaClient();
+const candidatoModel  = require('../models/candidatoModel');
+const vagaModel       = require('../models/vagaModel');
+const cloudinary   = require('../config/cloudinary');
 
 exports.telaNomeCandidato = (req, res) => {
   const { usuario_id } = req.query;
@@ -13,7 +12,6 @@ exports.telaNomeCandidato = (req, res) => {
 
 exports.salvarNomeCandidato = async (req, res) => {
   const { usuario_id, nome, sobrenome, data_nascimento } = req.body;
-
   try {
     await candidatoModel.criarCandidato({
       usuario_id: Number(usuario_id),
@@ -21,7 +19,6 @@ exports.salvarNomeCandidato = async (req, res) => {
       sobrenome,
       data_nascimento: new Date(data_nascimento),
     });
-
     res.redirect(`/candidato/localizacao?usuario_id=${usuario_id}`);
   } catch (err) {
     console.error('Erro ao salvar nome e sobrenome:', err);
@@ -36,14 +33,10 @@ exports.telaLocalizacao = (req, res) => {
 
 exports.salvarLocalizacao = async (req, res) => {
   const { usuario_id, localidade } = req.body;
-
   if (!usuario_id || !localidade) return res.status(400).send('ID ou localidade ausente.');
-
   const partes = localidade.split(',').map(p => p.trim());
   if (partes.length < 3) return res.status(400).send('Formato inválido. Use: Cidade, Estado, País.');
-
   const [cidade, estado, pais] = partes;
-
   try {
     await candidatoModel.atualizarLocalizacao({
       usuario_id: Number(usuario_id),
@@ -51,7 +44,6 @@ exports.salvarLocalizacao = async (req, res) => {
       estado,
       cidade,
     });
-
     res.redirect(`/candidato/telefone?usuario_id=${usuario_id}`);
   } catch (err) {
     console.error('Erro ao salvar localização:', err);
@@ -60,65 +52,96 @@ exports.salvarLocalizacao = async (req, res) => {
 };
 
 exports.telaTelefone = (req, res) => {
-  const { usuario_id } = req.query;
-  res.render('candidatos/telefone', { usuario_id });
+  const usuarioId = req.query.usuario_id || req.body.usuario_id;
+  res.render('candidatos/telefone', {
+    usuarioId,
+    error: null,
+    telefoneData: {}
+  });
 };
 
 exports.salvarTelefone = async (req, res) => {
-  const { usuario_id, ddi, ddd, numero } = req.body;
-
-  if (!usuario_id || !ddi || !ddd || !numero) {
-    return res.status(400).send("Preencha todos os campos de telefone.");
+  const usuarioId = req.body.usuario_id || req.query.usuario_id;
+  const { ddi, ddd, telefone } = req.body;
+  if (!usuarioId || !ddi || !ddd || !telefone) {
+    return res.render('candidatos/telefone', {
+      usuarioId,
+      error: 'Preencha todos os campos de telefone.',
+      telefoneData: { ddi, ddd, telefone }
+    });
   }
-
-  const telefoneFormatado = `${ddi}-${ddd}-${numero.replace('-', '')}`;
-
+  const telefoneSemHifen    = telefone.replace(/-/g, '');
+  const telefoneFormatado   = `${ddi}-${ddd}-${telefoneSemHifen}`;
   try {
     await candidatoModel.atualizarTelefone({
-      usuario_id: Number(usuario_id),
+      usuario_id: Number(usuarioId),
       telefone: telefoneFormatado
     });
-
-    res.redirect(`/candidato/foto-perfil?usuario_id=${usuario_id}`);
+    return res.redirect(`/candidato/cadastro/foto-perfil?usuario_id=${usuarioId}`);
   } catch (err) {
     console.error('Erro ao salvar telefone:', err);
-    res.status(500).send("Erro ao salvar telefone.");
+    return res.render('candidatos/telefone', {
+      usuarioId,
+      error: 'Erro ao salvar telefone. Tente novamente.',
+      telefoneData: { ddi, ddd, telefone }
+    });
   }
 };
 
-
 exports.telaFotoPerfil = (req, res) => {
-  const { usuario_id } = req.query;
-  res.render('candidatos/foto-perfil', { usuario_id });
+  const usuarioId = req.query.usuario_id || req.body.usuario_id;
+  return res.render('candidatos/foto-perfil', {
+    usuarioId,
+    error: null
+  });
 };
 
 exports.salvarFotoPerfil = async (req, res) => {
+  const usuarioId = req.body.usuario_id || req.query.usuario_id;
+  if (!req.file?.buffer) {
+    return res.render('candidatos/foto-perfil', {
+      usuarioId,
+      error: 'Selecione uma foto antes de continuar.'
+    });
+  }
+
   try {
-    const { usuario_id } = req.body;
-
-    // Verifica se o multer (Cloudinary) retornou o arquivo corretamente
-    if (!req.file || !req.file.path) {
-      return res.status(400).send('Nenhuma foto foi enviada.');
-    }
-
-    const caminhoFoto = req.file.path; // URL da imagem no Cloudinary
-
-    // Atualiza no banco
-    await prisma.candidato.update({
-      where: { id: Number(usuario_id) },
-      data: { foto_perfil: caminhoFoto }
+    // converte buffer em dataUri
+    const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    const result  = await cloudinary.uploader.upload(dataUri, {
+      folder:    'connect-skills/candidatos',
+      public_id: `foto_candidato_${usuarioId}`,
+      overwrite: true
     });
 
-    // Atualiza a sessão
-    req.session.candidato.foto_perfil = caminhoFoto;
+    const caminhoFoto = result.secure_url;
 
-    res.redirect('/candidato/cadastro/areas');
-  } catch (error) {
-    console.error('Erro ao salvar foto de perfil:', error);
-    res.status(500).send('Erro interno ao salvar a foto.');
+    // * BUSCA o candidato pelo usuario_id *
+    const candidato = await prisma.candidato.findUnique({
+      where: { usuario_id: Number(usuarioId) }
+    });
+    if (!candidato) throw new Error(`Candidato não existe (usuario_id ${usuarioId})`);
+
+    // * UPDATE usando o id interno do candidato *
+    await prisma.candidato.update({
+      where: { id: candidato.id },
+      data:  { foto_perfil: caminhoFoto }
+    });
+
+    // atualiza sessão
+    if (req.session.candidato) {
+      req.session.candidato.foto_perfil = caminhoFoto;
+    }
+
+    return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuarioId}`);
+  } catch (err) {
+    console.error('Erro ao salvar foto de perfil:', err);
+    return res.render('candidatos/foto-perfil', {
+      usuarioId,
+      error: 'Erro interno ao salvar a foto. Tente novamente.'
+    });
   }
 };
-
 
 
 exports.telaSelecionarAreas = (req, res) => {
@@ -128,40 +151,48 @@ exports.telaSelecionarAreas = (req, res) => {
 
 exports.salvarAreas = async (req, res) => {
   const { usuario_id, areasSelecionadas } = req.body;
-  const nomes = areasSelecionadas.split(',');
+  const nomes = areasSelecionadas
+    .split(',')
+    .map(n => n.trim())
+    .filter(n => n);
+
+  if (nomes.length !== 3) {
+    return res.status(400).send("Selecione exatamente 3 áreas válidas.");
+  }
 
   try {
-    // Buscar o candidato pelo usuário_id
+    // Busca o candidato pelo usuario_id
     const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
-    if (!candidato) return res.status(404).send("Candidato não encontrado.");
+    if (!candidato) {
+      return res.status(404).send("Candidato não encontrado.");
+    }
 
-    // Busca os IDs das áreas de interesse com base nos nomes
+    // Busca os IDs das áreas
     const ids = await candidatoModel.buscarIdsDasAreas({ nomes });
+    if (ids.length !== 3) {
+      return res.status(400).send("Selecione exatamente 3 áreas válidas.");
+    }
 
-    if (ids.length !== 3) return res.status(400).send("Selecione exatamente 3 áreas válidas.");
-
-    // Salva as áreas de interesse para o candidato
+    // **CHAMADA CORRETA** ao método do model
     await candidatoModel.salvarAreasDeInteresse({
       candidato_id: candidato.id,
       areas: ids
     });
 
-    // Busca os dados atualizados do candidato
-    const candidatoAtualizado = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
-
-    req.session.usuario = {
-      id: candidato.id, 
-      nome: candidato.nome,
-      sobrenome: candidato.sobrenome,
-      email: candidato.email,
+    // Atualiza sessão
+    const cAtual = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
+    req.session.candidato = {
+      id: cAtual.id,
+      nome: cAtual.nome,
+      sobrenome: cAtual.sobrenome,
+      email: cAtual.email,
       tipo: 'candidato',
-      telefone: candidato.telefone,
-      dataNascimento: candidato.data_nascimento,
-      fotoPerfil: candidato.foto_perfil,
-      localidade: `${candidato.cidade}, ${candidato.estado}, ${candidato.pais}`,
-      areas: candidato.candidato_area?.map(rel => rel.area_interesse.nome) || []
+      telefone: cAtual.telefone,
+      dataNascimento: cAtual.data_nascimento,
+      foto_perfil: cAtual.foto_perfil,
+      localidade: `${cAtual.cidade}, ${cAtual.estado}, ${cAtual.pais}`,
+      areas: cAtual.candidato_area.map(r => r.area_interesse.nome)
     };
-
 
     return res.redirect('/candidatos/home');
   } catch (error) {
@@ -173,7 +204,6 @@ exports.salvarAreas = async (req, res) => {
 exports.telaHomeCandidato = (req, res) => {
   const usuario = req.session.candidato;
   if (!usuario) return res.redirect('/login');
-
   res.render('candidatos/home-candidatos', {
     nome: usuario.nome,
     sobrenome: usuario.sobrenome,
@@ -183,32 +213,30 @@ exports.telaHomeCandidato = (req, res) => {
   });
 };
 
-exports.mostrarPerfil = (req, res) => {
-  const usuario = req.session.candidato;
-  if (!usuario) {
-    console.warn('Sessão de candidato não encontrada em /meu-perfil');
-    return res.redirect('/login');
-  }
+exports.renderMeuPerfil = async (req, res) => {
+  if (!req.session.candidato) return res.redirect('/login');
+  const candidato = await prisma.candidato.findUnique({
+    where: { id: Number(req.session.candidato.id) },
+    include: { candidato_area: { select: { area_interesse: { select: { nome: true } } } } }
+  });
+  if (!candidato) return res.redirect('/login');
 
-  // telefone armazenado como "DDI-DDD-NÚMERO"
-  const [ddiRaw = '+55', dddRaw = '', numRaw = ''] = (usuario.telefone || '').split('-');
-  const ddi    = ddiRaw;
-  const ddd    = dddRaw;
-  const numero = numRaw;
+  const localidade = [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ');
+  const areas      = candidato.candidato_area.map(r => r.area_interesse.nome);
+  const [ddi = '', ddd = '', numero = ''] = (candidato.telefone || '').split('-');
+  const dataNascimento = candidato.data_nascimento
+    ? new Date(candidato.data_nascimento).toISOString().slice(0,10)
+    : '';
 
   res.render('candidatos/meu-perfil', {
-    nome: usuario.nome,
-    sobrenome: usuario.sobrenome,
-    localidade: usuario.localidade,
+    candidato,
+    fotoPerfil: candidato.foto_perfil || 'https://via.placeholder.com/80',
+    localidade,
+    areas,
     ddi,
     ddd,
     numero,
-    dataNascimento: usuario.dataNascimento
-      ? new Date(usuario.dataNascimento).toISOString().split('T')[0]
-      : '',
-    // Usa a foto que vem do banco (campo foto_perfil)
-    fotoPerfil: usuario.foto_perfil || 'https://via.placeholder.com/80',
-    areas: usuario.areas || [],
+    dataNascimento,
     activePage: 'perfil'
   });
 };
@@ -216,76 +244,61 @@ exports.mostrarPerfil = (req, res) => {
 exports.mostrarVagas = async (req, res) => {
   const usuario = req.session.candidato;
   if (!usuario) return res.redirect('/login');
-
   try {
-    const candidato_id = usuario.id;  // Pega o id do candidato após login
-
-    // Chama a função correta para pegar as vagas
-    const vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(candidato_id);
-
-    res.render('candidatos/vagas', {
-      vagas,
-      activePage: 'vagas',
-    });
+    const vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
+    res.render('candidatos/vagas', { vagas, activePage: 'vagas' });
   } catch (err) {
     console.error('Erro ao buscar vagas para candidato:', err);
     res.status(500).send('Erro ao buscar vagas.');
   }
 };
 
-exports.telaEditarPerfil = async (req, res) => {
+exports.telaEditarPerfil = (req, res) => {
   const sess = req.session.candidato;
   if (!sess) return res.redirect('/login');
-
-  const { nome, sobrenome, localidade, telefone, foto_perfil, data_nascimento } = sess;
-
-  // Quebra telefone
-  const [ddi = '', ddd = '', numero = ''] = (telefone || '').split('-');
-
-  // Formata data como YYYY-MM-DD ou vazio
-  const dataNascimento = data_nascimento
-    ? new Date(data_nascimento).toISOString().slice(0, 10)
+  const [ddi = '', ddd = '', numero = ''] = (sess.telefone || '').split('-');
+  const dataNascimento = sess.data_nascimento
+    ? new Date(sess.data_nascimento).toISOString().slice(0,10)
     : '';
-
   res.render('candidatos/editar-perfil', {
-    nome,
-    sobrenome,
-    localidade,
+    nome: sess.nome,
+    sobrenome: sess.sobrenome,
+    localidade: sess.localidade,
     ddi,
     ddd,
     numero,
-    fotoPerfil: foto_perfil,
-    dataNascimento  // <-- agora disponível no EJS
+    fotoPerfil: sess.foto_perfil,
+    dataNascimento
   });
 };
 
-/**
- * POST /candidatos/editar-perfil
- * Recebe o form com nome, sobrenome, localidade e telefone dividido.
- */
 exports.salvarEditarPerfil = async (req, res) => {
   const sess = req.session.candidato;
   if (!sess) return res.redirect('/login');
-
   const candidato_id = Number(sess.id);
-  const { nome, sobrenome, localidade, ddi, ddd, numero, dataNascimento, fotoBase64 } = req.body;
-
-  const telefone = `${ddi}-${ddd}-${numero.replace('-', '')}`;
-  const [cidade = '', estado = '', pais = ''] = localidade.split(',').map(s => s.trim());
+  const { nome, sobrenome, localidade, ddi, ddd, numero, dataNascimento } = req.body;
+  const telefone = `${ddi}-${ddd}-${numero.replace(/-/g,'')}`;
+  const [cidade='', estado='', pais=''] = localidade.split(',').map(s => s.trim());
 
   try {
-    // Se a imagem foi enviada como base64
-    let fotoUrl = sess.foto_perfil || '';
-    if (req.file && req.file.path) {
-      fotoUrl = req.file.path;
+    // Se veio nova foto via multer+stream
+    if (req.file && req.file.buffer) {
+      const uploadResult = await new Promise((resolve, reject) => {
+        const s = cloudinary.uploader.upload_stream({
+          folder: 'connect-skills/candidatos',
+          public_id: `foto_candidato_${candidato_id}`,
+          overwrite: true,
+          resource_type: 'image'
+        }, (err, res) => err ? reject(err) : resolve(res));
+        s.end(req.file.buffer);
+      });
+      sess.foto_perfil = uploadResult.secure_url;
       await candidatoModel.atualizarFotoPerfil({
         candidato_id,
-        foto_perfil: fotoUrl
+        foto_perfil: sess.foto_perfil
       });
-      sess.foto_perfil = fotoUrl;
     }
 
-    // Atualiza dados básicos do perfil
     await candidatoModel.atualizarPerfilBasico({
       candidato_id,
       nome,
@@ -297,7 +310,7 @@ exports.salvarEditarPerfil = async (req, res) => {
       data_nascimento: dataNascimento
     });
 
-    // Atualiza a sessão
+    // Atualiza sessão
     sess.nome = nome;
     sess.sobrenome = sobrenome;
     sess.localidade = localidade;
@@ -309,48 +322,4 @@ exports.salvarEditarPerfil = async (req, res) => {
     console.error('Erro ao atualizar perfil básico:', err);
     res.status(500).send('Não foi possível atualizar seu perfil.');
   }
-};
-
-
-exports.renderMeuPerfil = async (req, res) => {
-  if (!req.session.candidato) return res.redirect('/login');
-
-  // Busca candidato com áreas
-  const candidato = await prisma.candidato.findUnique({
-    where: { id: Number(req.session.candidato.id) },
-    include: {
-      candidato_area: {
-        select: { area_interesse: { select: { nome: true } } }
-      }
-    }
-  });
-  if (!candidato) return res.redirect('/login');
-
-  // Formata localidade
-  const localidade = [candidato.cidade, candidato.estado, candidato.pais]
-    .filter(Boolean)
-    .join(', ');
-
-  // Extrai nomes das áreas
-  const areas = candidato.candidato_area.map(rel => rel.area_interesse.nome);
-
-  // Quebra telefone
-  const [ddi = '', ddd = '', numero = ''] = (candidato.telefone || '').split('-');
-  
-  // Formata data
-  const dataNascimento = candidato.data_nascimento
-    ? new Date(candidato.data_nascimento).toISOString().slice(0,10)
-    : '';
-
-  res.render('candidatos/meu-perfil', {
-    candidato,
-    fotoPerfil: candidato.foto_perfil || 'https://via.placeholder.com/80',
-    localidade,
-    areas,               // <-- passa aqui!
-    ddi,
-    ddd,
-    numero,
-    dataNascimento,
-    activePage: 'perfil'
-  });
 };
