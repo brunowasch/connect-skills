@@ -102,40 +102,47 @@ exports.salvarTelefone = async (req, res) => {
 
 exports.telaFotoPerfil = (req, res) => {
   const { usuario_id } = req.query;
-  if (!usuario_id) return res.status(400).send("ID do usuário não informado.");
   res.render('empresas/foto-perfil-empresa', { usuario_id });
 };
 
 exports.salvarFotoPerfil = async (req, res) => {
-  const { usuario_id } = req.body;
+  console.log('req.file:', req.file);
+console.log('req.body.usuario_id:', req.body.usuario_id);
 
-  if (!req.file || !req.file.path) {
-    return res.status(400).send('Imagem não foi enviada corretamente.');
+  const usuario_id = req.body.usuario_id || req.query.usuario_id;
+
+  if (!req.file?.path) {
+    return res.render('empresas/foto-perfil-empresa', {
+      usuario_id,
+      error: 'Selecione uma foto antes de continuar.'
+    });
   }
 
   try {
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: 'connect-skills/empresas',
-    });
+    const caminhoFoto = req.file.path; // Cloudinary fornece isso
 
     await empresaModel.atualizarFotoPerfil({
       usuario_id: Number(usuario_id),
-      foto_perfil: result.secure_url
+      foto_perfil: caminhoFoto
     });
 
     const empresaAtualizada = await empresaModel.obterEmpresaPorUsuarioId(Number(usuario_id));
     req.session.empresa = empresaAtualizada;
 
     if (req.session.empresa) {
-      req.session.empresa.foto_perfil = result.secure_url;
+      req.session.empresa.foto_perfil = caminhoFoto;
     }
 
-    res.redirect('/empresa/home');
+    return res.redirect('/empresa/home');
   } catch (err) {
-    console.error('Erro ao salvar foto no Cloudinary:', err);
-    res.status(500).send("Erro ao salvar foto.");
+    console.error('Erro ao salvar foto de perfil da empresa:', err);
+    return res.render('empresas/foto-perfil-empresa', {
+      usuario_id,
+      error: 'Erro interno ao salvar a foto. Tente novamente.'
+    });
   }
 };
+
 
 exports.homeEmpresa = (req, res) => {
   res.render('empresas/home-empresas');

@@ -1,9 +1,9 @@
 // controllers/candidatoController.js
 const { PrismaClient } = require('@prisma/client');
-const prisma          = new PrismaClient();
-const candidatoModel  = require('../models/candidatoModel');
-const vagaModel       = require('../models/vagaModel');
-const cloudinary   = require('../config/cloudinary');
+const prisma = new PrismaClient();
+const candidatoModel = require('../models/candidatoModel');
+const vagaModel = require('../models/vagaModel');
+const cloudinary = require('../config/cloudinary');
 
 exports.telaNomeCandidato = (req, res) => {
   const { usuario_id } = req.query;
@@ -70,8 +70,8 @@ exports.salvarTelefone = async (req, res) => {
       telefoneData: { ddi, ddd, telefone }
     });
   }
-  const telefoneSemHifen    = telefone.replace(/-/g, '');
-  const telefoneFormatado   = `${ddi}-${ddd}-${telefoneSemHifen}`;
+  const telefoneSemHifen = telefone.replace(/-/g, '');
+  const telefoneFormatado = `${ddi}-${ddd}-${telefoneSemHifen}`;
   try {
     await candidatoModel.atualizarTelefone({
       usuario_id: Number(usuarioId),
@@ -106,29 +106,25 @@ exports.salvarFotoPerfil = async (req, res) => {
   }
 
   try {
-    // converte buffer em dataUri
     const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-    const result  = await cloudinary.uploader.upload(dataUri, {
-      folder:    'connect-skills/candidatos',
+    const result = await cloudinary.uploader.upload(dataUri, {
+      folder: 'connect-skills/candidatos',
       public_id: `foto_candidato_${usuarioId}`,
       overwrite: true
     });
 
     const caminhoFoto = result.secure_url;
 
-    // * BUSCA o candidato pelo usuario_id *
     const candidato = await prisma.candidato.findUnique({
       where: { usuario_id: Number(usuarioId) }
     });
     if (!candidato) throw new Error(`Candidato não existe (usuario_id ${usuarioId})`);
 
-    // * UPDATE usando o id interno do candidato *
     await prisma.candidato.update({
       where: { id: candidato.id },
-      data:  { foto_perfil: caminhoFoto }
+      data: { foto_perfil: caminhoFoto }
     });
 
-    // atualiza sessão
     if (req.session.candidato) {
       req.session.candidato.foto_perfil = caminhoFoto;
     }
@@ -143,43 +139,50 @@ exports.salvarFotoPerfil = async (req, res) => {
   }
 };
 
-
 exports.telaSelecionarAreas = (req, res) => {
   const { usuario_id } = req.query;
   res.render('candidatos/selecionar-areas', { usuario_id });
 };
 
 exports.salvarAreas = async (req, res) => {
-  const { usuario_id, areasSelecionadas } = req.body;
-  const nomes = areasSelecionadas
-    .split(',')
-    .map(n => n.trim())
-    .filter(n => n);
+  const { usuario_id, areasSelecionadas, outra_area_input } = req.body;
+  const nomes = JSON.parse(areasSelecionadas);
 
   if (nomes.length !== 3) {
     return res.status(400).send("Selecione exatamente 3 áreas válidas.");
   }
 
   try {
-    // Busca o candidato pelo usuario_id
     const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
     if (!candidato) {
       return res.status(404).send("Candidato não encontrado.");
     }
 
-    // Busca os IDs das áreas
-    const ids = await candidatoModel.buscarIdsDasAreas({ nomes });
-    if (ids.length !== 3) {
-      return res.status(400).send("Selecione exatamente 3 áreas válidas.");
+    const nomesFinal = [...nomes];
+
+    if (nomes.includes("Outro")) {
+      if (!outra_area_input || outra_area_input.trim() === "") {
+        return res.status(400).send("Você selecionou 'Outro', mas não preencheu a nova área.");
+      }
+
+      const novaArea = await candidatoModel.upsertNovaArea(outra_area_input.trim());
+      const index = nomesFinal.indexOf("Outro");
+      nomesFinal.splice(index, 1, novaArea.nome);
     }
 
-    // **CHAMADA CORRETA** ao método do model
+    console.log("🟡 nomesFinal:", nomesFinal);
+    const ids = await candidatoModel.buscarIdsDasAreas({ nomes: nomesFinal });
+    console.log("🟢 ids encontrados:", ids);
+
+    if (ids.length !== 3) {
+      return res.status(400).send("Erro ao localizar todas as áreas selecionadas.");
+    }
+
     await candidatoModel.salvarAreasDeInteresse({
       candidato_id: candidato.id,
       areas: ids
     });
 
-    // Atualiza sessão
     const cAtual = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
     req.session.candidato = {
       id: cAtual.id,
@@ -222,10 +225,10 @@ exports.renderMeuPerfil = async (req, res) => {
   if (!candidato) return res.redirect('/login');
 
   const localidade = [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ');
-  const areas      = candidato.candidato_area.map(r => r.area_interesse.nome);
+  const areas = candidato.candidato_area.map(r => r.area_interesse.nome);
   const [ddi = '', ddd = '', numero = ''] = (candidato.telefone || '').split('-');
   const dataNascimento = candidato.data_nascimento
-    ? new Date(candidato.data_nascimento).toISOString().slice(0,10)
+    ? new Date(candidato.data_nascimento).toISOString().slice(0, 10)
     : '';
 
   res.render('candidatos/meu-perfil', {
@@ -258,7 +261,7 @@ exports.telaEditarPerfil = (req, res) => {
   if (!sess) return res.redirect('/login');
   const [ddi = '', ddd = '', numero = ''] = (sess.telefone || '').split('-');
   const dataNascimento = sess.data_nascimento
-    ? new Date(sess.data_nascimento).toISOString().slice(0,10)
+    ? new Date(sess.data_nascimento).toISOString().slice(0, 10)
     : '';
   res.render('candidatos/editar-perfil', {
     nome: sess.nome,
@@ -277,11 +280,10 @@ exports.salvarEditarPerfil = async (req, res) => {
   if (!sess) return res.redirect('/login');
   const candidato_id = Number(sess.id);
   const { nome, sobrenome, localidade, ddi, ddd, numero, dataNascimento } = req.body;
-  const telefone = `${ddi}-${ddd}-${numero.replace(/-/g,'')}`;
-  const [cidade='', estado='', pais=''] = localidade.split(',').map(s => s.trim());
+  const telefone = `${ddi}-${ddd}-${numero.replace(/-/g, '')}`;
+  const [cidade = '', estado = '', pais = ''] = localidade.split(',').map(s => s.trim());
 
   try {
-    // Se veio nova foto via multer+stream
     if (req.file && req.file.buffer) {
       const uploadResult = await new Promise((resolve, reject) => {
         const s = cloudinary.uploader.upload_stream({
@@ -310,7 +312,6 @@ exports.salvarEditarPerfil = async (req, res) => {
       data_nascimento: dataNascimento
     });
 
-    // Atualiza sessão
     sess.nome = nome;
     sess.sobrenome = sobrenome;
     sess.localidade = localidade;
