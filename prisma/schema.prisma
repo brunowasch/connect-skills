@@ -9,7 +9,7 @@ datasource db {
 
 model area_interesse {
   id             Int              @id @default(autoincrement())
-  nome           String           @unique
+  nome           String           @unique @db.VarChar(100)
   candidato_area candidato_area[]
   vaga_area      vaga_area[]
 }

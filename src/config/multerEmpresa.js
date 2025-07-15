@@ -1,16 +1,14 @@
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('../config/cloudinary'); 
+const cloudinary = require('./cloudinary');
 
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'connect-skills/candidatos',
+    folder: 'connect-skills/empresas',
     allowed_formats: ['jpg', 'jpeg', 'png'],
     transformation: [{ width: 300, height: 300, crop: 'fill' }]
-  },
+  }
 });
 
-const upload = multer({ storage });
-
-module.exports = upload;
+module.exports = multer({ storage });

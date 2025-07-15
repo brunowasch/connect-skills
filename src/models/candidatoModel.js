@@ -128,21 +128,40 @@ exports.salvarAreasDeInteresse = async ({ candidato_id, areas }) => {
 
 /**
  * Busca os IDs das áreas com base em seus nomes.
+ * Se alguma área não existir (ex: digitada no "Outro"), ela será criada.
  * @param {Object} dados
  * @param {string[]} dados.nomes
  * @returns {Promise<number[]>}
  */
 exports.buscarIdsDasAreas = async ({ nomes }) => {
-  return await prisma.area_interesse.findMany({
-    where: {
-      nome: {
-        in: nomes
+  const formatarNome = (str) => {
+    return str
+      .toLowerCase()
+      .replace(/\b\w/g, l => l.toUpperCase())
+      .trim();
+  };
+
+  const nomesFormatados = nomes.map(formatarNome);
+  const ids = [];
+
+  for (const nome of nomesFormatados) {
+    const existente = await prisma.area_interesse.findFirst({
+      where: {
+        nome
       }
-    },
-    select: {
-      id: true
+    });
+
+    if (existente) {
+      ids.push(existente.id);
+    } else {
+      const nova = await prisma.area_interesse.create({
+        data: { nome }
+      });
+      ids.push(nova.id);
     }
-  }).then(areas => areas.map(a => a.id));
+  }
+
+  return ids;
 };
 
 exports.atualizarPerfilBasico = async ({
@@ -199,5 +218,18 @@ exports.atualizarPerfilBasico = async ({
       cidade,
       telefone
     }
+  });
+};
+
+/**
+ * Cria uma nova área de interesse se ainda não existir.
+ * @param {string} nome - Nome da nova área
+ * @returns {Promise<Object>} - Objeto da área criada ou existente
+ */
+exports.upsertNovaArea = async (nome) => {
+  return await prisma.area_interesse.upsert({
+    where: { nome },
+    update: {},
+    create: { nome }
   });
 };

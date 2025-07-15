@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const empresaController = require('../controllers/empresaController');
-const upload = require('../config/multer');
-const { ensureEmpresa } = require('../middlewares/auth'); // <-- importe aqui
+const { ensureEmpresa } = require('../middlewares/auth');
+const { uploadEmpresa } = require('../middlewares/uploadEmpresa');
 
 // Fluxo de cadastro/edição de perfil
 router.get('/cadastro', empresaController.telaCadastro);
@@ -14,12 +14,12 @@ router.post('/localizacao', empresaController.salvarLocalizacao);
 router.get('/telefone', empresaController.telaTelefone);
 router.post('/telefone', empresaController.salvarTelefone);
 router.get('/foto-perfil', empresaController.telaFotoPerfil);
-router.post('/foto-perfil', upload.single('foto'), empresaController.salvarFotoPerfil);
+router.post('/foto-perfil', uploadEmpresa.single('novaFoto'), empresaController.salvarFotoPerfil);
 
 router.get('/home', empresaController.homeEmpresa);
 router.get('/meu-perfil', ensureEmpresa, empresaController.telaPerfilEmpresa);
 router.get('/editar-perfil', ensureEmpresa, empresaController.telaEditarPerfil);
-router.post('/editar-perfil', ensureEmpresa, upload.single('novaFoto'), empresaController.salvarEdicaoPerfil);
+router.post('/editar-perfil', uploadEmpresa.single('novaFoto'), empresaController.salvarEdicaoPerfil);
 
 // Publicação de vaga
 router.get('/publicar-vaga',  ensureEmpresa, empresaController.telaPublicarVaga);
