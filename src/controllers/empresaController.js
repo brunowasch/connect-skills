@@ -130,25 +130,37 @@ exports.salvarFotoPerfil = async (req, res) => {
 
     // 2. Enviar a imagem para o Cloudinary
     const resultadoCloudinary = await cloudinary.uploader.upload(req.file.path, {
-      folder: 'connect-skills/empresas', // Pasta onde será armazenada no Cloudinary
-      public_id: `empresa_${empresa.id}_foto_perfil`, // Nome único para evitar sobrescrições
+      folder: 'connect-skills/empresas',
+      public_id: `empresa_${empresa.id}_foto_perfil`,
       use_filename: true,
       unique_filename: false,
     });
 
-    // 3. Salvar a URL da foto no banco de dados e na sessão
-    req.session.empresa.foto_perfil = resultadoCloudinary.secure_url;
-    console.log("URL da foto no Cloudinary:", resultadoCloudinary.secure_url);
+    const urlImagem = resultadoCloudinary.secure_url;
+    console.log("URL da foto no Cloudinary:", urlImagem);
 
-    // 4. Atualizar o banco de dados com a URL da foto
+    // 3. Atualizar o banco de dados
     await prisma.empresa.update({
       where: { id: empresa.id },
-      data: { foto_perfil: req.session.empresa.foto_perfil }
+      data: { foto_perfil: urlImagem }
     });
-    console.log("Foto de perfil da empresa após o upload:", resultadoCloudinary.secure_url);
-    console.log("Foto de perfil após atualização na sessão:", req.session.empresa.foto_perfil);
 
-    // 5. Redirecionar para a página de home da empresa
+    // 4. Atualizar a sessão com os dados completos da empresa
+    req.session.empresa = {
+      id: empresa.id,
+      usuario_id: empresa.usuario_id,
+      nome_empresa: empresa.nome_empresa,
+      descricao: empresa.descricao,
+      cidade: empresa.cidade,
+      estado: empresa.estado,
+      pais: empresa.pais,
+      telefone: empresa.telefone,
+      foto_perfil: urlImagem
+    };
+
+    console.log("Sessão empresa atualizada:", req.session.empresa);
+
+    // 5. Redirecionar para a home da empresa
     return res.redirect('/empresa/home');
   } catch (err) {
     console.error('Erro ao salvar foto de perfil da empresa:', err);
@@ -158,6 +170,7 @@ exports.salvarFotoPerfil = async (req, res) => {
     });
   }
 };
+
 
 
 exports.homeEmpresa = (req, res) => {
@@ -320,7 +333,12 @@ exports.telaEditarPerfil = (req, res) => {
 
 exports.salvarEdicaoPerfil = async (req, res) => {
   console.log("Arquivo recebido:", req.file); 
-  const { nome, descricao, telefone, localidade, fotoBase64 } = req.body;
+  const { nome, descricao, ddi, ddd, numero, localidade, fotoBase64 } = req.body;
+  let telefone = req.session.empresa.telefone; // valor antigo, fallback
+
+  if (ddi && ddd && numero) {
+    telefone = `${ddi} (${ddd}) ${numero}`;
+  }
   const empresaId = req.session.empresa?.id;
 
   if (!empresaId) return res.redirect('/login');
