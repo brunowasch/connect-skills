@@ -3,7 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const candidatoModel = require('../models/candidatoModel');
 const vagaModel = require('../models/vagaModel');
-const cloudinary = require('../config/cloudinary');
+const { cloudinary } = require('../config/cloudinary');
 
 exports.telaNomeCandidato = (req, res) => {
   const { usuario_id } = req.query;

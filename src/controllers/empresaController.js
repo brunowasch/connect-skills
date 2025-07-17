@@ -107,7 +107,7 @@ exports.telaFotoPerfil = (req, res) => {
 
 exports.salvarFotoPerfil = async (req, res) => {
   console.log('req.file:', req.file);
-console.log('req.body.usuario_id:', req.body.usuario_id);
+  console.log('req.body.usuario_id:', req.body.usuario_id);
 
   const usuario_id = req.body.usuario_id || req.query.usuario_id;
 
@@ -119,20 +119,36 @@ console.log('req.body.usuario_id:', req.body.usuario_id);
   }
 
   try {
-    const caminhoFoto = req.file.path; // Cloudinary fornece isso
-
-    await empresaModel.atualizarFotoPerfil({
-      usuario_id: Number(usuario_id),
-      foto_perfil: caminhoFoto
+    // 1. Recuperar os dados da empresa
+    const empresa = await prisma.empresa.findUnique({
+      where: { usuario_id: Number(usuario_id) }
     });
 
-    const empresaAtualizada = await empresaModel.obterEmpresaPorUsuarioId(Number(usuario_id));
-    req.session.empresa = empresaAtualizada;
-
-    if (req.session.empresa) {
-      req.session.empresa.foto_perfil = caminhoFoto;
+    if (!empresa) {
+      return res.status(404).send("Empresa não encontrada.");
     }
 
+    // 2. Enviar a imagem para o Cloudinary
+    const resultadoCloudinary = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'connect-skills/empresas', // Pasta onde será armazenada no Cloudinary
+      public_id: `empresa_${empresa.id}_foto_perfil`, // Nome único para evitar sobrescrições
+      use_filename: true,
+      unique_filename: false,
+    });
+
+    // 3. Salvar a URL da foto no banco de dados e na sessão
+    req.session.empresa.foto_perfil = resultadoCloudinary.secure_url;
+    console.log("URL da foto no Cloudinary:", resultadoCloudinary.secure_url);
+
+    // 4. Atualizar o banco de dados com a URL da foto
+    await prisma.empresa.update({
+      where: { id: empresa.id },
+      data: { foto_perfil: req.session.empresa.foto_perfil }
+    });
+    console.log("Foto de perfil da empresa após o upload:", resultadoCloudinary.secure_url);
+    console.log("Foto de perfil após atualização na sessão:", req.session.empresa.foto_perfil);
+
+    // 5. Redirecionar para a página de home da empresa
     return res.redirect('/empresa/home');
   } catch (err) {
     console.error('Erro ao salvar foto de perfil da empresa:', err);
@@ -290,35 +306,138 @@ exports.excluirVaga = async (req, res) => {
 
 exports.telaEditarPerfil = (req, res) => {
   const empresa = req.session.empresa;
+  console.log("Empresa na sessão:", empresa);
   if (!empresa) return res.redirect('/login');
+
   res.render('empresas/editar-empresa', {
-    nome: empresa.nome,
+    empresa,
+    fotoPerfil: empresa.foto_perfil || '/img/placeholder-empresa.png',
     descricao: empresa.descricao,
     telefone: empresa.telefone,
-    localidade: empresa.localidade,
-    fotoPerfil: empresa.fotoPerfil
+    localidade: `${empresa.cidade}, ${empresa.estado}, ${empresa.pais}`,
   });
 };
 
-exports.salvarEdicaoPerfil = (req, res) => {
+exports.salvarEdicaoPerfil = async (req, res) => {
+  console.log("Arquivo recebido:", req.file); 
   const { nome, descricao, telefone, localidade, fotoBase64 } = req.body;
-  Object.assign(req.session.empresa, { nome, descricao, telefone, localidade });
+  const empresaId = req.session.empresa?.id;
 
+  if (!empresaId) return res.redirect('/login');
+
+  let cidade = '', estado = '', pais = '';
+
+  if (localidade) {
+    const partes = localidade.split(',').map(p => p.trim());
+    [cidade, estado, pais] = partes;
+  }
+
+  let novaFotoUrl = req.session.empresa.foto_perfil;
+
+  // Upload de imagem base64 (tirada da câmera)
   if (fotoBase64?.startsWith('data:image')) {
     const matches = fotoBase64.match(/^data:image\/(\w+);base64,(.+)$/);
-    const ext = matches[1];
-    const data = matches[2];
-    const filename = Date.now() + '-camera.' + ext;
-    const filepath = path.join(__dirname, '../../public/uploads', filename);
-    fs.writeFileSync(filepath, data, 'base64');
-    req.session.empresa.fotoPerfil = '/uploads/' + filename;
+    if (matches) {
+      const ext = matches[1];
+      const data = matches[2];
+      const buffer = Buffer.from(data, 'base64');
+
+      try {
+        const resultadoCloudinary = await cloudinary.uploader.upload_stream({
+          folder: 'connect-skills/empresas',
+          public_id: `empresa_${empresaId}_foto_perfil`,
+          use_filename: true,
+          unique_filename: false
+        }, async (error, result) => {
+          if (error) throw error;
+          novaFotoUrl = result.secure_url;
+
+          await prisma.empresa.update({
+            where: { id: empresaId },
+            data: {
+              nome_empresa: nome,
+              descricao,
+              telefone,
+              cidade,
+              estado,
+              pais,
+              foto_perfil: novaFotoUrl
+            }
+          });
+
+          req.session.empresa = {
+            ...req.session.empresa,
+            nome_empresa: nome,
+            descricao,
+            telefone,
+            cidade,
+            estado,
+            pais,
+            foto_perfil: novaFotoUrl
+          };
+
+          return res.redirect('/empresa/meu-perfil');
+        });
+
+        // Escreve o buffer no stream do Cloudinary
+        const stream = resultadoCloudinary;
+        stream.end(buffer);
+        return;
+      } catch (err) {
+        console.error("Erro ao fazer upload da imagem para o Cloudinary:", err);
+        return res.status(500).send("Erro ao fazer upload da imagem.");
+      }
+    }
   }
 
+  // Upload de arquivo via input file
   if (req.file) {
-    req.session.empresa.fotoPerfil = '/uploads/' + req.file.filename;
+    try {
+      const resultadoCloudinary = await cloudinary.uploader.upload(req.file.path, {
+        folder: 'connect-skills/empresas',
+        public_id: `empresa_${empresaId}_foto_perfil`,
+        use_filename: true,
+        unique_filename: false,
+      });
+
+      novaFotoUrl = resultadoCloudinary.secure_url;
+    } catch (error) {
+      console.error("Erro ao fazer upload para o Cloudinary:", error);
+      return res.status(500).send("Erro ao fazer upload da imagem.");
+    }
   }
 
-  res.redirect('/empresa/meu-perfil');
+  // Atualiza o banco de dados e a sessão
+  try {
+    await prisma.empresa.update({
+      where: { id: empresaId },
+      data: {
+        nome_empresa: nome,
+        descricao,
+        telefone,
+        cidade,
+        estado,
+        pais,
+        foto_perfil: novaFotoUrl
+      }
+    });
+
+    req.session.empresa = {
+      ...req.session.empresa,
+      nome_empresa: nome,
+      descricao,
+      telefone,
+      cidade,
+      estado,
+      pais,
+      foto_perfil: novaFotoUrl
+    };
+
+    res.redirect('/empresa/meu-perfil');
+  } catch (error) {
+    console.error("Erro ao salvar dados da empresa:", error);
+    res.status(500).send("Erro ao salvar dados.");
+  }
 };
 
 exports.mostrarVagas = async (req, res) => {

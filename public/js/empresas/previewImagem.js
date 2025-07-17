@@ -38,10 +38,18 @@ function capturarFoto() {
 
 function previewFoto(input) {
   const preview = document.getElementById('previewImagem');
+  const botoesFoto = document.getElementById('botoesFoto');
+
   if (input.files && input.files[0]) {
     const reader = new FileReader();
     reader.onload = function (e) {
       preview.src = e.target.result;
+
+      // ✅ Exibir novamente os botões após escolher nova imagem
+      if (botoesFoto) {
+        botoesFoto.classList.remove('d-none');
+        botoesFoto.classList.add('d-flex');
+      }
     };
     reader.readAsDataURL(input.files[0]);
   }

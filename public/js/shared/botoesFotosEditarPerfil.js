@@ -72,5 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
       preview.src       = e.target.result;
     };
     reader.readAsDataURL(file);
+
+  if (btnAlterar && botoesFoto) {
+    btnAlterar.addEventListener('click', () => {
+      botoesFoto.classList.remove('d-none');
+      botoesFoto.classList.add('d-flex');
+    });
+  }
   });
 });
+
