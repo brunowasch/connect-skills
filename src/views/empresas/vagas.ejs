@@ -20,7 +20,7 @@
     };
   %>
   <main class="container py-5">
-    <h4 class="mb-4 fw-bold mt-4">Minhas vagas</h4>
+    <h2 class="mb-4 mt-5">Minhas Vagas</h2>
 
 <% if (vagas.length > 0) { %>
   <% vagas.forEach(vaga => { %>
@@ -79,7 +79,7 @@
       </div>
     <% } else { %>
       <div class="d-flex flex-column justify-content-center align-items-center" style="min-height: 50vh;">
-        <p class="text-center fs-5">Parece que você não possui nenhuma vaga publicada</p>
+        <p class="text-center fs-5">Parece que você não possui nenhuma vaga publicada.</p>
         <a href="/empresa/publicar-vaga" class="btn btn-outline-primary px-4 mt-3">Publicar vaga</a>
       </div>
     <% } %>
