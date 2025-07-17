@@ -19,22 +19,21 @@
     <form id="formLocalizacao" action="/empresa/editar-empresa" method="POST" enctype="multipart/form-data">
       <div class="row justify-content-center g-4">
         <div class="col-md-4 text-center">
-         <img id="previewImagem" 
-     src="<%= empresa.foto_perfil ? empresa.foto_perfil : '/img/placeholder-empresa.png' %>" 
-     alt="Logo da Empresa" 
-     class="perfil-foto rounded-circle" 
-     width="100" height="100">
+          <img id="previewImagem" 
+               src="<%= empresa.foto_perfil ? empresa.foto_perfil : '/img/placeholder-empresa.png' %>?v=<%= Date.now() %>" 
+               alt="Logo da Empresa" 
+               class="perfil-foto rounded-circle" 
+               width="100" height="100">
 
           <div class="mt-2">
             <button type="button" id="btnAlterarFoto" class="btn btn-primary btn-sm">Alterar foto</button>
           </div>
 
-        <div id="botoesFoto" class="d-flex justify-content-center gap-2 flex-wrap mt-3 d-none">
-          <button type="button" class="btn btn-outline-primary btn-sm px-2 w-auto text-nowrap" onclick="abrirCamera()">Tirar foto com a câmera</button>
-
-          <input type="file" name="novaFoto" id="fotoArquivo" accept="image/*" class="d-none" onchange="previewFoto(this)">
-          <label for="fotoArquivo" class="btn btn-outline-secondary btn-sm px-2 w-auto text-nowrap mb-0">Selecionar do dispositivo</label>
-        </div>
+          <div id="botoesFoto" class="d-flex justify-content-center gap-2 flex-wrap mt-3 d-none">
+            <button type="button" class="btn btn-outline-primary btn-sm px-2 w-auto text-nowrap" onclick="abrirCamera()">Tirar foto com a câmera</button>
+            <input type="file" name="novaFoto" id="fotoArquivo" accept="image/*" class="d-none" onchange="previewFoto(this)">
+            <label for="fotoArquivo" class="btn btn-outline-secondary btn-sm px-2 w-auto text-nowrap mb-0">Selecionar do dispositivo</label>
+          </div>
 
           <div id="cameraContainer" class="mt-3 d-none">
             <video id="camera" width="200" autoplay class="rounded"></video>
@@ -55,20 +54,55 @@
             <textarea class="form-control" id="descricao" name="descricao" rows="3" required><%= descricao %></textarea>
           </div>
 
-          <div class="mb-3">
-            <label for="telefone" class="form-label">Telefone</label>
-            <input type="text" class="form-control" id="telefone" name="telefone" value="<%= telefone %>" required>
-          </div>
-
+          <!-- LOCALIDADE -->
           <div class="mb-3 position-relative">
             <label for="localidade" class="form-label">Localidade</label>
-            <input type="text" class="form-control" id="localidade" name="localidade" value="<%= localidade %>" autocomplete="off" required>
+            <input
+              type="text"
+              class="form-control"
+              id="localidade"
+              name="localidade"
+              value="<%= localidade %>"
+              autocomplete="off"
+              required
+            >
             <ul id="sugestoesLocalidade" class="list-group position-absolute w-100 mt-1 d-none" style="z-index: 1000;"></ul>
             <div id="erro-localidade" class="invalid-feedback mt-1 d-none"></div>
-            <button type="button" id="btnLocalizacao" class="btn btn-outline-secondary btn-sm mt-2">Detectar minha localização automaticamente</button>
-            <button type="button" id="btnEditarLocal" class="btn btn-link btn-sm mt-2 d-none">
-              ✏️ Editar localização
+
+            <button type="button" id="btnLocalizacao" class="btn btn-outline-primary btn-sm mt-2">
+              Detectar minha localização automaticamente
             </button>
+            <button type="button" id="btnEditarLocal" class="btn btn-link btn-sm mt-2 d-none">
+              <i class="bi bi-pencil-square fs-6"></i>
+            </button>
+          </div>
+
+                    <!-- TELEFONE -->
+          <div class="mb-3">
+            <div class="row mb-2 g-2">
+              <!-- DDI -->
+              <div class="col-auto d-flex flex-column align-items-start">
+                <label for="ddi" class="form-label">DDI</label>
+                <input type="text" class="form-control text-center bg-light" id="ddi" name="ddi"
+                value="+55" readonly style="width: 60px;">
+              </div>
+
+              <!-- DDD -->
+              <div class="col-auto d-flex flex-column align-items-start">
+                <label for="ddd" class="form-label">DDD</label>
+                <input type="text" class="form-control text-center" name="ddd" id="ddd" maxlength="2"
+                       style="width: 60px;" value="<%= empresa.telefone?.match(/\((\d{2})\)/)?.[1] || '' %>"
+                       oninput="this.value = this.value.replace(/[^0-9]/g, '')" required>
+              </div>
+
+              <!-- Número -->
+              <div class="col-auto d-flex flex-column align-items-start">
+                <label for="numero" class="form-label">Número</label>
+                <input type="text" class="form-control text-center" name="numero" id="numero" maxlength="11"
+                       style="width: 180px;" value="<%= empresa.telefone?.split(') ')[1] || '' %>"
+                       oninput="formatarNumero(this)" required>
+              </div>
+            </div>
           </div>
 
           <div class="d-flex gap-3 mt-4">
@@ -82,9 +116,27 @@
 
   <%- include('../partials/footer') %>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/js/shared/confirmarLocalizacaoEditar-perfil-empresa.js"></script>
   <script src="/js/empresas/previewImagem.js"></script>
   <script src="/js/shared/botoesFotosEditarPerfil.js"></script>
+  <script src="/js/empresas/numeroTelefoneEditarEmpresa.js"></script>
+
+  <script>
+    function formatarNumero(input) {
+      let num = input.value.replace(/\D/g, '');
+      if (num.length > 5) {
+        input.value = num.substring(0, 5) + '-' + num.substring(5, 9);
+      } else {
+        input.value = num;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const numeroInput = document.getElementById('numero');
+      if (numeroInput) {
+        formatarNumero(numeroInput);
+      }
+    });
+  </script>
 </body>
 </html>
