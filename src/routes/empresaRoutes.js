@@ -18,11 +18,11 @@ router.post('/foto-perfil', uploadEmpresa.single('novaFoto'), empresaController.
 
 router.get('/home', empresaController.homeEmpresa);
 router.get('/meu-perfil', ensureEmpresa, empresaController.telaPerfilEmpresa);
-router.get('/editar-perfil', ensureEmpresa, empresaController.telaEditarPerfil);
-router.post('/editar-perfil', uploadEmpresa.single('novaFoto'), empresaController.salvarEdicaoPerfil);
+router.get('/editar-empresa', empresaController.telaEditarPerfil);
+router.post('/editar-empresa', uploadEmpresa.single('novaFoto'), empresaController.salvarEdicaoPerfil); // 🔧 esta rota corrige o erro
 
 // Publicação de vaga
-router.get('/publicar-vaga',  ensureEmpresa, empresaController.telaPublicarVaga);
+router.get('/publicar-vaga', ensureEmpresa, empresaController.telaPublicarVaga);
 router.post('/publicar-vaga', ensureEmpresa, empresaController.salvarVaga);
 
 // Listagem e detalhes

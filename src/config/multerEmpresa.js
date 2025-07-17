@@ -7,8 +7,9 @@ const storage = new CloudinaryStorage({
   params: {
     folder: 'connect-skills/empresas',
     allowed_formats: ['jpg', 'jpeg', 'png'],
-    transformation: [{ width: 300, height: 300, crop: 'fill' }]
+    transformation: [{ width: 300, height: 300, crop: 'fill' }],
+    public_id: (req, file) => `empresa_${req.session.empresa.id}_foto_perfil`,
   }
 });
 
-module.exports = multer({ storage });
+const upload = multer({ storage: storage });

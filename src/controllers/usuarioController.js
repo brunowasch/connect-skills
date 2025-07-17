@@ -59,25 +59,25 @@ exports.login = async (req, res) => {
     if (!senhaCorreta) return res.status(401).send('Senha incorreta.');
 
     if (usuario.tipo === 'empresa') {
-      const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario.id);
-      if (!empresa) return res.redirect('/login');
+  const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario.id);
+  if (!empresa) return res.redirect('/login');
 
-      req.session.empresa = {
-        id: empresa.id,
-        nome_empresa: empresa.nome_empresa,
-        descricao: empresa.descricao,
-        telefone: empresa.telefone,
-        cidade: empresa.cidade,
-        estado: empresa.estado,
-        pais: empresa.pais,
-        foto_perfil: empresa.foto_perfil,
-      };
+  // Garante que a foto seja sempre buscada do banco
+  req.session.empresa = {
+    id: empresa.id,
+    nome_empresa: empresa.nome_empresa,
+    descricao: empresa.descricao,
+    telefone: empresa.telefone,
+    cidade: empresa.cidade,
+    estado: empresa.estado,
+    pais: empresa.pais,
+    foto_perfil: empresa.foto_perfil || '/img/placeholder-empresa.png',
+  };
 
-      return req.session.save(() => {
-        res.redirect('/empresa/home');
-      });
-
-    } else if (usuario.tipo === 'candidato') {
+  return req.session.save(() => {
+    res.redirect('/empresa/home');
+  });
+} else if (usuario.tipo === 'candidato') {
       const candidato = await candidatoModel.obterCandidatoPorUsuarioId(usuario.id);
       if (!candidato) return res.redirect('/login');
 

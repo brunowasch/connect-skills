@@ -1,20 +1,23 @@
-// middlewares/upload.js
 const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('../config/cloudinary');
+const path = require('path');
 
-function createStorage(folder) {
-  return new CloudinaryStorage({
-    cloudinary,
-    params: {
-      folder: `connect-skills/${folder}`,
-      allowed_formats: ['jpg', 'jpeg', 'png'],
-      transformation: [{ width: 300, height: 300, crop: 'fill' }]
-    }
-  });
-}
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/'); // Pasta temporária local
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const nomeArquivo = Date.now() + '-' + file.fieldname + ext;
+    cb(null, nomeArquivo);
+  }
+});
 
-const uploadCandidato = multer({ storage: createStorage('candidatos') });
-const uploadEmpresa   = multer({ storage: createStorage('empresas') });
+const uploadEmpresa = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024,     // até 10MB por imagem
+    fieldSize: 25 * 1024 * 1024     // aumenta limite dos campos (resolve erro do base64)
+  }
+});
 
-module.exports = { uploadCandidato, uploadEmpresa };
+module.exports = { uploadEmpresa };
