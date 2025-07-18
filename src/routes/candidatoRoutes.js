@@ -29,4 +29,7 @@ router.get('/vagas', ensureCandidato, candidatoController.mostrarVagas);
 router.get('/editar-perfil', ensureCandidato, candidatoController.telaEditarPerfil);
 router.post('/editar-perfil', ensureCandidato, uploadCandidato.single('novaFoto'), candidatoController.salvarEditarPerfil); 
 
+router.get('/editar-areas', candidatoController.telaEditarAreas);
+router.post('/editar-areas', candidatoController.salvarEditarAreas);
+
 module.exports = router;
