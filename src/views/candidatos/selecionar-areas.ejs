@@ -2,10 +2,10 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Áreas de Interesse - Connect Skills</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <link rel="stylesheet" href="/css/shared/style.css">
   <link rel="stylesheet" href="/css/candidatos/selecionar-areas.css">
   <link rel="icon" href="/img/CONNECT.png">
@@ -17,48 +17,50 @@
   <h2 class="mb-4">Selecione a seguir três áreas a quais você deseja trabalhar:</h2>
   <form action="/candidato/cadastro/areas?usuario_id=<%= usuario_id %>" method="POST" id="formAreas">
     <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
+    
+    <div id="botoes" class="d-flex flex-wrap justify-content-center">
+      <% const opcoes = [
+        "Administração", "Agropecuária / Agricultura", "Comunicação / Jornalismo", "Construção Civil", "Design / Criação",
+        "Educação / Ensino", "Engenharia", "Eventos / Produção Cultural", "Finanças / Contabilidade", "Gastronomia / Alimentação",
+        "Hotelaria / Turismo", "Jurídico", "Logística", "Marketing", "Mecânica / Manutenção",
+        "Moda / Estilo", "Meio Ambiente", "Produção / Operacional", "Recursos Humanos (RH)", "Saúde",
+        "Segurança / Vigilância", "Transporte / Motorista", "Tecnologia da Informação"
+      ]; %>
+
+      <% opcoes.forEach((opcao, index) => { %>
+        <button type="button" class="area-btn btn btn-outline-primary m-2" data-value="<%= opcao %>"><%= opcao %></button>
+      <% }) %>
+
+      <!-- Botão "Outro" -->
+      <button type="button" class="area-btn btn btn-outline-secondary m-2" data-value="Outro">Outro...</button>
       
-      <div id="botoes" class="d-flex flex-wrap justify-content-center">
-        <% const opcoes = [
-          "Administração", "Agropecuária / Agricultura", "Comunicação / Jornalismo", "Construção Civil", "Design / Criação",
-          "Educação / Ensino", "Engenharia", "Eventos / Produção Cultural", "Finanças / Contabilidade", "Gastronomia / Alimentação",
-          "Hotelaria / Turismo", "Jurídico", "Logística", "Marketing", "Mecânica / Manutenção",
-          "Moda / Estilo", "Meio Ambiente", "Produção / Operacional", "Recursos Humanos (RH)", "Saúde",
-          "Segurança / Vigilância", "Transporte / Motorista", "Tecnologia da Informação"
-        ]; %>
-
-        <% opcoes.forEach((opcao, index) => { %>
-          <button type="button" class="area-btn" data-value="<%= opcao %>"><%= opcao %></button>
-        <% }) %>
-
-        <!-- Botão "Outro" -->
-        <button type="button" class="area-btn outro-btn" data-value="Outro">Outro...</button>
-        <div id="campoOutroArea" class="mt-3 d-none">
-          <label for="outra_area" class="form-label">Descreva a outra área:</label>
-         <input
-            type="text"
-            id="outra_area"
-            name="outra_area_input"
-            class="form-control mx-auto mb-2"
-            style="max-width: 500px;"
-            placeholder="Digite a nova área"
-          />
-          <div class="d-flex justify-content-center gap-2">
-            <button type="button" id="btnConfirmarOutro" class="btn btn-success" disabled>Confirmar</button>
-            <button type="button" id="btnCancelarOutro" class="btn btn-secondary">Cancelar</button>
-            <button type="button" id="btnEditarOutro" class="btn btn-warning d-none">Editar</button>
+      <div id="campoOutroArea" class="mt-3 d-none">
+        <label for="outra_area" class="form-label">Descreva a outra área:</label>
+        <input
+          type="text"
+          id="outra_area"
+          name="outra_area_input"
+          class="form-control mx-auto mb-2"
+          style="max-width: 500px;"
+          placeholder="Digite a nova área"
+        />
+        <div class="d-flex justify-content-center gap-2">
+          <button type="button" id="btnConfirmarOutro" class="btn btn-success" disabled>Confirmar</button>
+          <button type="button" id="btnCancelarOutro" class="btn btn-secondary">Cancelar</button>
+          <button type="button" id="btnEditarOutro" class="btn btn-warning d-none">Editar</button>
+        </div>
       </div>
-    </div>
+      
       <input type="hidden" name="areasSelecionadas" id="areasSelecionadas">
+    </div>
 
-      <div class="mt-4">
-        <button type="submit" class="btn btn-continuar mt-4" id="btnContinuar">Continuar</button>
-      </div>
-    </form>
-  </main>
+    <div class="mt-4">
+      <button type="submit" class="btn btn-continuar mt-4" id="btnContinuar">Continuar</button>
+    </div>
+  </form>
+</main>
 
 <%- include('../partials/footer') %>
   <script src="/js/candidatos/selecionar-areas.js"></script>
-
 </body>
 </html>

@@ -1,4 +1,3 @@
-// controllers/candidatoController.js
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const candidatoModel = require('../models/candidatoModel');
@@ -170,9 +169,9 @@ exports.salvarAreas = async (req, res) => {
       nomesFinal.splice(index, 1, novaArea.nome);
     }
 
-    console.log("🟡 nomesFinal:", nomesFinal);
+    console.log("nomesFinal:", nomesFinal);
     const ids = await candidatoModel.buscarIdsDasAreas({ nomes: nomesFinal });
-    console.log("🟢 ids encontrados:", ids);
+    console.log("ids encontrados:", ids);
 
     if (ids.length !== 3) {
       return res.status(400).send("Erro ao localizar todas as áreas selecionadas.");
@@ -322,5 +321,95 @@ exports.salvarEditarPerfil = async (req, res) => {
   } catch (err) {
     console.error('Erro ao atualizar perfil básico:', err);
     res.status(500).send('Não foi possível atualizar seu perfil.');
+  }
+};
+
+exports.telaEditarAreas = async (req, res) => {
+  const sess = req.session.candidato;
+  if (!sess) return res.redirect('/login');
+
+  try {
+    // Carregar as áreas de interesse do candidato
+    const candidato = await prisma.candidato.findUnique({
+      where: { id: sess.id },
+      include: {
+        candidato_area: {
+          include: {
+            area_interesse: true
+          }
+        }
+      }
+    });
+
+    const areasAtuais = candidato.candidato_area.map(r => r.area_interesse.nome);
+    const todasAsAreas = await prisma.area_interesse.findMany(); // Carregar todas as áreas de interesse
+    const outraArea = areasAtuais.includes("Outro") ? areasAtuais.find(area => area !== "Outro") : null;
+
+    res.render('candidatos/editar-areas', {
+      areasAtuais,
+      todasAsAreas,
+      usuarioId: sess.id,
+      outraArea: outraArea, // Passando a variável 'outraArea' para a view
+      activePage: 'editar-areas'
+    });
+  } catch (err) {
+    console.error('Erro ao carregar as áreas de interesse:', err);
+    res.status(500).send('Erro ao carregar as áreas de interesse.');
+  }
+};
+
+exports.salvarEditarAreas = async (req, res) => {
+  const usuario_id = req.body.usuario_id; // O ID do usuário vindo do corpo da requisição
+  const areasEscolhidas = req.body.areasSelecionadas; // Áreas selecionadas, vindo do corpo da requisição
+
+  // Certifique-se de que areasEscolhidas é um array válido
+  if (!areasEscolhidas || areasEscolhidas.length === 0) {
+    return res.status(400).send("Nenhuma área foi selecionada.");
+  }
+
+  try {
+    // Garantir que areasEscolhidas seja um array
+    const nomes = Array.isArray(areasEscolhidas) ? areasEscolhidas : JSON.parse(areasEscolhidas);
+
+    // Verificar se nomes é realmente um array de strings
+    if (!Array.isArray(nomes)) {
+      return res.status(400).send("Formato inválido de áreas selecionadas.");
+    }
+
+    // Obter as IDs das áreas de interesse com base nos nomes
+    const areas = await prisma.area_interesse.findMany({
+      where: {
+        nome: {
+          in: nomes,  // Passando o array diretamente para o Prisma
+        }
+      },
+      select: {
+        id: true  // Somente as IDs das áreas
+      }
+    });
+
+    if (areas.length !== nomes.length) {
+      return res.status(400).send("Erro ao localizar algumas áreas selecionadas.");
+    }
+
+    // Remover as associações antigas
+    await prisma.candidato_area.deleteMany({
+      where: { candidato_id: Number(usuario_id) }
+    });
+
+    // Criar as novas associações
+    const candidatoAreas = areas.map(area => ({
+      candidato_id: Number(usuario_id),
+      area_interesse_id: area.id
+    }));
+
+    await prisma.candidato_area.createMany({
+      data: candidatoAreas
+    });
+
+    res.redirect('/candidatos/meu-perfil');  // Redirecionar após a atualização
+  } catch (error) {
+    console.error('Erro ao salvar áreas de interesse:', error);
+    res.status(500).send("Erro ao salvar as áreas de interesse.");
   }
 };
