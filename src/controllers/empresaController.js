@@ -202,8 +202,18 @@ exports.telaPerfilEmpresa = async (req, res) => {
 
 exports.telaPublicarVaga = async (req, res) => {
   try {
-    const areas = await vagaModel.buscarAreas();
-    const habilidades = await vagaModel.buscarSoftSkills();
+    if (!req.session.empresa) return res.redirect('/login');
+
+    // Buscar apenas áreas padrão
+    const areas = await prisma.area_interesse.findMany({
+      where: { padrao: true },
+      orderBy: { nome: 'asc' }
+    });
+
+    // Buscar todas as soft skills
+    const habilidades = await prisma.soft_skill.findMany({
+      orderBy: { nome: 'asc' }
+    });
 
     res.render('empresas/publicar-vaga', { areas, habilidades });
   } catch (err) {
@@ -213,9 +223,18 @@ exports.telaPublicarVaga = async (req, res) => {
 };
 
 
+
 exports.salvarVaga = async (req, res) => {
   try {
     if (!req.session.empresa) return res.redirect('/login');
+
+    console.log('==== DADOS RECEBIDOS DO FORMULÁRIO ====');
+    console.log('req.body:', req.body);
+    console.log('areasSelecionadas:', req.body.areasSelecionadas);
+    console.log('habilidadesSelecionadas:', req.body.habilidadesSelecionadas);
+    console.log('beneficio:', req.body.beneficio);
+    console.log('beneficioOutro:', req.body.beneficioOutro);
+    console.log('----------------------------------------');
 
     const {
       cargo = '',
@@ -226,54 +245,120 @@ exports.salvarVaga = async (req, res) => {
       salario,
       moeda = '',
       descricao = '',
+      beneficio = [],
+      beneficioOutro = '',
+      pergunta = '',
+      opcao = '',
       areasSelecionadas = '[]',
       habilidadesSelecionadas = '[]'
     } = req.body;
 
     const empresa_id = req.session.empresa.id;
 
-    const areas_ids = Array.isArray(JSON.parse(areasSelecionadas))
-      ? JSON.parse(areasSelecionadas).map(Number)
-      : [];
+    // --- BENEFÍCIOS ---
+    let beneficios = Array.isArray(beneficio) ? beneficio : [beneficio];
+    if (beneficioOutro?.trim()) {
+      beneficios.push(beneficioOutro.trim());
+    }
+    const beneficiosTexto = beneficios.join(', ');
 
-    const soft_skills_ids = Array.isArray(JSON.parse(habilidadesSelecionadas))
-      ? JSON.parse(habilidadesSelecionadas).map(Number)
-      : [];
+    // --- ÁREAS DE INTERESSE ---
+    let areasBrutas = [];
+    try {
+      areasBrutas = Array.isArray(areasSelecionadas)
+        ? areasSelecionadas
+        : JSON.parse(areasSelecionadas || '[]');
+    } catch (e) {
+      console.error('[ERRO] Erro ao fazer parse de areasSelecionadas:', e);
+      return res.status(400).send('Erro ao processar áreas de interesse.');
+    }
 
-    console.log({
-      empresa_id,
-      cargo,
-      tipo,
-      escala,
-      diasPresenciais,
-      diasHomeOffice,
-      salario,
-      moeda,
-      descricao,
-      areas_ids,
-      soft_skills_ids
-    });
+    if (areasBrutas.length === 0) {
+      return res.status(400).send('Selecione ao menos uma área de interesse.');
+    }
 
-    await vagaModel.criarVaga({
-      empresa_id,
-      cargo,
-      tipo_local_trabalho: tipo,
-      escala_trabalho: escala,
-      dias_presenciais: diasPresenciais ? parseInt(diasPresenciais, 10) : null,
-      dias_home_office: diasHomeOffice ? parseInt(diasHomeOffice, 10) : null,
-      salario,
-      moeda,
-      descricao,
-      areas_ids,
-      soft_skills_ids
+    const areas_ids = [];
+    for (const area of areasBrutas) {
+      if (area.startsWith('nova:')) {
+        const nomeNova = area.replace('nova:', '').trim();
+        if (!nomeNova) continue;
+
+        let nova = await prisma.area_interesse.findFirst({
+          where: { nome: nomeNova }
+        });
+
+        if (!nova) {
+          nova = await prisma.area_interesse.create({
+            data: { nome: nomeNova }
+          });
+        }
+
+        areas_ids.push(nova.id);
+      } else {
+        areas_ids.push(Number(area));
+      }
+    }
+
+    // --- SOFT SKILLS ---
+    let habilidadesBrutas = [];
+    try {
+      habilidadesBrutas = Array.isArray(habilidadesSelecionadas)
+        ? habilidadesSelecionadas
+        : JSON.parse(habilidadesSelecionadas || '[]');
+    } catch (e) {
+      console.error('[ERRO] Erro ao fazer parse de habilidadesSelecionadas:', e);
+      return res.status(400).send('Erro ao processar habilidades.');
+    }
+
+    const soft_skills_ids = habilidadesBrutas.map(Number);
+
+    // --- SALÁRIO ---
+    let salarioFormatado = null;
+    if (salario) {
+      const bruto = salario.toString().replace(/\./g, '').replace(',', '.');
+      salarioFormatado = parseFloat(bruto);
+    }
+
+    // --- CRIA A VAGA ---
+    const vagaCriada = await prisma.vaga.create({
+      data: {
+        empresa_id,
+        cargo,
+        tipo_local_trabalho: tipo,
+        escala_trabalho: escala,
+        dias_presenciais: diasPresenciais ? parseInt(diasPresenciais, 10) : null,
+        dias_home_office: diasHomeOffice ? parseInt(diasHomeOffice, 10) : null,
+        salario: salarioFormatado,
+        moeda,
+        descricao,
+        beneficio: beneficiosTexto,
+        pergunta,
+        opcao,
+        vaga_area: {
+          createMany: {
+            data: areas_ids.map(id => ({
+              area_interesse_id: id
+            }))
+          }
+        },
+        vaga_soft_skill: {
+          createMany: {
+            data: soft_skills_ids.map(id => ({
+              soft_skill_id: id
+            }))
+          }
+        }
+      }
     });
 
     return res.redirect('/empresa/meu-perfil');
   } catch (err) {
-    console.error('[ERRO] Falha ao salvar vaga:', err.message, err.stack);
-    res.status(500).send('Erro ao salvar vaga. Verifique os dados e tente novamente.');
+    console.error('[ERRO] Falha ao salvar vaga:', err);
+    return res.status(500).send('Erro ao salvar vaga. Verifique os dados e tente novamente.');
   }
 };
+
+
 exports.mostrarPerfil = async (req, res) => {
   const empresa = req.session.empresa;
   if (!empresa) return res.redirect('/login');

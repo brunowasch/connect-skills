@@ -138,9 +138,27 @@ exports.salvarFotoPerfil = async (req, res) => {
   }
 };
 
-exports.telaSelecionarAreas = (req, res) => {
-  const { usuario_id } = req.query;
-  res.render('candidatos/selecionar-areas', { usuario_id });
+exports.telaSelecionarAreas = async (req, res) => {
+  try {
+    const usuario_id = req.query.usuario_id;
+
+    const areas = await prisma.area_interesse.findMany({
+      where: {
+        padrao: true
+      },
+      orderBy: {
+        nome: 'asc'
+      }
+    });
+
+    res.render('candidatos/selecionar-areas', {
+      usuario_id,
+      areas // <-- importante!
+    });
+  } catch (erro) {
+    console.error('Erro ao carregar áreas:', erro);
+    res.send('Erro ao carregar áreas.');
+  }
 };
 
 exports.salvarAreas = async (req, res) => {
