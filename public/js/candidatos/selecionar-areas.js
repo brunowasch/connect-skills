@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputOutro = document.getElementById('outra_area');
   const btnConfirmar = document.getElementById('btnConfirmarOutro');
   const btnCancelar = document.getElementById('btnCancelarOutro');
-  const btnEditar = document.getElementById('btnEditarOutro');
   const btnOutro = document.querySelector('.area-btn[data-value="Outro"]');
   const btnContinuar = document.getElementById('btnContinuar');
 
@@ -20,79 +19,71 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => {
       const valor = btn.dataset.value;
 
+      if (valor === 'Outro') {
+        if (selecionadas.length >= 3) {
+          alert('Você só pode selecionar até 3 áreas.');
+          return;
+        }
+        campoOutroArea.classList.remove('d-none');
+        inputOutro.value = '';
+        btnConfirmar.disabled = true;
+        return;
+      }
+
       if (selecionadas.includes(valor)) {
-        // desmarcar
         selecionadas = selecionadas.filter(v => v !== valor);
         btn.classList.remove('selected');
-
-        if (valor === 'Outro') {
-          campoOutroArea.classList.add('d-none');
-          inputOutro.value = '';
-          btnConfirmar.disabled = true;
-          btnOutro.textContent = 'Outro';
-          btnEditar.classList.add('d-none');
-          btnContinuar.classList.remove('d-none');
-        }
       } else {
         if (selecionadas.length >= 3) {
           alert('Você só pode selecionar até 3 áreas.');
           return;
         }
-
         selecionadas.push(valor);
         btn.classList.add('selected');
-
-        if (valor === 'Outro') {
-          campoOutroArea.classList.remove('d-none');
-          btnContinuar.classList.add('d-none');
-        }
       }
 
       atualizarCampoHidden();
     });
   });
 
-  // Confirmar nova área personalizada
   btnConfirmar.addEventListener('click', () => {
     const texto = inputOutro.value.trim();
-    if (texto === '') {
-      alert('Preencha a nova área antes de confirmar.');
+    if (texto === '') return;
+
+    if (selecionadas.length >= 3) {
+      alert('Você só pode selecionar até 3 áreas.');
       return;
     }
 
-    // Atualiza visual do botão "Outro"
-    btnOutro.textContent = texto;
-    btnOutro.classList.add('selected');
+    if (selecionadas.includes(texto)) {
+      alert('Essa área já foi selecionada.');
+      return;
+    }
 
+    selecionadas.push(texto);
     campoOutroArea.classList.add('d-none');
-    btnEditar.classList.remove('d-none');
-    btnContinuar.classList.remove('d-none');
 
+    // Cria botão dinâmico para a nova área
+    const novoBtn = document.createElement('button');
+    novoBtn.type = 'button';
+    novoBtn.className = 'area-btn btn btn-outline-primary m-2 selected';
+    novoBtn.textContent = texto;
+    novoBtn.dataset.value = texto;
+
+    novoBtn.addEventListener('click', () => {
+      selecionadas = selecionadas.filter(v => v !== texto);
+      novoBtn.remove();
+      atualizarCampoHidden();
+    });
+
+    btnOutro.insertAdjacentElement('beforebegin', novoBtn);
     atualizarCampoHidden();
   });
 
-  // Cancelar campo "Outro"
   btnCancelar.addEventListener('click', () => {
     inputOutro.value = '';
     btnConfirmar.disabled = true;
     campoOutroArea.classList.add('d-none');
-
-    const index = selecionadas.indexOf('Outro');
-    if (index !== -1) selecionadas.splice(index, 1);
-
-    btnOutro.textContent = 'Outro';
-    btnOutro.classList.remove('selected');
-    btnEditar.classList.add('d-none');
-    btnContinuar.classList.remove('d-none');
-
-    atualizarCampoHidden();
-  });
-
-  // Editar nova área personalizada
-  btnEditar.addEventListener('click', () => {
-    campoOutroArea.classList.remove('d-none');
-    inputOutro.focus();
-    btnContinuar.classList.add('d-none');
   });
 
   function atualizarCampoHidden() {
@@ -106,10 +97,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (selecionadas.includes('Outro') && inputOutro.value.trim() === '') {
+    const includesOutro = selecionadas.some(a => a.toLowerCase() === 'outro');
+    if (includesOutro) {
       e.preventDefault();
-      alert('Você selecionou "Outro", mas não preencheu a área personalizada.');
-      return;
+      alert('Você precisa confirmar a nova área antes de continuar.');
     }
   });
 });
