@@ -1,3 +1,4 @@
+<!-- editar-areas.ejs -->
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -16,7 +17,7 @@
   <main class="container text-center mt-5 pt-5">
     <h2 class="mb-4">Edite suas Áreas de Interesse</h2>
     <form action="/candidato/editar-areas" method="POST" id="formEditarAreas">
-      <input type="hidden" name="usuario_id" value="<%= usuarioId %>">
+      <input type="hidden" name="candidato_id" value="<%= candidatoId %>">
 
       <h4>Áreas Atuais</h4>
       <div id="areasSelecionadas" class="d-flex flex-wrap justify-content-center mb-4">
@@ -27,31 +28,53 @@
         <% }) %>
       </div>
 
-      <h4>Selecione uma nova área</h4>
-      <div id="botoes" class="d-flex flex-wrap justify-content-center">
+      <h4>Selecione até 3 áreas</h4>
+      <div id="botoes" class="d-flex flex-wrap justify-content-center mb-2">
         <% const opcoes = [
-          "Administração", "Agropecuária / Agricultura", "Comunicação / Jornalismo", "Construção Civil", "Design / Criação",
-          "Educação / Ensino", "Engenharia", "Eventos / Produção Cultural", "Finanças / Contabilidade", "Gastronomia / Alimentação",
+          "Administração", "Agropecuária / Agricultura", "Comunicação / Jornalismo",
+          "Construção Civil", "Design / Criação", "Educação / Ensino", "Engenharia",
+          "Eventos / Produção Cultural", "Finanças / Contabilidade", "Gastronomia / Alimentação",
           "Hotelaria / Turismo", "Jurídico", "Logística", "Marketing", "Mecânica / Manutenção",
-          "Moda / Estilo", "Meio Ambiente", "Produção / Operacional", "Recursos Humanos (RH)", "Saúde",
-          "Segurança / Vigilância", "Transporte / Motorista", "Tecnologia da Informação"
+          "Moda / Estilo", "Meio Ambiente", "Produção / Operacional", "Recursos Humanos (RH)",
+          "Saúde", "Segurança / Vigilância", "Transporte / Motorista", "Tecnologia da Informação"
         ]; %>
 
-        <% opcoes.forEach((opcao, index) => { %>
-          <% if (!areasAtuais.includes(opcao)) { %>
-            <button type="button" class="area-btn" data-value="<%= opcao %>"><%= opcao %></button>
-          <% } %>
-        <% }) %>
+        <% opcoes.forEach(opcao => {
+             if (!areasAtuais.includes(opcao)) { %>
+          <button type="button" class="area-btn m-1" data-value="<%= opcao %>"><%= opcao %></button>
+        <% } }); %>
+      </div>
+
+      <!-- botão “Outro” -->
+      <button type="button"
+              id="btnOutro"
+              class="area-btn btn btn-outline-secondary m-1"
+              data-value="Outro">
+        Outro…
+      </button>
+
+      <!-- input livre para “Outro” -->
+      <div id="campoOutroArea" class="mt-3 d-none">
+        <label for="outra_area" class="form-label">Descreva a outra área:</label>
+        <input
+          type="text"
+          id="outra_area"
+          name="outra_area_input"
+          class="form-control mx-auto mb-2"
+          style="max-width: 500px;"
+          placeholder="Digite a nova área"
+        />
+        <div class="d-flex justify-content-center gap-2">
+          <button type="button" id="btnConfirmarOutro" class="btn btn-primary" disabled>Confirmar</button>
+          <button type="button" id="btnCancelarOutro" class="btn btn-secondary">Cancelar</button>
+        </div>
       </div>
 
       <input type="hidden" name="areasSelecionadas" id="areasSelecionadasInput">
 
       <div class="mt-4">
+        <button type="button" class="btn btn-secondary mt-4" id="btnCancelar">Cancelar</button>
         <button type="submit" class="btn btn-continuar mt-4" id="btnContinuar" disabled>Salvar Alterações</button>
-        <a href="/candidato/meu-perfil">
-          <button type="button" class="btn btn-secondary mt-4" id="btnCancelar">Cancelar</button>
-        </a>
-
       </div>
     </form>
   </main>
@@ -60,4 +83,3 @@
   <script src="/js/candidatos/editar-areas.js"></script>
 </body>
 </html>
-  
