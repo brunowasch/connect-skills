@@ -20,7 +20,18 @@
     <div class="d-flex align-items-center perfil-header mb-4">
       <img src="<%= empresa.foto_perfil || '/img/avatar.png' %>" class="perfil-foto rounded-circle me-3" alt="Foto da Empresa" width="80" height="80">
       <div>
-        <h4 class="mb-1"><%= empresa.nome_empresa || 'Nome da Empresa' %></h4>
+        <div class="d-flex align-items-center gap-2 mb-1">
+        <h4 class="mb-0"><%= empresa.nome_empresa || 'Nome da Empresa' %></h4>
+       <button 
+        class="btn btn-sm"
+        data-empresa-id="<%= empresa.id %>"
+        title="Copiar link público do perfil da empresa"
+        onclick="copiarLinkPerfilPublico(this)">
+        <i class="bi bi-link-45deg"></i>
+      </button>
+      </div>
+      <small id="msgCopiado" class="text-success" style="display: none;">Link copiado!</small>
+
         <p class="mb-1"><%= empresa.descricao || 'Descrição não informada' %></p>
         <p class="mb-1">
         <%= empresa.cidade && empresa.estado && empresa.pais 
@@ -113,6 +124,23 @@
     modal.show();
   }
 </script>
+<script>
+  function copiarLinkPerfilPublico(button) {
+  const id = button.getAttribute('data-empresa-id');
+  const url = `${window.location.origin}/empresa/perfil/${id}`;
+  navigator.clipboard.writeText(url)
+    .then(() => {
+      const msg = document.getElementById('msgCopiado');
+      msg.style.display = 'inline';
+      setTimeout(() => msg.style.display = 'none', 2000);
+    })
+    .catch(err => {
+      console.error('Erro ao copiar:', err);
+      alert('Erro ao copiar o link.');
+    });
+}
+</script>
+
 
 <%- include('../partials/footer') %>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

@@ -37,4 +37,6 @@ router.post('/editar-vaga/:id', ensureEmpresa, empresaController.salvarEditarVag
 // Exclusão de vaga
 router.post('/excluir-vaga/:id', ensureEmpresa, empresaController.excluirVaga);
 
+router.get('/perfil/:id', empresaController.perfilPublico);
+
 module.exports = router;

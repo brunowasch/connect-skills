@@ -1,0 +1,14 @@
+body {
+      background-color: #f2f4f6;
+    }
+    .perfil-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.06);
+    }
+    .vaga-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      padding: 24px;
+    }

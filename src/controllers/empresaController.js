@@ -563,3 +563,28 @@ exports.salvarEditarVaga = async (req, res) => {
     res.status(500).send('Não foi possível editar a vaga.');
   }
 };
+
+exports.perfilPublico = async (req, res) => {
+  const empresaId = parseInt(req.params.id);
+
+  try {
+    const empresa = await prisma.empresa.findUnique({
+      where: { id: empresaId }
+    });
+
+    if (!empresa) return res.status(404).send("Empresa não encontrada.");
+
+    const vagasPublicadas = await prisma.vaga.findMany({
+      where: { empresa_id: empresaId },
+      include: {
+        vaga_area: { include: { area_interesse: true } },
+        vaga_soft_skill: { include: { soft_skill: true } }
+      }
+    });
+
+    res.render('empresas/perfil-publico', { empresa, vagasPublicadas });
+  } catch (error) {
+    console.error("Erro ao carregar perfil público:", error);
+    res.status(500).send("Erro ao carregar perfil.");
+  }
+};
