@@ -345,13 +345,14 @@ exports.telaEditarAreas = async (req, res) => {
     const todasAsAreas = await prisma.area_interesse.findMany(); // Carregar todas as áreas de interesse
     const outraArea = areasAtuais.includes("Outro") ? areasAtuais.find(area => area !== "Outro") : null;
 
-    res.render('candidatos/editar-areas', {
-      areasAtuais,
-      todasAsAreas,
-      usuarioId: sess.id,
-      outraArea: outraArea, // Passando a variável 'outraArea' para a view
-      activePage: 'editar-areas'
-    });
+   res.render('candidatos/editar-areas', {
+    areasAtuais,
+    todasAsAreas,
+    candidatoId: sess.id, // <- nome correto agora
+    outraArea: outraArea,
+    activePage: 'editar-areas'
+  });
+
   } catch (err) {
     console.error('Erro ao carregar as áreas de interesse:', err);
     res.status(500).send('Erro ao carregar as áreas de interesse.');
@@ -359,57 +360,59 @@ exports.telaEditarAreas = async (req, res) => {
 };
 
 exports.salvarEditarAreas = async (req, res) => {
-  const usuario_id = req.body.usuario_id; // O ID do usuário vindo do corpo da requisição
-  const areasEscolhidas = req.body.areasSelecionadas; // Áreas selecionadas, vindo do corpo da requisição
+  const candidato_id = Number(req.body.candidato_id);
+  let nomesSelecionados;
 
-  // Certifique-se de que areasEscolhidas é um array válido
-  if (!areasEscolhidas || areasEscolhidas.length === 0) {
+  try {
+    nomesSelecionados = Array.isArray(req.body.areasSelecionadas)
+      ? req.body.areasSelecionadas
+      : JSON.parse(req.body.areasSelecionadas);
+  } catch {
+    return res.status(400).send("Formato inválido de áreas selecionadas.");
+  }
+
+  if (!Array.isArray(nomesSelecionados) || nomesSelecionados.length === 0) {
     return res.status(400).send("Nenhuma área foi selecionada.");
+  }
+  if (nomesSelecionados.length > 3) {
+    return res.status(400).send("Você só pode selecionar até 3 áreas.");
   }
 
   try {
-    // Garantir que areasEscolhidas seja um array
-    const nomes = Array.isArray(areasEscolhidas) ? areasEscolhidas : JSON.parse(areasEscolhidas);
-
-    // Verificar se nomes é realmente um array de strings
-    if (!Array.isArray(nomes)) {
-      return res.status(400).send("Formato inválido de áreas selecionadas.");
-    }
-
-    // Obter as IDs das áreas de interesse com base nos nomes
-    const areas = await prisma.area_interesse.findMany({
-      where: {
-        nome: {
-          in: nomes,  // Passando o array diretamente para o Prisma
+    // Substitui "Outro" pelo valor digitado
+    const nomesCorrigidos = nomesSelecionados.map(nome => {
+      if (nome === "Outro") {
+        const outra = req.body.outra_area_input?.trim();
+        if (!outra) {
+          throw new Error("Você selecionou 'Outro', mas não preencheu a nova área.");
         }
-      },
-      select: {
-        id: true  // Somente as IDs das áreas
+        return outra;
       }
+      return nome;
     });
 
-    if (areas.length !== nomes.length) {
-      return res.status(400).send("Erro ao localizar algumas áreas selecionadas.");
+    // Chama o model para buscar ou criar as áreas
+    const ids = await candidatoModel.buscarIdsDasAreas({ nomes: nomesCorrigidos });
+
+    // Verifica se o número bate
+    if (ids.length !== nomesCorrigidos.length) {
+      console.warn("IDs:", ids, "| Nomes:", nomesCorrigidos);
+      return res.status(400).send("Erro ao localizar todas as áreas selecionadas.");
     }
 
-    // Remover as associações antigas
-    await prisma.candidato_area.deleteMany({
-      where: { candidato_id: Number(usuario_id) }
-    });
-
-    // Criar as novas associações
-    const candidatoAreas = areas.map(area => ({
-      candidato_id: Number(usuario_id),
-      area_interesse_id: area.id
-    }));
-
+    // Remove e recria os vínculos
+    await prisma.candidato_area.deleteMany({ where: { candidato_id } });
     await prisma.candidato_area.createMany({
-      data: candidatoAreas
+      data: ids.map(area_id => ({
+        candidato_id,
+        area_interesse_id: area_id
+      }))
     });
 
-    res.redirect('/candidatos/meu-perfil');  // Redirecionar após a atualização
+    return res.redirect('/candidatos/meu-perfil');
   } catch (error) {
-    console.error('Erro ao salvar áreas de interesse:', error);
-    res.status(500).send("Erro ao salvar as áreas de interesse.");
+    console.error("Erro ao salvar áreas de interesse:", error.message);
+    return res.status(500).send("Erro ao salvar as áreas de interesse.");
   }
 };
+
