@@ -29,75 +29,81 @@
     <% } else { %>
       <% vagas.forEach(vaga => { %>
         <div class="card shadow-sm mb-4">
-          <div class="card-body d-flex align-items-start">
-            <a href="/empresa/perfil/<%= vaga.empresa.id %>">
-              <img src="<%= vaga.empresa.foto_perfil || '/img/empresa-padrao.png' %>" 
-                   alt="Logo da empresa" 
-                   class="rounded-circle me-3" 
-                   width="60" 
-                   height="60" 
-                   style="object-fit: cover;">
-            </a>
-
-            <div>
-              <h5 class="mb-0 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>
-              <small class="text-muted">
-                <%= vaga.empresa?.cidade %>, <%= vaga.empresa?.estado %>, <%= vaga.empresa?.pais %>
-              </small>
-
-              <p class="mb-1 mt-2 fw-semibold"><%= vaga.cargo %></p>
-              <p class="mb-1"><%= vaga.descricao %></p>
-
-              <small class="text-muted"><%= tipoMap[vaga.tipo_local_trabalho] %></small>
-
-              <div class="mt-2 mb-2">
-                <strong>Escala:</strong> <%= vaga.escala_trabalho %><br>
-
-                <% if (vaga.salario) { %>
-                  <strong>Salário:</strong> 
-                  <%= Number(vaga.salario).toLocaleString('pt-BR', { style: 'currency', currency: vaga.moeda || 'BRL' }) %><br>
-                <% } %>
-
-                <% if (vaga.dias_presenciais) { %>
-                  <strong>Dias presenciais:</strong> <%= vaga.dias_presenciais %><br>
-                <% } %>
-                <% if (vaga.dias_home_office) { %>
-                  <strong>Dias home office:</strong> <%= vaga.dias_home_office %><br>
-                <% } %>
-
-                <% if (vaga.beneficio && typeof vaga.beneficio === 'string' && vaga.beneficio.trim() !== '') { %>
-                  <strong>Benefícios:</strong> <%= vaga.beneficio.split(',').join(', ') %><br>
-                <% } %>
-
-                <% if (vaga.beneficio_outro) { %>
-                  <strong>Outro benefício:</strong> <%= vaga.beneficio_outro %><br>
-                <% } %>
+          <div class="card-body">
+            <div class="row g-3 align-items-start">
+              <div class="col-12 col-md-auto text-center">
+                <a href="/empresa/perfil/<%= vaga.empresa.id %>">
+                  <img src="<%= vaga.empresa.foto_perfil || '/img/empresa-padrao.png' %>" 
+                       alt="Logo da empresa" 
+                       class="rounded-circle"
+                       width="60" 
+                       height="60" 
+                       style="object-fit: cover;">
+                </a>
               </div>
 
-              <% if (vaga.vaga_area.length > 0) { %>
-                <p class="mb-1"><small class="text-muted">Áreas de atuação:</small></p>
-                <% vaga.vaga_area.forEach(rel => { %>
-                  <span class="badge rounded-pill border border-primary text-primary me-1">
-                    <%= rel.area_interesse.nome %>
-                  </span>
-                <% }) %>
-              <% } %>
+              <div class="col">
+                <h5 class="mb-1 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>
+                <small class="text-muted d-block mb-2">
+                  <%= vaga.empresa?.cidade %>, <%= vaga.empresa?.estado %>, <%= vaga.empresa?.pais %>
+                </small>
+
+                <p class="fw-semibold mb-1"><%= vaga.cargo %></p>
+                <p class="mb-2"><%= vaga.descricao %></p>
+
+                <small class="text-muted d-block mb-2"><%= tipoMap[vaga.tipo_local_trabalho] %></small>
+
+                <div class="mb-2">
+                  <strong>Escala:</strong> <%= vaga.escala_trabalho %><br>
+
+                  <% if (vaga.salario) { %>
+                    <strong>Salário:</strong> 
+                    <%= Number(vaga.salario).toLocaleString('pt-BR', { style: 'currency', currency: vaga.moeda || 'BRL' }) %><br>
+                  <% } %>
+
+                  <% if (vaga.dias_presenciais) { %>
+                    <strong>Dias presenciais:</strong> <%= vaga.dias_presenciais %><br>
+                  <% } %>
+                  <% if (vaga.dias_home_office) { %>
+                    <strong>Dias home office:</strong> <%= vaga.dias_home_office %><br>
+                  <% } %>
+
+                  <% if (vaga.beneficio && typeof vaga.beneficio === 'string' && vaga.beneficio.trim() !== '') { %>
+                    <strong>Benefícios:</strong> <%= vaga.beneficio.split(',').join(', ') %><br>
+                  <% } %>
+
+                  <% if (vaga.beneficio_outro) { %>
+                    <strong>Outro benefício:</strong> <%= vaga.beneficio_outro %><br>
+                  <% } %>
+                </div>
+
+                <% if (vaga.vaga_area.length > 0) { %>
+                  <p class="mb-1"><small class="text-muted">Áreas de atuação:</small></p>
+                  <div class="d-flex flex-wrap gap-1">
+                    <% vaga.vaga_area.forEach(rel => { %>
+                      <span class="badge rounded-pill border border-primary text-primary">
+                        <%= rel.area_interesse.nome %>
+                      </span>
+                    <% }) %>
+                  </div>
+                <% } %>
+              </div>
             </div>
           </div>
 
-          <div class="mt-3 text-center">
+          <div class="text-center pb-4">
             <button class="btn btn-outline-primary fw-bold botao-ia">Iniciar teste com a IA</button>
           </div>
 
-          <div class="iframe-container" style="display: none; justify-content: center; align-items: center; flex-direction: column; margin-top: 30px;">
-            <div style="width: 80%; max-width: 800px;">
+          <div class="iframe-container px-3 pb-4" style="display: none; justify-content: center; align-items: center; flex-direction: column;">
+            <div style="width: 100%; max-width: 800px;">
               <iframe 
                 src="https://www.stadyo.com/ai_assis/SUDXZZ7Rznv8IL09" 
                 style="width: 100%; height: 500px; border: none;" 
                 seamless>
               </iframe>
             </div>
-            <button class="btn btn-outline-danger mt-3 mb-4 fechar-ia">Fechar teste</button>
+            <button class="btn btn-outline-danger mt-3 fechar-ia">Fechar teste</button>
           </div>
         </div>
       <% }) %>
