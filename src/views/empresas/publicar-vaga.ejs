@@ -11,6 +11,7 @@
 </head>
 <body>
   <%- include('../partials/header-empresa') %>
+
   <main class="container py-5" style="max-width: 800px;">
     <a href="/empresa/meu-perfil" class="text-decoration-none" title="Voltar ao perfil">
       <i class="bi bi-x fs-6"></i>
@@ -25,7 +26,7 @@
           <input type="text" id="cargo" name="cargo" class="form-control" placeholder="Ex: Gerente de produtos" required>
         </div>
 
-        <!-- Tipo (enum) -->
+        <!-- Tipo -->
         <div class="col-md-6">
           <label for="tipo" class="form-label">Tipo de local de trabalho</label>
           <select id="tipo" name="tipo" class="form-select" required>
@@ -63,11 +64,9 @@
           <label class="form-label">Salário (opcional)</label>
           <div class="input-group">
             <select id="moeda" name="moeda" class="form-select" style="max-width:110px;">
-              <% const moedas = { BRL:'R$', USD:'US$', EUR:'€', GBP:'£', JPY:'¥' /*…*/ }; %>
+              <% const moedas = { BRL:'R$', USD:'US$', EUR:'€', GBP:'£', JPY:'¥' }; %>
               <% for (let code in moedas) { %>
-                <option value="<%= code %>" <%= code==='BRL'?'selected':'' %>>
-                  <%= moedas[code] %>
-                </option>
+                <option value="<%= code %>" <%= code==='BRL'?'selected':'' %>><%= moedas[code] %></option>
               <% } %>
             </select>
             <span class="input-group-text" id="simboloMoeda">R$</span>
@@ -83,28 +82,65 @@
         </div>
       </div>
 
-      <!-- Áreas -->
+      <!-- Benefícios -->
+      <div class="mb-4">
+        <h5 class="fw-bold text-center">Benefícios oferecidos:</h5>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="checkbox" id="beneficio1" name="beneficio" value="Vale-refeição">
+          <label class="form-check-label" for="beneficio1">Vale-refeição</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="checkbox" id="beneficio2" name="beneficio" value="Vale-transporte">
+          <label class="form-check-label" for="beneficio2">Vale-transporte</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="checkbox" id="beneficio3" name="beneficio" value="Cesta básica">
+          <label class="form-check-label" for="beneficio3">Cesta básica</label>
+        </div>
+        <div class="mt-3">
+          <label for="beneficioOutro" class="form-label">Outro benefício (opcional)</label>
+          <input type="text" id="beneficioOutro" name="beneficioOutro" class="form-control" placeholder="Digite outro benefício...">
+        </div>
+      </div>
+
+      <!-- Pergunta para IA -->
+      <div class="mb-4">
+        <label for="pergunta" class="form-label mt-3">Pergunta para IA (opcional)</label>
+        <textarea name="pergunta" id="pergunta" class="form-control" rows="4" placeholder="Ex: Por que você se interessou por essa vaga?"></textarea>
+      </div>
+
+      <!-- Opções para IA -->
+      <div class="mb-4">
+        <label for="opcao" class="form-label mt-3">Opções de resposta para IA (opcional)</label>
+        <textarea name="opcao" id="opcao" class="form-control" rows="4" placeholder="Ex: Porque tenho experiência | Porque me identifico com a empresa | Porque quero aprender"></textarea>
+      </div>
+
+      <!-- Áreas de atuação -->
       <div class="mb-4">
         <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
         <div class="d-flex flex-wrap gap-2 justify-content-center">
           <% areas.forEach(a => { %>
-            <button type="button" class="btn btn-outline-primary area-btn" data-id="<%=a.id%>">
-              <%=a.nome%>
-            </button>
+            <button type="button" class="btn btn-outline-primary area-btn" data-id="<%=a.id%>"><%=a.nome%></button>
           <% }) %>
         </div>
+
+        <!-- Inputs para novas áreas -->
+        <div class="mt-3">
+          <label class="form-label">Digite até 3 novas áreas (opcional):</label>
+          <input type="text" class="form-control mb-2 nova-area" placeholder="Nova área de interesse 1">
+          <input type="text" class="form-control mb-2 nova-area" placeholder="Nova área de interesse 2">
+          <input type="text" class="form-control mb-2 nova-area" placeholder="Nova área de interesse 3">
+        </div>
+
         <input type="hidden" id="areasSelecionadas" name="areasSelecionadas">
         <div id="erroAreas" class="text-danger small mt-1"></div>
       </div>
-
       <!-- Soft Skills -->
       <div class="mb-4">
         <h5 class="fw-bold text-center">Habilidades comportamentais que mais se encaixam à vaga (máx. 3):</h5>
         <div class="d-flex flex-wrap gap-2 justify-content-center">
           <% habilidades.forEach(h => { %>
-            <button type="button" class="btn btn-outline-primary skill-btn" data-id="<%=h.id%>">
-              <%=h.nome%>
-            </button>
+            <button type="button" class="btn btn-outline-primary skill-btn" data-id="<%=h.id%>"><%=h.nome%></button>
           <% }) %>
         </div>
         <input type="hidden" id="habilidadesSelecionadas" name="habilidadesSelecionadas">
@@ -122,5 +158,6 @@
   <%- include('../partials/footer') %>
   <script src="/js/empresas/selecionarHabilidadeseAreas.js"></script>
   <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
+
 </body>
 </html>

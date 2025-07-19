@@ -9,7 +9,8 @@ datasource db {
 
 model area_interesse {
   id             Int              @id @default(autoincrement())
-  nome           String           @unique @db.VarChar(100)
+  nome           String?          @unique @db.VarChar(100)
+  padrao         Boolean?         @default(false)
   candidato_area candidato_area[]
   vaga_area      vaga_area[]
 }
@@ -50,8 +51,7 @@ model empresa {
   cidade       String?
   foto_perfil  String?
   usuario      usuario @relation(fields: [usuario_id], references: [id])
-
-  vagas vaga[]
+  vagas        vaga[]
 }
 
 model soft_skill {
@@ -73,7 +73,6 @@ model usuario {
 model vaga {
   id                  Int                      @id @default(autoincrement()) @db.UnsignedInt
   empresa_id          Int
-  empresa             empresa                  @relation(fields: [empresa_id], references: [id])
   cargo               String
   tipo_local_trabalho vaga_tipo_local_trabalho
   escala_trabalho     String
@@ -82,10 +81,15 @@ model vaga {
   salario             Decimal?                 @db.Decimal(10, 2)
   moeda               String?                  @db.VarChar(5)
   descricao           String                   @db.Text
+  beneficio           String?                  @db.Text
+  pergunta            String?                  @db.Text
+  opcao               String?                  @db.Text
+  empresa             empresa                  @relation(fields: [empresa_id], references: [id])
   vaga_area           vaga_area[]
   vaga_soft_skill     vaga_soft_skill[]
-}
 
+  @@index([empresa_id], map: "vaga_empresa_id_fkey")
+}
 
 model vaga_area {
   vaga_id           Int            @db.UnsignedInt
@@ -107,6 +111,12 @@ model vaga_soft_skill {
   @@id([soft_skill_id, vaga_id])
   @@index([soft_skill_id], map: "fk_soft_skill_has_vaga_soft_skill1_idx")
   @@index([vaga_id], map: "fk_soft_skill_has_vaga_vaga1_idx")
+}
+
+model sessions {
+  session_id String  @id @db.VarChar(128)
+  expires    Int     @db.UnsignedInt
+  data       String? @db.MediumText
 }
 
 enum vaga_tipo_local_trabalho {

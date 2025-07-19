@@ -20,71 +20,78 @@
     };
   %>
   <main class="container py-5">
-    <h2 class="mb-4 mt-5">Minhas Vagas</h2>
+  <h2 class="mb-4 mt-5">Minhas Vagas</h2>
 
-<% if (vagas.length > 0) { %>
-  <% vagas.forEach(vaga => { %>
-    <div class="bg-white rounded p-4 mb-4 shadow-sm">
-      <div class="d-flex gap-4 align-items-start flex-wrap">
-        <!-- Logo e informações da vaga -->
-        <div class="d-flex gap-4 align-items-start flex-grow-1">
-          <img src="<%= vaga.empresa?.foto_perfil || '/img/logo.png' %>" alt="Logo da empresa" style="width: 70px; height: 70px; object-fit: cover;">
-          <div>
-            <h5 class="mb-0 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>
-            <p class="mb-1 mt-2"><%= vaga.cargo %></p>
-            <p class="mb-1 mt-2"><%= vaga.descricao %></p>
-             <small class="text-muted"><%= tipoMap[vaga.tipo_local_trabalho] %>
-          </small>
-            <div class="mb-2">
-              <strong>Escala:</strong> <%= vaga.escala_trabalho %><br>
-              <% if (vaga.salario) { %>
-                <strong>Salário:</strong> <%= vaga.salario.toFixed(2) %> <%= vaga.moeda %><br>
-              <% } %>
-              <% if (vaga.dias_presenciais) { %>
-                <strong>Dias presenciais:</strong> <%= vaga.dias_presenciais %><br>
-              <% } %>
-              <% if (vaga.dias_home_office) { %>
-                <strong>Dias home office:</strong> <%= vaga.dias_home_office %>
-              <% } %>
+  <% if (vagas.length > 0) { %>
+    <% vagas.forEach(vaga => { %>
+      <div class="bg-white rounded p-4 mb-4 shadow-sm position-relative">
+        <!-- Ícone de edição no canto superior direito -->
+        <a href="/empresa/vaga/editar/<%= vaga.id %>" title="Editar vaga"
+          class="position-absolute top-0 end-0 m-3 text-decoration-none">
+          <i class="bi bi-pencil text-primary fs-5"></i>
+        </a>
+
+        <div class="d-flex gap-4 align-items-start flex-wrap">
+          <!-- Logo e informações da vaga -->
+          <div class="d-flex gap-4 align-items-start flex-grow-1">
+            <img src="<%= vaga.empresa?.foto_perfil || '/img/logo.png' %>" 
+                 alt="Logo da empresa" 
+                 style="width: 70px; height: 70px; object-fit: cover;">
+            <div>
+              <h5 class="mb-0 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>
+              <p class="mb-1 mt-2"><%= vaga.cargo %></p>
+              <p class="mb-1 mt-2"><%= vaga.descricao %></p>
+              <small class="text-muted">
+                <%= tipoMap[vaga.tipo_local_trabalho] %>
+              </small>
+
+              <div class="mt-2 mb-2">
+                <strong>Escala:</strong> <%= vaga.escala_trabalho %><br>
+
+                <% if (vaga.salario) { %>
+                  <strong>Salário:</strong> 
+                  <%= Number(vaga.salario || 0).toLocaleString('pt-BR', { style: 'currency', currency: vaga.moeda || 'BRL' }) %><br>
+                <% } %>
+
+                <% if (vaga.dias_presenciais) { %>
+                  <strong>Dias presenciais:</strong> <%= vaga.dias_presenciais %><br>
+                <% } %>
+                <% if (vaga.dias_home_office) { %>
+                  <strong>Dias home office:</strong> <%= vaga.dias_home_office %>
+                <% } %>
+              </div>
+
+              <small class="text-muted">Vaga atua nas áreas de:</small><br>
+              <% vaga.vaga_area.forEach(va => { %>
+                <span class="badge bg-outline-primary text-primary border border-primary me-1">
+                  <%= va.area_interesse.nome %>
+                </span>
+              <% }) %>
             </div>
-
-            <small class="text-muted">Vaga atua nas áreas de:</small><br>
-            <% vaga.vaga_area.forEach(va => { %>
-              <span class="badge bg-outline-primary text-primary border border-primary me-1"><%= va.area_interesse.nome %></span>
-            <% }) %>
           </div>
         </div>
 
-        <!-- Ícone de edição -->
-        <div class="text-end" style="min-width: 50px;">
-          <a href="#" title="Editar"><i class="bi bi-pencil fs-5"></i></a>
+        <!-- Texto e botão alinhados à direita -->
+        <div class="d-flex justify-content-end mt-3">
+          <div class="text-end">
+            <p class="text-muted mb-2">Candidatos encontrados!</p>
+            <a href="#" class="btn btn-outline-primary btn-sm">Ver ranqueamento</a>
+          </div>
         </div>
       </div>
+    <% }) %>
 
-      <!-- Texto e botão alinhados à direita -->
-      <div class="d-flex justify-content-end mt-3">
-        <div class="text-end">
-          <p class="text-muted mb-2">Candidatos encontrados!</p>
-          <a href="#" class="btn btn-outline-primary btn-sm">Ver ranqueamento</a>
-        </div>
-      </div>
+    <div class="d-flex flex-column justify-content-center align-items-center" style="min-height: 30vh;">
+      <p class="text-center fs-5">Essas são as vagas registradas. <br /> Deseja adicionar novas vagas?</p>
+      <a href="/empresa/publicar-vaga" class="btn btn-outline-primary px-4 mt-3">Publicar vaga</a>
     </div>
-  <% }) %>
-
-
-      <!-- Após o loop -->
-      <div class="d-flex flex-column justify-content-center align-items-center" style="min-height: 30vh;">
-        <p class="text-center fs-5">Essas são as vagas registradas. <br /> Deseja adicionar novas vagas?</p>
-        <a href="/empresa/publicar-vaga" class="btn btn-outline-primary px-4 mt-3">Publicar vaga</a>
-      </div>
-    <% } else { %>
-      <div class="d-flex flex-column justify-content-center align-items-center" style="min-height: 50vh;">
-        <p class="text-center fs-5">Parece que você não possui nenhuma vaga publicada.</p>
-        <a href="/empresa/publicar-vaga" class="btn btn-outline-primary px-4 mt-3">Publicar vaga</a>
-      </div>
-    <% } %>
-
-  </main>
+  <% } else { %>
+    <div class="d-flex flex-column justify-content-center align-items-center" style="min-height: 50vh;">
+      <p class="text-center fs-5">Parece que você não possui nenhuma vaga publicada.</p>
+      <a href="/empresa/publicar-vaga" class="btn btn-outline-primary px-4 mt-3">Publicar vaga</a>
+    </div>
+  <% } %>
+</main>
 
   <%- include('../partials/footer') %>
   

@@ -22,19 +22,15 @@
 
     <div id="botoes" class="d-flex flex-wrap justify-content-center">
 
-      <% const opcoes = [
-        "Administração", "Agropecuária / Agricultura", "Comunicação / Jornalismo", "Construção Civil", "Design / Criação",
-        "Educação / Ensino", "Engenharia", "Eventos / Produção Cultural", "Finanças / Contabilidade", "Gastronomia / Alimentação",
-        "Hotelaria / Turismo", "Jurídico", "Logística", "Marketing", "Mecânica / Manutenção",
-        "Moda / Estilo", "Meio Ambiente", "Produção / Operacional", "Recursos Humanos (RH)", "Saúde",
-        "Segurança / Vigilância", "Transporte / Motorista", "Tecnologia da Informação"
-      ]; %>
-
-      <% opcoes.forEach((opcao) => { %>
-        <button type="button" class="area-btn btn btn-outline-primary btn-sm m-2" data-value="<%= opcao %>">
-          <%= opcao %>
-        </button>
-      <% }) %>
+      <% if (areas && areas.length > 0) { %>
+        <% areas.forEach((area) => { %>
+          <button type="button" class="area-btn btn btn-outline-primary btn-sm m-2" data-value="<%= area.nome %>">
+            <%= area.nome %>
+          </button>
+        <% }) %>
+      <% } else { %>
+        <p class="text-muted">Nenhuma área disponível no momento.</p>
+      <% } %>
 
       <!-- Botão "Outro" -->
       <button type="button" class="area-btn btn btn-outline-secondary btn-sm m-2" data-value="Outro">Outro...</button>

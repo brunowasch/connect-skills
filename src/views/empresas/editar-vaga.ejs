@@ -10,26 +10,7 @@
 </head>
 <body>
   <%- include('../partials/header-empresa') %>
-  <%
-  const moedaMap = {
-    BRL: 'R$',
-    USD: 'US$',
-    EUR: '€',
-    GBP: '£',
-    JPY: '¥',
-    ARS: 'AR$',
-    CAD: 'C$',
-    AUD: 'A$',
-    CHF: 'CHF',
-    CNY: '¥',
-    INR: '₹',
-    MXN: 'MX$',
-    ZAR: 'R',
-    KRW: '₩',
-    SEK: 'kr',
-    RUB: '₽'
-  };
-%>
+  <% const moedaMap = { BRL:'R$', USD:'US$', EUR:'€', GBP:'£', JPY:'¥', ARS:'AR$', CAD:'C$', AUD:'A$', CHF:'CHF', CNY:'¥', INR:'₹', MXN:'MX$', ZAR:'R', KRW:'₩', SEK:'kr', RUB:'₽' }; %>
 
   <main class="container py-5" style="max-width:800px">
     <a href="/empresa/meu-perfil" class="text-decoration-none" title="Voltar">
@@ -39,13 +20,11 @@
 
     <form id="formEditarVaga" action="/empresa/editar-vaga/<%= vaga.id %>" method="POST">
       <div class="row mb-4">
-        <!-- Cargo -->
         <div class="col-md-6">
           <label class="form-label">Cargo</label>
           <input type="text" name="cargo" class="form-control" value="<%= vaga.cargo %>" required>
         </div>
 
-        <!-- Tipo -->
         <div class="col-md-6">
           <label class="form-label">Tipo de local de trabalho</label>
           <select name="tipo" class="form-select" required>
@@ -55,86 +34,81 @@
           </select>
         </div>
 
-        <!-- Escala -->
         <div class="col-md-6 mt-3">
           <label class="form-label">Escala de trabalho</label>
-          <input type="text" name="escala" class="form-control"
-                 value="<%= vaga.escala_trabalho %>" required>
+          <input type="text" name="escala" class="form-control" value="<%= vaga.escala_trabalho %>" required>
         </div>
 
-        <!-- Dias -->
         <div class="col-md-6 mt-3 d-flex align-items-end" id="campo-presencial-hibrido">
           <div id="campoPresencial" class="me-3" style="display:none;">
             <label class="form-label small">Dias presenciais</label>
-            <input type="number" name="diasPresenciais" class="form-control form-control-sm"
-                   min="0" max="7" style="width:80px"
-                   value="<%= vaga.dias_presenciais || '' %>">
+            <input type="number" name="diasPresenciais" class="form-control form-control-sm" min="0" max="7" style="width:80px" value="<%= vaga.dias_presenciais || '' %>">
           </div>
           <div id="campoHomeOffice" style="display:none;">
             <label class="form-label small">Dias home office</label>
-            <input type="number" name="diasHomeOffice" class="form-control form-control-sm"
-                   min="0" max="7" style="width:80px"
-                   value="<%= vaga.dias_home_office || '' %>">
+            <input type="number" name="diasHomeOffice" class="form-control form-control-sm" min="0" max="7" style="width:80px" value="<%= vaga.dias_home_office || '' %>">
           </div>
           <div id="erroDias" class="text-danger small ms-3"></div>
         </div>
 
-        <!-- Salário -->
         <div class="col-md-6 mt-3">
           <label class="form-label">Salário (opcional)</label>
           <div class="input-group">
             <select id="moeda" name="moeda" class="form-select" style="max-width:110px">
-              <% const moedas = { BRL:'R$', USD:'US$', EUR:'€' /*…*/ }; %>
+              <% const moedas = { BRL:'R$', USD:'US$', EUR:'€' }; %>
               <% for (let c in moedas) { %>
                 <option value="<%=c%>" <%= vaga.moeda===c?'selected':'' %>><%= moedas[c] %></option>
               <% } %>
             </select>
             <span class="input-group-text" id="simboloMoeda"><%= moedaMap[vaga.moeda] || vaga.moeda %></span>
-            <input type="text" id="salario" name="salario" class="form-control"
-                   value="<%= vaga.salario ? vaga.salario.toFixed(2).replace('.', ',') : '' %>">
+            <input type="text" id="salario" name="salario" class="form-control" value="<%= vaga.salario ? vaga.salario.toFixed(2).replace('.', ',') : '' %>">
           </div>
         </div>
 
-        <!-- Descrição -->
         <div class="col-12 mt-4 mb-4">
           <label class="form-label">Descrição</label>
           <textarea name="descricao" class="form-control" rows="5" required><%= vaga.descricao %></textarea>
         </div>
       </div>
 
-      <!-- Áreas -->
+      <div class="mb-4">
+        <label class="form-label">Benefícios</label>
+        <textarea name="beneficio" class="form-control" rows="2"><%= vaga.beneficio || '' %></textarea>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label">Pergunta para a IA</label>
+        <textarea name="pergunta" class="form-control" rows="2"><%= vaga.pergunta || '' %></textarea>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label">Opções para IA</label>
+        <textarea name="opcao" class="form-control" rows="2"><%= vaga.opcao || '' %></textarea>
+      </div>
+
       <div class="mb-4">
         <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
-        <div class="d-flex flex-wrap gap-2 justify-content-center">
+        <div class="d-flex flex-wrap gap-2 justify-content-center mb-2" id="area-buttons">
           <% areas.forEach(a => { %>
-            <button type="button"
-                    class="btn <%= selectedAreas.includes(a.id)?'btn-primary':'btn-outline-primary' %> area-btn"
-                    data-id="<%=a.id%>">
-              <%=a.nome%>
-            </button>
+            <button type="button" class="btn <%= selectedAreas.includes(a.id)?'btn-primary':'btn-outline-primary' %> area-btn" data-id="<%=a.id%>"><%=a.nome%></button>
           <% }) %>
         </div>
+        <input type="text" id="inputAreaNova" class="form-control mb-2" placeholder="Digite outra área e pressione Enter">
         <input type="hidden" name="areasSelecionadas" id="areasSelecionadas" value='<%= JSON.stringify(selectedAreas) %>'>
         <div id="erroAreas" class="text-danger small mt-1"></div>
       </div>
 
-      <!-- Soft Skills -->
       <div class="mb-4">
         <h5 class="fw-bold text-center">Habilidades comportamentais que mais se encaixam à vaga (máx. 3):</h5>
         <div class="d-flex flex-wrap gap-2 justify-content-center">
           <% skills.forEach(s => { %>
-            <button type="button"
-                    class="btn <%= selectedSkills.includes(s.id)?'btn-primary':'btn-outline-primary' %> skill-btn"
-                    data-id="<%=s.id%>">
-              <%=s.nome%>
-            </button>
+            <button type="button" class="btn <%= selectedSkills.includes(s.id)?'btn-primary':'btn-outline-primary' %> skill-btn" data-id="<%=s.id%>"><%=s.nome%></button>
           <% }) %>
         </div>
         <input type="hidden" name="habilidadesSelecionadas" id="habilidadesSelecionadas" value='<%= JSON.stringify(selectedSkills) %>'>
         <div id="erroHabilidades" class="text-danger small mt-1"></div>
       </div>
 
-      <!-- Botões -->
       <div class="text-center mt-4">
         <a href="/empresa/meu-perfil" class="btn btn-outline-danger">Cancelar</a>
         <button type="submit" class="btn btn-primary">Salvar alterações</button>
@@ -144,6 +118,56 @@
 
   <%- include('../partials/footer') %>
   <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
-    <script src="/js/empresas/selecionarHabilidadeseAreas.js"></script>
+  <script src="/js/empresas/selecionarHabilidadeseAreas.js"></script>
+  <script>
+    const inputNovaArea = document.getElementById('inputAreaNova');
+    const areasHiddenInput = document.getElementById('areasSelecionadas');
+    const areaBtns = document.getElementById('area-buttons');
+    let areasSelecionadas = JSON.parse(areasHiddenInput.value || '[]');
+
+    inputNovaArea.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && this.value.trim() !== '') {
+        e.preventDefault();
+        const valor = this.value.trim();
+        const id = 'nova:' + valor;
+
+        if (!areasSelecionadas.includes(id)) {
+          areasSelecionadas.push(id);
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn btn-primary area-btn';
+          btn.dataset.id = id;
+          btn.innerText = valor;
+          btn.onclick = () => {
+            btn.remove();
+            areasSelecionadas = areasSelecionadas.filter(a => a !== id);
+            areasHiddenInput.value = JSON.stringify(areasSelecionadas);
+          };
+
+          areaBtns.appendChild(btn);
+          areasHiddenInput.value = JSON.stringify(areasSelecionadas);
+          this.value = '';
+        }
+      }
+    });
+
+    document.querySelectorAll('.area-btn').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const id = this.dataset.id;
+        if (areasSelecionadas.includes(id)) {
+          this.classList.remove('btn-primary');
+          this.classList.add('btn-outline-primary');
+          areasSelecionadas = areasSelecionadas.filter(a => a !== id);
+        } else {
+          if (areasSelecionadas.length >= 3) return;
+          this.classList.remove('btn-outline-primary');
+          this.classList.add('btn-primary');
+          areasSelecionadas.push(id);
+        }
+        areasHiddenInput.value = JSON.stringify(areasSelecionadas);
+      });
+    });
+  </script>
 </body>
 </html>
