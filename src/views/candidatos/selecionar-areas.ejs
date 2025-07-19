@@ -15,10 +15,13 @@
 
 <main class="container text-center mt-5 pt-5">
   <h2 class="mb-4">Selecione a seguir três áreas a quais você deseja trabalhar:</h2>
+
   <form action="/candidato/cadastro/areas?usuario_id=<%= usuario_id %>" method="POST" id="formAreas">
     <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
-    
+    <input type="hidden" name="areasSelecionadas" id="areasSelecionadas">
+
     <div id="botoes" class="d-flex flex-wrap justify-content-center">
+
       <% const opcoes = [
         "Administração", "Agropecuária / Agricultura", "Comunicação / Jornalismo", "Construção Civil", "Design / Criação",
         "Educação / Ensino", "Engenharia", "Eventos / Produção Cultural", "Finanças / Contabilidade", "Gastronomia / Alimentação",
@@ -27,40 +30,40 @@
         "Segurança / Vigilância", "Transporte / Motorista", "Tecnologia da Informação"
       ]; %>
 
-      <% opcoes.forEach((opcao, index) => { %>
-        <button type="button" class="area-btn btn btn-outline-primary m-2" data-value="<%= opcao %>"><%= opcao %></button>
+      <% opcoes.forEach((opcao) => { %>
+        <button type="button" class="area-btn btn btn-outline-primary btn-sm m-2" data-value="<%= opcao %>">
+          <%= opcao %>
+        </button>
       <% }) %>
 
       <!-- Botão "Outro" -->
-      <button type="button" class="area-btn btn btn-outline-secondary m-2" data-value="Outro">Outro...</button>
-      
-      <div id="campoOutroArea" class="mt-3 d-none">
-        <label for="outra_area" class="form-label">Descreva a outra área:</label>
-        <input
-          type="text"
-          id="outra_area"
-          name="outra_area_input"
-          class="form-control mx-auto mb-2"
-          style="max-width: 500px;"
-          placeholder="Digite a nova área"
-        />
-        <div class="d-flex justify-content-center gap-2">
-          <button type="button" id="btnConfirmarOutro" class="btn btn-primary" disabled>Confirmar</button>
-          <button type="button" id="btnCancelarOutro" class="btn btn-secondary">Cancelar</button>
-          <button type="button" id="btnEditarOutro" class="btn btn-warning d-none">Editar</button>
-        </div>
+      <button type="button" class="area-btn btn btn-outline-secondary btn-sm m-2" data-value="Outro">Outro...</button>
+    </div>
+
+    <!-- Campo para inserir nova área -->
+    <div id="campoOutroArea" class="mt-3 d-none">
+      <label for="outra_area" class="form-label">Descreva a outra área:</label>
+      <input
+        type="text"
+        id="outra_area"
+        name="outra_area_input"
+        class="form-control form-control-sm mx-auto mb-2"
+        style="max-width: 400px;"
+        placeholder="Digite a nova área"
+      />
+      <div class="d-flex justify-content-center gap-2">
+        <button type="button" id="btnConfirmarOutro" class="btn btn-primary btn-sm" disabled>Confirmar</button>
+        <button type="button" id="btnCancelarOutro" class="btn btn-secondary btn-sm">Cancelar</button>
       </div>
-      
-      <input type="hidden" name="areasSelecionadas" id="areasSelecionadas">
     </div>
 
     <div class="mt-4">
-      <button type="submit" class="btn btn-continuar mt-4" id="btnContinuar">Continuar</button>
+      <button type="submit" class="btn btn-continuar mt-4">Continuar</button>
     </div>
   </form>
 </main>
 
 <%- include('../partials/footer') %>
-  <script src="/js/candidatos/selecionar-areas.js"></script>
+<script src="/js/candidatos/selecionar-areas.js"></script>
 </body>
 </html>
