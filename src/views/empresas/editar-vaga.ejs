@@ -51,17 +51,18 @@
           <div id="erroDias" class="text-danger small ms-3"></div>
         </div>
 
-        <div class="col-md-6 mt-3">
+        <div class="mb-3">
           <label class="form-label">Salário (opcional)</label>
-          <div class="input-group">
-            <select id="moeda" name="moeda" class="form-select" style="max-width:110px">
-              <% const moedas = { BRL:'R$', USD:'US$', EUR:'€' }; %>
-              <% for (let c in moedas) { %>
-                <option value="<%=c%>" <%= vaga.moeda===c?'selected':'' %>><%= moedas[c] %></option>
-              <% } %>
+          <div class="d-flex gap-2">
+            <select class="form-select" name="moeda" id="moeda" style="max-width: 90px;">
+              <option value="BRL" <%= vaga.moeda === 'BRL' ? 'selected' : '' %>>R$</option>
+              <option value="USD" <%= vaga.moeda === 'USD' ? 'selected' : '' %>>US$</option>
+              <option value="EUR" <%= vaga.moeda === 'EUR' ? 'selected' : '' %>>€</option>
+              <option value="GBP" <%= vaga.moeda === 'GBP' ? 'selected' : '' %>>£</option>
+              <option value="JPY" <%= vaga.moeda === 'JPY' ? 'selected' : '' %>>¥</option>
             </select>
-            <span class="input-group-text" id="simboloMoeda"><%= moedaMap[vaga.moeda] || vaga.moeda %></span>
-            <input type="text" id="salario" name="salario" class="form-control" value="<%= vaga.salario ? vaga.salario.toFixed(2).replace('.', ',') : '' %>">
+
+            <input type="text" class="form-control" name="salario" value="<%= vaga.salario || '' %>" placeholder="Ex: 2500" style="max-width:150px;">
           </div>
         </div>
 
@@ -89,13 +90,14 @@
       <div class="mb-4">
         <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
         <div class="d-flex flex-wrap gap-2 justify-content-center mb-2" id="area-buttons">
-          <% areas.forEach(a => { %>
-            <button type="button" class="btn <%= selectedAreas.includes(a.id)?'btn-primary':'btn-outline-primary' %> area-btn" data-id="<%=a.id%>"><%=a.nome%></button>
+          <% areas.forEach(area => { %>
+            <% const isSelected = selectedAreas.includes(area.id); %>
+            <button type="button" class="btn area-btn <%= isSelected ? 'btn-primary' : 'btn-outline-primary' %>" data-id="<%= area.id %>"> <%= area.nome %> </button>
           <% }) %>
         </div>
-        <input type="text" id="inputAreaNova" class="form-control mb-2" placeholder="Digite outra área e pressione Enter">
+        <input type="text" id="inputAreaNova" class="form-control mb-2 nova-area" placeholder="Digite outra área e pressione Enter">
         <input type="hidden" name="areasSelecionadas" id="areasSelecionadas" value='<%= JSON.stringify(selectedAreas) %>'>
-        <div id="erroAreas" class="text-danger small mt-1"></div>
+        <div class="text-danger" id="erroAreas"></div>
       </div>
 
       <div class="mb-4">
@@ -118,56 +120,5 @@
 
   <%- include('../partials/footer') %>
   <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
-  <script src="/js/empresas/selecionarHabilidadeseAreas.js"></script>
-  <script>
-    const inputNovaArea = document.getElementById('inputAreaNova');
-    const areasHiddenInput = document.getElementById('areasSelecionadas');
-    const areaBtns = document.getElementById('area-buttons');
-    let areasSelecionadas = JSON.parse(areasHiddenInput.value || '[]');
-
-    inputNovaArea.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && this.value.trim() !== '') {
-        e.preventDefault();
-        const valor = this.value.trim();
-        const id = 'nova:' + valor;
-
-        if (!areasSelecionadas.includes(id)) {
-          areasSelecionadas.push(id);
-
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'btn btn-primary area-btn';
-          btn.dataset.id = id;
-          btn.innerText = valor;
-          btn.onclick = () => {
-            btn.remove();
-            areasSelecionadas = areasSelecionadas.filter(a => a !== id);
-            areasHiddenInput.value = JSON.stringify(areasSelecionadas);
-          };
-
-          areaBtns.appendChild(btn);
-          areasHiddenInput.value = JSON.stringify(areasSelecionadas);
-          this.value = '';
-        }
-      }
-    });
-
-    document.querySelectorAll('.area-btn').forEach(btn => {
-      btn.addEventListener('click', function () {
-        const id = this.dataset.id;
-        if (areasSelecionadas.includes(id)) {
-          this.classList.remove('btn-primary');
-          this.classList.add('btn-outline-primary');
-          areasSelecionadas = areasSelecionadas.filter(a => a !== id);
-        } else {
-          if (areasSelecionadas.length >= 3) return;
-          this.classList.remove('btn-outline-primary');
-          this.classList.add('btn-primary');
-          areasSelecionadas.push(id);
-        }
-        areasHiddenInput.value = JSON.stringify(areasSelecionadas);
-      });
-    });
-  </script>
 </body>
 </html>
