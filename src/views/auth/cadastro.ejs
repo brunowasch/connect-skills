@@ -34,7 +34,6 @@
     <!-- FORMULÁRIO DE CADASTRO -->
     <div class="card shadow p-4 w-100 d-none" id="formularioCadastro" style="max-width: 400px;">
       <form id="formCadastro" method="POST" action="/usuarios/cadastrar">
-        <!-- Campo oculto com o tipo correto (empresa ou candidato) -->
         <input type="hidden" name="tipo" id="tipoHidden">
 
         <div class="mb-3">
@@ -63,7 +62,7 @@
               <i class="bi bi-eye" id="iconConfirmar"></i>
             </button>
           </div>
-          <div id="erro-senha" class="invalid-feedback d-none">
+          <div id="erro-senha" class="text-danger mt-1 d-none">
             As senhas não coincidem. Por favor, verifique.
           </div>
         </div>
@@ -91,16 +90,15 @@
   const tipoHidden = document.getElementById('tipoHidden');
 
   radioFisica.addEventListener('change', () => {
-    tipoHidden.value = 'candidato'; // valor aceito pelo ENUM no banco
+    tipoHidden.value = 'candidato';
     formContainer.classList.remove('d-none');
   });
 
   radioJuridica.addEventListener('change', () => {
-    tipoHidden.value = 'empresa'; // valor aceito pelo ENUM no banco
+    tipoHidden.value = 'empresa';
     formContainer.classList.remove('d-none');
   });
 
-  // Botão de exibir/ocultar senha
   document.getElementById("toggleSenha").addEventListener("click", function () {
     const senhaInput = document.getElementById("senha");
     const icon = document.getElementById("iconSenha");
@@ -116,7 +114,41 @@
     icon.classList.toggle("bi-eye");
     icon.classList.toggle("bi-eye-slash");
   });
+
+  form.addEventListener('submit', function (e) {
+    let ok = true;
+
+    const senhaInput = document.getElementById('senha');
+    const confirmarInput = document.getElementById('confirmarSenha');
+    const erroRequisitos = document.getElementById('erro-senha-requisitos');
+    const erroCoincidem = document.getElementById('erro-senha');
+
+    const senha = senhaInput.value;
+    const confirmarSenha = confirmarInput.value;
+
+    const regexSenhaValida = /^(?=.*[!@#$%^&*(),.?":{}|<>_\-])[A-Za-z\d!@#$%^&*(),.?":{}|<>_\-]{8,}$/;
+
+    if (!regexSenhaValida.test(senha)) {
+      erroRequisitos.style.display = 'block';
+      senhaInput.classList.add('is-invalid');
+      ok = false;
+    } else {
+      erroRequisitos.style.display = 'none';
+      senhaInput.classList.remove('is-invalid');
+    }
+
+    if (senha !== confirmarSenha) {
+      erroCoincidem.classList.remove('d-none');
+      confirmarInput.classList.add('is-invalid');
+      ok = false;
+    } else {
+      erroCoincidem.classList.add('d-none');
+      confirmarInput.classList.remove('is-invalid');
+    }
+
+    if (!ok) e.preventDefault();
+  });
 </script>
-<script src="/js/shared/confirmarSenha.js"></script>
+
 </body>
 </html>

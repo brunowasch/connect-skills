@@ -24,7 +24,7 @@
 
       <% if (areas && areas.length > 0) { %>
         <% areas.forEach((area) => { %>
-          <button type="button" class="area-btn btn btn-outline-primary btn-sm m-2" data-value="<%= area.nome %>">
+          <button type="button" class="area-btn btn btn-outline-primary btn-lg m-2" style="min-width: 150px;" data-value="<%= area.nome %>">
             <%= area.nome %>
           </button>
         <% }) %>
@@ -33,7 +33,7 @@
       <% } %>
 
       <!-- Botão "Outro" -->
-      <button type="button" class="area-btn btn btn-outline-secondary btn-sm m-2" data-value="Outro">Outro...</button>
+      <button type="button" class="area-btn btn btn-outline-secondary btn-lg m-2" style="min-width: 150px;" data-value="Outro">Outro...</button>
     </div>
 
     <!-- Campo para inserir nova área -->
