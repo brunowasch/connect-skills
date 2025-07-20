@@ -59,14 +59,17 @@
             <%= vaga.cargo %>
           </div>
           <div class="col-12 col-lg-6 d-flex justify-content-lg-end gap-2 mt-2 mt-lg-0">
-            <a href="/empresas/detalhes-da-vaga" class="btn btn-outline-primary btn-sm">
+            <!-- <a href="/empresas/meu-perfil" class="btn btn-outline-primary btn-sm">
               Ver detalhes
-            </a>
+            </a> -->
             <% if (vaga.status !== 'fechada') { %>
-              <form action="/empresa/fechar-vaga/<%= vaga.id %>" method="POST">
-                <button type="submit" class="btn btn-outline-secondary btn-sm">
-                  Fechar vaga
-                </button>
+              <!-- <form action="/empresa/fechar-vaga/<%= vaga.id %>" method="POST"> -->
+
+                <!-- <button type="submit" class="btn btn-outline-secondary btn-sm"> -->
+                  <!-- <a href="/empresas/meu-perfil" class="btn btn-outline-secondary btn-sm">
+                    Fechar vaga
+                  </a> -->
+                <!-- </button> -->
               </form>
             <% } else { %>
               <button class="btn btn-secondary btn-sm" disabled>Vaga fechada</button>
