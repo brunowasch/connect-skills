@@ -118,7 +118,7 @@
       <!-- Áreas de atuação -->
       <div class="mb-4">
         <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
-        <div class="d-flex flex-wrap gap-2 justify-content-center">
+        <div id="area-buttons" class="d-flex flex-wrap gap-2 justify-content-center">
           <% areas.forEach(a => { %>
             <button type="button" class="btn btn-outline-primary area-btn" data-id="<%=a.id%>"><%=a.nome%></button>
           <% }) %>
@@ -156,7 +156,6 @@
   </main>
 
   <%- include('../partials/footer') %>
-  <script src="/js/empresas/selecionarHabilidadeseAreas.js"></script>
   <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
 
 </body>

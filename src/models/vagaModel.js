@@ -193,6 +193,7 @@ exports.atualizarVaga = async ({
   salario,
   moeda,
   descricao,
+  beneficio,
   areas_ids,
   soft_skills_ids
 }) => {
@@ -217,6 +218,7 @@ exports.atualizarVaga = async ({
       salario,
       moeda,
       descricao,
+      beneficio,
       vaga_area: {
         create: areas_ids.map(aid => ({
           area_interesse: { connect: { id: Number(aid) } }

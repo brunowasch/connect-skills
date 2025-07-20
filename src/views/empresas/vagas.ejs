@@ -50,8 +50,7 @@
                   <strong>Escala:</strong> <%= vaga.escala_trabalho %><br>
 
                   <% if (vaga.salario) { %>
-                    <strong>Salário:</strong> 
-                    <%= Number(vaga.salario || 0).toLocaleString('pt-BR', { style: 'currency', currency: vaga.moeda || 'BRL' }) %><br>
+                    <div><strong>Salário:</strong> <%= vaga.moeda === 'BRL' ? 'R$' : vaga.moeda + ' ' %><%= Number(vaga.salario).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %></div>
                   <% } %>
 
                   <% if (vaga.dias_presenciais) { %>
