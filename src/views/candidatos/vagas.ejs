@@ -87,7 +87,8 @@
                   <% } %>
 
                   <% if (vaga.beneficio && typeof vaga.beneficio === 'string' && vaga.beneficio.trim() !== '') { %>
-                    <strong>Benefícios:</strong> <%= vaga.beneficio.split(',').join(', ') %><br>
+                    <strong>Benefícios:</strong> 
+                    <%= vaga.beneficio.split(',').map(b => b.trim()).filter(b => b.length > 0).join(', ') %><br>
                   <% } %>
 
                   <% if (vaga.beneficio_outro) { %>

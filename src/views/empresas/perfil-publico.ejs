@@ -118,8 +118,12 @@
             </p>
           <% } %>
 
-          <% if (vaga.beneficio && typeof vaga.beneficio === 'string' && vaga.beneficio.trim() !== '') { %>
-            <p class="mb-1"><strong>Benefícios:</strong> <%= vaga.beneficio.split(',').join(', ') %></p>
+          <% if (vaga.beneficio && vaga.beneficio.trim()) { %>
+            <p class="mb-1"><strong>Benefícios:</strong> 
+              <%= vaga.beneficio.split(',').map(b => b.trim()).filter(b => b.length > 0).join(', ') %>
+            </p>
+          <% } else if (vaga.beneficio && vaga.beneficio.trim() === '') { %>
+            <p class="mb-1"><strong>Benefícios:</strong> Não informados</p>
           <% } %>
 
           <% if (vaga.beneficio_outro) { %>
