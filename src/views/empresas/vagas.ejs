@@ -19,7 +19,6 @@
       H_brido:      'Híbrido'
     };
   %>
-
   <main class="container py-5">
     <h2 class="mb-4 mt-5">Minhas Vagas</h2>
 
@@ -38,9 +37,26 @@
                    style="width: 70px; height: 70px; object-fit: cover;">
               <div>
                 <h5 class="mb-0 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>
+                <%
+                  const normalizar = str => str?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+                  const partesOriginais = [vaga.empresa?.cidade, vaga.empresa?.estado, vaga.empresa?.pais].filter(Boolean);
+                  const partesUnicas = [];
+                  const vistos = new Set();
+
+                  for (const parte of partesOriginais) {
+                    const normalizada = normalizar(parte);
+                    if (!vistos.has(normalizada)) {
+                      vistos.add(normalizada);
+                      partesUnicas.push(parte.trim());
+                    }
+                  }
+
+                  const localidade = partesUnicas.join(', ');
+                %>
                 <small class="text-muted d-block">
-                  <%= vaga.empresa?.cidade %>, <%= vaga.empresa?.estado %>, <%= vaga.empresa?.pais %>
+                  <%= localidade || 'Localidade não informada' %>
                 </small>
+
 
                 <p class="mb-1 mt-2 fw-semibold"><%= vaga.cargo %></p>
                 <p class="mb-1"><%= vaga.descricao %></p>

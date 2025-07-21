@@ -32,23 +32,34 @@ exports.telaLocalizacao = (req, res) => {
 
 exports.salvarLocalizacao = async (req, res) => {
   const { usuario_id, localidade } = req.body;
-  if (!usuario_id || !localidade) return res.status(400).send('ID ou localidade ausente.');
+
+  if (!usuario_id || !localidade) {
+    return res.status(400).send('ID ou localidade ausente.');
+  }
+
   const partes = localidade.split(',').map(p => p.trim());
-  if (partes.length < 3) return res.status(400).send('Formato inválido. Use: Cidade, Estado, País.');
-  const [cidade, estado, pais] = partes;
+
+  if (partes.length < 2 || partes.length > 3) {
+    return res.status(400).send('Informe uma localidade válida. Ex: cidade e país, ou cidade, estado e país.');
+  }
+
+  const [cidade, estado = '', pais = ''] = partes;
+
   try {
     await candidatoModel.atualizarLocalizacao({
       usuario_id: Number(usuario_id),
-      pais,
-      estado,
       cidade,
+      estado,
+      pais,
     });
+
     res.redirect(`/candidato/telefone?usuario_id=${usuario_id}`);
   } catch (err) {
     console.error('Erro ao salvar localização:', err);
     res.status(500).send('Erro ao salvar localização.');
   }
 };
+
 
 exports.telaTelefone = (req, res) => {
   const usuarioId = req.query.usuario_id || req.body.usuario_id;
