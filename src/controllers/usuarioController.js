@@ -7,7 +7,13 @@ const empresaModel = require('../models/empresaModel');
 
 async function enviarEmailVerificacao(email, usuario_id) {
   const token = jwt.sign({ id: usuario_id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-  const link = `http://localhost:3000/usuarios/verificar-email?token=${token}`;
+
+  // Verificar se estamos em desenvolvimento ou produção
+  const BASE_URL = process.env.NODE_ENV === 'production' 
+    ? process.env.BASE_URL  // Quando em produção, pega a URL configurada na plataforma
+    : 'http://localhost:3000';  // URL local de desenvolvimento
+
+  const link = `${BASE_URL}/usuarios/verificar-email?token=${token}`;
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -24,6 +30,7 @@ async function enviarEmailVerificacao(email, usuario_id) {
     html: `<p>Olá!</p><p>Confirme seu e-mail clicando no link abaixo:</p><a href="${link}">Verificar e-mail</a>`
   });
 }
+
 
 exports.criarUsuario = async (req, res) => {
   const { email, senha, tipo } = req.body;
