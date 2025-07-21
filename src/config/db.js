@@ -1,15 +1,13 @@
-// const mysql = require('mysql2');
+require('dotenv').config();
+const mysql = require('mysql2/promise');
 
-// const connection = mysql.createConnection({
-//   host: 'localhost',
-//   user: 'root',
-//   password: '',
-//   database: 'connectskills'
-// });
+const connection = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
+});
 
-// connection.connect((err) => {
-//   if (err) throw err;
-//   console.log('Conectado ao banco de dados MySQL!');
-// });
+console.log('Conexão com MySQL pool criada (modo Promise).');
 
-// module.exports = connection;
+module.exports = connection;

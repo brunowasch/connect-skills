@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   const areaBtns = document.querySelectorAll('.area-btn');
+  const novaAreaInputs = document.querySelectorAll('.nova-area');
   const skillBtns = document.querySelectorAll('.skill-btn');
   const areasSelecionadasInput = document.getElementById('areasSelecionadas');
   const habilidadesSelecionadasInput = document.getElementById('habilidadesSelecionadas');
@@ -7,37 +8,61 @@ document.addEventListener('DOMContentLoaded', () => {
   const areasSelecionadas = new Set();
   const habilidadesSelecionadas = new Set();
 
+  // Botões de áreas pré-existentes
   areaBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      const area = btn.textContent;
-      if (areasSelecionadas.has(area)) {
-        areasSelecionadas.delete(area);
+      const id = btn.getAttribute('data-id');
+
+      if (areasSelecionadas.has(id)) {
+        areasSelecionadas.delete(id);
         btn.classList.remove('btn-primary');
         btn.classList.add('btn-outline-primary');
       } else {
         if (areasSelecionadas.size >= 3) return;
-        areasSelecionadas.add(area);
+        areasSelecionadas.add(id);
         btn.classList.remove('btn-outline-primary');
         btn.classList.add('btn-primary');
       }
-      areasSelecionadasInput.value = Array.from(areasSelecionadas).join(',');
+
+      atualizarInputAreas();
     });
   });
 
+  // Inputs de novas áreas
+  novaAreaInputs.forEach(input => {
+    input.addEventListener('input', () => {
+      atualizarInputAreas();
+    });
+  });
+
+  // Botões de soft skills
   skillBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      const skill = btn.textContent;
-      if (habilidadesSelecionadas.has(skill)) {
-        habilidadesSelecionadas.delete(skill);
+      const id = btn.getAttribute('data-id');
+
+      if (habilidadesSelecionadas.has(id)) {
+        habilidadesSelecionadas.delete(id);
         btn.classList.remove('btn-primary');
         btn.classList.add('btn-outline-primary');
       } else {
         if (habilidadesSelecionadas.size >= 3) return;
-        habilidadesSelecionadas.add(skill);
+        habilidadesSelecionadas.add(id);
         btn.classList.remove('btn-outline-primary');
         btn.classList.add('btn-primary');
       }
-      habilidadesSelecionadasInput.value = Array.from(habilidadesSelecionadas).join(',');
+
+      habilidadesSelecionadasInput.value = JSON.stringify([...habilidadesSelecionadas]);
     });
   });
+
+  function atualizarInputAreas() {
+    // Pega todas as áreas selecionadas manualmente
+    const novasAreas = Array.from(novaAreaInputs)
+      .map(input => input.value.trim())
+      .filter(texto => texto !== '')
+      .map(texto => `nova:${texto}`);
+
+    const todas = [...areasSelecionadas, ...novasAreas].slice(0, 3);
+    areasSelecionadasInput.value = JSON.stringify(todas);
+  }
 });

@@ -1,17 +1,15 @@
-// config/multer.js
 const multer = require('multer');
-const path = require('path');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('../config/cloudinary'); 
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.resolve('public/uploads'));
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'connect-skills/candidatos',
+    allowed_formats: ['jpg', 'jpeg', 'png'],
+    transformation: [{ width: 300, height: 300, crop: 'fill' }]
   },
-  filename: (req, file, cb) => {
-    const nomeArquivo = Date.now() + '-' + file.originalname;
-    cb(null, nomeArquivo);
-  }
 });
-
 
 const upload = multer({ storage });
 

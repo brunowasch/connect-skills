@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= empresa.nome_empresa %> | Perfil Público - Connect Skills</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/css/shared/style.css">
+  <link rel="icon" href="/img/CONNECT.png">
+  <style>
+    body {
+      background-color: #e9ecef;
+    }
+    .perfil-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.06);
+    }
+    .vaga-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      padding: 24px;
+    }
+    .iframe-container {
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body class="bg-light">
+  <%
+    const tipoMap = {
+      Presencial:   'Presencial',
+      Home_Office:  'Home Office',
+      H_brido:      'Híbrido'
+    };
+  %>
+
+  <main class="container py-5">
+    <!-- CARD PERFIL EMPRESA -->
+    <div class="perfil-card p-4 mb-4">
+      <div class="d-flex flex-column flex-md-row align-items-center">
+        <img src="<%= empresa.foto_perfil || '/img/avatar.png' %>" class="rounded-circle me-md-4 mb-3 mb-md-0" alt="Foto da Empresa" width="100" height="100">
+        <div>
+          <h2><%= empresa.nome_empresa %></h2>
+          <p class="mb-1"><%= empresa.descricao %></p>
+          <%
+            const normalizar = str => str?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+            const partesOriginais = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean);
+            const partesUnicas = [];
+            const vistos = new Set();
+
+            for (const parte of partesOriginais) {
+              const normalizada = normalizar(parte);
+              if (!vistos.has(normalizada)) {
+                vistos.add(normalizada);
+                partesUnicas.push(parte.trim());
+              }
+            }
+
+            const localidade = partesUnicas.join(', ');
+          %>
+          <p class="text-muted mb-0">
+            <%= localidade || 'Localidade não informada' %>
+          </p>
+          <small class="text-muted"><%= empresa.telefone %></small>
+        </div>
+      </div>
+    </div>
+
+    <!-- VAGAS -->
+    <h4 class="mb-3">Vagas Publicadas</h4>
+
+    <% if (vagasPublicadas.length === 0) { %>
+      <div class="alert alert-secondary">Nenhuma vaga publicada por esta empresa.</div>
+    <% } else { %>
+      <% vagasPublicadas.forEach((vaga, index) => { %>
+        <div class="vaga-card mb-4">
+          <h5 class="fw-bold"><%= vaga.cargo %></h5>
+
+          <% if (vaga.vaga_area.length > 0) { %>
+            <p class="mb-1"><strong>Áreas de atuação:</strong>
+              <%= vaga.vaga_area.map(v => v.area_interesse.nome).join(', ') %>
+            </p>
+          <% } %>
+
+          <% if (vaga.tipo_local_trabalho || vaga.escala_trabalho) { %>
+            <p class="mb-1">
+              <% if (vaga.tipo_local_trabalho) { %>
+                <strong><%= tipoMap[vaga.tipo_local_trabalho] %></strong><br>
+              <% } %>
+              <% if (vaga.escala_trabalho) { %>
+                Escala: <%= vaga.escala_trabalho %>
+              <% } %>
+            </p>
+          <% } %>
+
+          <% if (vaga.dias_presenciais || vaga.dias_home_office) { %>
+            <p class="mb-1">
+              <% if (vaga.dias_presenciais) { %>
+                Dias presenciais: <%= vaga.dias_presenciais %><br>
+              <% } %>
+              <% if (vaga.dias_home_office) { %>
+                Dias home office: <%= vaga.dias_home_office %>
+              <% } %>
+            </p>
+          <% } %>
+
+          <% if (vaga.salario) { %>
+            <p class="mb-1">
+              <strong>Salário:</strong> 
+              <%= Number(vaga.salario || 0).toLocaleString('pt-BR', { style: 'currency', currency: vaga.moeda || 'BRL' }) %>
+            </p>
+          <% } %>
+
+          <% if (vaga.beneficio && typeof vaga.beneficio === 'string' && vaga.beneficio.trim() !== '') { %>
+            <p class="mb-1"><strong>Benefícios:</strong> <%= vaga.beneficio.split(',').join(', ') %></p>
+          <% } %>
+
+          <% if (vaga.beneficio_outro) { %>
+            <p class="mb-1"><strong>Outro benefício:</strong> <%= vaga.beneficio_outro %></p>
+          <% } %>
+
+          <% if (vaga.descricao) { %>
+            <p class="mb-1"><strong>Descrição:</strong> <%= vaga.descricao %></p>
+          <% } %>
+
+          <div class="mt-3 text-end">
+            <button class="btn btn-outline-primary fw-bold botao-ia">Iniciar teste com a IA</button>
+          </div>
+
+          <div class="iframe-container">
+            <div style="width: 80%; max-width: 800px;">
+              <iframe 
+                src="https://www.stadyo.com/ai_assis/SUDXZZ7Rznv8IL09" 
+                style="width: 100%; height: 500px; border: none;" 
+                seamless>
+              </iframe>
+            </div>
+            <button class="btn btn-outline-danger mt-3 mb-4 fechar-ia">Fechar teste</button>
+          </div>
+        </div>
+      <% }) %>
+    <% } %>
+  </main>
+
+  <script>
+    document.querySelectorAll(".botao-ia").forEach((btn, index) => {
+      btn.addEventListener("click", () => {
+        const container = document.querySelectorAll(".iframe-container")[index];
+        container.style.display = "flex";
+        btn.style.display = "none";
+      });
+    });
+
+    document.querySelectorAll(".fechar-ia").forEach((btn, index) => {
+      btn.addEventListener("click", () => {
+        const container = document.querySelectorAll(".iframe-container")[index];
+        container.style.display = "none";
+        document.querySelectorAll(".botao-ia")[index].style.display = "inline-block";
+      });
+    });
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

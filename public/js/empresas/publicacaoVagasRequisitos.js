@@ -1,174 +1,186 @@
+// publicacaoVagasRequisitos.js
 document.addEventListener('DOMContentLoaded', () => {
-  const tipo = document.getElementById('tipo');
-  const campoPresencial = document.getElementById('campoPresencial');
-  const campoHomeOffice = document.getElementById('campoHomeOffice');
-  const diasPresenciais = document.getElementById('diasPresenciais');
-  const diasHomeOffice = document.getElementById('diasHomeOffice');
-  const erroDias = document.getElementById('erroDias');
-  const form = document.getElementById('formPublicarVaga');
-  const moedaSelect = document.getElementById('moeda');
-  const simboloSpan = document.getElementById('simboloMoeda');
-  const salarioInput = document.getElementById('salario');
+  const form = document.getElementById('formPublicarVaga') || document.getElementById('formEditarVaga');
+if (!form) return;
+  if (!form) return;
 
-  const simbolos = {
-    'BRL': 'R$', 'USD': 'US$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'ARS': 'AR$', 'CAD': 'C$', 'AUD': 'A$',
-    'CHF': 'CHF', 'CNY': '¥', 'INR': '₹', 'MXN': 'MX$', 'ZAR': 'R', 'KRW': '₩', 'SEK': 'kr', 'RUB': '₽'
-  };
+  // --- ÁREAS ---
+  const areaHidden        = document.getElementById('areasSelecionadas');
+  const areaBtnsContainer = document.getElementById('area-buttons');
+  const novaAreasInputs   = document.querySelectorAll('.nova-area, #inputAreaNova');
+  const erroAreasDiv      = document.getElementById('erroAreas');
 
-  tipo.addEventListener('change', () => {
-    const valor = tipo.value;
+  function getAreas() {
+    try { return JSON.parse(areaHidden.value||'[]').map(String) }
+    catch { return [] }
+  }
+  function setAreas(arr) {
+    areaHidden.value = JSON.stringify(arr)
+  }
 
-    campoPresencial.style.display = 'none';
-    campoHomeOffice.style.display = 'none';
-    diasPresenciais.value = '';
-    diasHomeOffice.value = '';
-    erroDias.textContent = '';
-    diasPresenciais.removeAttribute('required');
-    diasHomeOffice.removeAttribute('required');
+  // Delegation: clique em qualquer botão .area-btn (estático ou criado)
+  areaBtnsContainer.addEventListener('click', e => {
+    if (!e.target.matches('.area-btn')) return;
+    const btn = e.target;
+    const id  = String(btn.dataset.id);
+    let arr   = getAreas();
 
-    if (valor === 'Presencial') {
-      campoPresencial.style.display = 'flex';
-      diasPresenciais.setAttribute('required', 'required');
-    } else if (valor === 'Home Office') {
-      campoHomeOffice.style.display = 'flex';
-      diasHomeOffice.setAttribute('required', 'required');
-    } else if (valor === 'Híbrido') {
-      campoPresencial.style.display = 'flex';
-      campoHomeOffice.style.display = 'flex';
-      diasPresenciais.setAttribute('required', 'required');
-      diasHomeOffice.setAttribute('required', 'required');
+    if (arr.includes(id)) {
+      // desmarcar
+      arr = arr.filter(x => x !== id);
+      btn.classList.replace('btn-primary','btn-outline-primary');
+    } else if (arr.length < 3) {
+      // marcar
+      arr.push(id);
+      btn.classList.replace('btn-outline-primary','btn-primary');
     }
+    setAreas(arr);
   });
 
-  function validarDiasHibrido() {
-    const tipoValor = tipo.value;
-    const p = parseInt(diasPresenciais.value) || 0;
-    const h = parseInt(diasHomeOffice.value) || 0;
+  // Novas áreas digitadas nos inputs .nova-area + Enter
+  novaAreasInputs.forEach(inp => {
+    inp.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const valor = inp.value.trim();
+      if (!valor) return;
 
-    if (tipoValor === 'Híbrido') {
-      if (!diasPresenciais.value || !diasHomeOffice.value) {
-        erroDias.textContent = 'Preencha os dois campos de dias.';
-        return false;
+      let arr = getAreas();
+      const id  = `nova:${valor}`;
+      if (arr.includes(id) || arr.length >= 3) {
+        // não faz nada
+        return;
       }
-      if (p + h > 7) {
-        erroDias.textContent = 'A soma dos dias não pode ser maior que 7.';
-        return false;
+      // adiciona
+      arr.push(id);
+      setAreas(arr);
+
+      // cria botão novo
+      const btn = document.createElement('button');
+      btn.type        = 'button';
+      btn.className   = 'btn btn-primary area-btn';
+      btn.dataset.id  = id;
+      btn.innerText   = valor;
+      areaBtnsContainer.appendChild(btn);
+
+      inp.value = '';
+    });
+  });
+
+
+  // --- SKILLS ---
+  const skillsHidden = document.getElementById('habilidadesSelecionadas');
+  const erroHabsDiv  = document.getElementById('erroHabilidades');
+  document.querySelectorAll('.skill-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = String(btn.dataset.id);
+      let arr   = JSON.parse(skillsHidden.value||'[]').map(String);
+
+      if (arr.includes(id)) {
+        arr = arr.filter(x => x !== id);
+        btn.classList.replace('btn-primary','btn-outline-primary');
+      } else if (arr.length < 3) {
+        arr.push(id);
+        btn.classList.replace('btn-outline-primary','btn-primary');
       }
+      skillsHidden.value = JSON.stringify(arr);
+    });
+  });
+
+
+  // --- DIAS PRESENCIAL / HOME OFFICE ---
+  const tipo            = document.getElementById('tipo');
+  const campoPres       = document.getElementById('campoPresencial');
+  const campoHome       = document.getElementById('campoHomeOffice');
+  const diasPres        = document.getElementById('diasPresenciais');
+  const diasHome        = document.getElementById('diasHomeOffice');
+  const erroDias        = document.getElementById('erroDias');
+
+  function toggleDias() {
+    // reset
+    campoPres.style.display = 'none';
+    campoHome.style.display = 'none';
+    diasPres.value = '';
+    diasHome.value = '';
+    diasPres.required = false;
+    diasHome.required = false;
+    erroDias.textContent = '';
+
+    if (tipo.value === 'Presencial') {
+      campoPres.style.display = 'flex';
+      diasPres.required = true;
+    } else if (tipo.value === 'Home_Office') {
+      campoHome.style.display = 'flex';
+      diasHome.required = true;
+    } else if (tipo.value === 'H_brido') {
+      campoPres.style.display = 'flex';
+      campoHome.style.display = 'flex';
+      diasPres.required = true;
+      diasHome.required = true;
     }
+  }
 
+  function validarDias() {
+    if (tipo.value !== 'H_brido') return true;
+    const p = parseInt(diasPres.value) || 0;
+    const h = parseInt(diasHome.value) || 0;
+
+    if (!diasPres.value || !diasHome.value) {
+      erroDias.textContent = 'Preencha ambos os dias.';
+      return false;
+    }
+    if (p + h > 7) {
+      erroDias.textContent = 'Total de dias não pode exceder 7.';
+      return false;
+    }
     erroDias.textContent = '';
     return true;
   }
 
-  diasPresenciais.addEventListener('input', validarDiasHibrido);
-  diasHomeOffice.addEventListener('input', validarDiasHibrido);
+  tipo.addEventListener('change', toggleDias);
+  diasPres.addEventListener('input', validarDias);
+  diasHome.addEventListener('input', validarDias);
+  toggleDias();  // inicializa o estado
 
-  moedaSelect.addEventListener('change', () => {
-    const moeda = moedaSelect.value;
-    simboloSpan.textContent = simbolos[moeda] || moeda;
-  });
+
+  // --- SALÁRIO e MOEDA ---
+  const salarioInput = document.getElementById('salario');
+  const moedaSelect  = document.getElementById('moeda');
+  const simboloSpan  = document.getElementById('simboloMoeda');
+  const simbolos     = { BRL:'R$', USD:'US$', EUR:'€', GBP:'£', JPY:'¥' };
 
   salarioInput.addEventListener('input', () => {
-    let valor = salarioInput.value.replace(/\D/g, '');
-    if (!valor) return salarioInput.value = '';
-
-    if (valor.length > 11) valor = valor.slice(0, 11);
-    const inteiro = valor.slice(0, -2);
-    const decimal = valor.slice(-2);
-    const inteiroFormatado = parseInt(inteiro || '0').toLocaleString('pt-BR');
-
-    salarioInput.value = `${inteiroFormatado},${decimal}`;
+    let s = salarioInput.value.replace(/\D/g,'');
+    if (!s) return salarioInput.value = '';
+    if (s.length > 11) s = s.slice(0,11);
+    const i = s.slice(0,-2), d = s.slice(-2);
+    salarioInput.value = `${parseInt(i||'0').toLocaleString('pt-BR')},${d}`;
   });
 
-  // Áreas e habilidades
-  const areaBtns = document.querySelectorAll('.area-btn');
-  const skillBtns = document.querySelectorAll('.skill-btn');
-  const areasSelecionadasInput = document.getElementById('areasSelecionadas');
-  const habilidadesSelecionadasInput = document.getElementById('habilidadesSelecionadas');
-
-  const areasSelecionadas = new Set();
-  const habilidadesSelecionadas = new Set();
-
-  areaBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const area = btn.textContent;
-      if (areasSelecionadas.has(area)) {
-        areasSelecionadas.delete(area);
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-outline-primary');
-      } else {
-        if (areasSelecionadas.size >= 3) return;
-        areasSelecionadas.add(area);
-        btn.classList.remove('btn-outline-primary');
-        btn.classList.add('btn-primary');
-      }
-      areasSelecionadasInput.value = Array.from(areasSelecionadas).join(',');
-    });
+  moedaSelect.addEventListener('change', () => {
+    simboloSpan.textContent = simbolos[moedaSelect.value]||'';
   });
 
-  skillBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const habilidade = btn.textContent;
-      if (habilidadesSelecionadas.has(habilidade)) {
-        habilidadesSelecionadas.delete(habilidade);
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-outline-primary');
-      } else {
-        if (habilidadesSelecionadas.size >= 3) return;
-        habilidadesSelecionadas.add(habilidade);
-        btn.classList.remove('btn-outline-primary');
-        btn.classList.add('btn-primary');
-      }
-      habilidadesSelecionadasInput.value = Array.from(habilidadesSelecionadas).join(',');
-    });
-  });
 
-  // Validação final no envio
-  form.addEventListener('submit', (e) => {
-    let valido = true;
+  // --- VALIDAÇÃO FINAL ---
+  form.addEventListener('submit', e => {
+    erroAreasDiv.innerText = '';
+    erroHabsDiv.innerText  = '';
 
-    document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-    document.getElementById('erroAreas').innerText = '';
-    document.getElementById('erroHabilidades').innerText = '';
-    erroDias.textContent = '';
+    const areas = getAreas();
+    const habs  = JSON.parse(skillsHidden.value||'[]');
 
-    if (!validarDiasHibrido()) valido = false;
-
-    const cargo = document.getElementById('cargo');
-    if (!cargo.value.trim()) {
-      cargo.classList.add('is-invalid');
-      valido = false;
-    }
-
-    if (!tipo.value) {
-      tipo.classList.add('is-invalid');
-      valido = false;
-    }
-
-    const escala = document.getElementById('escala');
-    if (!escala.value.trim()) {
-      escala.classList.add('is-invalid');
-      valido = false;
-    }
-
-    const areas = areasSelecionadasInput.value.split(',').filter(v => v.trim() !== '');
+    let ok = true;
     if (areas.length < 1) {
-      document.getElementById('erroAreas').innerText = 'Selecione pelo menos uma área de atuação.';
-      valido = false;
+      erroAreasDiv.innerText = 'Selecione ao menos 1 área.';
+      ok = false;
     }
+    if (habs.length < 1) {
+      erroHabsDiv.innerText = 'Selecione ao menos 1 skill.';
+      ok = false;
+    }
+    if (!validarDias()) ok = false;
 
-    const habilidades = habilidadesSelecionadasInput.value.split(',').filter(v => v.trim() !== '');
-    if (habilidades.length < 1) {
-      document.getElementById('erroHabilidades').innerText = 'Selecione pelo menos uma habilidade comportamental.';
-      valido = false;
-    }
-
-    if (!valido) {
-      console.log("Formulário inválido");
-      e.preventDefault();
-    } else {
-      console.log("Formulário válido, será enviado");
-    }
+    if (!ok) e.preventDefault();
   });
-  console.log("JS de publicação de vaga carregado");
 });

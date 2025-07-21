@@ -1,11 +1,14 @@
 exports.index = (req, res) => {
-    res.render('home', { title: 'Connect Skills - Início' });
-  };
-exports.salvarPerfil = (req, res) => {
-    const { nome } = req.body;
+  res.render('shared/home', { title: 'Connect Skills - Início' });
+};
 
-    // Aqui você atualizaria o banco de dados com os dados do perfil (não está incluído aqui)
-    req.session.nomeUsuario = nomeDoUsuario;
-  
-    res.redirect('/home-candidatos');
+exports.salvarPerfil = (req, res) => {
+  const { nome } = req.body;
+
+  if (!nome) {
+    return res.status(400).send('Nome é obrigatório.');
+  }
+
+  req.session.nomeUsuario = nome;
+  res.redirect('/candidato/home-candidatos'); 
 };

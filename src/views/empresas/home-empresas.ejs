@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Connect Skills</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7" crossorigin="anonymous">
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="stylesheet" href="/css/home.css">
-    <link rel="icon" href="/img/logo.png">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/shared/style.css">
+    <link rel="stylesheet" href="/css/shared/home.css">
+    <link rel="icon" href="/img/CONNECT.png">
   </head>
   <body id="home">
   <%- include('../partials/header-empresa') %>
@@ -23,38 +24,53 @@
   </div>
 
   <!-- COMO FUNCIONA -->
-  <section class="container my-5">
-    <h3>Encontre o profissional certo para sua empresa, <span class="text-primary" style="font-size: inherit; font-weight: inherit;">de forma rápida e eficiente!</span></h3>
-    <p><strong>Como Funciona?</strong></p>
-    <p>No Connect Skills, facilitamos a conexão entre empresas e talentos ideais. Utilize nossa tecnologia para encontrar candidatos que realmente fazem a diferença no seu time!</p>
+ <section class="container my-5">
+  <h3>Encontre o profissional certo para sua empresa, <span class="text-primary" style="font-size: inherit; font-weight: inherit;">de forma rápida e eficiente!</span></h3>
+  <p><strong>Como Funciona?</strong></p>
+  <p>No Connect Skills, facilitamos a conexão entre empresas e talentos ideais. Utilize nossa tecnologia para encontrar candidatos que realmente fazem a diferença no seu time!</p>
 
-    <div class="row text-center mt-4">
-      <div class="col-md-3">
-        <div class="p-3 border rounded">
-          <h5 class="text-primary">1</h5>
-          <p>Crie seu perfil, adicione informações sobre sua empresa e publique suas vagas.</p>
+  <div class="row g-4 mt-4">
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
+        <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
+             style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+          1
         </div>
-      </div>
-      <div class="col-md-3">
-        <div class="p-3 border rounded">
-          <h5 class="text-primary">2</h5>
-          <p>Nosso sistema identifica os melhores candidatos com base nos requisitos da vaga e nas habilidades cadastradas.</p>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="p-3 border rounded">
-          <h5 class="text-primary">3</h5>
-          <p>A empresa recebe recomendações de candidatos ideais e pode entrar em contato diretamente.</p>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="p-3 border rounded">
-          <h5 class="text-primary">4</h5>
-          <p>Acompanhe todo o processo seletivo e encontre o profissional perfeito para sua equipe!</p>
-        </div>
+        <p class="flex-grow-1">Cadastre sua empresa gratuitamente e acesse o painel para começar a recrutar talentos.</p>
       </div>
     </div>
-  </section>
+
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
+        <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
+             style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+          2
+        </div>
+        <p class="flex-grow-1">Publique vagas com informações e áreas de interesse desejadas.</p>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
+        <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
+             style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+          3
+        </div>
+        <p class="flex-grow-1">Candidatos interessados farão o teste com IA para medir a compatibilidade com a vaga.</p>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
+        <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
+             style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+          4
+        </div>
+        <p class="flex-grow-1">Acompanhe o processo seletivo e contrate o profissional ideal para sua equipe!</p>
+      </div>
+    </div>
+  </div>
+</section>
 
   <!-- FORMULARIO -->
   <section class="py-5">

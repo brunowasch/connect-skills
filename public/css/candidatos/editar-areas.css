@@ -1,0 +1,69 @@
+/* Estilo para os botões de áreas */
+/* Estilo para o botão de áreas */
+.area-btn {
+  border: 2px solid #015EDB;
+  color: #015EDB;
+  background-color: white;
+  border-radius: 20px;
+  padding: 8px 20px;
+  margin: 6px;
+  transition: all 0.3s ease-in-out;
+}
+
+.area-btn.selected {
+  background-color: #015EDB;
+  color: white;
+}
+
+.area-btn i {
+  margin-left: 10px;
+  cursor: pointer;
+}
+
+/* Botão X para remover área */
+.area-btn i {
+  cursor: pointer;
+  color: red;
+}
+
+.area-btn:hover {
+  background-color: #f8f9fa;
+}
+
+/* Estilo para as áreas já selecionadas */
+#areasSelecionadas button {
+  background-color: #007bff;
+  color: white;
+  border-radius: 20px;
+  padding: 8px 20px;
+}
+
+#btnContinuar {
+  background-color: #007bff;
+  color: white;
+  padding: 10px 30px;
+  border-radius: 12px;
+  font-weight: bold;
+  margin-top: 20px;
+  border: none;
+}
+
+#btnContinuar:disabled {
+  background-color: #ccc;
+}
+
+#btnCancelar {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  border: 2px solid #6c757d;
+  border-radius: 12px;
+  padding: 10px 30px;
+  font-weight: bold;
+  margin-top: 20px;
+  cursor: pointer;
+}
+
+#btnCancelar:hover {
+  background-color: #6c757d;
+  color: white;
+}
