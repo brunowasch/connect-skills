@@ -29,10 +29,10 @@ document.addEventListener('DOMContentLoaded', () => {
     localidadeValida = false;
     clearTimeout(debounce);
     const valor = inputLocalidade.value.trim();
-    if (valor.length < 3) {
-      sugestoes.classList.add('d-none');
-      return;
-    }
+    // if (valor.length < 3) {
+    //   sugestoes.classList.add('d-none');
+    //   return;
+    // }
 
     debounce = setTimeout(async () => {
       try {
@@ -136,25 +136,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const valor = inputLocalidade.value.trim();
     const partes = valor.split(',').map(p => p.trim()).filter(Boolean);
     const normalizar = str => str.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+    inputLocalidade.classList.remove('is-invalid');
+    erroLocalidade.classList.add('d-none');
+
+    const formatoCorreto = /^[\p{L}\p{M}\s,]+$/u.test(valor);
     const duplicadas = partes.some((parte, index, array) =>
       array.findIndex(p => normalizar(p) === normalizar(parte)) !== index
     );
-    inputLocalidade.classList.remove('is-invalid');
-    erroLocalidade.classList.add('d-none');
-    const formatoCorreto = /^[\p{L}\p{M}\s,]+$/u.test(valor);
-    if (partes.length !== 3 || !localidadeValida || duplicadas || !formatoCorreto) {
+
+    const partesSuficientes = partes.length >= 2 && partes.length <= 3;
+
+    if (!partesSuficientes || duplicadas || !formatoCorreto || !localidadeValida) {
       e.preventDefault();
+
+      let mensagem = 'Informe uma localidade válida. Ex: cidade e país, ou cidade, estado e país.';
+      if (!partesSuficientes) {
+        mensagem = 'Você precisa informar pelo menos cidade e país.';
+      } else if (duplicadas) {
+        mensagem = 'As partes da localidade não devem ser repetidas.';
+      } else if (!formatoCorreto) {
+        mensagem = 'A localidade contém caracteres inválidos.';
+      } else if (!localidadeValida) {
+        mensagem = 'Por favor, selecione uma sugestão ou use o botão de localização.';
+      }
+
       inputLocalidade.classList.add('is-invalid');
-      erroLocalidade.textContent = 'Informe uma localidade válida no formato: cidade, estado e país.';
+      erroLocalidade.textContent = mensagem;
       erroLocalidade.classList.remove('d-none');
     }
   });
-
-  setTimeout(() => {
-    if (inputLocalidade && inputLocalidade.value.trim().length > 0) {
-      inputLocalidade.readOnly = true;
-      if (btnEditarLocal) btnEditarLocal.classList.remove('d-none');
-    }
-  }, 100);
 
 });

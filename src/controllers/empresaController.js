@@ -63,9 +63,12 @@ exports.salvarLocalizacao = async (req, res) => {
     if (isNaN(usuario_id)) return res.status(400).send('ID do usuário inválido.');
 
     const partes = localidade.split(',').map(p => p.trim());
-    if (partes.length < 3) return res.status(400).send('Formato inválido. Use: Cidade, Estado, País.');
+    if (partes.length < 2 || partes.length > 3) {
+      return res.status(400).send('Informe uma localidade válida. Ex: cidade e país, ou cidade, estado e país.');
+    }
 
-    const [cidade, estado, pais] = partes;
+    const [cidade, estado = '', pais = ''] = partes;
+
     await empresaModel.atualizarLocalizacao({ usuario_id, pais, estado, cidade });
     res.redirect(`/empresa/telefone?usuario_id=${usuario_id}`);
   } catch (err) {
@@ -73,6 +76,7 @@ exports.salvarLocalizacao = async (req, res) => {
     res.status(500).send('Erro ao salvar localização.');
   }
 };
+
 
 exports.telaTelefone = (req, res) => {
   const { usuario_id } = req.query;
@@ -433,7 +437,7 @@ exports.salvarEdicaoPerfil = async (req, res) => {
 
   if (localidade) {
     const partes = localidade.split(',').map(p => p.trim());
-    [cidade, estado, pais] = partes;
+    [cidade, estado = '', pais = ''] = partes;
   }
 
   let novaFotoUrl = req.session.empresa.foto_perfil;

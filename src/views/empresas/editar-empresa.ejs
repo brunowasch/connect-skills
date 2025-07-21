@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Editar Perfil da Empresa - Connect Skills</title>
+  <title>Editar Perfil - Connect Skills</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <link rel="stylesheet" href="/css/shared/style.css">
@@ -57,12 +57,32 @@
           <!-- LOCALIDADE -->
           <div class="mb-3 position-relative">
             <label for="localidade" class="form-label">Localidade</label>
+            <%
+              const normalizar = str => str?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+              const partesOriginais = (typeof localidade === 'string' ? localidade.split(',') : [])
+                .map(p => p?.trim())
+                .filter(p => p && p.toLowerCase() !== 'undefined' && p.toLowerCase() !== 'null');
+
+              const partesUnicas = [];
+              const vistos = new Set();
+
+              for (const parte of partesOriginais) {
+                const normalizada = normalizar(parte);
+                if (!vistos.has(normalizada)) {
+                  vistos.add(normalizada);
+                  partesUnicas.push(parte);
+                }
+              }
+
+              const localidadeLimpa = partesUnicas.join(', ');
+            %>
+
             <input
               type="text"
               class="form-control"
               id="localidade"
               name="localidade"
-              value="<%= localidade %>"
+              value="<%= localidadeLimpa %>"
               autocomplete="off"
               required
             >
