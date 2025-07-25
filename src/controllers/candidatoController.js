@@ -261,7 +261,7 @@ exports.renderMeuPerfil = async (req, res) => {
 
   res.render('candidatos/meu-perfil', {
     candidato,
-    fotoPerfil: candidato.foto_perfil || 'https://via.placeholder.com/80',
+    fotoPerfil: candidato.foto_perfil && candidato.foto_perfil.trim() !== '' ? candidato.foto_perfil : null,
     localidade,
     areas,
     ddi,
