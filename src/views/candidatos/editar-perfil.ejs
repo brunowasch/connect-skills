@@ -17,10 +17,13 @@
     <form action="/candidato/editar-perfil" method="POST" enctype="multipart/form-data">
       <input type="hidden" name="dataNascimento" value="<%= dataNascimento %>">
 
-      <!-- Define a foto: usa upload/câmera ou, se não existir, fallback para avatar -->
-      <% const fotoSrc = (fotoPerfil && fotoPerfil.trim() !== '')
-           ? fotoPerfil
-           : '/img/avatar.png'; %>
+      <% 
+        const avatarPadrao = '/img/avatar.png';
+        const fotoSrc = (fotoPerfil && fotoPerfil.trim() !== '')
+            ? fotoPerfil
+            : avatarPadrao;
+        const temFoto = fotoSrc !== avatarPadrao;
+      %>
 
       <div class="row g-4">
         <div class="col-md-4 text-center">
@@ -29,9 +32,24 @@
                alt="Foto do perfil"
                class="rounded-circle mb-3"
                width="100" height="100">
+
+          <!-- Botão Alterar Foto -->
           <div class="mt-2">
-            <button type="button" id="btnAlterarFoto" class="btn btn-primary btn-sm">Alterar foto</button>
+            <button type="button" id="btnAlterarFoto" class="btn btn-primary btn-sm">
+              Alterar foto
+            </button>
           </div>
+
+          <!-- Checkbox para remover a foto -->
+          <% if (temFoto) { %>
+            <div class="d-flex align-items-center mt-3">
+              <input type="checkbox" id="removerFoto" name="removerFoto"class="form-check-input me-2"
+                style="transform: scale(1.25);"/>
+              <label class="form-check-label mb-0" for="removerFoto">
+                Remover foto de perfil
+              </label>
+            </div>
+          <% } %>
 
           <!-- Botões reais (inicialmente escondidos) -->
           <div id="botoesFoto" class="d-flex justify-content-center gap-2 flex-wrap mt-3 d-none">
@@ -54,6 +72,7 @@
         </div>
 
         <div class="col-md-8">
+          <!-- Campos de texto -->
           <div class="mb-3">
             <label for="nome" class="form-label">Nome</label>
             <input type="text" class="form-control" id="nome" name="nome" value="<%= nome %>" required>
@@ -62,12 +81,12 @@
             <label for="sobrenome" class="form-label">Sobrenome</label>
             <input type="text" class="form-control" id="sobrenome" name="sobrenome" value="<%= sobrenome %>" required>
           </div>
+          <!-- Localidade, telefone… -->
           <div class="mb-3 position-relative">
             <label for="localidade" class="form-label">Localidade</label>
             <input type="text" class="form-control" id="localidade" name="localidade" value="<%= localidade %>" autocomplete="off" required>
             <ul id="sugestoesLocalidade" class="list-group position-absolute w-100 mt-1 d-none" style="z-index: 1000;"></ul>
             <div id="erro-localidade" class="invalid-feedback mt-1 d-none"></div>
-
             <button type="button" id="btnLocalizacao" class="btn btn-outline-primary btn-sm mt-2">
               Detectar minha localização automaticamente
             </button>
@@ -93,7 +112,7 @@
 
           <div class="d-flex gap-3 mt-4">
             <button type="submit" class="btn btn-primary">Salvar</button>
-            <a href="/candidatos/meu-perfil" class="btn btn-danger">Cancelar</a>
+            <a href="/candidato/meu-perfil" class="btn btn-danger">Cancelar</a>
           </div>
         </div>
       </div>
@@ -106,7 +125,6 @@
   <script src="/js/numeroTelefone.js"></script>
   <script src="/js/empresas/previewImagem.js"></script>
   <script src="/js/shared/botoesFotosEditarPerfil.js"></script>
-
   <script>
     function formatarNumero(input) {
       let num = input.value.replace(/\D/g, '');
