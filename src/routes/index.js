@@ -6,16 +6,23 @@ const usuarioRoutes = require('./usuarioRoutes');
 const candidatoRoutes = require('./candidatoRoutes');
 const empresaRoutes = require('./empresaRoutes');
 
-// Página inicial
 router.get('/', (req, res) => {
+  console.log('🔍 Sessão recebida na /:', req.session);
+
+  if (req.session.candidato) {
+    return res.redirect('/candidatos/home');
+  }
+
+  if (req.session.empresa) {
+    return res.redirect('/empresas/home');
+  }
+
   res.render('shared/home', { title: 'Connect Skills - Início' });
 });
 
-// Rotas públicas
-router.use('/', authRoutes); // /cadastro, /login
-router.use('/usuarios', usuarioRoutes); // /cadastrar, /verificar-email
+router.use('/', authRoutes); 
+router.use('/usuarios', usuarioRoutes); 
 
-// Rotas por tipo de usuário
 router.use('/candidato', candidatoRoutes);
 router.use('/empresa', empresaRoutes);
 
