@@ -177,9 +177,50 @@ exports.salvarFotoPerfil = async (req, res) => {
 
 
 
-exports.homeEmpresa = (req, res) => {
-  res.render('empresas/home-empresas');
+exports.homeEmpresa = async (req, res) => {
+  try {
+    if (!req.session.empresa) {
+      const usuario_id = parseInt(req.query.usuario_id, 10);
+      if (isNaN(usuario_id)) return res.redirect('/login');
+
+      const empresa = await prisma.empresa.findUnique({
+        where: { usuario_id }
+      });
+
+      if (!empresa) return res.redirect('/login');
+
+      // Preenche a sessão mesmo que tenha pulado a etapa da imagem
+      req.session.empresa = {
+        id: empresa.id,
+        usuario_id: empresa.usuario_id,
+        nome_empresa: empresa.nome_empresa,
+        descricao: empresa.descricao,
+        cidade: empresa.cidade,
+        estado: empresa.estado,
+        pais: empresa.pais,
+        telefone: empresa.telefone,
+        foto_perfil: empresa.foto_perfil || ''
+      };
+    }
+
+    const empresa = req.session.empresa;
+    const localidade = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', ');
+
+    res.render('empresas/home-empresas', {
+      nome: empresa.nome_empresa,
+      descricao: empresa.descricao,
+      telefone: empresa.telefone,
+      localidade,
+      fotoPerfil: empresa.foto_perfil || '/img/avatar.png',
+      usuario: empresa,
+      activePage: 'home'
+    });
+  } catch (err) {
+    console.error('Erro ao exibir home da empresa:', err);
+    res.status(500).send('Erro ao carregar home.');
+  }
 };
+
 
 exports.telaPerfilEmpresa = async (req, res) => {
   const empresa = req.session.empresa;
@@ -414,7 +455,7 @@ exports.telaEditarPerfil = (req, res) => {
 
   res.render('empresas/editar-empresa', {
     empresa,
-    fotoPerfil: empresa.foto_perfil || '/img/placeholder-empresa.png',
+    fotoPerfil: empresa.foto_perfil && empresa.foto_perfil.trim() !== '' ? empresa.foto_perfil : null,
     descricao: empresa.descricao,
     telefone: empresa.telefone,
     localidade: `${empresa.cidade}, ${empresa.estado}, ${empresa.pais}`,

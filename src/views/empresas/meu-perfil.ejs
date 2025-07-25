@@ -14,11 +14,23 @@
 
 <main>
   <%- include('../partials/header-empresa') %>
- 
+ <%
+  const foto = empresa.foto_perfil;
+  const temFoto =
+    foto && foto.trim() !== '' &&
+    foto !== 'null' &&
+    foto !== 'undefined' &&
+    foto !== '/img/placeholder-empresa.png';
+%>
 <div class="perfil-card bg-white p-4 rounded shadow-sm">
     <h2 class="mb-4">Meu perfil</h2>
     <div class="d-flex align-items-center perfil-header mb-4">
-      <img src="<%= empresa.foto_perfil || '/img/avatar.png' %>" class="perfil-foto rounded-circle me-3" alt="Foto da Empresa" width="80" height="80">
+      <% if (temFoto) { %>
+      <img src="<%= foto %>?v=<%= Date.now() %>" class="perfil-foto rounded-circle me-3" alt="Foto da Empresa" width="80" height="80">
+    <% } else { %>
+      <img src="/img/avatar.png" class="perfil-foto rounded-circle me-3" alt="Avatar padrão" width="80" height="80">
+    <% } %>
+
       <div>
         <div class="d-flex align-items-center gap-2 mb-1">
         <h4 class="mb-0"><%= empresa.nome_empresa || 'Nome da Empresa' %></h4>
