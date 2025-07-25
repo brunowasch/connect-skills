@@ -105,3 +105,8 @@ body {
 footer {
   background-color: #2F84F5 !important;
 }
+
+.fluxo-botoes .btn {
+  width: 140px;
+  border-radius: 0.5rem;
+}
