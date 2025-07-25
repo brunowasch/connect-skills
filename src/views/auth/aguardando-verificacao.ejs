@@ -76,6 +76,50 @@
       <i class="bi bi-box-arrow-in-right me-1"></i>Ir para o login
     </a>
   </div>
+<script>
+  function redirecionarParaCadastro(tipo, usuario_id) {
+    const rota = tipo === 'empresa'
+      ? `/empresa/nome-empresa?usuario_id=${usuario_id}`
+      : `/candidatos/cadastro/nome?usuario_id=${usuario_id}`;
+    window.location.href = rota;
+  }
+
+  window.addEventListener('message', (event) => {
+    const { emailVerificado, usuario_id, tipo } = event.data || {};
+    if (emailVerificado && usuario_id && tipo) {
+      redirecionarParaCadastro(tipo, usuario_id);
+    }
+  });
+
+  window.addEventListener('storage', (event) => {
+    if (event.key === 'verificacaoEmailConcluida' && event.newValue) {
+      try {
+        const { usuario_id, tipo } = JSON.parse(event.newValue);
+        localStorage.removeItem('verificacaoEmailConcluida');
+        redirecionarParaCadastro(tipo, usuario_id);
+      } catch (e) {
+        console.error('Erro ao ler storage:', e);
+      }
+    }
+  });
+
+  window.onload = () => {
+    const dados = localStorage.getItem('verificacaoEmailConcluida');
+    if (dados) {
+      try {
+        const { usuario_id, tipo } = JSON.parse(dados);
+        localStorage.removeItem('verificacaoEmailConcluida');
+        redirecionarParaCadastro(tipo, usuario_id);
+      } catch (e) {
+        console.error('Erro ao processar dados pendentes do localStorage:', e);
+      }
+    }
+  };
+</script>
+
+
+
+
 
 </body>
 </html>
