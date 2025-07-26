@@ -195,3 +195,27 @@ exports.telaAguardandoVerificacao = (req, res) => {
 exports.telaEmailVerificado = (req, res) => {
   res.render('auth/email-verificado');
 };
+
+exports.statusVerificacao = async (req, res) => {
+  const { email } = req.query;
+
+  if (!email) return res.status(400).json({ erro: 'E-mail não informado' });
+
+  try {
+    const usuario = await usuarioModel.buscarPorEmail(email);
+    if (!usuario) return res.status(404).json({ verificado: false });
+
+    if (usuario.email_verificado) {
+      return res.json({
+        verificado: true,
+        usuario_id: usuario.id,
+        tipo: usuario.tipo
+      });
+    }
+
+    res.json({ verificado: false });
+  } catch (erro) {
+    console.error('Erro ao verificar status de verificação:', erro);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+};
