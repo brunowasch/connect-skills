@@ -77,6 +77,7 @@
     </a>
   </div>
 <script>
+  // Já existente:
   function redirecionarParaCadastro(tipo, usuario_id) {
     const rota = tipo === 'empresa'
       ? `/empresa/nome-empresa?usuario_id=${usuario_id}`
@@ -84,6 +85,7 @@
     window.location.href = rota;
   }
 
+  // Já existente:
   window.addEventListener('message', (event) => {
     const { emailVerificado, usuario_id, tipo } = event.data || {};
     if (emailVerificado && usuario_id && tipo) {
@@ -91,6 +93,7 @@
     }
   });
 
+  // Já existente:
   window.addEventListener('storage', (event) => {
     if (event.key === 'verificacaoEmailConcluida' && event.newValue) {
       try {
@@ -103,23 +106,23 @@
     }
   });
 
-  window.onload = () => {
-    const dados = localStorage.getItem('verificacaoEmailConcluida');
-    if (dados) {
-      try {
-        const { usuario_id, tipo } = JSON.parse(dados);
-        localStorage.removeItem('verificacaoEmailConcluida');
-        redirecionarParaCadastro(tipo, usuario_id);
-      } catch (e) {
-        console.error('Erro ao processar dados pendentes do localStorage:', e);
+  // NOVO: polling para casos entre dispositivos
+  const email = "<%= email %>";
+  async function verificarStatusEmail() {
+    try {
+      const resposta = await fetch(`/usuarios/status-verificacao?email=${encodeURIComponent(email)}`);
+      const json = await resposta.json();
+
+      if (json.verificado && json.usuario_id && json.tipo) {
+        redirecionarParaCadastro(json.tipo, json.usuario_id);
       }
+    } catch (e) {
+      console.error('Erro ao verificar status do e-mail:', e);
     }
-  };
+  }
+
+  // Inicia polling a cada 5 segundos
+  setInterval(verificarStatusEmail, 5000);
 </script>
-
-
-
-
-
 </body>
 </html>
