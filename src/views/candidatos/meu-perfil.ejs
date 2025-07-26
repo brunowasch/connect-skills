@@ -36,9 +36,9 @@
     <h2 class="mb-4">Meu perfil</h2>
     <div class="d-flex align-items-center perfil-header mb-4">
     <% if (fotoPerfil) { %>
-      <img src="<%= fotoPerfil %>?v=<%= Date.now() %>" alt="Foto de perfil" class="perfil-foto rounded-circle" width="80" height="80">
+      <img src="<%= fotoPerfil %>?v=<%= Date.now() %>" alt="Foto de perfil" class="perfil-foto rounded-circle border border-dark" width="80" height="80">
     <% } else { %>
-      <img src="/img/avatar.png" alt="Avatar padrão" class="perfil-foto rounded-circle" width="80" height="80">
+      <img src="/img/avatar.png" alt="Avatar padrão" class="perfil-foto rounded-circle border border-dark" width="80" height="80">
     <% } %>
       <div>
         <h4 class="mb-1"><%= candidato.nome || 'Usuário' %> <%= candidato.sobrenome || '' %></h4>

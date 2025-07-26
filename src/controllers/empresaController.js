@@ -482,8 +482,7 @@ exports.salvarEdicaoPerfil = async (req, res) => {
 
   let novaFotoUrl = req.session.empresa.foto_perfil;
 
-  // ✅ Remoção de foto (prioridade máxima)
-  if (removerFoto === 'on') {
+if (removerFoto === 'true' || removerFoto === 'on') {
     try {
       await prisma.empresa.update({
         where: { id: empresaId },

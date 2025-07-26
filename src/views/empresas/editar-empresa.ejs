@@ -14,7 +14,8 @@
   <%- include('../partials/header-empresa') %>
 
   <main class="container py-5">
-    <h2 class="mb-4">Editar perfil</h2>
+    <h2 class="mb-4 mt-3">Editar perfil</h2>
+
 
     <form id="formLocalizacao" action="/empresa/editar-empresa" method="POST" enctype="multipart/form-data">
       <div class="row justify-content-center g-4">
@@ -27,27 +28,38 @@
             const temFoto = fotoPerfil !== avatarPadrao;
           %>
 
-          <img id="previewImagem" 
-              src="<%= fotoPerfil %>?v=<%= Date.now() %>" 
-              alt="Logo da Empresa" 
-              class="perfil-foto rounded-circle" 
-              width="100" height="100">
+        <img id="previewImagem" 
+            src="<%= fotoPerfil %>?v=<%= Date.now() %>" 
+            alt="Logo da Empresa" 
+            class="perfil-foto rounded-circle border border-dark"
+            width="100" height="100">
 
-          <div class="mt-2">
-            <button type="button" id="btnAlterarFoto" class="btn btn-primary btn-sm">Alterar foto</button>
+
+          <div class="mt-2 text-center">
+            <button type="button" id="btnAlterarFoto" class="btn btn-primary btn-sm">
+              <i class="bi bi-pencil-square fs-6"></i> Alterar foto
+            </button>
           </div>
 
-          <% if (temFoto) { %>
-            <div class="d-flex align-items-center mt-3">
-              <input type="checkbox" id="removerFoto" name="removerFoto" class="form-check-input me-2" style="transform: scale(1.25);">
-              <label class="form-check-label mb-0" for="removerFoto">Remover foto de perfil</label>
-            </div>
-          <% } %>
+          <div id="botoesFoto" class="d-flex flex-column align-items-center gap-2 mt-3 d-none">
+            <div class="d-flex justify-content-center gap-2 flex-wrap">
+              <button type="button" class="btn btn-outline-primary btn-sm px-3" onclick="abrirCamera()">
+                <i class="bi bi-camera-fill me-1"></i> Câmera
+              </button>
 
-          <div id="botoesFoto" class="d-flex justify-content-center gap-2 flex-wrap mt-3 d-none">
-            <button type="button" class="btn btn-outline-primary btn-sm px-2 w-auto text-nowrap" onclick="abrirCamera()">Tirar foto com a câmera</button>
-            <input type="file" name="novaFoto" id="fotoArquivo" accept="image/*" class="d-none" onchange="previewFoto(this)">
-            <label for="fotoArquivo" class="btn btn-outline-secondary btn-sm px-2 w-auto text-nowrap mb-0">Selecionar do dispositivo</label>
+              <input type="file" name="novaFoto" id="fotoArquivo" accept="image/*" class="d-none" onchange="previewFoto(this)">
+              <label for="fotoArquivo" class="btn btn-outline-secondary btn-sm px-3 mb-0">
+                <i class="bi bi-upload me-1"></i> Arquivo
+              </label>
+            </div>
+
+            <!-- Botão de remover foto (se existir) -->
+            <% if (temFoto) { %>
+              <button type="submit" name="removerFoto" value="true" class="btn btn-outline-danger btn-sm mt-2"
+                onclick="return confirmarRemocao()">
+                <i class="bi bi-trash me-1"></i> Remover foto de perfil
+              </button>
+            <% } %>
           </div>
 
           <div id="cameraContainer" class="mt-3 d-none">
