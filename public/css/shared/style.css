@@ -63,7 +63,7 @@ body {
   color: white; 
   transition: color 0.3s ease-in-out;
   letter-spacing: 0.02em;
-  margin: 0 0.75rem; 
+  margin: 0 0.25rem; 
 }
 
 .navbar-nav .nav-link::after {
