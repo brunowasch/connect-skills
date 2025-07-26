@@ -464,24 +464,57 @@ exports.telaEditarPerfil = (req, res) => {
 
 exports.salvarEdicaoPerfil = async (req, res) => {
   console.log("Arquivo recebido:", req.file); 
-  const { nome, descricao, ddi, ddd, numero, localidade, fotoBase64 } = req.body;
-  let telefone = req.session.empresa.telefone; // valor antigo, fallback
+  const { nome, descricao, ddi, ddd, numero, localidade, fotoBase64, removerFoto } = req.body;
+  let telefone = req.session.empresa.telefone;
 
   if (ddi && ddd && numero) {
     telefone = `${ddi} (${ddd}) ${numero}`;
   }
-  const empresaId = req.session.empresa?.id;
 
+  const empresaId = req.session.empresa?.id;
   if (!empresaId) return res.redirect('/login');
 
   let cidade = '', estado = '', pais = '';
-
   if (localidade) {
     const partes = localidade.split(',').map(p => p.trim());
     [cidade, estado = '', pais = ''] = partes;
   }
 
   let novaFotoUrl = req.session.empresa.foto_perfil;
+
+  // ✅ Remoção de foto (prioridade máxima)
+  if (removerFoto === 'on') {
+    try {
+      await prisma.empresa.update({
+        where: { id: empresaId },
+        data: {
+          nome_empresa: nome,
+          descricao,
+          telefone,
+          cidade,
+          estado,
+          pais,
+          foto_perfil: null
+        }
+      });
+
+      req.session.empresa = {
+        ...req.session.empresa,
+        nome_empresa: nome,
+        descricao,
+        telefone,
+        cidade,
+        estado,
+        pais,
+        foto_perfil: ''
+      };
+
+      return res.redirect('/empresa/meu-perfil');
+    } catch (err) {
+      console.error("Erro ao remover foto de perfil:", err);
+      return res.status(500).send("Erro ao atualizar os dados.");
+    }
+  }
 
   // Upload de imagem base64 (tirada da câmera)
   if (fotoBase64?.startsWith('data:image')) {
@@ -528,7 +561,7 @@ exports.salvarEdicaoPerfil = async (req, res) => {
           return res.redirect('/empresa/meu-perfil');
         });
 
-        // Escreve o buffer no stream do Cloudinary
+        // Envia o buffer para o Cloudinary
         const stream = resultadoCloudinary;
         stream.end(buffer);
         return;
@@ -539,7 +572,7 @@ exports.salvarEdicaoPerfil = async (req, res) => {
     }
   }
 
-  // Upload de arquivo via input file
+  // Upload de imagem via arquivo
   if (req.file) {
     try {
       const resultadoCloudinary = await cloudinary.uploader.upload(req.file.path, {
@@ -556,7 +589,7 @@ exports.salvarEdicaoPerfil = async (req, res) => {
     }
   }
 
-  // Atualiza o banco de dados e a sessão
+  // Atualiza os dados restantes
   try {
     await prisma.empresa.update({
       where: { id: empresaId },
@@ -588,6 +621,7 @@ exports.salvarEdicaoPerfil = async (req, res) => {
     res.status(500).send("Erro ao salvar dados.");
   }
 };
+
 
 exports.mostrarVagas = async (req, res) => {
   const empresa = req.session.empresa;
