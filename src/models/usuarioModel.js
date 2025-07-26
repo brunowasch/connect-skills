@@ -54,3 +54,19 @@ exports.buscarPorId = async (id) => {
     where: { id }
   });
 };
+
+/**
+ * Atualiza os dados de um usuário existente.
+ * Usado para atualizar senha ou tipo, se o e-mail ainda não foi verificado.
+ * 
+ * @param {number} id - ID do usuário
+ * @param {Object} dados - Dados a serem atualizados
+ * @returns {Promise<Object>}
+ */
+exports.atualizarUsuario = async (id, dados) => {
+  return await prisma.usuario.update({
+    where: { id },
+    data: dados
+  });
+};
+

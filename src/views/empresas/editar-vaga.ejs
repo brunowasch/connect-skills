@@ -27,7 +27,7 @@
 
         <div class="col-md-6">
           <label class="form-label">Tipo de local de trabalho</label>
-          <select name="tipo" class="form-select" required>
+          <select id="tipo" name="tipo" class="form-select" required>
             <option value="Presencial"   <%= vaga.tipo_local_trabalho==='Presencial'  ? 'selected':'' %>>Presencial</option>
             <option value="Home_Office"  <%= vaga.tipo_local_trabalho==='Home_Office' ? 'selected':'' %>>Home Office</option>
             <option value="H_brido"      <%= vaga.tipo_local_trabalho==='H_brido'     ? 'selected':'' %>>Híbrido</option>
@@ -42,11 +42,11 @@
         <div class="col-md-6 mt-3 d-flex align-items-end" id="campo-presencial-hibrido">
           <div id="campoPresencial" class="me-3" style="display:none;">
             <label class="form-label small">Dias presenciais</label>
-            <input type="number" name="diasPresenciais" class="form-control form-control-sm" min="0" max="7" style="width:80px" value="<%= vaga.dias_presenciais || '' %>">
+            <input type="number" id="diasPresenciais" name="diasPresenciais" class="form-control form-control-sm" min="0" max="7" style="width:80px" value="<%= vaga.dias_presenciais || '' %>">
           </div>
           <div id="campoHomeOffice" style="display:none;">
             <label class="form-label small">Dias home office</label>
-            <input type="number" name="diasHomeOffice" class="form-control form-control-sm" min="0" max="7" style="width:80px" value="<%= vaga.dias_home_office || '' %>">
+            <input type="number" id="diasHomeOffice" name="diasHomeOffice" class="form-control form-control-sm" min="0" max="7" style="width:80px" value="<%= vaga.dias_home_office || '' %>">
           </div>
           <div id="erroDias" class="text-danger small ms-3"></div>
         </div>

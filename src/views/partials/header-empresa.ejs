@@ -42,9 +42,9 @@
         Tem certeza que deseja sair da sua conta?
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-outline-primary" data-bs-dismiss="modal">Cancelar</button>
         <form action="/logout" method="GET">
-          <button type="submit" class="btn btn-outline-primary">Sair</button>
+          <button type="submit" class="btn btn-outline-danger">Sair</button>
         </form>
       </div>
     </div>
@@ -53,4 +53,16 @@
 
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const path = window.location.pathname;
+      document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
+        const href = link.getAttribute('href');
+        if (href === path || (href !== '/' && path.startsWith(href))) {
+          link.classList.add('active');
+        }
+      });
+    });
+  </script>
 

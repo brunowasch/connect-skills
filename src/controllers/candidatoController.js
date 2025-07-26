@@ -261,7 +261,7 @@ exports.renderMeuPerfil = async (req, res) => {
 
   res.render('candidatos/meu-perfil', {
     candidato,
-    fotoPerfil: candidato.foto_perfil || 'https://via.placeholder.com/80',
+    fotoPerfil: candidato.foto_perfil && candidato.foto_perfil.trim() !== '' ? candidato.foto_perfil : null,
     localidade,
     areas,
     ddi,
@@ -303,24 +303,36 @@ exports.telaEditarPerfil = (req, res) => {
   });
 };
 
+// candidatoController.js
+
 exports.salvarEditarPerfil = async (req, res) => {
   const sess = req.session.candidato;
   if (!sess) return res.redirect('/login');
+
   const candidato_id = Number(sess.id);
-  const { nome, sobrenome, localidade, ddi, ddd, numero, dataNascimento } = req.body;
+  const { nome, sobrenome, localidade, ddi, ddd, numero, dataNascimento, removerFoto } = req.body;
   const telefone = `${ddi}-${ddd}-${numero.replace(/-/g, '')}`;
   const [cidade = '', estado = '', pais = ''] = localidade.split(',').map(s => s.trim());
 
   try {
-    if (req.file && req.file.buffer) {
+    // 1) Remover foto, se o checkbox foi marcado
+    if (removerFoto) {
+      await candidatoModel.atualizarFotoPerfil({
+        candidato_id,
+        foto_perfil: null
+      });
+      sess.foto_perfil = '/img/avatar.png';
+    }
+    // 2) Senão, se vier um arquivo novo, faça upload e salve
+    else if (req.file && req.file.buffer) {
       const uploadResult = await new Promise((resolve, reject) => {
-        const s = cloudinary.uploader.upload_stream({
+        const stream = cloudinary.uploader.upload_stream({
           folder: 'connect-skills/candidatos',
           public_id: `foto_candidato_${candidato_id}`,
           overwrite: true,
           resource_type: 'image'
-        }, (err, res) => err ? reject(err) : resolve(res));
-        s.end(req.file.buffer);
+        }, (err, result) => err ? reject(err) : resolve(result));
+        stream.end(req.file.buffer);
       });
       sess.foto_perfil = uploadResult.secure_url;
       await candidatoModel.atualizarFotoPerfil({
@@ -329,6 +341,7 @@ exports.salvarEditarPerfil = async (req, res) => {
       });
     }
 
+    // 3) Atualiza os demais campos do perfil
     await candidatoModel.atualizarPerfilBasico({
       candidato_id,
       nome,
@@ -340,16 +353,27 @@ exports.salvarEditarPerfil = async (req, res) => {
       data_nascimento: dataNascimento
     });
 
+    // 4) Atualiza sessão com os novos dados
     sess.nome = nome;
     sess.sobrenome = sobrenome;
     sess.localidade = localidade;
     sess.telefone = telefone;
     sess.data_nascimento = dataNascimento;
 
+    // 5) Redireciona para “Meu perfil”
     res.redirect('/candidatos/meu-perfil');
   } catch (err) {
     console.error('Erro ao atualizar perfil básico:', err);
-    res.status(500).send('Não foi possível atualizar seu perfil.');
+    res.status(500).render('candidatos/editar-perfil', {
+      nome,
+      sobrenome,
+      localidade,
+      ddd,
+      numero,
+      dataNascimento,
+      fotoPerfil: sess.foto_perfil,
+      errorMessage: 'Não foi possível atualizar seu perfil. Tente novamente.'
+    });
   }
 };
 

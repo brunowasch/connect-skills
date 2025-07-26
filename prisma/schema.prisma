@@ -66,9 +66,11 @@ model usuario {
   senha            String
   tipo             String
   email_verificado Boolean    @default(false)
+  created_at       DateTime   @default(now()) 
   candidato        candidato?
   empresa          empresa?
 }
+
 
 model vaga {
   id                  Int                      @id @default(autoincrement()) @db.UnsignedInt

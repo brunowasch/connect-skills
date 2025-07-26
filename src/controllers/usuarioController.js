@@ -27,27 +27,66 @@ async function enviarEmailVerificacao(email, usuario_id) {
     from: 'Connect Skills <no-reply@connectskills.com>',
     to: email,
     subject: 'Confirmação de e-mail',
-    html: `<p>Olá!</p><p>Confirme seu e-mail clicando no link abaixo:</p><a href="${link}">Verificar e-mail</a>`
+    html: `
+        <p>Olá!</p>
+        <p>Obrigado por se cadastrar no <strong>Connect Skills</strong>.</p>
+        <p>Para continuar seu cadastro, é necessário confirmar o seu endereço de e-mail.</p>
+        <p>Clique no botão abaixo para verificar seu e-mail:</p>
+        <p style="margin: 16px 0;">
+          <a href="${link}" target="_blank" rel="noopener noreferrer" style="
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #0d6efd;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+          ">
+            Verificar e-mail
+          </a>
+        </p>
+        <p>Se você não solicitou este cadastro, pode ignorar este e-mail com segurança.</p>
+        <p>Atenciosamente,<br><strong>Equipe Connect Skills</strong></p>
+      `
   });
 }
 
 
 exports.criarUsuario = async (req, res) => {
-  const { email, senha, tipo } = req.body;
+  let { email, senha, tipo } = req.body;
   if (!email || !senha || !tipo) return res.status(400).send('Preencha todos os campos.');
 
+  const emailNormalizado = email.trim().toLowerCase();
+
   try {
-    const usuarioExistente = await usuarioModel.buscarPorEmail(email);
-    if (usuarioExistente) return res.status(400).send('Este e-mail já está cadastrado.');
+    const usuarioExistente = await usuarioModel.buscarPorEmail(emailNormalizado);
+
+    if (usuarioExistente && usuarioExistente.email_verificado) {
+      return res.status(400).send('Este e-mail já está cadastrado e verificado.');
+    }
 
     const salt = await bcrypt.genSalt(10);
     const senhaCriptografada = await bcrypt.hash(senha, salt);
 
-    const resultado = await usuarioModel.cadastrar({ email, senha: senhaCriptografada, tipo });
-    const usuario_id = resultado.id || resultado.insertId;
+    let usuario_id;
 
-    await enviarEmailVerificacao(email, usuario_id);
-    res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(email)}`);
+    if (usuarioExistente && !usuarioExistente.email_verificado) {
+      await usuarioModel.atualizarUsuario(usuarioExistente.id, {
+        senha: senhaCriptografada,
+        tipo
+      });
+      usuario_id = usuarioExistente.id;
+    } else {
+      const resultado = await usuarioModel.cadastrar({
+        email: emailNormalizado,
+        senha: senhaCriptografada,
+        tipo
+      });
+      usuario_id = resultado.id || resultado.insertId;
+    }
+
+    await enviarEmailVerificacao(emailNormalizado, usuario_id);
+    res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(emailNormalizado)}`);
   } catch (erro) {
     console.error('Erro ao criar usuário:', erro);
     res.status(500).send('Erro interno ao processar o cadastro.');
@@ -124,16 +163,13 @@ exports.verificarEmail = async (req, res) => {
     const usuario = await usuarioModel.buscarPorId(usuario_id);
     if (!usuario) return res.status(404).send('Usuário não encontrado.');
 
-    if (usuario.tipo === 'empresa') {
-      res.redirect(`/empresa/nome-empresa?usuario_id=${usuario_id}`);
-    } else {
-      res.redirect(`/candidatos/cadastro/nome?usuario_id=${usuario_id}`);
-    }
+    res.redirect(`/usuarios/email-verificado?usuario_id=${usuario_id}&tipo=${usuario.tipo}`);
   } catch (error) {
     console.error('Erro ao verificar token:', error);
-    res.status(400).send('❌ Link inválido ou expirado.');
+    res.status(400).send('Link inválido ou expirado.');
   }
 };
+
 
 exports.reenviarEmail = async (req, res) => {
   const { email } = req.body;
@@ -154,4 +190,8 @@ exports.reenviarEmail = async (req, res) => {
 exports.telaAguardandoVerificacao = (req, res) => {
   const { email, reenviado } = req.query;
   res.render('auth/aguardando-verificacao', { email, reenviado });
+};
+
+exports.telaEmailVerificado = (req, res) => {
+  res.render('auth/email-verificado');
 };

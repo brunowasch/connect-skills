@@ -12,27 +12,29 @@
 <body class="d-flex flex-column min-vh-100 bg-white">
   <%- include('../partials/header') %>
 
-  <!-- Conteúdo centralizado -->
   <main class="flex-grow-1 d-flex flex-column justify-content-center align-items-center px-3" style="padding-top: 100px;">
     <h1 class="text-center mb-3">Preencha os dados a seguir:</h1>
 
-    <form action="/candidato/cadastro/nome" method="POST" class="w-100" style="max-width: 400px;">
-      <!-- Campo oculto com o ID do usuário -->
+    <form action="/candidato/cadastro/nome" method="POST"
+          class="w-100" style="max-width: 400px;">
       <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
 
       <div class="mb-3">
         <label for="nome" class="form-label">Nome</label>
-        <input type="text" class="form-control rounded-pill" id="nome" name="nome" placeholder="Ex: João" required>
+        <input type="text" class="form-control rounded-pill" id="nome" name="nome"
+               placeholder="Ex: João" required>
       </div>
 
       <div class="mb-3">
         <label for="sobrenome" class="form-label">Sobrenome</label>
-        <input type="text" class="form-control rounded-pill" id="sobrenome" name="sobrenome" placeholder="Ex: Silva" required>
+        <input type="text" class="form-control rounded-pill" id="sobrenome" name="sobrenome"
+               placeholder="Ex: Silva" required>
       </div>
 
       <div class="mb-4">
         <label for="dataNascimento" class="form-label">Data de Nascimento</label>
-        <input type="date" class="form-control" id="dataNascimento" name="data_nascimento" required>
+        <input type="date" class="form-control" id="dataNascimento"
+               name="data_nascimento" required>
         <div id="erro-idade" class="invalid-feedback d-none"></div>
       </div>
 
