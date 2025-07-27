@@ -22,15 +22,29 @@ exports.cadastrar = async ({ email, senha, tipo }) => {
 };
 
 /**
- * Busca um usuário pelo e-mail.
+ * Busca um usuário pelo e-mail, incluindo candidato e empresa.
  * @param {string} email
  * @returns {Promise<Object|null>}
  */
 exports.buscarPorEmail = async (email) => {
   return await prisma.usuario.findUnique({
-    where: { email }
+    where: { email },
+    include: {
+      candidato: {
+        include: {
+          candidato_area: {
+            include: {
+              area_interesse: true
+            }
+          }
+        }
+      },
+      empresa: true
+    }
   });
 };
+
+
 
 /**
  * Marca o e-mail como verificado.

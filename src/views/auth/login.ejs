@@ -19,7 +19,7 @@
     <div class="text-center mb-4">
       <h3 class="login-title">Faça seu login</h3>
     </div>
-    <form method="POST" action="/usuarios/login">
+    <form action="/usuarios/login" method="POST">
       <div class="mb-3">
         <label for="email" class="form-label">E-mail</label>
         <input type="email" class="form-control" id="email" name="email" placeholder="Digite seu e-mail" required>
@@ -37,10 +37,21 @@
           A senha deve ter no mínimo 8 caracteres e pelo menos 1 caractere especial.
         </div>
       </div>
-
       <div class="d-grid">
         <button type="submit" class="btn btn-primary">Entrar</button>
       </div>
+        <div class="d-flex align-items-center my-3">
+          <hr class="flex-grow-1 border-secondary">
+          <span class="mx-2 text-secondary">ou</span>
+          <hr class="flex-grow-1 border-secondary">
+        </div>
+
+        <!-- Botão Google login -->
+        <div class="mb-2">
+          <a href="/auth/google?tipo=candidato" class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2 rounded-pill">
+            <i class="bi bi-google"></i>Entrar com Google
+          </a>
+        </div>
     </form>
   </div>
 </div>

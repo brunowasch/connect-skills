@@ -469,3 +469,103 @@ exports.salvarEditarAreas = async (req, res) => {
   }
 };
 
+exports.exibirComplementarGoogle = async (req, res) => {
+  if (!req.session.usuario || req.session.usuario.tipo !== 'candidato') {
+    return res.redirect('/login');
+  }
+
+  const { nome, sobrenome, id: usuario_id } = req.session.usuario;
+
+  res.render('candidatos/cadastro-de-nome-e-sobrenome-candidatos', {
+    title: 'Complete seu cadastro',
+    nome,
+    sobrenome,
+    usuario_id
+  });
+};
+
+
+exports.salvarComplementarGoogle = async (req, res) => {
+  const { usuario_id, telefone, pais, estado, cidade, data_nascimento } = req.body;
+  const foto_perfil = req.body.foto_perfil || ''; // caso você use input file, substituir por Cloudinary
+
+  try {
+    await prisma.candidato.update({
+      where: { usuario_id },
+      data: {
+        telefone,
+        pais,
+        estado,
+        cidade,
+        data_nascimento,
+        foto_perfil
+      }
+    });
+
+    res.redirect('/candidatos/selecionar-areas');
+  } catch (err) {
+    console.error('Erro ao salvar complementar:', err);
+    res.status(500).send('Erro interno ao salvar dados.');
+  }
+};
+
+exports.complementarGoogle = async (req, res) => {
+  try {
+    const usuarioId = req.session.usuario?.id;
+
+    if (!usuarioId) {
+      return res.redirect('/login');
+    }
+
+    const {
+      nome,
+      sobrenome,
+      data_nascimento,
+      pais,
+      estado,
+      cidade,
+      telefone,
+      foto_perfil
+    } = req.body;
+
+    // Salva os dados no banco
+    const candidatoCriado = await candidatoModel.complementarCadastroGoogle(usuarioId, {
+      nome,
+      sobrenome,
+      data_nascimento,
+      pais,
+      estado,
+      cidade,
+      telefone,
+      foto_perfil
+    });
+
+    // Atualiza a sessão
+    req.session.usuario = {
+      id: usuarioId,
+      nome,
+      sobrenome,
+      tipo: 'candidato'
+    };
+
+    req.session.candidato = {
+      id: candidatoCriado.id,
+      usuario_id: usuarioId,
+      nome,
+      sobrenome,
+      data_nascimento,
+      pais,
+      estado,
+      cidade,
+      telefone,
+      foto_perfil
+    };
+
+    req.session.save(() => {
+      res.redirect('/candidatos/home');
+    });
+  } catch (erro) {
+    console.error('Erro ao complementar cadastro com Google:', erro);
+    res.status(500).send('Erro ao salvar informações do candidato.');
+  }
+};

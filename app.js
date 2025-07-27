@@ -6,6 +6,9 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const db = require('./src/config/db');
 const MySQLStore = require('express-mysql-session')(session);
+const passport = require('passport');
+require('./src/config/passportGoogle');
+const prisma = require('./src/config/prisma');
 
 const authRoutes = require('./src/routes/authRoutes');
 const usuarioRoutes = require('./src/routes/usuarioRoutes');
@@ -18,6 +21,12 @@ const port = 3000;
 
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.json({ limit: '10mb' }));
+
+passport.serializeUser((user, done) => done(null, user.id));
+passport.deserializeUser(async (id, done) => {
+  const user = await prisma.usuario.findUnique({ where: { id } });
+  done(null, user);
+});
 
 const options = {
   host: process.env.DB_HOST || 'localhost',
@@ -42,8 +51,6 @@ const sessionStore = new MySQLStore({
   queueLimit: 0
 });
 
-
-
 app.use(session({
   secret: process.env.SECRET_SESSION || 'default_secret',
   resave: false,
@@ -55,6 +62,9 @@ app.use(session({
     maxAge: 1000 * 60 * 60 * 24 * 7
   }
 }));
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'src', 'views'));
