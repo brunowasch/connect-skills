@@ -89,8 +89,66 @@ app.use('/usuarios', usuarioRoutes); // cadastro, login, verificação
 app.use('/candidatos', candidatoRoutes); // etapa de cadastro e acesso
 app.use('/empresas', empresaRoutes);     // etapa de cadastro e acesso
 
-// Rota principal
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  async (req, res) => {
+    const usuario = req.user; // 👈 ISSO TEM QUE VIR ANTES DE TUDO
 
+    console.log('✅ Usuário logado via Google:', {
+      id: usuario.id,
+      tipo: usuario.tipo
+    });
+
+    req.session.usuario = {
+      id: usuario.id,
+      nome: usuario.nome,
+      sobrenome: usuario.sobrenome,
+      tipo: usuario.tipo
+    };
+
+    if (usuario.tipo === 'candidato') {
+      const candidato = await prisma.candidato.findUnique({
+        where: { usuario_id: usuario.id }
+      });
+
+      
+      console.log('📦 Dados do candidato:', candidato);
+      const cadastroIncompleto = !candidato?.telefone || 
+                                candidato.telefone.includes('não informado') ||
+                                !candidato.cidade || 
+                                !candidato.estado || 
+                                !candidato.pais || 
+                                !candidato.data_nascimento;
+
+      if (cadastroIncompleto) {
+        console.log('🔁 Redirecionando para complemento do Google...');
+        return res.redirect('/candidatos/cadastro/google/complementar');
+      }
+
+      req.session.candidato = {
+        id: candidato.id,
+        usuario_id: usuario.id,
+        nome: usuario.nome,
+        sobrenome: usuario.sobrenome,
+        email: usuario.email,
+        tipo: 'candidato',
+        telefone: candidato.telefone,
+        dataNascimento: candidato.data_nascimento,
+        foto_perfil: candidato.foto_perfil,
+        localidade: [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', '),
+        areas: []
+      };
+
+      return res.redirect('/candidatos/home');
+    }
+
+    if (usuario.tipo === 'empresa') {
+      return res.redirect('/empresas/home');
+    }
+
+    res.redirect('/');
+  }
+);
 
 // Rota de logout
 app.get('/logout', (req, res) => {

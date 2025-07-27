@@ -9,15 +9,26 @@
   <link rel="icon" href="/img/CONNECT.png">
 </head>
 <body>
-  <main class="container py-5">
-    <h2 class="mb-4 text-center">Complete seu cadastro</h2>
+  <%- include('../partials/header') %>
+  <main class="container py-5" style="padding-top: 100px;">
+    <h2 class="mb-5 mt-4 text-center">Complete seu cadastro</h2>
 
     <% if (erro) { %>
       <div class="alert alert-danger text-center"><%= erro %></div>
     <% } %>
 
-    <form action="/candidatos/cadastro/google/complementar" method="POST">
+    <form action="/candidatos/complementar" method="POST">
       <div class="row justify-content-center g-4">
+
+        <div class="col-md-6">
+          <label for="nome" class="form-label">Nome</label>
+          <input type="text" class="form-control" name="nome" id="nome" value="<%= nome %>" readonly required>
+        </div>
+
+        <div class="col-md-6">
+          <label for="sobrenome" class="form-label">Sobrenome</label>
+          <input type="text" class="form-control" name="sobrenome" id="sobrenome" value="<%= sobrenome %>" readonly required>
+        </div>
 
         <div class="col-md-6">
           <label for="dataNascimento" class="form-label">Data de nascimento</label>
@@ -25,8 +36,12 @@
         </div>
 
         <div class="col-md-6">
-          <label for="telefone" class="form-label">Telefone</label>
-          <input type="text" class="form-control" name="telefone" id="telefone" placeholder="(DDD) Número" required>
+          <label class="form-label">Telefone</label>
+          <div class="d-flex gap-2">
+            <input type="text" class="form-control" name="ddi" value="+55" style="max-width: 70px;" required>
+            <input type="text" class="form-control" name="ddd" placeholder="DDD" style="max-width: 80px;" required>
+            <input type="text" class="form-control" name="numero" placeholder="Número" required>
+          </div>
         </div>
 
         <div class="col-md-6">

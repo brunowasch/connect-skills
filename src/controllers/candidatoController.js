@@ -246,10 +246,19 @@ exports.telaHomeCandidato = (req, res) => {
 
 exports.renderMeuPerfil = async (req, res) => {
   if (!req.session.candidato) return res.redirect('/login');
+
   const candidato = await prisma.candidato.findUnique({
     where: { id: Number(req.session.candidato.id) },
-    include: { candidato_area: { select: { area_interesse: { select: { nome: true } } } } }
+    include: {
+      candidato_area: {
+        select: { area_interesse: { select: { nome: true } } }
+      },
+      usuario: {
+        select: { avatarUrl: true }
+      }
+    }
   });
+
   if (!candidato) return res.redirect('/login');
 
   const localidade = [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ');
@@ -259,9 +268,17 @@ exports.renderMeuPerfil = async (req, res) => {
     ? new Date(candidato.data_nascimento).toISOString().slice(0, 10)
     : '';
 
+    let fotoPerfil = null;
+
+    if (candidato.foto_perfil && candidato.foto_perfil.trim() && !candidato.foto_perfil.includes('avatar.png')) {
+      fotoPerfil = candidato.foto_perfil;
+    } else if (candidato.usuario?.avatarUrl) {
+      fotoPerfil = candidato.usuario.avatarUrl;
+    }
+
   res.render('candidatos/meu-perfil', {
     candidato,
-    fotoPerfil: candidato.foto_perfil && candidato.foto_perfil.trim() !== '' ? candidato.foto_perfil : null,
+    fotoPerfil,
     localidade,
     areas,
     ddi,
@@ -474,65 +491,70 @@ exports.exibirComplementarGoogle = async (req, res) => {
     return res.redirect('/login');
   }
 
-  const { nome, sobrenome, id: usuario_id } = req.session.usuario;
-
-  res.render('candidatos/cadastro-de-nome-e-sobrenome-candidatos', {
-    title: 'Complete seu cadastro',
-    nome,
-    sobrenome,
-    usuario_id
-  });
-};
-
-
-exports.salvarComplementarGoogle = async (req, res) => {
-  const { usuario_id, telefone, pais, estado, cidade, data_nascimento } = req.body;
-  const foto_perfil = req.body.foto_perfil || ''; // caso você use input file, substituir por Cloudinary
+  const usuario_id = req.session.usuario.id;
 
   try {
-    await prisma.candidato.update({
-      where: { usuario_id },
-      data: {
-        telefone,
-        pais,
-        estado,
-        cidade,
-        data_nascimento,
-        foto_perfil
-      }
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: usuario_id }
     });
 
-    res.redirect('/candidatos/selecionar-areas');
-  } catch (err) {
-    console.error('Erro ao salvar complementar:', err);
-    res.status(500).send('Erro interno ao salvar dados.');
+    res.render('candidatos/cadastro-complementar-google', {
+      title: 'Completar Cadastro - Connect Skills',
+      erro: null,
+      nome: usuario?.nome || '',
+      sobrenome: usuario?.sobrenome || '',
+      usuario_id
+    });
+  } catch (error) {
+    console.error('Erro ao buscar usuário para complementar cadastro:', error);
+    res.render('candidatos/cadastro-complementar-google', {
+      title: 'Completar Cadastro - Connect Skills',
+      erro: 'Erro ao carregar os dados. Tente novamente.',
+      nome: '',
+      sobrenome: '',
+      usuario_id
+    });
   }
 };
 
 exports.complementarGoogle = async (req, res) => {
   try {
     const usuarioId = req.session.usuario?.id;
+    if (!usuarioId) return res.redirect('/login');
 
-    if (!usuarioId) {
-      return res.redirect('/login');
-    }
-
-    const {
+    let {
       nome,
       sobrenome,
       data_nascimento,
       pais,
       estado,
       cidade,
-      telefone,
+      ddi,
+      ddd,
+      numero,
       foto_perfil
     } = req.body;
 
-    // Salva os dados no banco
-    const candidatoCriado = await candidatoModel.complementarCadastroGoogle(usuarioId, {
+    const telefone = `${ddi}-${ddd}-${(numero || '').replace(/-/g, '')}`;
+
+    // Converte data de nascimento para Date
+    const dataNascimentoConvertida = new Date(data_nascimento);
+
+    // Se não veio foto, define como null
+    if (!foto_perfil || foto_perfil.trim() === '') {
+      foto_perfil = null;
+    }
+
+    // Validação mínima
+    if (!nome || !sobrenome) {
+      return res.status(400).send('Nome e sobrenome são obrigatórios.');
+    }
+
+    // Complementa o cadastro
+    await candidatoModel.complementarCadastroGoogle(usuarioId, {
       nome,
       sobrenome,
-      data_nascimento,
+      data_nascimento: dataNascimentoConvertida,
       pais,
       estado,
       cidade,
@@ -540,7 +562,33 @@ exports.complementarGoogle = async (req, res) => {
       foto_perfil
     });
 
-    // Atualiza a sessão
+    // Atualiza usuário (nome, sobrenome, data de nascimento)
+    await prisma.usuario.update({
+      where: { id: req.session.usuario.id },
+      data: {
+        nome,
+        sobrenome
+      }
+    });
+
+    await candidatoModel.complementarCadastroGoogle(req.session.usuario.id, {
+      data_nascimento: new Date(data_nascimento),
+      pais,
+      estado,
+      cidade,
+      telefone,
+      foto_perfil
+    });
+
+    const [candidatoCompleto, usuarioCompleto] = await Promise.all([
+      candidatoModel.obterCandidatoPorUsuarioId(usuarioId),
+      prisma.usuario.findUnique({
+        where: { id: usuarioId },
+        select: { avatarUrl: true }
+      })
+    ]);
+
+    // Atualiza sessão
     req.session.usuario = {
       id: usuarioId,
       nome,
@@ -549,23 +597,25 @@ exports.complementarGoogle = async (req, res) => {
     };
 
     req.session.candidato = {
-      id: candidatoCriado.id,
+      id: candidatoCompleto.id,
       usuario_id: usuarioId,
-      nome,
-      sobrenome,
-      data_nascimento,
-      pais,
-      estado,
-      cidade,
-      telefone,
-      foto_perfil
+      nome: candidatoCompleto.nome,
+      sobrenome: candidatoCompleto.sobrenome,
+      email: candidatoCompleto.email,
+      tipo: 'candidato',
+      telefone: candidatoCompleto.telefone,
+      dataNascimento: candidatoCompleto.data_nascimento,
+      foto_perfil: candidatoCompleto.foto_perfil || usuarioCompleto.avatarUrl || null,
+      localidade: `${candidatoCompleto.cidade}, ${candidatoCompleto.estado}, ${candidatoCompleto.pais}`,
+      areas: []
     };
 
     req.session.save(() => {
-      res.redirect('/candidatos/home');
+      res.redirect(`/candidato/cadastro/areas?usuario_id=${usuarioId}`);
     });
+
   } catch (erro) {
-    console.error('Erro ao complementar cadastro com Google:', erro);
+    console.error('❌ Erro ao complementar cadastro com Google:', erro.message, erro);
     res.status(500).send('Erro ao salvar informações do candidato.');
   }
 };

@@ -10,71 +10,8 @@ const { ensureCandidato } = require('../middlewares/auth');
 router.get('/cadastro/nome', candidatoController.telaNomeCandidato);
 router.post('/cadastro/nome', candidatoController.salvarNomeCandidato);
 
-router.get('/cadastro/google/complementar', async (req, res) => {
-  const usuario = req.session.usuario;
-
-  if (!usuario || usuario.tipo !== 'candidato') {
-    return res.redirect('/login');
-  }
-
-  res.render('candidatos/cadastro-complementar-google', { erro: null });
-});
-
-router.post('/cadastro/google/complementar', async (req, res) => {
-  try {
-    if (!req.session.usuario || req.session.usuario.tipo !== 'candidato') {
-      return res.redirect('/login');
-    }
-
-    const { data_nascimento, localidade, ddi, ddd, numero, areas } = req.body;
-    const usuario_id = req.session.usuario.id;
-
-    const telefone = `${ddi || ''}-${ddd || ''}-${numero || ''}`;
-    const dataNascimentoConvertida = new Date(data_nascimento);
-
-    const areasArray = Array.isArray(areas)
-      ? areas.map(areaId => ({ area_interesse_id: Number(areaId) }))
-      : areas
-      ? [{ area_interesse_id: Number(areas) }]
-      : [];
-
-    await prisma.candidato.update({
-      where: { usuario_id },
-      data: {
-        data_nascimento: dataNascimentoConvertida,
-        localidade,
-        telefone,
-        candidato_area: {
-          create: areasArray
-        }
-      }
-    });
-
-    const candidato = await prisma.candidato.findUnique({
-        where: { usuario_id },
-    });
-
-    req.session.usuario = {
-    ...req.session.usuario,
-    nome: candidato.nome,
-    sobrenome: candidato.sobrenome,
-    tipo: 'candidato'
-    };
-
-req.session.candidato = candidato;
-
-req.session.save(() => {
-  res.redirect('/candidatos/home');
-});
-
-  } catch (error) {
-    console.error('Erro ao salvar dados complementares:', error);
-    res.render('candidatos/cadastro-complementar-google', {
-      title: 'Cadastro complementar',
-      erro: 'Erro ao salvar as informações. Tente novamente.'
-    });
-  }
-});
+router.get('/cadastro/google/complementar', candidatoController.exibirComplementarGoogle);
+router.post('/complementar', candidatoController.complementarGoogle);
 
 
 // Outras etapas do cadastro padrão

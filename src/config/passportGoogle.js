@@ -64,6 +64,13 @@ async (req, accessToken, refreshToken, profile, done) => {
         }
       }
     }
+    req.session.usuario = {
+    id: usuario.id,
+    nome: usuario.nome,
+    sobrenome: usuario.sobrenome,
+    tipo: usuario.tipo,
+    foto: usuario.avatarUrl 
+  };
 
     done(null, usuario);
   } catch (err) {
