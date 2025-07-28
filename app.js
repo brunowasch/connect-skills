@@ -94,7 +94,7 @@ app.get('/auth/google/callback',
   async (req, res) => {
     const usuario = req.user; // 👈 ISSO TEM QUE VIR ANTES DE TUDO
 
-    console.log('✅ Usuário logado via Google:', {
+    console.log('Usuário logado via Google:', {
       id: usuario.id,
       tipo: usuario.tipo
     });
@@ -143,8 +143,32 @@ app.get('/auth/google/callback',
     }
 
     if (usuario.tipo === 'empresa') {
-      return res.redirect('/empresas/home');
-    }
+  const empresa = await prisma.empresa.findUnique({
+    where: { usuario_id: usuario.id }
+  });
+
+  const cadastroIncompleto = !empresa || !empresa.telefone || !empresa.cidade || !empresa.estado || !empresa.pais;
+
+  if (cadastroIncompleto) {
+    console.log('🔁 Redirecionando empresa para complemento do Google...');
+    return res.redirect('/empresas/complementar');
+  }
+
+  req.session.empresa = {
+    id: empresa.id,
+    usuario_id: usuario.id,
+    nome_empresa: empresa.nome_empresa,
+    descricao: empresa.descricao,
+    telefone: empresa.telefone,
+    cidade: empresa.cidade,
+    estado: empresa.estado,
+    pais: empresa.pais,
+    foto_perfil: empresa.foto_perfil || ''
+  };
+
+  return res.redirect('/empresas/home');
+}
+
 
     res.redirect('/');
   }

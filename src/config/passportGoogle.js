@@ -15,7 +15,7 @@ async (req, accessToken, refreshToken, profile, done) => {
     const tipo = req.query.state; // 'candidato' ou 'empresa'
     const googleId = profile.id;
     const email = profile.emails[0].value;
-    const avatarUrl = profile.photos[0]?.value || '';
+    const avatarUrl = profile.photos?.[0]?.value || 'https://via.placeholder.com/150';
 
     // 1. Tenta encontrar por googleId
     let usuario = await prisma.usuario.findUnique({
@@ -57,23 +57,39 @@ async (req, accessToken, refreshToken, profile, done) => {
           await prisma.candidato.create({
             data: { usuario_id: usuario.id }
           });
-        } else if (tipo === 'empresa') {
-          await prisma.empresa.create({
-            data: { usuario_id: usuario.id }
-          });
-        }
+        } 
       }
     }
+    if (!usuario.avatarUrl && avatarUrl) {
+      usuario = await prisma.usuario.update({
+        where: { id: usuario.id },
+        data: { avatarUrl }
+      });
+    }
     req.session.usuario = {
-    id: usuario.id,
-    nome: usuario.nome,
-    sobrenome: usuario.sobrenome,
-    tipo: usuario.tipo,
-    foto: usuario.avatarUrl 
-  };
+      id: usuario.id,
+      nome: usuario.nome,
+      sobrenome: usuario.sobrenome,
+      tipo: usuario.tipo,
+      email: usuario.email,
+      foto: usuario.avatarUrl || ''
+    };
 
     done(null, usuario);
   } catch (err) {
     done(err, null);
   }
 }));
+
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+  try {
+    const usuario = await prisma.usuario.findUnique({ where: { id } });
+    done(null, usuario);
+  } catch (err) {
+    done(err);
+  }
+});

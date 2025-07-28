@@ -820,3 +820,72 @@ exports.perfilPublico = async (req, res) => {
     res.status(500).send("Erro ao carregar perfil.");
   }
 };
+
+exports.telaComplementarGoogle = (req, res) => {
+  if (!req.session.usuario || req.session.usuario.tipo !== 'empresa') {
+    return res.redirect('/');
+  }
+
+  const nome = req.session.usuario.nome || '';
+  res.render('empresas/cadastro-complementar-empresa', { nome, erro: null });
+};
+
+exports.salvarComplementarGoogle = async (req, res) => {
+  const { nome, descricao, ddi, ddd, numero, localidade } = req.body;
+console.log('🧠 FOTO vinda da sessão do usuário:', req.session.usuario.foto);
+
+  const usuario_id = req.session.usuario?.id;
+
+  if (!usuario_id || !nome || !descricao || !localidade || !ddd || !numero) {
+    return res.render('empresas/cadastro-complementar-empresa', {
+      nome,
+      erro: 'Preencha todos os campos obrigatórios.'
+    });
+  }
+
+  try {
+      const usuario_id = req.session.usuario.id;
+
+      const usuarioDB = await prisma.usuario.findUnique({
+        where: { id: usuario_id }
+      });
+
+      await empresaModel.criarEmpresa({
+        usuario_id,
+        nome_empresa: nome,
+        descricao,
+        foto_perfil: usuarioDB.avatarUrl || ''
+      });
+
+    // Localidade
+    const partes = localidade.split(',').map(p => p.trim());
+    const [cidade, estado = '', pais = ''] = partes;
+    await empresaModel.atualizarLocalizacao({ usuario_id, cidade, estado, pais });
+
+    // Telefone
+    const telefone = `${ddi} (${ddd}) ${numero}`;
+    await empresaModel.atualizarTelefone({ usuario_id, telefone });
+
+    // Busca a empresa para popular a sessão
+    const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario_id);
+    req.session.empresa = {
+      id: empresa.id,
+      usuario_id,
+      nome_empresa: empresa.nome_empresa,
+      descricao: empresa.descricao,
+      cidade: empresa.cidade,
+      estado: empresa.estado,
+      pais: empresa.pais,
+      telefone: empresa.telefone,
+      foto_perfil: empresa.foto_perfil || ''
+    };
+
+    res.redirect('/empresa/home');
+  } catch (err) {
+    console.error('Erro no cadastro complementar da empresa:', err);
+    res.render('empresas/cadastro-complementar-empresa', {
+      nome,
+      erro: 'Erro interno ao salvar os dados. Tente novamente.'
+    });
+  }
+};

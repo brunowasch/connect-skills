@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
  * @param {string} dados.descricao
  * @returns {Promise<Object>}
  */
-exports.criarEmpresa = async ({ usuario_id, nome_empresa, descricao }) => {
+exports.criarEmpresa = async ({ usuario_id, nome_empresa, descricao, foto_perfil }) => {
   return await prisma.empresa.create({
     data: {
       usuario_id: Number(usuario_id),
@@ -19,10 +19,11 @@ exports.criarEmpresa = async ({ usuario_id, nome_empresa, descricao }) => {
       pais: '',
       estado: '',
       cidade: '',
-      foto_perfil: ''
+      foto_perfil: foto_perfil || ''
     }
   });
 };
+
 
 /**
  * Atualiza a localização da empresa.
