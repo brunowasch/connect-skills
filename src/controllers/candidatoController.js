@@ -626,7 +626,17 @@ exports.complementarGoogle = async (req, res) => {
     const [cidade = '', estado = '', pais = ''] = (localidade || '').split(',').map(p => p.trim());
 
 const { ddi, ddd, numero } = req.body;
-const telefoneFormatado = `${ddi || '+55'} (${ddd}) ${numero}`;
+const numeroLimpo = (numero || '').replace(/\D/g, '');
+const numeroFormatado = numeroLimpo.length === 9
+  ? `${numeroLimpo.slice(0, 5)}-${numeroLimpo.slice(5)}`
+  : numeroLimpo.length === 8
+    ? `${numeroLimpo.slice(0, 4)}-${numeroLimpo.slice(4)}`
+    : numeroLimpo;
+
+const telefoneFormatado = (ddd && numeroFormatado)
+  ? `${ddi || '+55'} (${ddd}) ${numeroFormatado}`
+  : '';
+
 
     const dataNascimentoConvertida = new Date(data_nascimento);
 
