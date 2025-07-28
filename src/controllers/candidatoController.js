@@ -284,7 +284,7 @@ exports.renderMeuPerfil = async (req, res) => {
       if (match) {
         ddi = match[1];
         ddd = match[2];
-        numero = match[3].replace(/\D/g, ''); // remove espaços e hífens
+        numero = match[3].replace(/\D/g, '');
       }
     } else {
       // Formato tradicional: +55-51-9921793330
@@ -298,20 +298,25 @@ exports.renderMeuPerfil = async (req, res) => {
       : `${numero.slice(0, 4)}-${numero.slice(4)}`
     : '';
 
-
   // 📍 Localidade e áreas
   const localidade = [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ');
   const areas = candidato.candidato_area.map(r => r.area_interesse.nome);
 
-  // 📍 Data
+  // 📍 Data de nascimento
   const dataNascimento = candidato.data_nascimento
     ? new Date(candidato.data_nascimento).toISOString().slice(0, 10)
     : '';
 
-let fotoPerfil = candidato.foto_perfil?.trim() || candidato.usuario?.avatarUrl || null;
+  // 📍 Foto de perfil (respeita se foi removida)
+  let fotoPerfil = null;
+  if (candidato.foto_perfil && candidato.foto_perfil.trim() !== '') {
+    fotoPerfil = candidato.foto_perfil.trim();
+  }
 
+  // Log para garantir que está certo
+  console.log('foto_perfil final:', fotoPerfil);
 
-  // 📍 Render final
+  // 📍 Render da view
   res.render('candidatos/meu-perfil', {
     candidato,
     fotoPerfil,
@@ -324,6 +329,7 @@ let fotoPerfil = candidato.foto_perfil?.trim() || candidato.usuario?.avatarUrl |
     activePage: 'perfil'
   });
 };
+
 
 exports.mostrarVagas = async (req, res) => {
   const usuario = req.session.candidato;
@@ -383,6 +389,12 @@ exports.telaEditarPerfil = async (req, res) => {
       : '';
 
     const fotoPerfil = candidato.foto_perfil || sess.foto_perfil;
+  avatarGoogle: req.session.candidato?.foto_perfil === null
+    ? (await prisma.usuario.findUnique({
+        where: { id: sess.usuario_id },
+        select: { avatarUrl: true }
+      }))?.avatarUrl
+    : null
 
     // Render da view com dados reais
     res.render('candidatos/editar-perfil', {
@@ -402,8 +414,6 @@ exports.telaEditarPerfil = async (req, res) => {
   }
 };
 
-
-// candidatoController.js
 
 exports.salvarEditarPerfil = async (req, res) => {
   const sess = req.session.candidato;
@@ -615,12 +625,11 @@ exports.complementarGoogle = async (req, res) => {
 
     const [cidade = '', estado = '', pais = ''] = (localidade || '').split(',').map(p => p.trim());
 
-    const { ddi, ddd, numero } = req.body;
-    const telefoneFormatado = `${ddi} (${ddd}) ${numero}`;
+const { ddi, ddd, numero } = req.body;
+const telefoneFormatado = `${ddi || '+55'} (${ddd}) ${numero}`;
 
     const dataNascimentoConvertida = new Date(data_nascimento);
 
-    // 🔍 Se não veio foto do formulário, usa avatarUrl salvo no banco
     if (!foto_perfil || foto_perfil.trim() === '') {
       const usuario = await prisma.usuario.findUnique({
         where: { id: usuarioId },
@@ -688,5 +697,34 @@ exports.complementarGoogle = async (req, res) => {
   } catch (erro) {
     console.error('❌ Erro ao complementar cadastro com Google:', erro.message, erro);
     res.status(500).send('Erro ao salvar informações do candidato.');
+  }
+};
+
+exports.restaurarFotoGoogle = async (req, res) => {
+  const sess = req.session.candidato;
+  if (!sess) return res.redirect('/login');
+
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: sess.usuario_id },
+    select: { avatarUrl: true }
+  });
+
+  if (!usuario || !usuario.avatarUrl) {
+    console.warn('Usuário não tem avatar do Google para restaurar.');
+    return res.redirect('/candidato/editar-perfil');
+  }
+
+  try {
+    await candidatoModel.atualizarFotoPerfil({
+      candidato_id: sess.id,
+      foto_perfil: usuario.avatarUrl
+    });
+
+    sess.foto_perfil = usuario.avatarUrl;
+
+    res.redirect('/candidato/editar-perfil');
+  } catch (err) {
+    console.error('Erro ao restaurar foto do Google:', err.message);
+    res.redirect('/candidato/editar-perfil');
   }
 };

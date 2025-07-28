@@ -94,7 +94,6 @@ exports.criarUsuario = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-  console.log('[DEBUG] Entrou no usuarioController.login');
   const { email, senha } = req.body;
   if (!email || !senha) return res.status(400).send('Preencha todos os campos.');
 
@@ -135,25 +134,26 @@ exports.login = async (req, res) => {
       const candidato = await candidatoModel.obterCandidatoPorUsuarioId(usuario.id);
       if (!candidato) return res.redirect('/login');
 
-if (usuario.candidato) {
+if (candidato) {
   req.session.candidato = {
-    id: usuario.candidato.id,
-    nome: usuario.nome,
-    sobrenome: usuario.sobrenome,
+    id: candidato.id,
+    usuario_id: usuario.id,
+    nome: candidato.nome,
+    sobrenome: candidato.sobrenome,
     email: usuario.email,
     tipo: 'candidato',
-    telefone: usuario.candidato.telefone,
-    dataNascimento: usuario.candidato.data_nascimento,
-    foto_perfil: usuario.candidato.foto_perfil,
-    localidade: `${usuario.candidato.cidade}, ${usuario.candidato.estado}, ${usuario.candidato.pais}`,
-    areas: usuario.candidato.candidato_area.map(r => r.area_interesse.nome)
+    telefone: candidato.telefone,
+    dataNascimento: candidato.data_nascimento,
+    foto_perfil: candidato.foto_perfil,
+    localidade: `${candidato.cidade}, ${candidato.estado}, ${candidato.pais}`,
+    areas: candidato.candidato_area?.map(r => r.area_interesse.nome) || []
   };
 
   req.session.usuario = {
     id: usuario.id,
     tipo: 'candidato',
-    nome: usuario.nome,
-    sobrenome: usuario.sobrenome
+    nome: candidato.nome,
+    sobrenome: candidato.sobrenome
   };
 
   return req.session.save(() => {
