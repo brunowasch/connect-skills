@@ -164,8 +164,16 @@ exports.salvarFotoPerfil = async (req, res) => {
 
     console.log("Sessão empresa atualizada:", req.session.empresa);
 
-    // 5. Redirecionar para a home da empresa
-    return res.redirect('/empresa/home');
+    req.session.usuario = {
+    id: empresa.usuario_id,
+    tipo: 'empresa',
+    nome: empresa.nome_empresa
+  };
+
+  // Garante que a sessão esteja salva antes de redirecionar
+  req.session.save(() => {
+    res.redirect('/empresa/home');
+  });
   } catch (err) {
     console.error('Erro ao salvar foto de perfil da empresa:', err);
     return res.render('empresas/foto-perfil-empresa', {
