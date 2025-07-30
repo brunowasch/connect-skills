@@ -183,21 +183,20 @@ exports.salvarFotoPerfil = async (req, res) => {
   }
 };
 
-
-
 exports.homeEmpresa = async (req, res) => {
   try {
-    if (!req.session.empresa) {
+    let empresa = req.session.empresa;
+
+    if (!empresa) {
       const usuario_id = parseInt(req.query.usuario_id, 10);
       if (isNaN(usuario_id)) return res.redirect('/login');
 
-      const empresa = await prisma.empresa.findUnique({
+      empresa = await prisma.empresa.findUnique({
         where: { usuario_id }
       });
 
       if (!empresa) return res.redirect('/login');
 
-      // Preenche a sessão mesmo que tenha pulado a etapa da imagem
       req.session.empresa = {
         id: empresa.id,
         usuario_id: empresa.usuario_id,
@@ -211,16 +210,30 @@ exports.homeEmpresa = async (req, res) => {
       };
     }
 
-    const empresa = req.session.empresa;
-    const localidade = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', ');
+    // SEMPRE buscar o email atualizado
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: req.session.empresa.usuario_id },
+      select: { email: true }
+    });
+
+    // Atualizar o email nas sessões, mesmo se já existirem
+    req.session.empresa.email = usuario?.email || '';
+    req.session.usuario = {
+      id: req.session.empresa.usuario_id,
+      tipo: 'empresa',
+      nome: req.session.empresa.nome_empresa,
+      email: usuario?.email || ''
+    };
+
+    const localidade = [req.session.empresa.cidade, req.session.empresa.estado, req.session.empresa.pais].filter(Boolean).join(', ');
 
     res.render('empresas/home-empresas', {
-      nome: empresa.nome_empresa,
-      descricao: empresa.descricao,
-      telefone: empresa.telefone,
+      nome: req.session.empresa.nome_empresa,
+      descricao: req.session.empresa.descricao,
+      telefone: req.session.empresa.telefone,
       localidade,
-      fotoPerfil: empresa.foto_perfil || '/img/avatar.png',
-      usuario: empresa,
+      fotoPerfil: req.session.empresa.foto_perfil || '/img/avatar.png',
+      usuario: req.session.usuario,
       activePage: 'home'
     });
   } catch (err) {
@@ -228,7 +241,6 @@ exports.homeEmpresa = async (req, res) => {
     res.status(500).send('Erro ao carregar home.');
   }
 };
-
 
 exports.telaPerfilEmpresa = async (req, res) => {
   const empresa = req.session.empresa;

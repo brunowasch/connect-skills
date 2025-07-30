@@ -1,0 +1,63 @@
+<% var sucesso = typeof sucesso !== 'undefined' ? sucesso : false; %>
+<% var erro = typeof erro !== 'undefined' ? erro : false; %>
+<% var candidato = typeof candidato !== 'undefined' ? candidato : null; %>
+<% var empresa = typeof empresa !== 'undefined' ? empresa : null; %>
+<% 
+  var emailUsuario = '';
+  if (candidato && candidato.email) {
+    emailUsuario = candidato.email;
+  } else if (empresa && empresa.usuario_id && empresa.email) {
+    emailUsuario = empresa.email;
+  }
+%>
+
+<section id="contact" class="contact section-padding mt-4">
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="section-header text-center pb-5">
+          <h2>Contate-nos!</h2>
+          <p>Encontrou algum bug ou tem alguma sugestão para o Connect Skills? Contate-nos!</p>
+
+          <% if (sucesso) { %>
+            <div class="alert alert-success text-center">
+              <strong>Email enviado com sucesso!</strong> Entraremos em contato em breve.
+            </div>
+          <% } %>
+
+          <% if (erro) { %>
+            <div class="alert alert-danger text-center">
+              <strong>Ocorreu um erro ao enviar o email.</strong> Tente novamente mais tarde.
+            </div>
+          <% } %>
+
+          <div class="row m-0">
+            <div class="col-md-12 p-0 pt-4 pb-4">
+              <form id="form-contato" action="/enviar-contato" method="POST" class="p-4 m-auto">
+                <div class="row">
+                  <div class="col-md-12">
+                    <div class="mb-3">
+                     <input type="text" name="nome" class="form-control" required placeholder="Nome completo" value="<%= `${usuario?.nome || ''} ${usuario?.sobrenome || ''}`.trim() %>">
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <div class="mb-3">
+                      <input type="email" name="email" class="form-control" required placeholder="Email" value="<%= emailUsuario %>">
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <div class="mb-3">
+                      <textarea name="mensagem" rows="3" required class="form-control" placeholder="Escreva aqui..."></textarea>
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-lg btn-block mt-3">Enviar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

@@ -9,6 +9,7 @@ const MySQLStore = require('express-mysql-session')(session);
 const passport = require('passport');
 require('./src/config/passportGoogle');
 const prisma = require('./src/config/prisma');
+const nodemailer = require('nodemailer');
 
 const authRoutes = require('./src/routes/authRoutes');
 const usuarioRoutes = require('./src/routes/usuarioRoutes');
@@ -65,6 +66,19 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+app.use((req, res, next) => {
+  res.locals.candidato = req.session.candidato || null;
+  res.locals.empresa = req.session.empresa || null;
+  res.locals.usuario = req.session.candidato || req.session.empresa || null;
+
+  res.locals.sucesso = req.session.sucesso || null;
+  res.locals.erro = req.session.erro || null;
+
+  req.session.sucesso = null;
+  req.session.erro = null;
+
+  next();
+});
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'src', 'views'));
@@ -180,6 +194,127 @@ app.get('/logout', (req, res) => {
     if (err) console.error(err);
     res.redirect('/');
   });
+});
+
+app.post('/enviar-contato', async (req, res) => {
+  const { nome, email, mensagem } = req.body;
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+    await transporter.sendMail({
+      from: `"${nome}" <${email}>`,
+      to: 'connect0skills@gmail.com',
+      subject: `📩 Novo contato de ${nome}`,
+      html: `
+        <h2>Nova mensagem recebida no Connect Skills</h2>
+        <p><strong>Nome:</strong> ${nome}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Mensagem:</strong></p>
+        <p>${mensagem}</p>
+      `
+    });
+
+    const sucesso = true;
+    const erro = false;
+
+    if (req.session.candidato) {
+      // 🔁 Recarrega dados do candidato
+      const candidato = await prisma.candidato.findUnique({
+        where: { usuario_id: req.session.candidato.usuario_id },
+        include: { usuario: true }
+      });
+
+      const usuario = {
+        nome: candidato.nome,
+        sobrenome: candidato.sobrenome,
+        email: candidato.usuario.email
+      };
+
+      return res.render('candidatos/home-candidatos', {
+        candidato: req.session.candidato,
+        usuario,
+        sucesso,
+        erro
+      });
+    }
+
+    if (req.session.empresa) {
+      // 🔁 Recarrega dados da empresa
+      const empresa = await prisma.empresa.findUnique({
+        where: { usuario_id: req.session.empresa.usuario_id },
+        include: { usuario: true }
+      });
+
+      const usuario = {
+        nome: empresa.nome_empresa,
+        email: empresa.usuario.email
+      };
+
+      return res.render('empresas/home-empresas', {
+        empresa: req.session.empresa,
+        usuario,
+        sucesso,
+        erro
+      });
+    }
+
+    // Usuário não logado
+    res.render('shared/home', { sucesso, erro });
+
+  } catch (error) {
+    console.error('Erro ao enviar e-mail:', error);
+
+    const sucesso = false;
+    const erro = true;
+
+    if (req.session.candidato) {
+      const candidato = await prisma.candidato.findUnique({
+        where: { usuario_id: req.session.candidato.usuario_id },
+        include: { usuario: true }
+      });
+
+      const usuario = {
+        nome: candidato.nome,
+        sobrenome: candidato.sobrenome,
+        email: candidato.usuario.email
+      };
+
+      return res.render('candidatos/home-candidatos', {
+        candidato: req.session.candidato,
+        usuario,
+        sucesso,
+        erro
+      });
+    }
+
+    if (req.session.empresa) {
+      const empresa = await prisma.empresa.findUnique({
+        where: { usuario_id: req.session.empresa.usuario_id },
+        include: { usuario: true }
+      });
+
+      const usuario = {
+        nome: empresa.nome_empresa,
+        email: empresa.usuario.email
+      };
+
+      return res.render('empresas/home-empresas', {
+        empresa: req.session.empresa,
+        usuario,
+        sucesso,
+        erro
+      });
+    }
+
+    res.render('shared/home', { sucesso, erro });
+  }
 });
 
 // Iniciar servidor

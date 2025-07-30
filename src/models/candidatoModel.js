@@ -80,6 +80,11 @@ exports.obterCandidatoPorUsuarioId = async (usuario_id) => {
       usuario_id: Number(usuario_id) 
     },
     include: {
+      usuario: {
+        select: {
+          email: true
+        }
+      },
       candidato_area: {
         include: {
           area_interesse: true
@@ -88,7 +93,6 @@ exports.obterCandidatoPorUsuarioId = async (usuario_id) => {
     }
   });
 
-
   if (!candidato) {
     console.warn(`Nenhum candidato encontrado com usuario_id=${usuario_id}`);
     return null;
@@ -96,6 +100,7 @@ exports.obterCandidatoPorUsuarioId = async (usuario_id) => {
 
   return candidato;
 };
+
 
 
 /**

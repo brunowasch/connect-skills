@@ -31,7 +31,8 @@
           <textarea class="form-control" name="descricao" id="descricao" rows="4" placeholder="Descreva brevemente sua empresa..." required></textarea>
         </div>
 
-        <div class="col-md-12 text-center">
+        <!-- TELEFONE E LOCALIDADE LADO A LADO -->
+        <div class="col-md-6 text-center">
           <label class="form-label">Telefone</label>
           <div class="d-flex gap-2 justify-content-center">
             <input type="text" class="form-control text-center" name="ddi" id="ddi" value="+55" readonly style="width: 60px;">
@@ -40,38 +41,33 @@
           </div>
         </div>
 
-        <div class="col-12 d-flex justify-content-center">
-          <div style="max-width: 300px; width: 100%;">
-            <label for="localidade" class="form-label text-center w-100">
-              Localidade
-            </label>
+        <div class="col-md-6 d-flex flex-column align-items-center">
+          <label for="localidade" class="form-label text-center w-100">Localidade</label>
+          <div class="position-relative w-100" style="max-width: 300px;">
+            <input type="text"
+                  class="form-control text-center"
+                  id="localidade"
+                  name="localidade"
+                  autocomplete="off"
+                  placeholder="Cidade, Estado, País"
+                  required>
+            <ul id="sugestoesLocalidade"
+                class="list-group position-absolute w-100 d-none"
+                style="z-index: 1000;"></ul>
+          </div>
 
-            <div class="position-relative">
-              <input type="text"
-                    class="form-control text-center"
-                    id="localidade"
-                    name="localidade"
-                    autocomplete="off"
-                    placeholder="Cidade, Estado, País"
-                    required>
-              <ul id="sugestoesLocalidade"
-                  class="list-group position-absolute w-100 d-none"
-                  style="z-index: 1000;"></ul>
-            </div>
+          <div class="d-grid gap-2 mt-2 w-100" style="max-width: 300px;">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnLocalizacao">
+              <i class="bi bi-geo-alt-fill me-2"></i> Usar minha localização
+            </button>
+            <button type="button" class="btn btn-link mt-2 w-100 text-center text-decoration-none d-none"
+                    id="btnEditarLocal">
+              <i class="bi bi-pencil-square"></i> Editar localização
+            </button>
+          </div>
 
-            <div class="d-grid gap-2 mt-2">
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="btnLocalizacao">
-                <i class="bi bi-geo-alt-fill me-2"></i> Usar minha localização
-              </button>
-              <button type="button" class="btn btn-link mt-2 w-100 text-center text-decoration-none d-none"
-                      id="btnEditarLocal">
-                <i class="bi bi-pencil-square"></i> Editar localização
-              </button>
-            </div>
-
-            <div id="erro-localidade" class="invalid-feedback d-none mt-2 text-center">
-              Informe sua localidade para continuar.
-            </div>
+          <div id="erro-localidade" class="invalid-feedback d-none mt-2 text-center">
+            Informe sua localidade para continuar.
           </div>
         </div>
 

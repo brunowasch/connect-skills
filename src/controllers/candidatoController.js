@@ -224,7 +224,7 @@ exports.salvarAreas = async (req, res) => {
         id: cAtual.id,
         nome: cAtual.nome,
         sobrenome: cAtual.sobrenome,
-        email: cAtual.email,
+         email: cAtual.usuario?.email || '',
         tipo: 'candidato',
         telefone: cAtual.telefone,
         dataNascimento: cAtual.data_nascimento,
@@ -246,13 +246,14 @@ exports.salvarAreas = async (req, res) => {
 exports.telaHomeCandidato = (req, res) => {
   const usuario = req.session.candidato;
   if (!usuario) return res.redirect('/login');
-  res.render('candidatos/home-candidatos', {
-    nome: usuario.nome,
-    sobrenome: usuario.sobrenome,
-    localidade: usuario.localidade,
-    activePage: 'home',
-    usuario
-  });
+    res.render('candidatos/home-candidatos', {
+      nome: usuario.nome,
+      sobrenome: usuario.sobrenome,
+      localidade: usuario.localidade,
+      activePage: 'home',
+      usuario,        
+      candidato: usuario 
+    });
 };
 
 exports.renderMeuPerfil = async (req, res) => {

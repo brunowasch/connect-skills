@@ -13,7 +13,8 @@
   <body id="home">
     <main>
 <%- include('../partials/header-candidato') %>
-
+<% var sucesso = typeof sucesso !== 'undefined' ? sucesso : false; %>
+<% var erro = typeof erro !== 'undefined' ? erro : false; %>
   <!-- HEADER -->
   <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
     <div class="carousel-inner">
@@ -23,11 +24,12 @@
     </div>
   </div>
 
-<% if (usuario?.nome) { %>
+<% if (typeof usuario !== 'undefined' && usuario?.nome) { %>
   <div class="container mt-5">
-    <h5 class="text-primary fw-bold">Olá, <%= nome || usuario.nome %>!</h5>
+    <h5 class="text-primary fw-bold">Olá, <%= usuario?.nome || candidato?.nome || 'Usuário' %>!</h5>
   </div>
 <% } %>
+
   <!-- COMO FUNCIONA -->
   <section class="container my-5">
 <h3>
@@ -82,7 +84,7 @@
   </div>
 </div>
 
-
+<%- include('../partials/contato', { sucesso, erro, candidato, empresa: null }) %>
 </main>
   <!-- RODAPÉ -->
 <%- include('../partials/footer') %>
