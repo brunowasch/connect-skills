@@ -12,84 +12,76 @@ passport.use(new GoogleStrategy({
 },
 async (req, accessToken, refreshToken, profile, done) => {
   try {
-    const tipo = req.query.state; // 'candidato' ou 'empresa'
+    const state = req.query.state || '';
+    const isCadastro = state.startsWith('cadastro_');
+    const tipo = state.replace('cadastro_', '') || 'candidato'; // 'candidato' ou 'empresa'
     const googleId = profile.id;
     const email = profile.emails[0].value;
     const avatarUrl = profile.photos?.[0]?.value || 'https://via.placeholder.com/150';
 
-    // 1. Tenta encontrar por googleId
-    let usuario = await prisma.usuario.findUnique({
-      where: { googleId }
-    });
+    // 🔍 Verificações
+    console.log('🔎 Checando GoogleId e Email existentes...');
+    const usuarioPorGoogleId = await prisma.usuario.findUnique({ where: { googleId } });
+    const usuarios = await prisma.usuario.findMany();
+    const usuarioPorEmail = usuarios.find(u => u.email.toLowerCase() === email.toLowerCase());
+    console.log('🆔 usuarioPorGoogleId:', usuarioPorGoogleId);
+    console.log('📧 usuarioPorEmail:', usuarioPorEmail);
+    console.log('🟡 isCadastro:', isCadastro);
+    console.log('📌 Tipo:', tipo);
 
-    // 2. Se não encontrou por googleId, procura por email
-    if (!usuario) {
-      usuario = await prisma.usuario.findUnique({
-        where: { email }
+    // 🚫 BLOQUEAR cadastro se já existe
+    if (isCadastro && (usuarioPorGoogleId || usuarioPorEmail)) {
+      req.session.erro = 'Já existe uma conta Google com esse endereço. <a href="/login">Clique aqui para fazer login</a>.';
+      await new Promise(resolve => req.session.save(resolve));
+      return done(null, false);
+    }
+
+    // ✅ NOVO CADASTRO
+    if (isCadastro) {
+      const senhaGerada = crypto.randomBytes(16).toString('hex');
+
+      const novoUsuario = await prisma.usuario.create({
+        data: {
+          email,
+          googleId,
+          senha: senhaGerada,
+          nome: profile.name.givenName || '',
+          sobrenome: profile.name.familyName || '',
+          avatarUrl,
+          tipo
+        }
       });
 
-      // 2a. Se encontrou por email, atualiza com googleId e avatar
-      if (usuario) {
-        usuario = await prisma.usuario.update({
-          where: { email },
-          data: {
-            googleId,
-            avatarUrl
-          }
-        });
+      if (tipo === 'candidato') {
+        await prisma.candidato.create({ data: { usuario_id: novoUsuario.id } });
       } else {
-        // 2b. Se não encontrou por email, cria novo usuário
-        const senhaGerada = crypto.randomBytes(16).toString('hex');
-
-        usuario = await prisma.usuario.create({
-          data: {
-            email,
-            googleId,
-            senha: senhaGerada,
-            nome: profile.name.givenName || '',
-            sobrenome: profile.name.familyName || '',
-            avatarUrl,
-            tipo
-          }
-        });
-
-        if (tipo === 'candidato') {
-          await prisma.candidato.create({
-            data: { usuario_id: usuario.id }
-          });
-        } 
+        await prisma.empresa.create({ data: { usuario_id: novoUsuario.id } });
       }
+
+      return done(null, novoUsuario);
     }
-    if (!usuario.avatarUrl && avatarUrl) {
+
+    // 🟠 LOGIN: não encontrou nenhum
+    if (!usuarioPorGoogleId && !usuarioPorEmail) {
+      req.session.erro = 'Não identificamos nenhuma conta Google cadastrada. <a href="/cadastro">Clique aqui para se cadastrar</a>.';
+      console.log('❗ Conta Google não encontrada para login.');
+      return done(null, false);
+    }
+
+    // ✅ LOGIN: encontrou
+    let usuario = usuarioPorGoogleId || usuarioPorEmail;
+
+    // Atualiza googleId caso não esteja salvo
+    if (!usuario.googleId) {
       usuario = await prisma.usuario.update({
         where: { id: usuario.id },
-        data: { avatarUrl }
+        data: { googleId, avatarUrl }
       });
     }
-    req.session.usuario = {
-      id: usuario.id,
-      nome: usuario.nome,
-      sobrenome: usuario.sobrenome,
-      tipo: usuario.tipo,
-      email: usuario.email,
-      foto: usuario.avatarUrl || ''
-    };
 
-    done(null, usuario);
+    return done(null, usuario);
   } catch (err) {
-    done(err, null);
+    console.error('❌ Erro no login/cadastro com Google:', err);
+    return done(err, null);
   }
 }));
-
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
-passport.deserializeUser(async (id, done) => {
-  try {
-    const usuario = await prisma.usuario.findUnique({ where: { id } });
-    done(null, usuario);
-  } catch (err) {
-    done(err);
-  }
-});

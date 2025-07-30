@@ -14,10 +14,15 @@
 
 <%- include('../partials/header') %>
 
-<main class="container d-flex justify-content-center align-items-center flex-grow-1">
+<main class="container d-flex justify-content-center align-items-center flex-grow-1 main-ajustada">
   <div class="login-box shadow p-4 rounded-4 bg-white" style="width: 100%; max-width: 400px;">
-    <div class="text-center mb-4">
-      <h3 class="login-title">Faça seu login</h3>
+    <div class="text-center mb-3">
+      <h3 class="login-title mb-3">Faça seu login</h3>
+      <% if (erro) { %>
+        <div class="alert alert-danger text-center mx-auto px-3 py-2" style="font-size: 0.95rem;">
+          <%- erro %>
+        </div>
+      <% } %>
     </div>
     <form action="/usuarios/login" method="POST">
       <div class="mb-3">
@@ -48,7 +53,7 @@
 
       <!-- Botão Google login -->
       <div class="mb-2">
-        <a href="/auth/google?tipo=candidato" class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2 rounded-pill">
+        <a href="/auth/google?state=login" class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2 rounded-pill">
           <i class="bi bi-google"></i>Entrar com Google
         </a>
       </div>

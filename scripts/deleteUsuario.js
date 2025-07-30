@@ -70,4 +70,4 @@ async function deletarContaPorEmail(email) {
 }
 
 // Troque aqui pelo e-mail desejado
-deletarContaPorEmail('marcelorangelb2006@gmail.com');
+deletarContaPorEmail('connect0skills@gmail.com');

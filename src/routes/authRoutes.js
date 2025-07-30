@@ -4,91 +4,119 @@ const passport = require('passport');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// Tela de cadastro
+// Telas de login e cadastro
 router.get('/cadastro', (req, res) => {
-  res.render('auth/cadastro', { title: 'Cadastro - Connect Skills' });
+  res.render('auth/cadastro', {
+    title: 'Cadastro - Connect Skills',
+    erro: req.session.erro || null,
+    sucesso: req.session.sucesso || null
+  });
+
+  req.session.erro = null;
+  req.session.sucesso = null;
 });
 
-// Tela de login
 router.get('/login', (req, res) => {
-  res.render('auth/login', { title: 'Login - Connect Skills' });
+  const erroFromQuery = req.query.erro === '1'
+    ? 'Não identificamos nenhuma conta Google cadastrada. <a href="/cadastro">Clique aqui para se cadastrar</a>.'
+    : null;
+
+  res.render('auth/login', {
+    title: 'Login - Connect Skills',
+    erro: erroFromQuery || req.session.erro || null,
+    sucesso: req.session.sucesso || null
+  });
+
+  req.session.erro = null;
+  req.session.sucesso = null;
 });
 
-// Início do login com Google (define tipo no state)
+// Início do login com Google
 router.get('/auth/google', (req, res, next) => {
-  const tipo = req.query.tipo; // 'candidato' ou 'empresa'
+const tipo = req.query.tipo || 'candidato';
+const isCadastro = req.query.cadastro === '1';
+const state = isCadastro ? `cadastro_${tipo}` : tipo;
+
   passport.authenticate('google', {
     scope: ['profile', 'email'],
-    state: tipo
+    state
   })(req, res, next);
 });
 
-// Callback do Google após login
-router.get('/auth/google/callback',
-  passport.authenticate('google', { failureRedirect: '/login' }),
-  async (req, res) => {
-    const usuario = req.user;
-
-    console.log('Usuário logado via Google:', {
-      id: usuario.id,
-      tipo: usuario.tipo
-    });
-
-    req.session.usuario = {
-      id: usuario.id,
-      nome: usuario.nome,
-      sobrenome: usuario.sobrenome,
-      tipo: usuario.tipo
-    };
-
-    if (usuario.tipo === 'candidato') {
-      const candidato = await prisma.candidato.findUnique({
-        where: { usuario_id: usuario.id }
-      });
-
-      const cadastroIncompleto = !candidato?.telefone || 
-                                candidato.telefone.includes('não informado') ||
-                                !candidato.cidade || 
-                                !candidato.estado || 
-                                !candidato.pais || 
-                                !candidato.data_nascimento;
-
-      if (cadastroIncompleto) {
-        console.log('🔁 Redirecionando para complemento do Google...');
-        return res.redirect('/candidatos/cadastro/google/complementar');
-      }
-      req.session.candidato = {
-          id: candidato.id,
-          usuario_id: usuario.id,
-          nome: usuario.nome,
-          sobrenome: usuario.sobrenome,
-          email: usuario.email,
-          tipo: 'candidato',
-          telefone: candidato.telefone,
-          dataNascimento: candidato.data_nascimento,
-          foto_perfil: candidato.foto_perfil,
-          localidade: [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', '),
-          areas: []
-        };
-
-        return res.redirect('/candidatos/home');
+router.get('/auth/google/callback', (req, res, next) => {
+  passport.authenticate('google', async (err, user) => {
+    if (err) {
+      console.error('Erro no login Google:', err);
+      req.session.erro = 'Erro ao autenticar com o Google.';
+      return res.redirect('/login');
     }
 
-    if (usuario.tipo === 'empresa') {
-      const empresa = await prisma.empresa.findUnique({
-        where: { usuario_id: usuario.id }
-      });
+    if (!user) {
+      const erro = req.session.erro || null;
+      req.session.erro = null;
 
-      const cadastroIncompleto = !empresa || !empresa.telefone || !empresa.cidade || !empresa.estado || !empresa.pais;
+      const veioDoCadastro = req.query.state?.startsWith('cadastro_');
+
+      if (veioDoCadastro) {
+        return res.render('auth/cadastro', {
+          title: 'Cadastro - Connect Skills',
+          erro,
+          sucesso: null
+        });
+      }
+
+      return res.render('auth/login', {
+        title: 'Login - Connect Skills',
+        erro,
+        sucesso: null
+      });
+    }
+
+    req.session.usuario = {
+      id: user.id,
+      nome: user.nome,
+      sobrenome: user.sobrenome,
+      tipo: user.tipo
+    };
+
+    if (user.tipo === 'candidato') {
+      const candidato = await prisma.candidato.findUnique({ where: { usuario_id: user.id } });
+
+      const cadastroIncompleto = !candidato || !candidato.telefone || !candidato.cidade || !candidato.estado || !candidato.pais || !candidato.data_nascimento;
 
       if (cadastroIncompleto) {
-        console.log('🔁 Redirecionando empresa para complemento do Google...');
+        return res.redirect('/candidatos/cadastro/google/complementar');
+      }
+
+      req.session.candidato = {
+        id: candidato.id,
+        usuario_id: user.id,
+        nome: user.nome,
+        sobrenome: user.sobrenome,
+        email: user.email,
+        tipo: 'candidato',
+        telefone: candidato.telefone,
+        dataNascimento: candidato.data_nascimento,
+        foto_perfil: candidato.foto_perfil,
+        localidade: [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', '),
+        areas: [] // pode ser populado depois
+      };
+
+      return res.redirect('/candidatos/home');
+    }
+
+    if (user.tipo === 'empresa') {
+      const empresa = await prisma.empresa.findUnique({ where: { usuario_id: user.id } });
+
+      const cadastroIncompleto = !empresa || !empresa.telefone || !empresa.cidade || !empresa.estado || !empresa.pais || !empresa.nome_empresa;
+
+      if (cadastroIncompleto) {
         return res.redirect('/empresas/complementar');
       }
 
       req.session.empresa = {
         id: empresa.id,
-        usuario_id: usuario.id,
+        usuario_id: user.id,
         nome_empresa: empresa.nome_empresa,
         descricao: empresa.descricao,
         telefone: empresa.telefone,
@@ -101,10 +129,9 @@ router.get('/auth/google/callback',
       return res.redirect('/empresas/home');
     }
 
-    res.redirect('/');
-  }
-);
-
+    return res.redirect('/');
+  })(req, res, next);
+});
 
 
 module.exports = router;
