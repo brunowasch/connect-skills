@@ -15,7 +15,7 @@ const authRoutes = require('./src/routes/authRoutes');
 const usuarioRoutes = require('./src/routes/usuarioRoutes');
 const candidatoRoutes = require('./src/routes/candidatoRoutes');
 const empresaRoutes = require('./src/routes/empresaRoutes');
-const mainRoutes = require('./src/routes/index'); 
+const mainRoutes = require('./src/routes/index');
 
 const app = express();
 const port = 3000;
@@ -44,10 +44,10 @@ const sessionStore = new MySQLStore({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   clearExpired: true,
-  checkExpirationInterval: 900000, 
-  expiration: 86400000, 
-  connectionLimit: 5, 
-  connectTimeout: 10000, 
+  checkExpirationInterval: 900000,
+  expiration: 86400000,
+  connectionLimit: 5,
+  connectTimeout: 10000,
   waitForConnections: true,
   queueLimit: 0
 });
@@ -56,10 +56,10 @@ app.use(session({
   secret: process.env.SECRET_SESSION || 'default_secret',
   resave: false,
   saveUninitialized: false,
-  store: sessionStore, 
+  store: sessionStore,
   cookie: {
     httpOnly: true,
-    secure: false, 
+    secure: false,
     maxAge: 1000 * 60 * 60 * 24 * 7
   }
 }));
@@ -83,11 +83,9 @@ app.use((req, res, next) => {
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'src', 'views'));
 
-// Arquivos estáticos (CSS, imagens, JS, uploads)
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
-// Middleware de autenticação (opcional, se quiser proteger rotas)
 const autenticar = (req, res, next) => {
   if (!req.session.usuario && !req.session.empresa) {
     return res.redirect('/login');
@@ -96,17 +94,15 @@ const autenticar = (req, res, next) => {
 };
 
 app.use('/', mainRoutes);
-app.use('/', authRoutes); // /cadastro, /login
-app.use('/usuarios', usuarioRoutes); // cadastro, login, verificação
-
-// Rotas autenticadas por tipo
-app.use('/candidatos', candidatoRoutes); // etapa de cadastro e acesso
-app.use('/empresas', empresaRoutes);     // etapa de cadastro e acesso
+app.use('/', authRoutes);
+app.use('/usuarios', usuarioRoutes);
+app.use('/candidatos', candidatoRoutes);
+app.use('/empresas', empresaRoutes);
 
 app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/login' }),
   async (req, res) => {
-    const usuario = req.user; // 👈 ISSO TEM QUE VIR ANTES DE TUDO
+    const usuario = req.user;
 
     console.log('Usuário logado via Google:', {
       id: usuario.id,
@@ -125,17 +121,7 @@ app.get('/auth/google/callback',
         where: { usuario_id: usuario.id }
       });
 
-      
-      console.log('📦 Dados do candidato:', candidato);
-      const cadastroIncompleto = !candidato?.telefone || 
-                                candidato.telefone.includes('não informado') ||
-                                !candidato.cidade || 
-                                !candidato.estado || 
-                                !candidato.pais || 
-                                !candidato.data_nascimento;
-
-      if (cadastroIncompleto) {
-        console.log('🔁 Redirecionando para complemento do Google...');
+      if (!candidato || !candidato.telefone || !candidato.cidade || !candidato.estado || !candidato.pais || !candidato.data_nascimento) {
         return res.redirect('/candidatos/cadastro/google/complementar');
       }
 
@@ -157,38 +143,33 @@ app.get('/auth/google/callback',
     }
 
     if (usuario.tipo === 'empresa') {
-  const empresa = await prisma.empresa.findUnique({
-    where: { usuario_id: usuario.id }
-  });
+      const empresa = await prisma.empresa.findUnique({
+        where: { usuario_id: usuario.id }
+      });
 
-  const cadastroIncompleto = !empresa || !empresa.telefone || !empresa.cidade || !empresa.estado || !empresa.pais;
+      if (!empresa || !empresa.telefone || !empresa.cidade || !empresa.estado || !empresa.pais) {
+        return res.redirect('/empresas/complementar');
+      }
 
-  if (cadastroIncompleto) {
-    console.log('🔁 Redirecionando empresa para complemento do Google...');
-    return res.redirect('/empresas/complementar');
-  }
+      req.session.empresa = {
+        id: empresa.id,
+        usuario_id: usuario.id,
+        nome_empresa: empresa.nome_empresa,
+        descricao: empresa.descricao,
+        telefone: empresa.telefone,
+        cidade: empresa.cidade,
+        estado: empresa.estado,
+        pais: empresa.pais,
+        foto_perfil: empresa.foto_perfil || ''
+      };
 
-  req.session.empresa = {
-    id: empresa.id,
-    usuario_id: usuario.id,
-    nome_empresa: empresa.nome_empresa,
-    descricao: empresa.descricao,
-    telefone: empresa.telefone,
-    cidade: empresa.cidade,
-    estado: empresa.estado,
-    pais: empresa.pais,
-    foto_perfil: empresa.foto_perfil || ''
-  };
-
-  return res.redirect('/empresas/home');
-}
-
+      return res.redirect('/empresas/home');
+    }
 
     res.redirect('/');
   }
 );
 
-// Rota de logout
 app.get('/logout', (req, res) => {
   req.session.destroy(err => {
     if (err) console.error(err);
@@ -196,10 +177,23 @@ app.get('/logout', (req, res) => {
   });
 });
 
+app.get('/contato', (req, res) => {
+  res.render('shared/contato', {
+    sucesso: req.session.sucesso || null,
+    erro: req.session.erro || null,
+    candidato: req.session.candidato || null,
+    empresa: req.session.empresa || null,
+    usuario: req.session.candidato || req.session.empresa || null
+  });
+  req.session.sucesso = null;
+  req.session.erro = null;
+});
+
 app.post('/enviar-contato', async (req, res) => {
   const { nome, email, mensagem } = req.body;
 
   try {
+    // Transporter
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -209,115 +203,86 @@ app.post('/enviar-contato', async (req, res) => {
     });
 
     await transporter.sendMail({
-      from: `"${nome}" <${email}>`,
-      to: 'connect0skills@gmail.com',
-      subject: `📩 Novo contato de ${nome}`,
+      from: 'Connect Skills <no-reply@connectskills.com>',
+      to: process.env.EMAIL_USER,
+      subject: 'Mensagem de Contato - Connect Skills',
       html: `
-        <h2>Nova mensagem recebida no Connect Skills</h2>
         <p><strong>Nome:</strong> ${nome}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Mensagem:</strong></p>
-        <p>${mensagem}</p>
+        <p><strong>E-mail:</strong> ${email}</p>
+        <p><strong>Mensagem:</strong> ${mensagem}</p>
       `
     });
 
-    const sucesso = true;
-    const erro = false;
-
+    // Decide qual página recarregar com mensagem de sucesso
     if (req.session.candidato) {
-      // 🔁 Recarrega dados do candidato
-      const candidato = await prisma.candidato.findUnique({
-        where: { usuario_id: req.session.candidato.usuario_id },
-        include: { usuario: true }
-      });
-
-      const usuario = {
-        nome: candidato.nome,
-        sobrenome: candidato.sobrenome,
-        email: candidato.usuario.email
-      };
-
       return res.render('candidatos/home-candidatos', {
+        sucesso: 'Email enviado com sucesso! Entraremos em contato em breve.',
+        erro: null,
         candidato: req.session.candidato,
-        usuario,
-        sucesso,
-        erro
+        empresa: null
       });
-    }
-
-    if (req.session.empresa) {
-      // 🔁 Recarrega dados da empresa
-      const empresa = await prisma.empresa.findUnique({
-        where: { usuario_id: req.session.empresa.usuario_id },
-        include: { usuario: true }
-      });
-
-      const usuario = {
-        nome: empresa.nome_empresa,
-        email: empresa.usuario.email
-      };
-
+    } else if (req.session.empresa) {
       return res.render('empresas/home-empresas', {
+        sucesso: 'Email enviado com sucesso! Entraremos em contato em breve.',
+        erro: null,
         empresa: req.session.empresa,
-        usuario,
-        sucesso,
-        erro
+        candidato: null,
+        usuario: {
+          nome: req.session.empresa.nome_empresa,
+          email: req.session.usuario?.email || ''
+        }
+      });
+    } else {
+      return res.render('shared/home', {
+        sucesso: 'Email enviado com sucesso! Entraremos em contato em breve.',
+        erro: null
       });
     }
-
-    // Usuário não logado
-    res.render('shared/home', { sucesso, erro });
-
   } catch (error) {
-    console.error('Erro ao enviar e-mail:', error);
-
-    const sucesso = false;
-    const erro = true;
+    console.error('Erro ao enviar email de contato:', error);
+    const mensagemErro = 'Erro ao enviar o email. Tente novamente mais tarde.';
 
     if (req.session.candidato) {
-      const candidato = await prisma.candidato.findUnique({
-        where: { usuario_id: req.session.candidato.usuario_id },
-        include: { usuario: true }
-      });
-
-      const usuario = {
-        nome: candidato.nome,
-        sobrenome: candidato.sobrenome,
-        email: candidato.usuario.email
-      };
-
       return res.render('candidatos/home-candidatos', {
+        sucesso: null,
+        erro: mensagemErro,
         candidato: req.session.candidato,
-        usuario,
-        sucesso,
-        erro
+        empresa: null
       });
-    }
-
-    if (req.session.empresa) {
-      const empresa = await prisma.empresa.findUnique({
-        where: { usuario_id: req.session.empresa.usuario_id },
-        include: { usuario: true }
-      });
-
-      const usuario = {
-        nome: empresa.nome_empresa,
-        email: empresa.usuario.email
-      };
-
+    } else if (req.session.empresa) {
       return res.render('empresas/home-empresas', {
+        sucesso: null,
+        erro: mensagemErro,
         empresa: req.session.empresa,
-        usuario,
-        sucesso,
-        erro
+        candidato: null
+      });
+    } else {
+      return res.render('shared/home', {
+        sucesso: null,
+        erro: mensagemErro
       });
     }
-
-    res.render('shared/home', { sucesso, erro });
   }
 });
 
-// Iniciar servidor
+app.get('/candidatos/home', (req, res) => {
+  if (!req.session.usuario || req.session.usuario.tipo !== 'candidato') {
+    return res.redirect('/login');
+  }
+
+  res.render('candidatos/home-candidatos', {
+    sucesso: req.session.sucesso || null,
+    erro: req.session.erro || null,
+    candidato: req.session.candidato || null,
+    usuario: req.session.usuario || null
+  });
+
+  // Limpa as mensagens após exibir
+  req.session.sucesso = null;
+  req.session.erro = null;
+});
+
+
 app.listen(port, () => {
   console.log(`Servidor rodando em http://localhost:${port}`);
 });

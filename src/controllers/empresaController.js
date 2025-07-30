@@ -197,6 +197,12 @@ exports.homeEmpresa = async (req, res) => {
 
       if (!empresa) return res.redirect('/login');
 
+      // 🔍 buscar o email do usuário
+      const usuario = await prisma.usuario.findUnique({
+        where: { id: usuario_id },
+        select: { email: true }
+      });
+
       req.session.empresa = {
         id: empresa.id,
         usuario_id: empresa.usuario_id,
@@ -206,17 +212,17 @@ exports.homeEmpresa = async (req, res) => {
         estado: empresa.estado,
         pais: empresa.pais,
         telefone: empresa.telefone,
-        foto_perfil: empresa.foto_perfil || ''
+        foto_perfil: empresa.foto_perfil || '',
+        email: usuario?.email || '' // ✅ aqui!
       };
     }
 
-    // SEMPRE buscar o email atualizado
+    // 🔁 Mesmo com sessão existente, garante email atualizado
     const usuario = await prisma.usuario.findUnique({
       where: { id: req.session.empresa.usuario_id },
       select: { email: true }
     });
 
-    // Atualizar o email nas sessões, mesmo se já existirem
     req.session.empresa.email = usuario?.email || '';
     req.session.usuario = {
       id: req.session.empresa.usuario_id,
@@ -225,7 +231,8 @@ exports.homeEmpresa = async (req, res) => {
       email: usuario?.email || ''
     };
 
-    const localidade = [req.session.empresa.cidade, req.session.empresa.estado, req.session.empresa.pais].filter(Boolean).join(', ');
+    const localidade = [req.session.empresa.cidade, req.session.empresa.estado, req.session.empresa.pais]
+      .filter(Boolean).join(', ');
 
     res.render('empresas/home-empresas', {
       nome: req.session.empresa.nome_empresa,
@@ -234,6 +241,7 @@ exports.homeEmpresa = async (req, res) => {
       localidade,
       fotoPerfil: req.session.empresa.foto_perfil || '/img/avatar.png',
       usuario: req.session.usuario,
+      empresa: req.session.empresa,
       activePage: 'home'
     });
   } catch (err) {
@@ -897,7 +905,8 @@ console.log('🧠 FOTO vinda da sessão do usuário:', req.session.usuario.foto)
       estado: empresa.estado,
       pais: empresa.pais,
       telefone: empresa.telefone,
-      foto_perfil: empresa.foto_perfil || ''
+      foto_perfil: empresa.foto_perfil || '',
+      email: usuarioDB.email
     };
 
     res.redirect('/empresa/home');

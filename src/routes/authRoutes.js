@@ -57,22 +57,21 @@ router.get('/auth/google/callback',
         console.log('🔁 Redirecionando para complemento do Google...');
         return res.redirect('/candidatos/cadastro/google/complementar');
       }
-
       req.session.candidato = {
-        id: candidato.id,
-        usuario_id: usuario.id,
-        nome: usuario.nome,
-        sobrenome: usuario.sobrenome,
-        email: usuario.email,
-        tipo: 'candidato',
-        telefone: candidato.telefone,
-        dataNascimento: candidato.data_nascimento,
-        foto_perfil: candidato.foto_perfil,
-        localidade: [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', '),
-        areas: []
-      };
+          id: candidato.id,
+          usuario_id: usuario.id,
+          nome: usuario.nome,
+          sobrenome: usuario.sobrenome,
+          email: usuario.email,
+          tipo: 'candidato',
+          telefone: candidato.telefone,
+          dataNascimento: candidato.data_nascimento,
+          foto_perfil: candidato.foto_perfil,
+          localidade: [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', '),
+          areas: []
+        };
 
-      return res.redirect('/candidatos/home');
+        return res.redirect('/candidatos/home');
     }
 
     if (usuario.tipo === 'empresa') {
@@ -105,7 +104,6 @@ router.get('/auth/google/callback',
     res.redirect('/');
   }
 );
-
 
 
 

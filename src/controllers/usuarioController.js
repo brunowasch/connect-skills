@@ -118,13 +118,15 @@ exports.login = async (req, res) => {
       estado: empresa.estado,
       pais: empresa.pais,
       foto_perfil: empresa.foto_perfil || '/img/placeholder-empresa.png',
+      email: usuario.email
     };
 
     // 🔧 Adicione esta parte:
     req.session.usuario = {
       id: usuario.id,
       tipo: 'empresa',
-      nome: empresa.nome_empresa
+      nome: empresa.nome_empresa,
+      email: usuario.email
     };
 
     return req.session.save(() => {
