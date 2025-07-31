@@ -46,7 +46,7 @@ The idea for the project came from recognizing that many young people struggle t
 ![Passport](https://img.shields.io/badge/-Passport-34E27A?style=flat&logo=passport&logoColor=white)
 ![Cloudinary](https://img.shields.io/badge/-Cloudinary-3448C5?style=flat&logo=cloudinary&logoColor=white)
 
-### 🛢 Database and Data
+### 📊 Database and Data
 ![MySQL](https://img.shields.io/badge/-MySQL-4479A1?style=flat&logo=mysql&logoColor=white)
 ![Prisma ORM](https://img.shields.io/badge/-Prisma%20ORM-2D3748?style=flat&logo=prisma&logoColor=white)
 ![Session](https://img.shields.io/badge/-Express--Session-007ACC?style=flat&logo=node-dot-js&logoColor=white)
@@ -118,7 +118,7 @@ O **Connect Skills** nasce como uma solução para mitigar esse problema, oferec
 ![Passport](https://img.shields.io/badge/-Passport-34E27A?style=flat&logo=passport&logoColor=white)
 ![Cloudinary](https://img.shields.io/badge/-Cloudinary-3448C5?style=flat&logo=cloudinary&logoColor=white)
 
-### 🛢 Banco de Dados e Dados
+### 📊 Banco de Dados e Dados
 ![MySQL](https://img.shields.io/badge/-MySQL-4479A1?style=flat&logo=mysql&logoColor=white)
 ![Prisma ORM](https://img.shields.io/badge/-Prisma%20ORM-2D3748?style=flat&logo=prisma&logoColor=white)
 ![Session](https://img.shields.io/badge/-Express--Session-007ACC?style=flat&logo=node-dot-js&logoColor=white)
