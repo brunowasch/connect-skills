@@ -1,56 +1,136 @@
 const express = require('express');
 const router = express.Router();
+const passport = require('passport');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
+// Telas de login e cadastro
 router.get('/cadastro', (req, res) => {
-  res.render('auth/cadastro', { title: 'Cadastro - Connect Skills' });
+  res.render('auth/cadastro', {
+    title: 'Cadastro - Connect Skills',
+    erro: req.session.erro || null,
+    sucesso: req.session.sucesso || null
+  });
+
+  req.session.erro = null;
+  req.session.sucesso = null;
 });
 
 router.get('/login', (req, res) => {
-  res.render('auth/login', { title: 'Login - Connect Skills' });
+  const erroFromQuery = req.query.erro === '1'
+    ? 'Não identificamos nenhuma conta Google cadastrada. <a href="/cadastro">Clique aqui para se cadastrar</a>.'
+    : null;
+
+  res.render('auth/login', {
+    title: 'Login - Connect Skills',
+    erro: erroFromQuery || req.session.erro || null,
+    sucesso: req.session.sucesso || null
+  });
+
+  req.session.erro = null;
+  req.session.sucesso = null;
 });
 
-router.post('/login', async (req, res) => {
-  const { email, senha } = req.body;
+// Início do login com Google
+router.get('/auth/google', (req, res, next) => {
+const tipo = req.query.tipo || 'candidato';
+const isCadastro = req.query.cadastro === '1';
+const state = isCadastro ? `cadastro_${tipo}` : tipo;
 
-  try {
-    const usuario = await prisma.usuario.findUnique({
-      where: { email },
-      include: {
-        candidato: true,
-        empresa: true
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+    state
+  })(req, res, next);
+});
+
+router.get('/auth/google/callback', (req, res, next) => {
+  passport.authenticate('google', async (err, user) => {
+    if (err) {
+      console.error('Erro no login Google:', err);
+      req.session.erro = 'Erro ao autenticar com o Google.';
+      return res.redirect('/login');
+    }
+
+    if (!user) {
+      const erro = req.session.erro || null;
+      req.session.erro = null;
+
+      const veioDoCadastro = req.query.state?.startsWith('cadastro_');
+
+      if (veioDoCadastro) {
+        return res.render('auth/cadastro', {
+          title: 'Cadastro - Connect Skills',
+          erro,
+          sucesso: null
+        });
       }
-    });
 
-    if (!usuario) {
-      return res.render('auth/login', { title: 'Login - Connect Skills', erro: 'Usuário não encontrado.' });
+      return res.render('auth/login', {
+        title: 'Login - Connect Skills',
+        erro,
+        sucesso: null
+      });
     }
 
-    const senhaCorreta = usuario.senha === senha; // Use bcrypt em produção
-    if (!senhaCorreta) {
-      return res.render('auth/login', { title: 'Login - Connect Skills', erro: 'Senha incorreta.' });
-    }
-
-    // Define tipo com base em relacionamento
-    const tipo = usuario.candidato ? 'candidato' : 'empresa';
-
-    // Salva na sessão
     req.session.usuario = {
-      id: usuario.id,
-      nome: usuario.nome,
-      tipo
+      id: user.id,
+      nome: user.nome,
+      sobrenome: user.sobrenome,
+      tipo: user.tipo
     };
 
-    // Redireciona com base no tipo
-    if (tipo === 'candidato') {
+    if (user.tipo === 'candidato') {
+      const candidato = await prisma.candidato.findUnique({ where: { usuario_id: user.id } });
+
+      const cadastroIncompleto = !candidato || !candidato.telefone || !candidato.cidade || !candidato.estado || !candidato.pais || !candidato.data_nascimento;
+
+      if (cadastroIncompleto) {
+        return res.redirect('/candidatos/cadastro/google/complementar');
+      }
+
+      req.session.candidato = {
+        id: candidato.id,
+        usuario_id: user.id,
+        nome: user.nome,
+        sobrenome: user.sobrenome,
+        email: user.email,
+        tipo: 'candidato',
+        telefone: candidato.telefone,
+        dataNascimento: candidato.data_nascimento,
+        foto_perfil: candidato.foto_perfil,
+        localidade: [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', '),
+        areas: [] // pode ser populado depois
+      };
+
       return res.redirect('/candidatos/home');
-    } else {
-      return res.redirect('/empresa/home');
     }
 
-  } catch (error) {
-    console.error('Erro no login:', error);
-    res.render('auth/login', { title: 'Login - Connect Skills', erro: 'Erro interno no servidor.' });
-  }
+    if (user.tipo === 'empresa') {
+      const empresa = await prisma.empresa.findUnique({ where: { usuario_id: user.id } });
+
+      const cadastroIncompleto = !empresa || !empresa.telefone || !empresa.cidade || !empresa.estado || !empresa.pais || !empresa.nome_empresa;
+
+      if (cadastroIncompleto) {
+        return res.redirect('/empresas/complementar');
+      }
+
+      req.session.empresa = {
+        id: empresa.id,
+        usuario_id: user.id,
+        nome_empresa: empresa.nome_empresa,
+        descricao: empresa.descricao,
+        telefone: empresa.telefone,
+        cidade: empresa.cidade,
+        estado: empresa.estado,
+        pais: empresa.pais,
+        foto_perfil: empresa.foto_perfil || ''
+      };
+
+      return res.redirect('/empresas/home');
+    }
+
+    return res.redirect('/');
+  })(req, res, next);
 });
 
 

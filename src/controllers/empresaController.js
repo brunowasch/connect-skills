@@ -164,8 +164,16 @@ exports.salvarFotoPerfil = async (req, res) => {
 
     console.log("Sessão empresa atualizada:", req.session.empresa);
 
-    // 5. Redirecionar para a home da empresa
-    return res.redirect('/empresa/home');
+    req.session.usuario = {
+    id: empresa.usuario_id,
+    tipo: 'empresa',
+    nome: empresa.nome_empresa
+  };
+
+  // Garante que a sessão esteja salva antes de redirecionar
+  req.session.save(() => {
+    res.redirect('/empresa/home');
+  });
   } catch (err) {
     console.error('Erro ao salvar foto de perfil da empresa:', err);
     return res.render('empresas/foto-perfil-empresa', {
@@ -175,21 +183,26 @@ exports.salvarFotoPerfil = async (req, res) => {
   }
 };
 
-
-
 exports.homeEmpresa = async (req, res) => {
   try {
-    if (!req.session.empresa) {
+    let empresa = req.session.empresa;
+
+    if (!empresa) {
       const usuario_id = parseInt(req.query.usuario_id, 10);
       if (isNaN(usuario_id)) return res.redirect('/login');
 
-      const empresa = await prisma.empresa.findUnique({
+      empresa = await prisma.empresa.findUnique({
         where: { usuario_id }
       });
 
       if (!empresa) return res.redirect('/login');
 
-      // Preenche a sessão mesmo que tenha pulado a etapa da imagem
+      // 🔍 buscar o email do usuário
+      const usuario = await prisma.usuario.findUnique({
+        where: { id: usuario_id },
+        select: { email: true }
+      });
+
       req.session.empresa = {
         id: empresa.id,
         usuario_id: empresa.usuario_id,
@@ -199,20 +212,36 @@ exports.homeEmpresa = async (req, res) => {
         estado: empresa.estado,
         pais: empresa.pais,
         telefone: empresa.telefone,
-        foto_perfil: empresa.foto_perfil || ''
+        foto_perfil: empresa.foto_perfil || '',
+        email: usuario?.email || '' // ✅ aqui!
       };
     }
 
-    const empresa = req.session.empresa;
-    const localidade = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', ');
+    // 🔁 Mesmo com sessão existente, garante email atualizado
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: req.session.empresa.usuario_id },
+      select: { email: true }
+    });
+
+    req.session.empresa.email = usuario?.email || '';
+    req.session.usuario = {
+      id: req.session.empresa.usuario_id,
+      tipo: 'empresa',
+      nome: req.session.empresa.nome_empresa,
+      email: usuario?.email || ''
+    };
+
+    const localidade = [req.session.empresa.cidade, req.session.empresa.estado, req.session.empresa.pais]
+      .filter(Boolean).join(', ');
 
     res.render('empresas/home-empresas', {
-      nome: empresa.nome_empresa,
-      descricao: empresa.descricao,
-      telefone: empresa.telefone,
+      nome: req.session.empresa.nome_empresa,
+      descricao: req.session.empresa.descricao,
+      telefone: req.session.empresa.telefone,
       localidade,
-      fotoPerfil: empresa.foto_perfil || '/img/avatar.png',
-      usuario: empresa,
+      fotoPerfil: req.session.empresa.foto_perfil || '/img/avatar.png',
+      usuario: req.session.usuario,
+      empresa: req.session.empresa,
       activePage: 'home'
     });
   } catch (err) {
@@ -220,7 +249,6 @@ exports.homeEmpresa = async (req, res) => {
     res.status(500).send('Erro ao carregar home.');
   }
 };
-
 
 exports.telaPerfilEmpresa = async (req, res) => {
   const empresa = req.session.empresa;
@@ -818,5 +846,75 @@ exports.perfilPublico = async (req, res) => {
   } catch (error) {
     console.error("Erro ao carregar perfil público:", error);
     res.status(500).send("Erro ao carregar perfil.");
+  }
+};
+
+exports.telaComplementarGoogle = (req, res) => {
+  if (!req.session.usuario || req.session.usuario.tipo !== 'empresa') {
+    return res.redirect('/');
+  }
+
+  const nome = req.session.usuario.nome || '';
+  res.render('empresas/cadastro-complementar-empresa', { nome, erro: null });
+};
+
+exports.salvarComplementarGoogle = async (req, res) => {
+  const { nome, descricao, ddi, ddd, numero, localidade } = req.body;
+console.log('🧠 FOTO vinda da sessão do usuário:', req.session.usuario.foto);
+
+  const usuario_id = req.session.usuario?.id;
+
+  if (!usuario_id || !nome || !descricao || !localidade || !ddd || !numero) {
+    return res.render('empresas/cadastro-complementar-empresa', {
+      nome,
+      erro: 'Preencha todos os campos obrigatórios.'
+    });
+  }
+
+  try {
+      const usuario_id = req.session.usuario.id;
+
+      const usuarioDB = await prisma.usuario.findUnique({
+        where: { id: usuario_id }
+      });
+
+      await empresaModel.criarEmpresa({
+        usuario_id,
+        nome_empresa: nome,
+        descricao,
+        foto_perfil: usuarioDB.avatarUrl || ''
+      });
+
+    // Localidade
+    const partes = localidade.split(',').map(p => p.trim());
+    const [cidade, estado = '', pais = ''] = partes;
+    await empresaModel.atualizarLocalizacao({ usuario_id, cidade, estado, pais });
+
+    // Telefone
+    const telefone = `${ddi} (${ddd}) ${numero}`;
+    await empresaModel.atualizarTelefone({ usuario_id, telefone });
+
+    // Busca a empresa para popular a sessão
+    const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario_id);
+    req.session.empresa = {
+      id: empresa.id,
+      usuario_id,
+      nome_empresa: empresa.nome_empresa,
+      descricao: empresa.descricao,
+      cidade: empresa.cidade,
+      estado: empresa.estado,
+      pais: empresa.pais,
+      telefone: empresa.telefone,
+      foto_perfil: empresa.foto_perfil || '',
+      email: usuarioDB.email
+    };
+
+    res.redirect('/empresa/home');
+  } catch (err) {
+    console.error('Erro no cadastro complementar da empresa:', err);
+    res.render('empresas/cadastro-complementar-empresa', {
+      nome,
+      erro: 'Erro interno ao salvar os dados. Tente novamente.'
+    });
   }
 };

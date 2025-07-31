@@ -211,21 +211,32 @@ exports.salvarAreas = async (req, res) => {
       areas: ids
     });
 
-    const cAtual = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
-    req.session.candidato = {
-      id: cAtual.id,
-      nome: cAtual.nome,
-      sobrenome: cAtual.sobrenome,
-      email: cAtual.email,
-      tipo: 'candidato',
-      telefone: cAtual.telefone,
-      dataNascimento: cAtual.data_nascimento,
-      foto_perfil: cAtual.foto_perfil,
-      localidade: `${cAtual.cidade}, ${cAtual.estado}, ${cAtual.pais}`,
-      areas: cAtual.candidato_area.map(r => r.area_interesse.nome)
-    };
+      const cAtual = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
 
-    return res.redirect('/candidatos/home');
+      req.session.usuario = {
+        id: cAtual.usuario_id,
+        nome: cAtual.nome,
+        sobrenome: cAtual.sobrenome,
+        tipo: 'candidato'
+      };
+
+      req.session.candidato = {
+        id: cAtual.id,
+        nome: cAtual.nome,
+        sobrenome: cAtual.sobrenome,
+         email: cAtual.usuario?.email || '',
+        tipo: 'candidato',
+        telefone: cAtual.telefone,
+        dataNascimento: cAtual.data_nascimento,
+        foto_perfil: cAtual.foto_perfil,
+        localidade: `${cAtual.cidade}, ${cAtual.estado}, ${cAtual.pais}`,
+        areas: cAtual.candidato_area.map(r => r.area_interesse.nome)
+      };
+
+      req.session.save(() => {
+        return res.redirect('/candidatos/home');
+      });
+
   } catch (error) {
     console.error("Erro ao salvar áreas de interesse:", error);
     res.status(500).send("Erro ao salvar áreas de interesse.");
@@ -235,42 +246,91 @@ exports.salvarAreas = async (req, res) => {
 exports.telaHomeCandidato = (req, res) => {
   const usuario = req.session.candidato;
   if (!usuario) return res.redirect('/login');
-  res.render('candidatos/home-candidatos', {
-    nome: usuario.nome,
-    sobrenome: usuario.sobrenome,
-    localidade: usuario.localidade,
-    activePage: 'home',
-    usuario
-  });
+    res.render('candidatos/home-candidatos', {
+      nome: usuario.nome,
+      sobrenome: usuario.sobrenome,
+      localidade: usuario.localidade,
+      activePage: 'home',
+      usuario,        
+      candidato: usuario 
+    });
 };
 
 exports.renderMeuPerfil = async (req, res) => {
   if (!req.session.candidato) return res.redirect('/login');
+
   const candidato = await prisma.candidato.findUnique({
     where: { id: Number(req.session.candidato.id) },
-    include: { candidato_area: { select: { area_interesse: { select: { nome: true } } } } }
+    include: {
+      candidato_area: {
+        select: { area_interesse: { select: { nome: true } } }
+      },
+      usuario: {
+        select: { avatarUrl: true }
+      }
+    }
   });
+
   if (!candidato) return res.redirect('/login');
 
+  // 📍 Telefones (trata os dois formatos)
+  let ddi = '';
+  let ddd = '';
+  let numero = '';
+
+  if (candidato.telefone) {
+    if (candidato.telefone.includes('(')) {
+      // Formato Google: +55 (51) 99217-9330
+      const match = candidato.telefone.match(/(\+\d+)\s+\((\d+)\)\s+(.*)/);
+      if (match) {
+        ddi = match[1];
+        ddd = match[2];
+        numero = match[3].replace(/\D/g, '');
+      }
+    } else {
+      // Formato tradicional: +55-51-9921793330
+      [ddi, ddd, numero] = candidato.telefone.split('-');
+    }
+  }
+
+  const numeroFormatado = numero
+    ? numero.length === 9
+      ? `${numero.slice(0, 5)}-${numero.slice(5)}`
+      : `${numero.slice(0, 4)}-${numero.slice(4)}`
+    : '';
+
+  // 📍 Localidade e áreas
   const localidade = [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ');
   const areas = candidato.candidato_area.map(r => r.area_interesse.nome);
-  const [ddi = '', ddd = '', numero = ''] = (candidato.telefone || '').split('-');
+
+  // 📍 Data de nascimento
   const dataNascimento = candidato.data_nascimento
     ? new Date(candidato.data_nascimento).toISOString().slice(0, 10)
     : '';
 
+  // 📍 Foto de perfil (respeita se foi removida)
+  let fotoPerfil = null;
+  if (candidato.foto_perfil && candidato.foto_perfil.trim() !== '') {
+    fotoPerfil = candidato.foto_perfil.trim();
+  }
+
+  // Log para garantir que está certo
+  console.log('foto_perfil final:', fotoPerfil);
+
+  // 📍 Render da view
   res.render('candidatos/meu-perfil', {
     candidato,
-    fotoPerfil: candidato.foto_perfil && candidato.foto_perfil.trim() !== '' ? candidato.foto_perfil : null,
+    fotoPerfil,
     localidade,
     areas,
     ddi,
     ddd,
-    numero,
+    numeroFormatado,
     dataNascimento,
     activePage: 'perfil'
   });
 };
+
 
 exports.mostrarVagas = async (req, res) => {
   const usuario = req.session.candidato;
@@ -284,26 +344,77 @@ exports.mostrarVagas = async (req, res) => {
   }
 };
 
-exports.telaEditarPerfil = (req, res) => {
+exports.telaEditarPerfil = async (req, res) => {
   const sess = req.session.candidato;
   if (!sess) return res.redirect('/login');
-  const [ddi = '', ddd = '', numero = ''] = (sess.telefone || '').split('-');
-  const dataNascimento = sess.data_nascimento
-    ? new Date(sess.data_nascimento).toISOString().slice(0, 10)
-    : '';
-  res.render('candidatos/editar-perfil', {
-    nome: sess.nome,
-    sobrenome: sess.sobrenome,
-    localidade: sess.localidade,
-    ddi,
-    ddd,
-    numero,
-    fotoPerfil: sess.foto_perfil,
-    dataNascimento
-  });
+
+  try {
+    // Busca dados atualizados do candidato no banco
+    const candidato = await prisma.candidato.findUnique({
+      where: { id: sess.id },
+      include: {
+        usuario: {
+          select: { nome: true, sobrenome: true }
+        }
+      }
+    });
+
+    if (!candidato) return res.redirect('/login');
+
+    // Nome e sobrenome atualizados (caso estejam ausentes na sessão)
+    const nome = candidato.nome || candidato.usuario?.nome || '';
+    const sobrenome = candidato.sobrenome || candidato.usuario?.sobrenome || '';
+
+    // Corrigir telefone (dois formatos possíveis)
+    let ddi = '', ddd = '', numero = '';
+    if (candidato.telefone?.includes('(')) {
+      const match = candidato.telefone.match(/(\+\d+)\s+\((\d+)\)\s+(.*)/);
+      if (match) {
+        ddi = match[1];
+        ddd = match[2];
+        numero = match[3].replace(/\D/g, '');
+      }
+    } else {
+      [ddi, ddd, numero] = candidato.telefone?.split('-') || [];
+    }
+
+    const numeroFormatado = numero?.length >= 9
+      ? `${numero.slice(0, 5)}-${numero.slice(5)}`
+      : numero;
+
+    const localidade = [candidato.cidade, candidato.estado, candidato.pais]
+      .filter(Boolean).join(', ');
+
+    const dataNascimento = candidato.data_nascimento
+      ? new Date(candidato.data_nascimento).toISOString().slice(0, 10)
+      : '';
+
+    const fotoPerfil = candidato.foto_perfil || sess.foto_perfil;
+  avatarGoogle: req.session.candidato?.foto_perfil === null
+    ? (await prisma.usuario.findUnique({
+        where: { id: sess.usuario_id },
+        select: { avatarUrl: true }
+      }))?.avatarUrl
+    : null
+
+    // Render da view com dados reais
+    res.render('candidatos/editar-perfil', {
+      nome,
+      sobrenome,
+      localidade,
+      ddi,
+      ddd,
+      numero: numeroFormatado,
+      dataNascimento,
+      fotoPerfil
+    });
+
+  } catch (erro) {
+    console.error('Erro ao carregar tela de edição de perfil:', erro);
+    res.status(500).send('Erro ao carregar dados do perfil.');
+  }
 };
 
-// candidatoController.js
 
 exports.salvarEditarPerfil = async (req, res) => {
   const sess = req.session.candidato;
@@ -469,3 +580,162 @@ exports.salvarEditarAreas = async (req, res) => {
   }
 };
 
+exports.exibirComplementarGoogle = async (req, res) => {
+  if (!req.session.usuario || req.session.usuario.tipo !== 'candidato') {
+    return res.redirect('/login');
+  }
+
+  const usuario_id = req.session.usuario.id;
+
+  try {
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: usuario_id }
+    });
+
+    res.render('candidatos/cadastro-complementar-google', {
+      title: 'Completar Cadastro - Connect Skills',
+      erro: null,
+      nome: usuario?.nome || '',
+      sobrenome: usuario?.sobrenome || '',
+      usuario_id
+    });
+  } catch (error) {
+    console.error('Erro ao buscar usuário para complementar cadastro:', error);
+    res.render('candidatos/cadastro-complementar-google', {
+      title: 'Completar Cadastro - Connect Skills',
+      erro: 'Erro ao carregar os dados. Tente novamente.',
+      nome: '',
+      sobrenome: '',
+      usuario_id
+    });
+  }
+};
+
+exports.complementarGoogle = async (req, res) => {
+  try {
+    const usuarioId = req.session.usuario?.id;
+    if (!usuarioId) return res.redirect('/login');
+
+    let {
+      nome,
+      sobrenome,
+      data_nascimento,
+      localidade,
+      foto_perfil
+    } = req.body;
+
+    const [cidade = '', estado = '', pais = ''] = (localidade || '').split(',').map(p => p.trim());
+
+const { ddi, ddd, numero } = req.body;
+const numeroLimpo = (numero || '').replace(/\D/g, '');
+const numeroFormatado = numeroLimpo.length === 9
+  ? `${numeroLimpo.slice(0, 5)}-${numeroLimpo.slice(5)}`
+  : numeroLimpo.length === 8
+    ? `${numeroLimpo.slice(0, 4)}-${numeroLimpo.slice(4)}`
+    : numeroLimpo;
+
+const telefoneFormatado = (ddd && numeroFormatado)
+  ? `${ddi || '+55'} (${ddd}) ${numeroFormatado}`
+  : '';
+
+
+    const dataNascimentoConvertida = new Date(data_nascimento);
+
+    if (!foto_perfil || foto_perfil.trim() === '') {
+      const usuario = await prisma.usuario.findUnique({
+        where: { id: usuarioId },
+        select: { avatarUrl: true }
+      });
+      foto_perfil = usuario?.avatarUrl || null;
+    }
+
+    if (!nome || !sobrenome) {
+      return res.status(400).send('Nome e sobrenome são obrigatórios.');
+    }
+
+    // ✅ Atualiza dados completos do candidato
+    await candidatoModel.complementarCadastroGoogle(usuarioId, {
+      nome,
+      sobrenome,
+      data_nascimento: dataNascimentoConvertida,
+      pais,
+      estado,
+      cidade,
+      telefone: telefoneFormatado,
+      foto_perfil
+    });
+
+    // Atualiza também nome/sobrenome na tabela usuário
+    await prisma.usuario.update({
+      where: { id: usuarioId },
+      data: { nome, sobrenome }
+    });
+
+    // 🔁 Atualiza sessão
+    const [candidatoCompleto, usuarioCompleto] = await Promise.all([
+      candidatoModel.obterCandidatoPorUsuarioId(usuarioId),
+      prisma.usuario.findUnique({
+        where: { id: usuarioId },
+        select: { avatarUrl: true }
+      })
+    ]);
+
+    req.session.usuario = {
+      id: usuarioId,
+      nome,
+      sobrenome,
+      tipo: 'candidato'
+    };
+
+    req.session.candidato = {
+      id: candidatoCompleto.id,
+      usuario_id: usuarioId,
+      nome: candidatoCompleto.nome,
+      sobrenome: candidatoCompleto.sobrenome,
+      email: candidatoCompleto.email,
+      tipo: 'candidato',
+      telefone: candidatoCompleto.telefone,
+      dataNascimento: candidatoCompleto.data_nascimento,
+      foto_perfil: candidatoCompleto.foto_perfil || usuarioCompleto.avatarUrl || null,
+      localidade: `${candidatoCompleto.cidade}, ${candidatoCompleto.estado}, ${candidatoCompleto.pais}`,
+      areas: []
+    };
+
+    req.session.save(() => {
+      res.redirect(`/candidato/cadastro/areas?usuario_id=${usuarioId}`);
+    });
+
+  } catch (erro) {
+    console.error('❌ Erro ao complementar cadastro com Google:', erro.message, erro);
+    res.status(500).send('Erro ao salvar informações do candidato.');
+  }
+};
+
+exports.restaurarFotoGoogle = async (req, res) => {
+  const sess = req.session.candidato;
+  if (!sess) return res.redirect('/login');
+
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: sess.usuario_id },
+    select: { avatarUrl: true }
+  });
+
+  if (!usuario || !usuario.avatarUrl) {
+    console.warn('Usuário não tem avatar do Google para restaurar.');
+    return res.redirect('/candidato/editar-perfil');
+  }
+
+  try {
+    await candidatoModel.atualizarFotoPerfil({
+      candidato_id: sess.id,
+      foto_perfil: usuario.avatarUrl
+    });
+
+    sess.foto_perfil = usuario.avatarUrl;
+
+    res.redirect('/candidato/editar-perfil');
+  } catch (err) {
+    console.error('Erro ao restaurar foto do Google:', err.message);
+    res.redirect('/candidato/editar-perfil');
+  }
+};

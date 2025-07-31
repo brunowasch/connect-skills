@@ -17,6 +17,12 @@
     <img src="/img/CONNECT.png" alt="Logo" class="logo mb-4 mt-4" style="width: 120px; height: 130px;"> 
     <h2 class="text-center fw-bold">Cadastre-se!</h2>
 
+    <% if (erro) { %>
+      <div class="alert alert-danger text-center mt-2">
+        <%- erro %>
+      </div>
+    <% } %>
+
     <!-- SELEÇÃO DE TIPO -->
     <div class="card shadow p-4 border-0 rounded-3 mt-2 mb-4" style="min-width: 320px;">
       <div class="d-flex justify-content-center gap-4">
@@ -66,7 +72,7 @@
             As senhas não coincidem. Por favor, verifique.
           </div>
         </div>
-
+          <!-- Divider bonito com "ou" -->
         <div class="mb-3 form-check">
           <input type="checkbox" class="form-check-input" id="termos" required>
           <label class="form-check-label" for="termos">Li e aceito os <a href="#">Termos de uso</a></label>
@@ -75,6 +81,18 @@
         <div class="d-grid mt-4">
           <button type="submit" class="btn btn-primary btn-lg">Cadastrar</button>
         </div>
+                  <div class="d-flex align-items-center my-3">
+            <hr class="flex-grow-1 border-secondary">
+            <span class="mx-2 text-secondary">ou</span>
+            <hr class="flex-grow-1 border-secondary">
+          </div>
+
+          <!-- Botão Google dinâmico -->
+          <div class="mb-4 w-100" style="max-width: 400px;">
+            <a id="btnGoogleCadastro" href="#" class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2 rounded-pill">
+              <i class="bi bi-google"></i>Cadastrar com Google
+            </a>
+          </div>
       </form>
     </div>
   </div>
@@ -148,6 +166,18 @@
 
     if (!ok) e.preventDefault();
   });
+  btnGoogleCadastro.addEventListener('click', function (e) {
+  e.preventDefault();
+  const tipo = tipoHidden.value;
+
+  if (!tipo) {
+    alert('Selecione primeiro o tipo de conta (Pessoa Física ou Jurídica).');
+    return;
+  }
+
+  window.location.href = `/auth/google?tipo=${tipo}&cadastro=1`;
+});
+
 </script>
 
 </body>

@@ -11,10 +11,10 @@
     <link rel="icon" href="/img/CONNECT.png">
   </head>
   <body id="home">
+  <% var sucesso = typeof sucesso !== 'undefined' ? sucesso : false; %>
+  <% var erro = typeof erro !== 'undefined' ? erro : false; %>
   <%- include('../partials/header-empresa') %>
 
-
-  <!-- HEADER -->
   <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
     <div class="carousel-inner">
       <div class="carousel-item active">
@@ -71,13 +71,13 @@
     </div>
   </div>
 </section>
-
+<%- include('../partials/contato', { sucesso, erro, candidato: null, empresa }) %>
   <!-- FORMULARIO -->
-  <section class="py-5">
+  <!-- <section class="py-5">
     <div class="container text-center">
       <a href="/empresas/publicar-vaga" class="btn btn-primary btn-lg">Publicar uma vaga</a>
     </div>
-  </section>
+  </section> -->
 
   <!-- RODAPÉ -->
 <%- include('../partials/footer') %>

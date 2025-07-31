@@ -108,43 +108,62 @@ exports.login = async (req, res) => {
   const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario.id);
   if (!empresa) return res.redirect('/login');
 
-  // Garante que a foto seja sempre buscada do banco
-  req.session.empresa = {
-    id: empresa.id,
-    nome_empresa: empresa.nome_empresa,
-    descricao: empresa.descricao,
-    telefone: empresa.telefone,
-    cidade: empresa.cidade,
-    estado: empresa.estado,
-    pais: empresa.pais,
-    foto_perfil: empresa.foto_perfil || '/img/placeholder-empresa.png',
-  };
+    req.session.empresa = {
+      id: empresa.id,
+      usuario_id: usuario.id,
+      nome_empresa: empresa.nome_empresa,
+      descricao: empresa.descricao,
+      telefone: empresa.telefone,
+      cidade: empresa.cidade,
+      estado: empresa.estado,
+      pais: empresa.pais,
+      foto_perfil: empresa.foto_perfil || '/img/placeholder-empresa.png',
+      email: usuario.email
+    };
 
-  return req.session.save(() => {
-    res.redirect('/empresa/home');
+    // 🔧 Adicione esta parte:
+    req.session.usuario = {
+      id: usuario.id,
+      tipo: 'empresa',
+      nome: empresa.nome_empresa,
+      email: usuario.email
+    };
+
+    return req.session.save(() => {
+      res.redirect('/empresa/home');
   });
 } else if (usuario.tipo === 'candidato') {
       const candidato = await candidatoModel.obterCandidatoPorUsuarioId(usuario.id);
       if (!candidato) return res.redirect('/login');
 
-      // Armazena sessão de candidato, não em req.session.usuario
-      req.session.candidato = {
-        id: candidato.id,
-        nome: candidato.nome,
-        sobrenome: candidato.sobrenome,
-        email: candidato.email,
-        tipo: 'candidato',
-        telefone: candidato.telefone,
-        data_nascimento: candidato.data_nascimento,
-        foto_perfil: candidato.foto_perfil,
-        localidade: `${candidato.cidade}, ${candidato.estado}, ${candidato.pais}`,
-        areas: candidato.candidato_area?.map(rel => rel.area_interesse.nome) || []
-      };
+if (candidato) {
+  req.session.candidato = {
+    id: candidato.id,
+    usuario_id: usuario.id,
+    nome: candidato.nome,
+    sobrenome: candidato.sobrenome,
+    email: usuario.email,
+    tipo: 'candidato',
+    telefone: candidato.telefone,
+    dataNascimento: candidato.data_nascimento,
+    foto_perfil: candidato.foto_perfil,
+    localidade: `${candidato.cidade}, ${candidato.estado}, ${candidato.pais}`,
+    areas: candidato.candidato_area?.map(r => r.area_interesse.nome) || []
+  };
 
-      return req.session.save(() => {
-        // Redireciona para a rota correta dos candidatos
-        res.redirect('/candidatos/home');
-      });
+  req.session.usuario = {
+    id: usuario.id,
+    tipo: 'candidato',
+    nome: candidato.nome,
+    sobrenome: candidato.sobrenome
+  };
+
+  return req.session.save(() => {
+    res.redirect('/candidatos/home');
+  });
+}
+
+
     }
   } catch (err) {
     console.error('Erro ao realizar login:', err);
