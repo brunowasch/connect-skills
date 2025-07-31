@@ -63,8 +63,11 @@ The idea for the project came from recognizing that many young people struggle t
 [![Access Connect Skills here](https://img.shields.io/badge/Access_Connect_Skills_Here-2F84F5?style=for-the-badge&logo=google-chrome&logoColor=FFFFFF)](https://connectskills.com.br)
 
 ## 👥 Developed by
-- 👨‍💻 Bruno Waschburger Silva — [https://github.com/brunowasch](https://github.com/brunowasch)
-- 👨‍💻 Marcelo Rangel Barros — [https://github.com/Marcelo844](https://github.com/Marcelo844)
+- 👨‍💻 Bruno Waschburger Silva — [https://github.com/brunowasch](https://github.com/brunowasch) 🔗 [bruno-6575869@estudante.rs.gov.br](mailto:bruno-6575869@estudante.rs.gov.br)
+- 👨‍💻 Marcelo Rangel Barros — [https://github.com/Marcelo844](https://github.com/Marcelo844) 🔗 [marcelo-barros@estudante.rs.gov.br](mailto:marcelo-barros@estudante.rs.gov.br)
+
+Feel free to reach out to us for any questions, suggestions, or collaboration opportunities. We are always open to connect and exchange ideas! 🚀
+
 
 ---
 
@@ -132,5 +135,7 @@ O **Connect Skills** nasce como uma solução para mitigar esse problema, oferec
 [![Acesse o Connect Skills clicando aqui](https://img.shields.io/badge/Acesse_o_Connect_Skills_clicando_aqui-2F84F5?style=for-the-badge&logo=google-chrome&logoColor=FFFFFF)](https://connectskills.com.br)
 
 ## 👥 Desenvolvido por
-- 👨‍💻 Bruno Waschburger Silva — [https://github.com/brunowasch](https://github.com/brunowasch)
-- 👨‍💻 Marcelo Rangel Barros — [https://github.com/Marcelo844](https://github.com/Marcelo844)
+- 👨‍💻 Bruno Waschburger Silva — [https://github.com/brunowasch](https://github.com/brunowasch) 🔗 [bruno-6575869@estudante.rs.gov.br](mailto:bruno-6575869@estudante.rs.gov.br)
+- 👨‍💻 Marcelo Rangel Barros — [https://github.com/Marcelo844](https://github.com/Marcelo844) 🔗 [marcelo-barros@estudante.rs.gov.br](mailto:marcelo-barros@estudante.rs.gov.br)
+
+Sinta-se à vontade para entrar em contato conosco em caso de dúvidas, sugestões ou parcerias! Estamos sempre abertos a colaborar e trocar experiências. 🚀
