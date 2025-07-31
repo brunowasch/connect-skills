@@ -52,13 +52,14 @@ O **Connect Skills** nasce como uma solução para mitigar esse problema, oferec
 
 ### ☁️ Deploy e Integrações
 ![Render](https://img.shields.io/badge/-Render-46E3B7?style=flat&logo=render&logoColor=black)
-![Firebase Hosting](https://img.shields.io/badge/-Firebase-FFCA28?style=flat&logo=firebase&logoColor=black)
-![Vercel](https://img.shields.io/badge/-Vercel-000000?style=flat&logo=vercel&logoColor=white)
 
 ### 💾 Outras Ferramentas
 ![Git](https://img.shields.io/badge/-Git-F05032?style=flat&logo=git&logoColor=white)
 ![GitHub](https://img.shields.io/badge/-GitHub-181717?style=flat&logo=github&logoColor=white)
 ![Visual Studio Code](https://img.shields.io/badge/-VS%20Code-007ACC?style=flat&logo=visual-studio-code&logoColor=white)
+
+## ⭐ Acesse o Connect Skills!
+[![Acesse o Connect Skills clicando aqui](https://img.shields.io/badge/Acesse_o_Connect_Skills_clicando_aqui-2F84F5?style=for-the-badge&logo=google-chrome&logoColor=FFFFFF)](https://connectskills.com.br)
 
 ## 👥 Desenvolvido por
 - 👨‍💻 Bruno Waschburger Silva — [https://github.com/brunowasch](https://github.com/brunowasch)
