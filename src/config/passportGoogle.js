@@ -19,24 +19,21 @@ async (req, accessToken, refreshToken, profile, done) => {
     const email = profile.emails[0].value;
     const avatarUrl = profile.photos?.[0]?.value || 'https://via.placeholder.com/150';
 
-    // 🔍 Verificações
-    console.log('🔎 Checando GoogleId e Email existentes...');
+    console.log('Checando GoogleId e Email existentes...');
     const usuarioPorGoogleId = await prisma.usuario.findUnique({ where: { googleId } });
     const usuarios = await prisma.usuario.findMany();
     const usuarioPorEmail = usuarios.find(u => u.email.toLowerCase() === email.toLowerCase());
-    console.log('🆔 usuarioPorGoogleId:', usuarioPorGoogleId);
-    console.log('📧 usuarioPorEmail:', usuarioPorEmail);
-    console.log('🟡 isCadastro:', isCadastro);
-    console.log('📌 Tipo:', tipo);
+    console.log('usuarioPorGoogleId:', usuarioPorGoogleId);
+    console.log('usuarioPorEmail:', usuarioPorEmail);
+    console.log('isCadastro:', isCadastro);
+    console.log('Tipo:', tipo);
 
-    // 🚫 BLOQUEAR cadastro se já existe
     if (isCadastro && (usuarioPorGoogleId || usuarioPorEmail)) {
       req.session.erro = 'Já existe uma conta Google com esse endereço. <a href="/login">Clique aqui para fazer login</a>.';
       await new Promise(resolve => req.session.save(resolve));
       return done(null, false);
     }
 
-    // ✅ NOVO CADASTRO
     if (isCadastro) {
       const senhaGerada = crypto.randomBytes(16).toString('hex');
 
@@ -54,24 +51,39 @@ async (req, accessToken, refreshToken, profile, done) => {
 
       if (tipo === 'candidato') {
         await prisma.candidato.create({ data: { usuario_id: novoUsuario.id } });
-      } else {
-        await prisma.empresa.create({ data: { usuario_id: novoUsuario.id } });
-      }
 
-      return done(null, novoUsuario);
+        req.session.usuario = {
+          id: novoUsuario.id,
+          nome: novoUsuario.nome,
+          sobrenome: novoUsuario.sobrenome,
+          tipo: 'candidato',
+          foto: avatarUrl,
+          email: novoUsuario.email
+        };
+
+        return done(null, novoUsuario);
+      } else {
+        req.session.usuario = {
+          id: novoUsuario.id,
+          nome: novoUsuario.nome,
+          sobrenome: novoUsuario.sobrenome,
+          tipo: 'empresa',
+          foto: avatarUrl,
+          email: novoUsuario.email
+        };
+
+        return done(null, novoUsuario);
+      }
     }
 
-    // 🟠 LOGIN: não encontrou nenhum
     if (!usuarioPorGoogleId && !usuarioPorEmail) {
       req.session.erro = 'Não identificamos nenhuma conta Google cadastrada. <a href="/cadastro">Clique aqui para se cadastrar</a>.';
-      console.log('❗ Conta Google não encontrada para login.');
+      console.log('Conta Google não encontrada para login.');
       return done(null, false);
     }
 
-    // ✅ LOGIN: encontrou
     let usuario = usuarioPorGoogleId || usuarioPorEmail;
 
-    // Atualiza googleId caso não esteja salvo
     if (!usuario.googleId) {
       usuario = await prisma.usuario.update({
         where: { id: usuario.id },
@@ -79,9 +91,18 @@ async (req, accessToken, refreshToken, profile, done) => {
       });
     }
 
+    req.session.usuario = {
+      id: usuario.id,
+      nome: usuario.nome,
+      sobrenome: usuario.sobrenome,
+      tipo: usuario.tipo,
+      foto: usuario.avatarUrl,
+      email: usuario.email
+    };
+
     return done(null, usuario);
   } catch (err) {
-    console.error('❌ Erro no login/cadastro com Google:', err);
+    console.error('Erro no login/cadastro com Google:', err);
     return done(err, null);
   }
 }));
