@@ -61,5 +61,5 @@ O **Connect Skills** nasce como uma solução para mitigar esse problema, oferec
 ![Visual Studio Code](https://img.shields.io/badge/-VS%20Code-007ACC?style=flat&logo=visual-studio-code&logoColor=white)
 
 ## 👥 Desenvolvido por
-👨‍💻 Bruno Waschburger Silva — [https://github.com/brunowasch](https://github.com/brunowasch)
-👨‍💻 Marcelo Rangel Barros — [https://github.com/Marcelo844](https://github.com/Marcelo844)
+- 👨‍💻 Bruno Waschburger Silva — [https://github.com/brunowasch](https://github.com/brunowasch)
+- 👨‍💻 Marcelo Rangel Barros — [https://github.com/Marcelo844](https://github.com/Marcelo844)
