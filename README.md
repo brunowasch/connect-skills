@@ -1,3 +1,73 @@
+# Welcome to Connect Skills! 🌐
+
+**Connect Skills** is a web application designed to connect recent graduates to the job market — not just through their technical skills, but through their **behavioral competencies**.
+
+## ⚙️ How does it work?
+
+The Connect Skills platform offers two types of access:
+
+- 🧑 **Individual (Candidate):**
+  - Registers and selects up to 3 areas of professional interest  
+  - Can personalize their profile with a photo, location, and phone number  
+  - Sees job opportunities recommended based on selected interest areas  
+  - When interested in a job vacancy, can take a behavioral test conducted by artificial intelligence  
+  - After the test, the AI calculates the candidate’s compatibility with the position and informs the company of their ranking among all applicants  
+  - The company may contact the person if interested  
+
+- 🏢 **Company (Employer):**
+  - Registers their company and customizes the company profile  
+  - Posts job openings with specific requirements  
+  - Defines the **areas of activity** and **desired soft skills**  
+  - Sets the behavioral and technical questions to be applied by the AI and the expected results  
+  - Views a ranking of candidates most compatible with the job posting  
+  - Accesses intelligent features to streamline the recruitment process  
+
+The platform leverages **artificial intelligence** and an intuitive interface to **connect talent and opportunity efficiently**.
+
+## 💡 Why did we create Connect Skills?
+
+The idea for the project came from recognizing that many young people struggle to enter the job market — whether due to a lack of experience, absence of technical qualifications, or a shortage of reliable information.
+
+**Connect Skills** was born to help address this issue by offering an intelligent platform that connects candidates and companies more effectively. In addition to facilitating access to job opportunities, the platform uses a **behavioral test with questions defined by the company**, helping to identify candidate profiles and recommend positions that match each person’s characteristics.
+
+## 🛠️ Tools and Technologies Used
+
+### </> Front-End
+![HTML5](https://img.shields.io/badge/-HTML5-E34F26?style=flat&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/-CSS3-1572B6?style=flat&logo=css3&logoColor=white)
+![JavaScript](https://img.shields.io/badge/-JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=black)
+![Bootstrap](https://img.shields.io/badge/-Bootstrap-563D7C?style=flat&logo=bootstrap&logoColor=white)
+![EJS](https://img.shields.io/badge/-EJS-5B3C1E?style=flat&logo=ejs&logoColor=white)
+
+### 🤖 Back-End
+![Node.js](https://img.shields.io/badge/-Node.js-339933?style=flat&logo=node.js&logoColor=white)
+![Express.js](https://img.shields.io/badge/-Express.js-000000?style=flat&logo=express&logoColor=white)
+![Prisma](https://img.shields.io/badge/-Prisma-2D3748?style=flat&logo=prisma&logoColor=white)
+![Passport](https://img.shields.io/badge/-Passport-34E27A?style=flat&logo=passport&logoColor=white)
+![Cloudinary](https://img.shields.io/badge/-Cloudinary-3448C5?style=flat&logo=cloudinary&logoColor=white)
+
+### 🛢 Database and Data
+![MySQL](https://img.shields.io/badge/-MySQL-4479A1?style=flat&logo=mysql&logoColor=white)
+![Prisma ORM](https://img.shields.io/badge/-Prisma%20ORM-2D3748?style=flat&logo=prisma&logoColor=white)
+![Session](https://img.shields.io/badge/-Express--Session-007ACC?style=flat&logo=node-dot-js&logoColor=white)
+
+### ☁️ Deployment and Integrations
+![Render](https://img.shields.io/badge/-Render-46E3B7?style=flat&logo=render&logoColor=black)
+
+### 💾 Other Tools
+![Git](https://img.shields.io/badge/-Git-F05032?style=flat&logo=git&logoColor=white)
+![GitHub](https://img.shields.io/badge/-GitHub-181717?style=flat&logo=github&logoColor=white)
+![Visual Studio Code](https://img.shields.io/badge/-VS%20Code-007ACC?style=flat&logo=visual-studio-code&logoColor=white)
+
+## ⭐ Access Connect Skills!
+[![Access Connect Skills here](https://img.shields.io/badge/Access_Connect_Skills_Here-2F84F5?style=for-the-badge&logo=google-chrome&logoColor=FFFFFF)](https://connectskills.com.br)
+
+## 👥 Developed by
+- 👨‍💻 Bruno Waschburger Silva — [https://github.com/brunowasch](https://github.com/brunowasch)
+- 👨‍💻 Marcelo Rangel Barros — [https://github.com/Marcelo844](https://github.com/Marcelo844)
+
+---
+
 # Bem-vindo(a) ao Connect Skills! 🌐
 
 O Connect Skills é uma aplicação web com o objetivo de conectar recém-formados ao mercado de trabalho por não apenas suas habilidades técnicas, mas sim por suas habilidades comportamentais. 
