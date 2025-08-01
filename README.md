@@ -68,21 +68,22 @@ The idea for the project came from recognizing that many young people struggle t
     <td align="center">
       <a href="https://github.com/brunowasch">
         <img src="https://avatars.githubusercontent.com/brunowasch" width="100px;" alt="Bruno Waschburger Silva"/><br />
-        Bruno Waschburger Silva
+        <sub><b>Bruno Waschburger Silva</b></sub>
       </a>
       <br />
-      Email: <a href="mailto:bruno-6575869@estudante.rs.gov.br">bruno-6575869@estudante.rs.gov.br</a>
+      📧 bruno-6575869@estudante.rs.gov.br
     </td>
     <td align="center">
       <a href="https://github.com/Marcelo844">
         <img src="https://avatars.githubusercontent.com/Marcelo844" width="100px;" alt="Marcelo Rangel Barros"/><br />
-        Marcelo Rangel Barros
+        <sub><b>Marcelo Rangel Barros</b></sub>
       </a>
       <br />
-       Email: <a href="mailto:marcelo-barros@estudante.rs.gov.br">marcelo-barros@estudante.rs.gov.br</a>
+      📧 marcelo-barros@estudante.rs.gov.br
     </td>
   </tr>
 </table>
+
 
 ## 📄 License
 
@@ -162,18 +163,18 @@ O **Connect Skills** nasce como uma solução para mitigar esse problema, oferec
     <td align="center">
       <a href="https://github.com/brunowasch">
         <img src="https://avatars.githubusercontent.com/brunowasch" width="100px;" alt="Bruno Waschburger Silva"/><br />
-        Bruno Waschburger Silva
+        <sub><b>Bruno Waschburger Silva</b></sub>
       </a>
       <br />
-      Email: <a href="mailto:bruno-6575869@estudante.rs.gov.br">bruno-6575869@estudante.rs.gov.br</a>
+      📧 bruno-6575869@estudante.rs.gov.br
     </td>
     <td align="center">
       <a href="https://github.com/Marcelo844">
         <img src="https://avatars.githubusercontent.com/Marcelo844" width="100px;" alt="Marcelo Rangel Barros"/><br />
-        Marcelo Rangel Barros
+        <sub><b>Marcelo Rangel Barros</b></sub>
       </a>
       <br />
-       Email: <a href="mailto:marcelo-barros@estudante.rs.gov.br">marcelo-barros@estudante.rs.gov.br</a>
+      📧 marcelo-barros@estudante.rs.gov.br
     </td>
   </tr>
 </table>
