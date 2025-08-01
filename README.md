@@ -71,7 +71,7 @@ The idea for the project came from recognizing that many young people struggle t
         <sub><b>Bruno Waschburger Silva</b></sub>
       </a>
       <br />
-      Email: [bruno-6575869@estudante.rs.gov.br](mailto:bruno-6575869@estudante.rs.gov.br)
+      Email: <a href="mailto:bruno-6575869@estudante.rs.gov.br">bruno-6575869@estudante.rs.gov.br</a>
     </td>
     <td align="center">
       <a href="https://github.com/Marcelo844">
@@ -79,7 +79,7 @@ The idea for the project came from recognizing that many young people struggle t
         <sub><b>Marcelo Rangel Barros</b></sub>
       </a>
       <br />
-      Email: [marcelo-barros@estudante.rs.gov.br](mailto:marcelo-barros@estudante.rs.gov.br)
+      Email: <a href="mailto:marcelo-barros@estudante.rs.gov.br">marcelo-barros@estudante.rs.gov.br</a>
     </td>
   </tr>
 </table>
@@ -165,7 +165,7 @@ O **Connect Skills** nasce como uma solução para mitigar esse problema, oferec
         <sub><b>Bruno Waschburger Silva</b></sub>
       </a>
       <br />
-      Email: [bruno-6575869@estudante.rs.gov.br](mailto:bruno-6575869@estudante.rs.gov.br)
+      Email: <a href="mailto:bruno-6575869@estudante.rs.gov.br">bruno-6575869@estudante.rs.gov.br</a>
     </td>
     <td align="center">
       <a href="https://github.com/Marcelo844">
@@ -173,7 +173,7 @@ O **Connect Skills** nasce como uma solução para mitigar esse problema, oferec
         <sub><b>Marcelo Rangel Barros</b></sub>
       </a>
       <br />
-      Email: [marcelo-barros@estudante.rs.gov.br](mailto:marcelo-barros@estudante.rs.gov.br)
+      Email: <a href="mailto:marcelo-barros@estudante.rs.gov.br">marcelo-barros@estudante.rs.gov.br</a>
     </td>
   </tr>
 </table>
