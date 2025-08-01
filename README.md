@@ -63,11 +63,33 @@ The idea for the project came from recognizing that many young people struggle t
 [![Access Connect Skills here](https://img.shields.io/badge/Access_Connect_Skills_Here-2F84F5?style=for-the-badge&logo=google-chrome&logoColor=FFFFFF)](https://connectskills.com.br)
 
 ## 👥 Developed by
-- 👨‍💻 Bruno Waschburger Silva — [https://github.com/brunowasch](https://github.com/brunowasch) 🔗 [bruno-6575869@estudante.rs.gov.br](mailto:bruno-6575869@estudante.rs.gov.br)
-- 👨‍💻 Marcelo Rangel Barros — [https://github.com/Marcelo844](https://github.com/Marcelo844) 🔗 [marcelo-barros@estudante.rs.gov.br](mailto:marcelo-barros@estudante.rs.gov.br)
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/brunowasch">
+        <img src="https://avatars.githubusercontent.com/brunowasch" width="100px;" alt="Bruno Waschburger Silva"/><br />
+        <sub><b>Bruno Waschburger Silva</b></sub>
+      </a>
+      <br />
+      Email: [bruno-6575869@estudante.rs.gov.br](mailto:bruno-6575869@estudante.rs.gov.br)
+    </td>
+    <td align="center">
+      <a href="https://github.com/Marcelo844">
+        <img src="https://avatars.githubusercontent.com/Marcelo844" width="100px;" alt="Marcelo Rangel Barros"/><br />
+        <sub><b>Marcelo Rangel Barros</b></sub>
+      </a>
+      <br />
+      Email: [marcelo-barros@estudante.rs.gov.br](mailto:marcelo-barros@estudante.rs.gov.br)
+    </td>
+  </tr>
+</table>
 
-Feel free to reach out to us for any questions, suggestions, or collaboration opportunities. We are always open to connect and exchange ideas! 🚀
+## 📄 License
 
+This is an academic project developed for educational purposes, with all rights reserved to the authors.
+
+📁 Project developed as a Capstone Project. 
+🎓 Technical Course in Computer Science Integrated with High School – Escola Técnica Estadual Monteiro Lobato.
 
 ---
 
@@ -135,7 +157,34 @@ O **Connect Skills** nasce como uma solução para mitigar esse problema, oferec
 [![Acesse o Connect Skills clicando aqui](https://img.shields.io/badge/Acesse_o_Connect_Skills_clicando_aqui-2F84F5?style=for-the-badge&logo=google-chrome&logoColor=FFFFFF)](https://connectskills.com.br)
 
 ## 👥 Desenvolvido por
-- 👨‍💻 Bruno Waschburger Silva — [https://github.com/brunowasch](https://github.com/brunowasch) 🔗 [bruno-6575869@estudante.rs.gov.br](mailto:bruno-6575869@estudante.rs.gov.br)
-- 👨‍💻 Marcelo Rangel Barros — [https://github.com/Marcelo844](https://github.com/Marcelo844) 🔗 [marcelo-barros@estudante.rs.gov.br](mailto:marcelo-barros@estudante.rs.gov.br)
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/brunowasch">
+        <img src="https://avatars.githubusercontent.com/brunowasch" width="100px;" alt="Bruno Waschburger Silva"/><br />
+        <sub><b>Bruno Waschburger Silva</b></sub>
+      </a>
+      <br />
+      Email: [bruno-6575869@estudante.rs.gov.br](mailto:bruno-6575869@estudante.rs.gov.br)
+    </td>
+    <td align="center">
+      <a href="https://github.com/Marcelo844">
+        <img src="https://avatars.githubusercontent.com/Marcelo844" width="100px;" alt="Marcelo Rangel Barros"/><br />
+        <sub><b>Marcelo Rangel Barros</b></sub>
+      </a>
+      <br />
+      Email: [marcelo-barros@estudante.rs.gov.br](mailto:marcelo-barros@estudante.rs.gov.br)
+    </td>
+  </tr>
+</table>
 
-Sinta-se à vontade para entrar em contato conosco em caso de dúvidas, sugestões ou parcerias! Estamos sempre abertos a colaborar e trocar experiências. 🚀
+---
+
+## 📄 Licença
+
+Este projeto é acadêmico, desenvolvido para fins educacionais, com todos os direitos reservados aos autores.
+
+📁 Projeto desenvolvido como Trabalho de Conclusão de Curso (TCC).  
+🎓 Curso Técnico em Informática Integrado ao Ensino Médio – Escola Técnica Estadual Monteiro Lobato.
+
+---
