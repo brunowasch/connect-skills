@@ -68,18 +68,18 @@ The idea for the project came from recognizing that many young people struggle t
     <td align="center">
       <a href="https://github.com/brunowasch">
         <img src="https://avatars.githubusercontent.com/brunowasch" width="100px;" alt="Bruno Waschburger Silva"/><br />
-        <sub><b>Bruno Waschburger Silva</b></sub>
+        Bruno Waschburger Silva
       </a>
       <br />
-      Email: bruno-6575869@estudante.rs.gov.br
+      Email: <a href="mailto:bruno-6575869@estudante.rs.gov.br">bruno-6575869@estudante.rs.gov.br</a>
     </td>
     <td align="center">
       <a href="https://github.com/Marcelo844">
         <img src="https://avatars.githubusercontent.com/Marcelo844" width="100px;" alt="Marcelo Rangel Barros"/><br />
-        <sub><b>Marcelo Rangel Barros</b></sub>
+        Marcelo Rangel Barros
       </a>
       <br />
-      Email: marcelo-barros@estudante.rs.gov.br
+       Email: <a href="mailto:marcelo-barros@estudante.rs.gov.br">marcelo-barros@estudante.rs.gov.br</a>
     </td>
   </tr>
 </table>
@@ -162,18 +162,18 @@ O **Connect Skills** nasce como uma solução para mitigar esse problema, oferec
     <td align="center">
       <a href="https://github.com/brunowasch">
         <img src="https://avatars.githubusercontent.com/brunowasch" width="100px;" alt="Bruno Waschburger Silva"/><br />
-        <sub><b>Bruno Waschburger Silva</b></sub>
+        Bruno Waschburger Silva
       </a>
       <br />
-      Email: bruno-6575869@estudante.rs.gov.br
+      Email: <a href="mailto:bruno-6575869@estudante.rs.gov.br">bruno-6575869@estudante.rs.gov.br</a>
     </td>
     <td align="center">
       <a href="https://github.com/Marcelo844">
         <img src="https://avatars.githubusercontent.com/Marcelo844" width="100px;" alt="Marcelo Rangel Barros"/><br />
-        <sub><b>Marcelo Rangel Barros</b></sub>
+        Marcelo Rangel Barros
       </a>
       <br />
-      Email: marcelo-barros@estudante.rs.gov.br
+       Email: <a href="mailto:marcelo-barros@estudante.rs.gov.br">marcelo-barros@estudante.rs.gov.br</a>
     </td>
   </tr>
 </table>
