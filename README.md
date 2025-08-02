@@ -90,6 +90,7 @@ The idea for the project came from recognizing that many young people struggle t
 This is an academic project developed for educational purposes, with all rights reserved to the authors.
 
 📁 Project developed as a Capstone Project. 
+
 🎓 Technical Course in Computer Science Integrated with High School – Escola Técnica Estadual Monteiro Lobato.
 
 ---
@@ -186,4 +187,5 @@ O **Connect Skills** nasce como uma solução para mitigar esse problema, oferec
 Este projeto é acadêmico, desenvolvido para fins educacionais, com todos os direitos reservados aos autores.
 
 📁 Projeto desenvolvido como Trabalho de Conclusão de Curso (TCC).  
+
 🎓 Curso Técnico em Informática Integrado ao Ensino Médio – Escola Técnica Estadual Monteiro Lobato.
