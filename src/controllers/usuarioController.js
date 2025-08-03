@@ -4,6 +4,8 @@ const nodemailer = require('nodemailer');
 const usuarioModel = require('../models/usuarioModel');
 const candidatoModel = require('../models/candidatoModel');
 const empresaModel = require('../models/empresaModel');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 async function enviarEmailVerificacao(email, usuario_id) {
   const token = jwt.sign({ id: usuario_id }, process.env.JWT_SECRET, { expiresIn: '1d' });
@@ -237,4 +239,103 @@ exports.statusVerificacao = async (req, res) => {
     console.error('Erro ao verificar status de verificação:', erro);
     res.status(500).json({ erro: 'Erro interno' });
   }
+};
+
+exports.recuperarSenha = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const usuario = await prisma.usuario.findUnique({ where: { email } });
+
+    if (!usuario) {
+      req.session.erro = 'E-mail não encontrado. Verifique se digitou corretamente.';
+      return res.redirect('/usuarios/recuperar-senha');
+    }
+
+    const token = jwt.sign({ id: usuario.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+    const resetLink = `http://localhost:3000/usuarios/redefinir-senha?token=${token}`;
+
+    await transporter.sendMail({
+      from: 'Connect Skills <no-reply@connectskills.com>',
+      to: email,
+      subject: 'Recuperação de senha',
+      html: `
+        <p>Olá,</p>
+        <p>
+          Recebemos uma solicitação de redefinição de senha para sua conta no 
+          <strong style="color: #6a1b9a;">Connect Skills</strong>.
+        </p>
+        <p>Clique no botão abaixo para escolher uma nova senha:</p>
+        <p style="margin: 16px 0;">
+          <a href="${resetLink}" target="_blank" rel="noopener noreferrer" style="
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #0d6efd;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+          ">
+            Redefinir senha
+          </a>
+        </p>
+        <p>Se você não solicitou essa recuperação, ignore este e-mail.</p>
+        <p>Equipe Connect Skills</p>
+      `
+    });
+
+    req.session.sucesso = 'Enviamos um link de recuperação para seu e-mail!';
+    return res.redirect('/usuarios/recuperar-senha');
+  } catch (error) {
+    console.error('Erro ao enviar email de recuperação:', error);
+    req.session.erro = 'Erro ao enviar o e-mail de recuperação. Tente novamente.';
+    return res.redirect('/usuarios/recuperar-senha');
+  }
+};
+
+exports.telaRedefinirSenha = (req, res) => {
+  const { token } = req.query || req.params;
+  if (!token) return res.status(400).send('Token não fornecido.');
+  res.render('auth/redefinir-senha', { token, erro: null });
+};
+
+exports.telaRecuperarSenha = (req, res) => {
+  res.render('auth/recuperar-senha');
+};
+
+exports.redefinirSenha = async (req, res) => {
+  const { token, novaSenha } = req.body;
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const usuarioId = decoded.id;
+
+    const salt = await bcrypt.genSalt(10);
+    const senhaCriptografada = await bcrypt.hash(novaSenha, salt);
+
+    await usuarioModel.atualizarUsuario(usuarioId, {
+      senha: senhaCriptografada
+    });
+
+    res.render('auth/redefinicao-sucesso');
+  } catch (erro) {
+    console.error('Erro ao redefinir senha:', erro);
+    res.status(400).send('Token inválido ou expirado.');
+  }
+};
+
+const exibirFormularioRedefinirSenha = async (req, res) => {
+  const { token } = req.params;
+
+  // (opcional) você pode verificar se o token é válido aqui antes de renderizar
+  return res.render("redefinicao-sucesso", { token }); // ou redefinir-senha se você tiver uma view separada
 };
