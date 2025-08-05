@@ -27,14 +27,17 @@
         <div class="bg-white rounded p-4 mb-4 shadow-sm position-relative">
           <a href="/empresa/editar-vaga/<%= vaga.id %>" title="Editar vaga"
             class="position-absolute top-0 end-0 m-3 text-decoration-none">
-            <i class="bi bi-pencil text-primary fs-5"></i>
+            <i class="bi bi-pencil-square fs-5"></i>
           </a>
 
           <div class="d-flex gap-4 align-items-start flex-wrap">
             <div class="d-flex gap-4 align-items-start flex-grow-1">
               <img src="<%= vaga.empresa?.foto_perfil || '/img/logo.png' %>" 
                    alt="Logo da empresa" 
-                   style="width: 70px; height: 70px; object-fit: cover;">
+                   class="rounded-circle"
+                   height="80"
+                   width="80"
+                   style="object-fit: cover;">
               <div>
                 <h5 class="mb-0 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>
                 <%

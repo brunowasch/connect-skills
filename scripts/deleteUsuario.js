@@ -69,5 +69,4 @@ async function deletarContaPorEmail(email) {
   }
 }
 
-// Troque aqui pelo e-mail desejado
-deletarContaPorEmail('gptpremium1319@gmail.com');
+deletarContaPorEmail('brunowaschburgers@gmail.com');
