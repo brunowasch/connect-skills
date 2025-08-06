@@ -34,6 +34,7 @@ body {
     width: 100%;
     max-width: 400px;
     color: black;
+    margin-top: 0;
   }
 
   .login-title {
@@ -89,7 +90,11 @@ main.container {
   word-break: break-word;
 }
 .main-ajustada {
-  margin-top: 80px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin-top: 110px;
 }
 
 @media (max-width: 992px) {
