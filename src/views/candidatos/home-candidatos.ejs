@@ -11,84 +11,83 @@
     <link rel="icon" href="/img/CONNECT.png">
   </head>
   <body id="home">
-    <main>
-<%- include('../partials/header-candidato') %>
-<% var sucesso = typeof sucesso !== 'undefined' ? sucesso : false; %>
-<% var erro = typeof erro !== 'undefined' ? erro : false; %>
-  <!-- HEADER -->
-  <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
-    <div class="carousel-inner">
-      <div class="carousel-item active">
-        <img src="/img/Banner.png" class="d-block w-100" alt="...">
+    <main style="margin-top: 0; padding-top: 0;">
+      <%- include ('../partials/header-candidato') %>
+      <% var sucesso = typeof sucesso !== 'undefined' ? sucesso : false; %>
+      <% var erro = typeof erro !== 'undefined' ? erro : false; %>
+      <div id="carouselExampleSlidesOnly" class="carousel slide mt-0" data-bs-ride="carousel">
+        <div class="carousel-inner">
+          <div class="carousel-item active">
+            <img src="/img/Banner.png" class="d-block w-100" alt="...">
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
 
-<% if (typeof usuario !== 'undefined' && usuario?.nome) { %>
-  <div class="container mt-5">
-    <h5 class="text-primary fw-bold">Olá, <%= usuario?.nome || candidato?.nome || 'Usuário' %>!</h5>
-  </div>
-<% } %>
+      <% if (typeof usuario !== 'undefined' && usuario?.nome) { %>
+        <div class="container mt-5">
+          <h5 class="text-primary fw-bold">Olá, <%= usuario?.nome || candidato?.nome || 'Usuário' %>!</h5>
+        </div>
+      <% } %>
 
-  <!-- COMO FUNCIONA -->
-  <section class="container my-5">
-<h3>
-  Encontre-se no mercado de trabalho, 
-  <span class="text-primary" style="font-size: inherit; font-weight: inherit;">
-    de forma rápida e eficiente!
-  </span>
-</h3>
+      <!-- COMO FUNCIONA -->
+      <section class="container my-5">
+        <h3>
+          Encontre-se no mercado de trabalho, 
+          <span class="text-primary" style="font-size: inherit; font-weight: inherit;">
+            de forma rápida e eficiente!
+          </span>
+        </h3>
 
-    <p><strong>Como Funciona?</strong></p>
-    <p> Nós conectamos você às oportunidades certas! Com base no nosso chatbot, analisamos as vagas disponíveis em nossa plataforma e indicamos aquelas que mais combinam com suas habilidades e interesses. No Connect Skills, encontrar o emprego ideal fica mais fácil e eficiente!</p>
+        <p><strong>Como Funciona?</strong></p>
+        <p> Nós conectamos você às oportunidades certas! Com base no nosso chatbot, analisamos as vagas disponíveis em nossa plataforma e indicamos aquelas que mais combinam com suas habilidades e interesses. No Connect Skills, encontrar o emprego ideal fica mais fácil e eficiente!</p>
 
-<div class="row g-4 mt-4">
-  <div class="col-md-3 col-sm-6">
-    <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
-      <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
-           style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-        1
-      </div>
-      <p class="flex-grow-1">Crie seu perfil e adicione informações sobre você.</p>
-    </div>
-  </div>
+        <div class="row g-4 mt-4">
+          <div class="col-md-3 col-sm-6">
+            <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
+              <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
+                   style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                1
+              </div>
+              <p class="flex-grow-1">Crie seu perfil e adicione informações sobre você.</p>
+            </div>
+          </div>
 
-  <div class="col-md-3 col-sm-6">
-    <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
-      <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
-           style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-        2
-      </div>
-      <p class="flex-grow-1">Nosso sistema identifica as melhores empresas para você aplicar de acordo com sua área de interesse.</p>
-    </div>
-  </div>
+          <div class="col-md-3 col-sm-6">
+            <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
+              <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
+                   style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                2
+              </div>
+              <p class="flex-grow-1">Nosso sistema identifica as melhores empresas para você aplicar de acordo com sua área de interesse.</p>
+            </div>
+          </div>
 
-  <div class="col-md-3 col-sm-6">
-    <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
-      <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
-           style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-        3
-      </div>
-      <p class="flex-grow-1">Ao se interessar por uma vaga, faça seu teste com nossa inteligência artificial.</p>
-    </div>
-  </div>
+          <div class="col-md-3 col-sm-6">
+            <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
+              <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
+                   style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                3
+              </div>
+              <p class="flex-grow-1">Ao se interessar por uma vaga, faça seu teste com nossa inteligência artificial.</p>
+            </div>
+          </div>
 
-  <div class="col-md-3 col-sm-6">
-    <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
-      <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
-           style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-        4
-      </div>
-      <p class="flex-grow-1">Depois de responder às perguntas, sua solicitação será enviada e será retornada em breve.</p>
-    </div>
-  </div>
-</div>
+          <div class="col-md-3 col-sm-6">
+            <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
+              <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
+                   style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                4
+              </div>
+              <p class="flex-grow-1">Depois de responder às perguntas, sua solicitação será enviada e será retornada em breve.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <%- include('../partials/contato', { sucesso, erro, candidato, empresa: null }) %>
+    <!-- RODAPÉ -->
+    <%- include('../partials/footer') %>
 
-<%- include('../partials/contato', { sucesso, erro, candidato, empresa: null }) %>
-</main>
-  <!-- RODAPÉ -->
-<%- include('../partials/footer') %>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
 </html>
