@@ -77,7 +77,6 @@ exports.salvarLocalizacao = async (req, res) => {
   }
 };
 
-
 exports.telaTelefone = (req, res) => {
   const { usuario_id } = req.query;
   if (!usuario_id) return res.status(400).send("ID do usuário não informado.");
@@ -110,9 +109,6 @@ exports.telaFotoPerfil = (req, res) => {
 };
 
 exports.salvarFotoPerfil = async (req, res) => {
-  console.log('req.file:', req.file);
-  console.log('req.body.usuario_id:', req.body.usuario_id);
-
   const usuario_id = req.body.usuario_id || req.query.usuario_id;
 
   if (!req.file?.path) {
@@ -123,16 +119,9 @@ exports.salvarFotoPerfil = async (req, res) => {
   }
 
   try {
-    // 1. Recuperar os dados da empresa
-    const empresa = await prisma.empresa.findUnique({
-      where: { usuario_id: Number(usuario_id) }
-    });
+    const empresa = await prisma.empresa.findUnique({ where: { usuario_id: Number(usuario_id) } });
+    if (!empresa) return res.status(404).send("Empresa não encontrada.");
 
-    if (!empresa) {
-      return res.status(404).send("Empresa não encontrada.");
-    }
-
-    // 2. Enviar a imagem para o Cloudinary
     const resultadoCloudinary = await cloudinary.uploader.upload(req.file.path, {
       folder: 'connect-skills/empresas',
       public_id: `empresa_${empresa.id}_foto_perfil`,
@@ -141,15 +130,12 @@ exports.salvarFotoPerfil = async (req, res) => {
     });
 
     const urlImagem = resultadoCloudinary.secure_url;
-    console.log("URL da foto no Cloudinary:", urlImagem);
 
-    // 3. Atualizar o banco de dados
     await prisma.empresa.update({
       where: { id: empresa.id },
       data: { foto_perfil: urlImagem }
     });
 
-    // 4. Atualizar a sessão com os dados completos da empresa
     req.session.empresa = {
       id: empresa.id,
       usuario_id: empresa.usuario_id,
@@ -162,18 +148,9 @@ exports.salvarFotoPerfil = async (req, res) => {
       foto_perfil: urlImagem
     };
 
-    console.log("Sessão empresa atualizada:", req.session.empresa);
+    req.session.usuario = { id: empresa.usuario_id, tipo: 'empresa', nome: empresa.nome_empresa };
 
-    req.session.usuario = {
-    id: empresa.usuario_id,
-    tipo: 'empresa',
-    nome: empresa.nome_empresa
-  };
-
-  // Garante que a sessão esteja salva antes de redirecionar
-  req.session.save(() => {
-    res.redirect('/empresa/home');
-  });
+    req.session.save(() => res.redirect('/empresa/home'));
   } catch (err) {
     console.error('Erro ao salvar foto de perfil da empresa:', err);
     return res.render('empresas/foto-perfil-empresa', {
@@ -191,17 +168,10 @@ exports.homeEmpresa = async (req, res) => {
       const usuario_id = parseInt(req.query.usuario_id, 10);
       if (isNaN(usuario_id)) return res.redirect('/login');
 
-      empresa = await prisma.empresa.findUnique({
-        where: { usuario_id }
-      });
-
+      empresa = await prisma.empresa.findUnique({ where: { usuario_id } });
       if (!empresa) return res.redirect('/login');
 
-      // 🔍 buscar o email do usuário
-      const usuario = await prisma.usuario.findUnique({
-        where: { id: usuario_id },
-        select: { email: true }
-      });
+      const usuario = await prisma.usuario.findUnique({ where: { id: usuario_id }, select: { email: true } });
 
       req.session.empresa = {
         id: empresa.id,
@@ -213,11 +183,10 @@ exports.homeEmpresa = async (req, res) => {
         pais: empresa.pais,
         telefone: empresa.telefone,
         foto_perfil: empresa.foto_perfil || '',
-        email: usuario?.email || '' // ✅ aqui!
+        email: usuario?.email || ''
       };
     }
 
-    // 🔁 Mesmo com sessão existente, garante email atualizado
     const usuario = await prisma.usuario.findUnique({
       where: { id: req.session.empresa.usuario_id },
       select: { email: true }
@@ -263,10 +232,7 @@ exports.telaPerfilEmpresa = async (req, res) => {
       },
     });
 
-    res.render('empresas/meu-perfil', {
-      empresa,
-      vagasPublicadas: vagasDaEmpresa,
-    });
+    res.render('empresas/meu-perfil', { empresa, vagasPublicadas: vagasDaEmpresa });
   } catch (error) {
     console.error('Erro ao buscar vagas da empresa:', error);
     res.status(500).send('Erro ao carregar vagas.');
@@ -277,16 +243,12 @@ exports.telaPublicarVaga = async (req, res) => {
   try {
     if (!req.session.empresa) return res.redirect('/login');
 
-    // Buscar apenas áreas padrão
     const areas = await prisma.area_interesse.findMany({
       where: { padrao: true },
       orderBy: { nome: 'asc' }
     });
 
-    // Buscar todas as soft skills
-    const habilidades = await prisma.soft_skill.findMany({
-      orderBy: { nome: 'asc' }
-    });
+    const habilidades = await prisma.soft_skill.findMany({ orderBy: { nome: 'asc' } });
 
     res.render('empresas/publicar-vaga', { areas, habilidades });
   } catch (err) {
@@ -297,37 +259,24 @@ exports.telaPublicarVaga = async (req, res) => {
 
 exports.salvarVaga = async (req, res) => {
   try {
-    if (!req.session.empresa) {
-      return res.redirect('/login');
-    }
+    if (!req.session.empresa) return res.redirect('/login');
 
-    // 1) PEGA RAW das áreas (string JSON ou array)
     const rawAreas = req.body.areasSelecionadas ?? req.body.areas ?? '[]';
     let areasBrutas;
     try {
-      areasBrutas = Array.isArray(rawAreas)
-        ? rawAreas
-        : JSON.parse(rawAreas);
+      areasBrutas = Array.isArray(rawAreas) ? rawAreas : JSON.parse(rawAreas);
     } catch {
       areasBrutas = [];
     }
 
-    // 2) VALIDAÇÃO IMEDIATA: pelo menos 1 área
     if (!Array.isArray(areasBrutas) || areasBrutas.length === 0) {
-      // busca listas pra re-renderizar o form
-      const areasList  = await prisma.area_interesse.findMany({
-        where: { padrao: true },
-        orderBy: { nome: 'asc' }
-      });
-      const skillsList = await prisma.soft_skill.findMany({
-        orderBy: { nome: 'asc' }
-      });
+      const areasList  = await prisma.area_interesse.findMany({ where: { padrao: true }, orderBy: { nome: 'asc' } });
+      const skillsList = await prisma.soft_skill.findMany({ orderBy: { nome: 'asc' } });
 
       return res.status(400).render('empresas/publicar-vaga', {
         erroAreas: 'Selecione ao menos uma área de atuação.',
         erroHabilidades: null,
         vaga: {
-          // passa tudo de volta para preencher o form
           cargo: req.body.cargo || '',
           tipo_local_trabalho: req.body.tipo || '',
           escala_trabalho: req.body.escala || '',
@@ -336,22 +285,18 @@ exports.salvarVaga = async (req, res) => {
           salario: req.body.salario || '',
           moeda: req.body.moeda || '',
           descricao: req.body.descricao || '',
-          beneficio: Array.isArray(req.body.beneficio)
-            ? req.body.beneficio
-            : [req.body.beneficio || ''],
+          beneficio: Array.isArray(req.body.beneficio) ? req.body.beneficio : [req.body.beneficio || ''],
           beneficioOutro: req.body.beneficioOutro || '',
           pergunta: req.body.pergunta || '',
           opcao: req.body.opcao || ''
         },
         areas: areasList,
         skills: skillsList,
-        selectedAreas: [],           // nenhum ativo
-        selectedSkills: []           // mantém vazio
+        selectedAreas: [],
+        selectedSkills: []
       });
     }
 
-    // 3) A partir daqui, já temos pelo menos 1 área
-    //    => converte/cria IDs
     const areas_ids = [];
     for (const item of areasBrutas) {
       const s = String(item);
@@ -368,39 +313,26 @@ exports.salvarVaga = async (req, res) => {
       }
     }
 
-    // 4) SOFT SKILLS (mesma lógica de parse e validação se quiser)
     const rawSkills = req.body.habilidadesSelecionadas ?? '[]';
     let skillsBrutas;
-    try {
-      skillsBrutas = Array.isArray(rawSkills)
-        ? rawSkills
-        : JSON.parse(rawSkills);
-    } catch {
-      skillsBrutas = [];
-    }
-    // ... você pode repetir o mesmo bloco de validação de skills aqui se desejar
+    try { skillsBrutas = Array.isArray(rawSkills) ? rawSkills : JSON.parse(rawSkills); }
+    catch { skillsBrutas = []; }
 
     const soft_skills_ids = skillsBrutas.map(Number);
 
-    // --- resto da montagem do objeto vaga ---
     const empresa_id = req.session.empresa.id;
-    const { cargo, tipo, escala, diasPresenciais, diasHomeOffice,
-            salario, moeda, descricao, beneficio, beneficioOutro,
-            pergunta, opcao } = req.body;
+    const { cargo, tipo, escala, diasPresenciais, diasHomeOffice, salario, moeda, descricao, beneficio, beneficioOutro, pergunta, opcao } = req.body;
 
-    // BENEFÍCIOS
     let beneficiosArr = Array.isArray(beneficio) ? beneficio : [beneficio];
     if (beneficioOutro?.trim()) beneficiosArr.push(beneficioOutro.trim());
     const beneficiosTexto = beneficiosArr.join(', ');
 
-    // SALÁRIO
     let salarioFormatado = null;
     if (salario) {
       const bruto = salario.toString().replace(/\./g,'').replace(',','.');
       salarioFormatado = parseFloat(bruto);
     }
 
-    // CRIA NO PRISMA
     await prisma.vaga.create({
       data: {
         empresa_id,
@@ -415,40 +347,30 @@ exports.salvarVaga = async (req, res) => {
         beneficio: beneficiosTexto,
         pergunta,
         opcao,
-        vaga_area: {
-          createMany: { data: areas_ids.map(id=>({ area_interesse_id: id })) }
-        },
-        vaga_soft_skill: {
-          createMany: { data: soft_skills_ids.map(id=>({ soft_skill_id: id })) }
-        }
+        vaga_area: { createMany: { data: areas_ids.map(id=>({ area_interesse_id: id })) } },
+        vaga_soft_skill: { createMany: { data: soft_skills_ids.map(id=>({ soft_skill_id: id })) } }
       }
     });
 
     return res.redirect('/empresa/meu-perfil');
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[ERRO] salvarVaga:', err);
     return res.status(500).send('Erro ao salvar vaga.');
   }
 };
-
 
 exports.mostrarPerfil = async (req, res) => {
   const empresa = req.session.empresa;
   if (!empresa) return res.redirect('/login');
 
   try {
-      const vagas = await prisma.vaga.findMany({
-        where: { empresa_id: req.session.empresa.id },
-        include: {
-          empresa: true,
-          vaga_area: {
-            include: {
-              area_interesse: true
-            }
-          }
-        }
-      });
+    const vagas = await prisma.vaga.findMany({
+      where: { empresa_id: req.session.empresa.id },
+      include: {
+        empresa: true,
+        vaga_area: { include: { area_interesse: true } }
+      }
+    });
 
     res.render('empresas/meu-perfil', {
       empresa,
@@ -476,206 +398,11 @@ exports.excluirVaga = async (req, res) => {
   }
 };
 
-exports.telaEditarPerfil = (req, res) => {
-  const empresa = req.session.empresa;
-  console.log("Empresa na sessão:", empresa);
-  if (!empresa) return res.redirect('/login');
-
-  res.render('empresas/editar-empresa', {
-    empresa,
-    fotoPerfil: empresa.foto_perfil && empresa.foto_perfil.trim() !== '' ? empresa.foto_perfil : null,
-    descricao: empresa.descricao,
-    telefone: empresa.telefone,
-    localidade: `${empresa.cidade}, ${empresa.estado}, ${empresa.pais}`,
-  });
-};
-
-exports.salvarEdicaoPerfil = async (req, res) => {
-  console.log("Arquivo recebido:", req.file); 
-  const { nome, descricao, ddi, ddd, numero, localidade, fotoBase64, removerFoto } = req.body;
-  let telefone = req.session.empresa.telefone;
-
-  if (ddi && ddd && numero) {
-    telefone = `${ddi} (${ddd}) ${numero}`;
-  }
-
-  const empresaId = req.session.empresa?.id;
-  if (!empresaId) return res.redirect('/login');
-
-  let cidade = '', estado = '', pais = '';
-  if (localidade) {
-    const partes = localidade.split(',').map(p => p.trim());
-    [cidade, estado = '', pais = ''] = partes;
-  }
-
-  let novaFotoUrl = req.session.empresa.foto_perfil;
-
-if (removerFoto === 'true' || removerFoto === 'on') {
-    try {
-      await prisma.empresa.update({
-        where: { id: empresaId },
-        data: {
-          nome_empresa: nome,
-          descricao,
-          telefone,
-          cidade,
-          estado,
-          pais,
-          foto_perfil: null
-        }
-      });
-
-      req.session.empresa = {
-        ...req.session.empresa,
-        nome_empresa: nome,
-        descricao,
-        telefone,
-        cidade,
-        estado,
-        pais,
-        foto_perfil: ''
-      };
-
-      return res.redirect('/empresa/meu-perfil');
-    } catch (err) {
-      console.error("Erro ao remover foto de perfil:", err);
-      return res.status(500).send("Erro ao atualizar os dados.");
-    }
-  }
-
-  // Upload de imagem base64 (tirada da câmera)
-  if (fotoBase64?.startsWith('data:image')) {
-    const matches = fotoBase64.match(/^data:image\/(\w+);base64,(.+)$/);
-    if (matches) {
-      const ext = matches[1];
-      const data = matches[2];
-      const buffer = Buffer.from(data, 'base64');
-
-      try {
-        const resultadoCloudinary = await cloudinary.uploader.upload_stream({
-          folder: 'connect-skills/empresas',
-          public_id: `empresa_${empresaId}_foto_perfil`,
-          use_filename: true,
-          unique_filename: false
-        }, async (error, result) => {
-          if (error) throw error;
-          novaFotoUrl = result.secure_url;
-
-          await prisma.empresa.update({
-            where: { id: empresaId },
-            data: {
-              nome_empresa: nome,
-              descricao,
-              telefone,
-              cidade,
-              estado,
-              pais,
-              foto_perfil: novaFotoUrl
-            }
-          });
-
-          req.session.empresa = {
-            ...req.session.empresa,
-            nome_empresa: nome,
-            descricao,
-            telefone,
-            cidade,
-            estado,
-            pais,
-            foto_perfil: novaFotoUrl
-          };
-
-          return res.redirect('/empresa/meu-perfil');
-        });
-
-        // Envia o buffer para o Cloudinary
-        const stream = resultadoCloudinary;
-        stream.end(buffer);
-        return;
-      } catch (err) {
-        console.error("Erro ao fazer upload da imagem para o Cloudinary:", err);
-        return res.status(500).send("Erro ao fazer upload da imagem.");
-      }
-    }
-  }
-
-  // Upload de imagem via arquivo
-  if (req.file) {
-    try {
-      const resultadoCloudinary = await cloudinary.uploader.upload(req.file.path, {
-        folder: 'connect-skills/empresas',
-        public_id: `empresa_${empresaId}_foto_perfil`,
-        use_filename: true,
-        unique_filename: false,
-      });
-
-      novaFotoUrl = resultadoCloudinary.secure_url;
-    } catch (error) {
-      console.error("Erro ao fazer upload para o Cloudinary:", error);
-      return res.status(500).send("Erro ao fazer upload da imagem.");
-    }
-  }
-
-  // Atualiza os dados restantes
-  try {
-    await prisma.empresa.update({
-      where: { id: empresaId },
-      data: {
-        nome_empresa: nome,
-        descricao,
-        telefone,
-        cidade,
-        estado,
-        pais,
-        foto_perfil: novaFotoUrl
-      }
-    });
-
-    req.session.empresa = {
-      ...req.session.empresa,
-      nome_empresa: nome,
-      descricao,
-      telefone,
-      cidade,
-      estado,
-      pais,
-      foto_perfil: novaFotoUrl
-    };
-
-    res.redirect('/empresa/meu-perfil');
-  } catch (error) {
-    console.error("Erro ao salvar dados da empresa:", error);
-    res.status(500).send("Erro ao salvar dados.");
-  }
-};
-
-
-exports.mostrarVagas = async (req, res) => {
-  const empresa = req.session.empresa;
-  if (!empresa) return res.redirect('/login');
-
-  try {
-    const vagas = await vagaModel.buscarVagasPorEmpresaId(empresa.id);
-
-    const vagasTratadas = vagas.map(v => ({
-      ...v,
-      areas: v.vaga_area.map(a => a.area_interesse.nome),
-      habilidades: v.vaga_soft_skill.map(h => h.soft_skill.nome)
-    }));
-
-    res.render('empresas/vagas', { vagas: vagasTratadas });
-  } catch (error) {
-    console.error('Erro ao carregar vagas:', error);
-    res.status(500).send('Erro ao carregar vagas.');
-  }
-};
-
 exports.telaEditarVaga = async (req, res) => {
   try {
     const vagaId = Number(req.params.id);
     const empresaId = req.session.empresa.id;
 
-    // busca vaga + relacionamentos
     const vaga = await prisma.vaga.findUnique({
       where: { id: vagaId },
       include: {
@@ -684,22 +411,14 @@ exports.telaEditarVaga = async (req, res) => {
       }
     });
 
-    // garante que a vaga pertence a esta empresa
     if (!vaga || vaga.empresa_id !== empresaId) {
       return res.status(403).send('Acesso negado.');
     }
 
-    // IDs das áreas vinculadas a essa vaga
     const areaIdsSelecionadas = vaga.vaga_area.map(v => v.area_interesse_id);
 
-    // Busca todas as áreas padrão + áreas selecionadas (evita duplicadas)
     const areas = await prisma.area_interesse.findMany({
-      where: {
-        OR: [
-          { padrao: true },
-          { id: { in: areaIdsSelecionadas } }
-        ]
-      },
+      where: { OR: [{ padrao: true }, { id: { in: areaIdsSelecionadas } }] },
       orderBy: { nome: 'asc' }
     });
 
@@ -708,63 +427,38 @@ exports.telaEditarVaga = async (req, res) => {
     const selectedAreas  = vaga.vaga_area.map(a => a.area_interesse_id);
     const selectedSkills = vaga.vaga_soft_skill.map(s => s.soft_skill_id);
 
-    res.render('empresas/editar-vaga', {
-      vaga,
-      areas,
-      skills,
-      selectedAreas,
-      selectedSkills
-    });
+    res.render('empresas/editar-vaga', { vaga, areas, skills, selectedAreas, selectedSkills });
   } catch (err) {
     console.error('Erro na tela de editar vaga:', err);
     res.status(500).send('Erro ao carregar edição de vaga.');
   }
 };
 
-/** Recebe POST da edição e salva no banco */
 exports.salvarEditarVaga = async (req, res) => {
   try {
     const vagaId = Number(req.params.id);
     const empresaId = req.session.empresa.id;
 
     const {
-      cargo,
-      tipo,
-      escala,
-      diasPresenciais,
-      diasHomeOffice,
-      salario,
-      moeda,
-      descricao,
-      beneficio,
-      areasSelecionadas,
-      habilidadesSelecionadas
+      cargo, tipo, escala, diasPresenciais, diasHomeOffice,
+      salario, moeda, descricao, beneficio,
+      areasSelecionadas, habilidadesSelecionadas
     } = req.body;
 
     const areaIds = [];
     const skillIds = JSON.parse(habilidadesSelecionadas || '[]');
 
-    // Parse e criação de áreas
     try {
       const areasBrutas = JSON.parse(areasSelecionadas || '[]');
-
       for (const area of areasBrutas) {
         const valor = String(area);
-
         if (valor.startsWith('nova:')) {
           const nomeNova = valor.replace('nova:', '').trim();
           if (!nomeNova) continue;
-
-          let nova = await prisma.area_interesse.findFirst({
-            where: { nome: nomeNova }
-          });
-
+          let nova = await prisma.area_interesse.findFirst({ where: { nome: nomeNova } });
           if (!nova) {
-            nova = await prisma.area_interesse.create({
-              data: { nome: nomeNova, padrao: false }
-            });
+            nova = await prisma.area_interesse.create({ data: { nome: nomeNova, padrao: false } });
           }
-
           areaIds.push(nova.id);
         } else {
           areaIds.push(Number(valor));
@@ -778,8 +472,6 @@ exports.salvarEditarVaga = async (req, res) => {
     await prisma.vaga_area.deleteMany({ where: { vaga_id: vagaId } });
     await prisma.vaga_soft_skill.deleteMany({ where: { vaga_id: vagaId } });
 
-
-    // ✅ Atualiza a vaga
     await prisma.vaga.update({
       where: { id: vagaId, empresa_id: empresaId },
       data: {
@@ -795,25 +487,14 @@ exports.salvarEditarVaga = async (req, res) => {
       }
     });
 
-    // ✅ Adiciona as áreas novas
+    // limite opcional a 3 áreas
     const areaIdsLimitadas = areaIds.slice(0, 3);
-    for (const areaId of areaIds) {
-      await prisma.vaga_area.create({
-        data: {
-          vaga_id: vagaId,
-          area_interesse_id: areaId
-        }
-      });
+    for (const areaId of areaIdsLimitadas) {
+      await prisma.vaga_area.create({ data: { vaga_id: vagaId, area_interesse_id: areaId } });
     }
 
-    // ✅ Adiciona as habilidades novas
     for (const skillId of skillIds) {
-      await prisma.vaga_soft_skill.create({
-        data: {
-          vaga_id: vagaId,
-          soft_skill_id: skillId
-        }
-      });
+      await prisma.vaga_soft_skill.create({ data: { vaga_id: vagaId, soft_skill_id: skillId } });
     }
 
     res.redirect('/empresa/meu-perfil');
@@ -823,15 +504,11 @@ exports.salvarEditarVaga = async (req, res) => {
   }
 };
 
-
 exports.perfilPublico = async (req, res) => {
   const empresaId = parseInt(req.params.id);
 
   try {
-    const empresa = await prisma.empresa.findUnique({
-      where: { id: empresaId }
-    });
-
+    const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
     if (!empresa) return res.status(404).send("Empresa não encontrada.");
 
     const vagasPublicadas = await prisma.vaga.findMany({
@@ -853,15 +530,12 @@ exports.telaComplementarGoogle = (req, res) => {
   if (!req.session.usuario || req.session.usuario.tipo !== 'empresa') {
     return res.redirect('/');
   }
-
   const nome = req.session.usuario.nome || '';
   res.render('empresas/cadastro-complementar-empresa', { nome, erro: null });
 };
 
 exports.salvarComplementarGoogle = async (req, res) => {
   const { nome, descricao, ddi, ddd, numero, localidade } = req.body;
-console.log('🧠 FOTO vinda da sessão do usuário:', req.session.usuario.foto);
-
   const usuario_id = req.session.usuario?.id;
 
   if (!usuario_id || !nome || !descricao || !localidade || !ddd || !numero) {
@@ -872,29 +546,22 @@ console.log('🧠 FOTO vinda da sessão do usuário:', req.session.usuario.foto)
   }
 
   try {
-      const usuario_id = req.session.usuario.id;
+    const usuarioDB = await prisma.usuario.findUnique({ where: { id: usuario_id } });
 
-      const usuarioDB = await prisma.usuario.findUnique({
-        where: { id: usuario_id }
-      });
+    await empresaModel.criarEmpresa({
+      usuario_id,
+      nome_empresa: nome,
+      descricao,
+      foto_perfil: usuarioDB.avatarUrl || ''
+    });
 
-      await empresaModel.criarEmpresa({
-        usuario_id,
-        nome_empresa: nome,
-        descricao,
-        foto_perfil: usuarioDB.avatarUrl || ''
-      });
-
-    // Localidade
     const partes = localidade.split(',').map(p => p.trim());
     const [cidade, estado = '', pais = ''] = partes;
     await empresaModel.atualizarLocalizacao({ usuario_id, cidade, estado, pais });
 
-    // Telefone
     const telefone = `${ddi} (${ddd}) ${numero}`;
     await empresaModel.atualizarTelefone({ usuario_id, telefone });
 
-    // Busca a empresa para popular a sessão
     const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario_id);
     req.session.empresa = {
       id: empresa.id,
@@ -916,5 +583,130 @@ console.log('🧠 FOTO vinda da sessão do usuário:', req.session.usuario.foto)
       nome,
       erro: 'Erro interno ao salvar os dados. Tente novamente.'
     });
+  }
+};
+
+exports.telaEditarPerfil = async (req, res) => {
+  const sess = req.session.empresa;
+  if (!sess) return res.redirect('/login');
+
+  try {
+    const empresa = await prisma.empresa.findUnique({
+      where: { id: sess.id }
+    });
+    if (!empresa) return res.redirect('/login');
+
+    const localidade = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', ');
+
+    return res.render('empresas/editar-empresa', {
+      nome_empresa: empresa.nome_empresa || '',
+      descricao: empresa.descricao || '',
+      localidade,
+      telefone: empresa.telefone || '',
+      foto_perfil: empresa.foto_perfil || '',
+      erro: null
+    });
+  } catch (err) {
+    console.error('Erro ao carregar tela de edição da empresa:', err);
+    return res.status(500).send('Erro ao carregar dados da empresa.');
+  }
+};
+
+exports.salvarEdicaoPerfil = async (req, res) => {
+  const sess = req.session.empresa;
+  if (!sess) return res.redirect('/login');
+
+  const { nome_empresa, descricao, localidade, ddi, ddd, telefone, removerFoto } = req.body;
+
+  // Quebra da localidade "Cidade, Estado, País"
+  const [cidade = '', estado = '', pais = ''] = (localidade || '').split(',').map(s => s.trim());
+
+  // Telefone
+  const telefoneFormatado = (ddi && ddd && telefone) ? `${ddi} (${ddd}) ${telefone}` : null;
+
+  try {
+    let novaFotoUrl = null;
+
+    // Remover foto
+    if (removerFoto) {
+      novaFotoUrl = null;
+    }
+
+    // Upload de nova foto (usa o mesmo padrão do salvarFotoPerfil)
+    if (!removerFoto && req.file?.path) {
+      const resultadoCloudinary = await cloudinary.uploader.upload(req.file.path, {
+        folder: 'connect-skills/empresas',
+        public_id: `empresa_${sess.id}_foto_perfil`,
+        use_filename: true,
+        unique_filename: false,
+      });
+      novaFotoUrl = resultadoCloudinary.secure_url;
+    }
+
+    // Monta dados para update
+    const dataUpdate = {
+      nome_empresa: nome_empresa ?? undefined,
+      descricao: descricao ?? undefined,
+      cidade,
+      estado,
+      pais,
+      telefone: telefoneFormatado ?? undefined,
+    };
+
+    if (removerFoto) dataUpdate.foto_perfil = null;
+    if (novaFotoUrl) dataUpdate.foto_perfil = novaFotoUrl;
+
+    const empresaAtualizada = await prisma.empresa.update({
+      where: { id: sess.id },
+      data: dataUpdate
+    });
+
+    // Atualiza sessão
+    req.session.empresa = {
+      ...req.session.empresa,
+      nome_empresa: empresaAtualizada.nome_empresa,
+      descricao: empresaAtualizada.descricao,
+      cidade: empresaAtualizada.cidade,
+      estado: empresaAtualizada.estado,
+      pais: empresaAtualizada.pais,
+      telefone: empresaAtualizada.telefone,
+      foto_perfil: empresaAtualizada.foto_perfil || ''
+    };
+
+    return res.redirect('/empresa/meu-perfil');
+  } catch (err) {
+    console.error('Erro ao salvar edição de perfil da empresa:', err);
+    return res.status(500).render('empresas/editar-empresa', {
+      nome_empresa,
+      descricao,
+      localidade,
+      telefone,
+      foto_perfil: req.session.empresa?.foto_perfil || '',
+      erro: 'Não foi possível salvar as alterações. Tente novamente.'
+    });
+  }
+};
+
+exports.mostrarVagas = async (req, res) => {
+  const sess = req.session.empresa;
+  if (!sess) return res.redirect('/login');
+
+  try {
+    const vagas = await prisma.vaga.findMany({
+      where: { empresa_id: sess.id },
+      include: {
+        vaga_area: { include: { area_interesse: true } },
+        vaga_soft_skill: { include: { soft_skill: true } }
+      },
+      orderBy: { id: 'desc' }
+    });
+
+    return res.render('empresas/vagas', {
+      vagas,
+      activePage: 'vagas'
+    });
+  } catch (err) {
+    console.error('Erro ao listar vagas da empresa:', err);
+    return res.status(500).send('Erro ao listar vagas.');
   }
 };
