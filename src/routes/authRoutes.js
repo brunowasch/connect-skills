@@ -17,19 +17,17 @@ router.get('/cadastro', (req, res) => {
 });
 
 router.get('/login', (req, res) => {
-  const erroFromQuery = req.query.erro === '1'
-    ? 'Não identificamos nenhuma conta Google cadastrada. <a href="/cadastro">Clique aqui para se cadastrar</a>.'
-    : null;
+  // mensagem extra quando vem via query string
+  if (req.query.erro === '1') {
+    res.locals.erro = 'Não identificamos nenhuma conta Google cadastrada. <a href="/cadastro">Clique aqui para se cadastrar</a>.';
+  }
 
   res.render('auth/login', {
-    title: 'Login - Connect Skills',
-    erro: erroFromQuery || req.session.erro || null,
-    sucesso: req.session.sucesso || null
+    title: 'Login - Connect Skills'
   });
-
-  req.session.erro = null;
-  req.session.sucesso = null;
 });
+
+
 
 // Início do login com Google
 router.get('/auth/google', (req, res, next) => {

@@ -19,6 +19,7 @@
       H_brido:      'Híbrido'
     };
   %>
+  <%- include('../partials/flash-messages') %>
   <main class="container py-5">
     <h2 class="mb-4 mt-5">Minhas Vagas</h2>
 
@@ -32,34 +33,32 @@
 
           <div class="d-flex gap-4 align-items-start flex-wrap">
             <div class="d-flex gap-4 align-items-start flex-grow-1">
-              <img src="<%= vaga.empresa?.foto_perfil || '/img/logo.png' %>" 
-                   alt="Logo da empresa" 
-                   class="rounded-circle"
-                   height="80"
-                   width="80"
-                   style="object-fit: cover;">
+              <%
+                const fotoVaga = (empresa && typeof empresa.foto_perfil === 'string' && empresa.foto_perfil.trim()
+                                  && empresa.foto_perfil !== 'null' && empresa.foto_perfil !== 'undefined')
+                  ? empresa.foto_perfil
+                  : '/img/logo.png';
+              %>
+              <img
+                src="<%= fotoVaga %>"
+                alt="Logo da empresa"
+                class="rounded-circle"
+                height="80"
+                width="80"
+                style="object-fit: cover;"
+                loading="lazy"
+                decoding="async"
+                referrerpolicy="no-referrer"
+              >
+
               <div>
-                <h5 class="mb-0 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>
-                <%
-                  const normalizar = str => str?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-                  const partesOriginais = [vaga.empresa?.cidade, vaga.empresa?.estado, vaga.empresa?.pais].filter(Boolean);
-                  const partesUnicas = [];
-                  const vistos = new Set();
-
-                  for (const parte of partesOriginais) {
-                    const normalizada = normalizar(parte);
-                    if (!vistos.has(normalizada)) {
-                      vistos.add(normalizada);
-                      partesUnicas.push(parte.trim());
-                    }
-                  }
-
-                  const localidade = partesUnicas.join(', ');
-                %>
-                <small class="text-muted d-block">
-                  <%= localidade || 'Localidade não informada' %>
-                </small>
-
+                <h5 class="mb-0 fw-bold"><%= empresa.nome_empresa %></h5>
+                <p class="mb-1">
+                  <%
+                    const partes = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean);
+                  %>
+                  <%= partes.length >= 2 ? partes.join(', ') : 'Localidade não informada' %>
+                </p>
 
                 <p class="mb-1 mt-2 fw-semibold"><%= vaga.cargo %></p>
                 <p class="mb-1"><%= vaga.descricao %></p>
@@ -69,7 +68,7 @@
                   <strong>Escala:</strong> <%= vaga.escala_trabalho %><br>
 
                   <% if (vaga.salario) { %>
-                    <div><strong>Salário:</strong> <%= vaga.moeda === 'BRL' ? 'R$' : vaga.moeda + ' ' %><%= Number(vaga.salario).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %></div>
+                    <div><strong>Salário:</strong> <%= vaga.moeda === 'BRL' ? 'R$' : (vaga.moeda || '') + ' ' %><%= Number(vaga.salario).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %></div>
                   <% } %>
 
                   <% if (vaga.dias_presenciais) { %>
@@ -80,7 +79,7 @@
                   <% } %>
 
                   <% if (vaga.beneficio && typeof vaga.beneficio === 'string' && vaga.beneficio.trim() !== '') { %>
-                    <strong>Benefícios:</strong> 
+                    <strong>Benefícios:</strong>
                     <%= vaga.beneficio.split(',').map(b => b.trim()).filter(b => b.length > 0).join(', ') %><br>
                   <% } %>
 
@@ -121,6 +120,5 @@
   </main>
 
   <%- include('../partials/footer') %>
-
 </body>
 </html>

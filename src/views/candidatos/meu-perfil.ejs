@@ -14,24 +14,23 @@
 
 <main>
   <%- include('../partials/header-candidato') %>
-<%
-  let ddi = '+55';
-  let ddd = '--';
-  let numeroFormatado = 'não informado';
+  <%
+    let ddi = '+55';
+    let ddd = '--';
+    let numeroFormatado = 'não informado';
 
-  if (candidato.telefone && candidato.telefone.includes('-')) {
-    const partes = candidato.telefone.split('-');
-    ddd = partes[1];
-    const numero = partes[2] || '';
+    if (candidato.telefone && candidato.telefone.includes('-')) {
+      const partes = candidato.telefone.split('-');
+      ddd = partes[1];
+      const numero = partes[2] || '';
 
-    numeroFormatado = numero.length > 5
-      ? numero.slice(0, 5) + '-' + numero.slice(5)
-      : numero;
-  }
-%>
-
-
-
+      numeroFormatado = numero.length > 5
+        ? numero.slice(0, 5) + '-' + numero.slice(5)
+        : numero;
+    }
+    
+  %>
+  <%- include('../partials/flash-messages') %>
   <div class="perfil-card bg-white p-4 rounded shadow-sm">
     <h2 class="mb-4">Meu perfil</h2>
     <div class="d-flex align-items-center perfil-header mb-4">
@@ -53,7 +52,7 @@
         <p>
           Data de nascimento:
           <% if (candidato.data_nascimento) { %>
-            <%= new Date(candidato.data_nascimento).toISOString().slice(0,10) %>
+            <%= new Date(candidato.data_nascimento).toLocaleDateString('pt-BR') %>
           <% } else { %>
             não informada
           <% } %>
