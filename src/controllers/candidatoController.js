@@ -21,7 +21,8 @@ exports.salvarNomeCandidato = async (req, res) => {
     res.redirect(`/candidato/localizacao?usuario_id=${usuario_id}`);
   } catch (err) {
     console.error('Erro ao salvar nome e sobrenome:', err);
-    res.status(500).send("Erro ao salvar dados iniciais.");
+    req.session.erro = 'Erro ao salvar seus dados iniciais. Tente novamente.';
+    res.redirect(`/candidato/nome?usuario_id=${usuario_id}`);
   }
 };
 
@@ -34,12 +35,14 @@ exports.salvarLocalizacao = async (req, res) => {
   const { usuario_id, localidade } = req.body;
 
   if (!usuario_id || !localidade) {
-    return res.status(400).send('ID ou localidade ausente.');
+    req.session.erro = 'ID ou localidade ausente.';
+    return res.redirect(`/candidato/localizacao?usuario_id=${usuario_id || ''}`);
   }
 
   const partes = localidade.split(',').map(p => p.trim());
   if (partes.length < 2 || partes.length > 3) {
-    return res.status(400).send('Informe uma localidade válida. Ex: cidade e país, ou cidade, estado e país.');
+    req.session.erro = 'Informe uma localidade válida. Ex: cidade e país, ou cidade, estado e país.';
+    return res.redirect(`/candidato/localizacao?usuario_id=${usuario_id}`);
   }
 
   const [cidade, estado = '', pais = ''] = partes;
@@ -55,7 +58,8 @@ exports.salvarLocalizacao = async (req, res) => {
     res.redirect(`/candidato/telefone?usuario_id=${usuario_id}`);
   } catch (err) {
     console.error('Erro ao salvar localização:', err);
-    res.status(500).send('Erro ao salvar localização.');
+    req.session.erro = 'Erro ao salvar localização. Tente novamente.';
+    res.redirect(`/candidato/localizacao?usuario_id=${usuario_id}`);
   }
 };
 
@@ -150,7 +154,8 @@ exports.telaSelecionarAreas = async (req, res) => {
     res.render('candidatos/selecionar-areas', { usuario_id, areas });
   } catch (erro) {
     console.error('Erro ao carregar áreas:', erro);
-    res.send('Erro ao carregar áreas.');
+    req.session.erro = 'Erro ao carregar áreas. Tente novamente.';
+    res.redirect(`/candidato/cadastro/areas?usuario_id=${req.query.usuario_id || ''}`);
   }
 };
 
@@ -159,28 +164,32 @@ exports.salvarAreas = async (req, res) => {
   const nomes = JSON.parse(areasSelecionadas);
 
   if (nomes.length !== 3) {
-    return res.status(400).send("Selecione exatamente 3 áreas válidas.");
+    req.session.erro = 'Selecione exatamente 3 áreas válidas.';
+    return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuario_id}`);
   }
 
   try {
     const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
     if (!candidato) {
-      return res.status(404).send("Candidato não encontrado.");
+      req.session.erro = 'Candidato não encontrado.';
+      return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuario_id}`);
     }
 
     const nomesFinal = [...nomes];
-    if (nomes.includes("Outro")) {
-      if (!outra_area_input || outra_area_input.trim() === "") {
-        return res.status(400).send("Você selecionou 'Outro', mas não preencheu a nova área.");
+    if (nomes.includes('Outro')) {
+      if (!outra_area_input || outra_area_input.trim() === '') {
+        req.session.erro = "Você selecionou 'Outro', mas não preencheu a nova área.";
+        return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuario_id}`);
       }
       const novaArea = await candidatoModel.upsertNovaArea(outra_area_input.trim());
-      const index = nomesFinal.indexOf("Outro");
+      const index = nomesFinal.indexOf('Outro');
       nomesFinal.splice(index, 1, novaArea.nome);
     }
 
     const ids = await candidatoModel.buscarIdsDasAreas({ nomes: nomesFinal });
     if (ids.length !== 3) {
-      return res.status(400).send("Erro ao localizar todas as áreas selecionadas.");
+      req.session.erro = 'Erro ao localizar todas as áreas selecionadas.';
+      return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuario_id}`);
     }
 
     await candidatoModel.salvarAreasDeInteresse({ candidato_id: candidato.id, areas: ids });
@@ -203,10 +212,12 @@ exports.salvarAreas = async (req, res) => {
       areas: cAtual.candidato_area.map(r => r.area_interesse.nome)
     };
 
+    req.session.sucesso = 'Áreas de interesse salvas com sucesso!';
     req.session.save(() => res.redirect('/candidatos/home'));
   } catch (error) {
-    console.error("Erro ao salvar áreas de interesse:", error);
-    res.status(500).send("Erro ao salvar áreas de interesse.");
+    console.error('Erro ao salvar áreas de interesse:', error);
+    req.session.erro = 'Erro ao salvar áreas de interesse. Tente novamente.';
+    res.redirect(`/candidato/cadastro/areas?usuario_id=${req.body.usuario_id}`);
   }
 };
 
@@ -283,7 +294,8 @@ exports.mostrarVagas = async (req, res) => {
     res.render('candidatos/vagas', { vagas, activePage: 'vagas' });
   } catch (err) {
     console.error('Erro ao buscar vagas para candidato:', err);
-    res.status(500).send('Erro ao buscar vagas.');
+    req.session.erro = 'Erro ao buscar vagas. Tente novamente.';
+    res.redirect('/candidatos/home');
   }
 };
 
@@ -320,7 +332,6 @@ exports.telaEditarPerfil = async (req, res) => {
 
     const fotoPerfil = candidato.foto_perfil || sess.foto_perfil;
 
-    // Render
     res.render('candidatos/editar-perfil', {
       nome, sobrenome, localidade, ddi, ddd,
       numero: numeroFormatado, dataNascimento, fotoPerfil
@@ -328,7 +339,8 @@ exports.telaEditarPerfil = async (req, res) => {
 
   } catch (erro) {
     console.error('Erro ao carregar tela de edição de perfil:', erro);
-    res.status(500).send('Erro ao carregar dados do perfil.');
+    req.session.erro = 'Erro ao carregar dados do perfil.';
+    res.redirect('/candidatos/meu-perfil');
   }
 };
 
@@ -376,6 +388,7 @@ exports.salvarEditarPerfil = async (req, res) => {
     sess.telefone = telefone;
     sess.data_nascimento = dataNascimento;
 
+    req.session.sucesso = 'Perfil atualizado com sucesso!';
     res.redirect('/candidatos/meu-perfil');
   } catch (err) {
     console.error('Erro ao atualizar perfil básico:', err);
@@ -399,7 +412,7 @@ exports.telaEditarAreas = async (req, res) => {
 
     const areasAtuais = candidato.candidato_area.map(r => r.area_interesse.nome);
     const todasAsAreas = await prisma.area_interesse.findMany();
-    const outraArea = areasAtuais.includes("Outro") ? areasAtuais.find(area => area !== "Outro") : null;
+    const outraArea = areasAtuais.includes('Outro') ? areasAtuais.find(area => area !== 'Outro') : null;
 
     res.render('candidatos/editar-areas', {
       areasAtuais,
@@ -411,7 +424,8 @@ exports.telaEditarAreas = async (req, res) => {
 
   } catch (err) {
     console.error('Erro ao carregar as áreas de interesse:', err);
-    res.status(500).send('Erro ao carregar as áreas de interesse.');
+    req.session.erro = 'Erro ao carregar as áreas de interesse.';
+    res.redirect('/candidatos/meu-perfil');
   }
 };
 
@@ -424,19 +438,22 @@ exports.salvarEditarAreas = async (req, res) => {
       ? req.body.areasSelecionadas
       : JSON.parse(req.body.areasSelecionadas);
   } catch {
-    return res.status(400).send("Formato inválido de áreas selecionadas.");
+    req.session.erro = 'Formato inválido de áreas selecionadas.';
+    return res.redirect('/candidatos/editar-areas');
   }
 
   if (!Array.isArray(nomesSelecionados) || nomesSelecionados.length === 0) {
-    return res.status(400).send("Nenhuma área foi selecionada.");
+    req.session.erro = 'Nenhuma área foi selecionada.';
+    return res.redirect('/candidatos/editar-areas');
   }
   if (nomesSelecionados.length > 3) {
-    return res.status(400).send("Você só pode selecionar até 3 áreas.");
+    req.session.erro = 'Você só pode selecionar até 3 áreas.';
+    return res.redirect('/candidatos/editar-areas');
   }
 
   try {
     const nomesCorrigidos = nomesSelecionados.map(nome => {
-      if (nome === "Outro") {
+      if (nome === 'Outro') {
         const outra = req.body.outra_area_input?.trim();
         if (!outra) {
           throw new Error("Você selecionou 'Outro', mas não preencheu a nova área.");
@@ -448,7 +465,8 @@ exports.salvarEditarAreas = async (req, res) => {
 
     const ids = await candidatoModel.buscarIdsDasAreas({ nomes: nomesCorrigidos });
     if (ids.length !== nomesCorrigidos.length) {
-      return res.status(400).send("Erro ao localizar todas as áreas selecionadas.");
+      req.session.erro = 'Erro ao localizar todas as áreas selecionadas.';
+      return res.redirect('/candidatos/editar-areas');
     }
 
     await prisma.candidato_area.deleteMany({ where: { candidato_id } });
@@ -456,10 +474,12 @@ exports.salvarEditarAreas = async (req, res) => {
       data: ids.map(area_id => ({ candidato_id, area_interesse_id: area_id }))
     });
 
+    req.session.sucesso = 'Áreas de interesse atualizadas!';
     return res.redirect('/candidatos/meu-perfil');
   } catch (error) {
-    console.error("Erro ao salvar áreas de interesse:", error.message);
-    return res.status(500).send("Erro ao salvar as áreas de interesse.");
+    console.error('Erro ao salvar áreas de interesse:', error.message);
+    req.session.erro = 'Erro ao salvar as áreas de interesse.';
+    return res.redirect('/candidatos/editar-areas');
   }
 };
 
@@ -523,7 +543,8 @@ exports.complementarGoogle = async (req, res) => {
     }
 
     if (!nome || !sobrenome) {
-      return res.status(400).send('Nome e sobrenome são obrigatórios.');
+      req.session.erro = 'Nome e sobrenome são obrigatórios.';
+      return res.redirect('/candidatos/cadastro/google/complementar');
     }
 
     await candidatoModel.complementarCadastroGoogle(usuarioId, {
@@ -556,7 +577,8 @@ exports.complementarGoogle = async (req, res) => {
     req.session.save(() => res.redirect(`/candidato/cadastro/areas?usuario_id=${usuarioId}`));
   } catch (erro) {
     console.error('❌ Erro ao complementar cadastro com Google:', erro.message, erro);
-    res.status(500).send('Erro ao salvar informações do candidato.');
+    req.session.erro = 'Erro ao salvar informações do candidato.';
+    res.redirect('/candidatos/cadastro/google/complementar');
   }
 };
 
@@ -577,9 +599,11 @@ exports.restaurarFotoGoogle = async (req, res) => {
   try {
     await candidatoModel.atualizarFotoPerfil({ candidato_id: sess.id, foto_perfil: usuario.avatarUrl });
     sess.foto_perfil = usuario.avatarUrl;
+    req.session.sucesso = 'Foto restaurada com sucesso!';
     res.redirect('/candidato/editar-perfil');
   } catch (err) {
     console.error('Erro ao restaurar foto do Google:', err.message);
+    req.session.erro = 'Não foi possível restaurar a foto.';
     res.redirect('/candidato/editar-perfil');
   }
 };

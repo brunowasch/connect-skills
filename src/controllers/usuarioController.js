@@ -52,70 +52,61 @@ async function enviarEmailVerificacao(email, usuario_id) {
 }
 
 async function redirecionarFluxoCandidato(usuarioId, res) {
-  // Existe candidato?
   const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuarioId));
 
-  // 1) Ainda não criou o registro do candidato → primeira etapa (nome/sobrenome)
   if (!candidato) {
     return res.redirect(`/candidato/nome?usuario_id=${usuarioId}`);
   }
 
-  // 2) Criou, mas falta localização?
   if (!candidato.cidade || !candidato.pais) {
     return res.redirect(`/candidato/localizacao?usuario_id=${usuarioId}`);
   }
 
-  // 3) Falta telefone?
   if (!candidato.telefone) {
     return res.redirect(`/candidato/telefone?usuario_id=${usuarioId}`);
   }
 
-  // 4) Falta foto?
   if (!candidato.foto_perfil || candidato.foto_perfil.trim() === '') {
     return res.redirect(`/candidato/cadastro/foto-perfil?usuario_id=${usuarioId}`);
   }
 
-  // 5) Falta selecionar áreas? (espera-se exatamente 3)
   const areasQtd = (candidato.candidato_area || []).length;
   if (areasQtd !== 3) {
     return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuarioId}`);
   }
 
-  // Completo → pode ir pra home
   return res.redirect('/candidatos/home');
 }
 
 async function redirecionarFluxoEmpresa(usuarioId, res) {
   const empresa = await empresaModel.obterEmpresaPorUsuarioId(Number(usuarioId));
 
-  // 1) Não criou a empresa ainda → primeira etapa (nome/descrição)
   if (!empresa) {
     return res.redirect(`/empresa/nome-empresa?usuario_id=${usuarioId}`);
   }
 
-  // 2) Falta localização?
   if (!empresa.cidade || !empresa.pais) {
     return res.redirect(`/empresa/localizacao?usuario_id=${usuarioId}`);
   }
 
-  // 3) Falta telefone?
   if (!empresa.telefone) {
     return res.redirect(`/empresa/telefone?usuario_id=${usuarioId}`);
   }
 
-  // 4) Falta foto?
   if (!empresa.foto_perfil || empresa.foto_perfil.trim() === '') {
     return res.redirect(`/empresas/foto-perfil?usuario_id=${usuarioId}`);
   }
 
-  // Completo → pode ir pra home
   return res.redirect('/empresa/home');
 }
 
 /** ROTAS */
 exports.criarUsuario = async (req, res) => {
   let { email, senha, tipo } = req.body;
-  if (!email || !senha || !tipo) return res.status(400).send('Preencha todos os campos.');
+  if (!email || !senha || !tipo) {
+    req.session.erro = 'Preencha todos os campos.';
+    return res.redirect('/cadastro');
+  }
 
   const emailNormalizado = email.trim().toLowerCase();
 
@@ -123,16 +114,13 @@ exports.criarUsuario = async (req, res) => {
     const usuarioExistente = await usuarioModel.buscarPorEmail(emailNormalizado);
 
     if (usuarioExistente) {
-      // Se o usuário já existe e está VERIFICADO, checar se tem perfil completo
       if (usuarioExistente.email_verificado) {
         const usuarioId = usuarioExistente.id;
 
-        // Se o tipo selecionado mudou, atualiza para o tipo escolhido agora
         if (usuarioExistente.tipo !== tipo) {
           await usuarioModel.atualizarUsuario(usuarioId, { tipo });
         }
 
-        // Verifica se há perfil (candidato/empresa) criado
         const perfilCandidato = await candidatoModel.obterCandidatoPorUsuarioId(usuarioId);
         const perfilEmpresa   = await empresaModel.obterEmpresaPorUsuarioId(usuarioId);
 
@@ -141,7 +129,6 @@ exports.criarUsuario = async (req, res) => {
           (tipo === 'empresa'   && !perfilEmpresa);
 
         if (semPerfil) {
-          // 👉 Mostrar modal "Cadastro incompleto" na tela de cadastro
           return res.status(200).render('auth/cadastro', {
             erro: null,
             emailPrefill: emailNormalizado,
@@ -151,7 +138,6 @@ exports.criarUsuario = async (req, res) => {
           });
         }
 
-        // Perfil existe → retomar fluxo normalmente (pode levar à home, se completo)
         req.session.usuario = { id: usuarioId, tipo, email: emailNormalizado };
         if (tipo === 'candidato') {
           return redirecionarFluxoCandidato(usuarioId, res);
@@ -160,7 +146,6 @@ exports.criarUsuario = async (req, res) => {
         }
       }
 
-      // Se o usuário existe mas NÃO está verificado → atualiza senha/tipo e reenvia e-mail
       const salt = await bcrypt.genSalt(10);
       const senhaCriptografada = await bcrypt.hash(senha, salt);
 
@@ -170,7 +155,6 @@ exports.criarUsuario = async (req, res) => {
       return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(emailNormalizado)}`);
     }
 
-    // Usuário não existe → cria como novo e envia e-mail de verificação
     const salt = await bcrypt.genSalt(10);
     const senhaCriptografada = await bcrypt.hash(senha, salt);
 
@@ -187,31 +171,40 @@ exports.criarUsuario = async (req, res) => {
 
   } catch (erro) {
     console.error('Erro ao criar usuário:', erro);
-    return res.status(500).send('Erro interno ao processar o cadastro.');
+    req.session.erro = 'Erro interno ao processar o cadastro.';
+    return res.redirect('/cadastro');
   }
 };
 
 
 exports.login = async (req, res) => {
   const { email, senha } = req.body;
-  if (!email || !senha) return res.status(400).send('Preencha todos os campos.');
+  if (!email || !senha) {
+    req.session.erro = 'Preencha todos os campos.';
+    return res.redirect('/login');
+  }
 
   try {
-    const usuario = await usuarioModel.buscarPorEmail(email);
-    if (!usuario) return res.status(401).send('Usuário não encontrado.');
+    const emailNormalizado = email.trim().toLowerCase();
+    const usuario = await usuarioModel.buscarPorEmail(emailNormalizado);
+    if (!usuario) {
+      req.session.erro = 'Usuário não encontrado.';
+      return res.redirect('/login');
+    }
 
     const senhaCorreta = await bcrypt.compare(senha, usuario.senha);
-    if (!senhaCorreta) return res.status(401).send('Senha incorreta.');
+    if (!senhaCorreta) {
+      req.session.erro = 'Senha incorreta.';
+      return res.redirect('/login');
+    }
 
-    // Se o usuário tem tipo mas NÃO tem perfil completo, retoma fluxo em vez de bloquear
     if (usuario.tipo === 'empresa') {
       const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario.id);
 
       if (!empresa) {
-        return redirecionarFluxoEmpresa(usuario.id, res); // :contentReference[oaicite:3]{index=3}
+        return redirecionarFluxoEmpresa(usuario.id, res);
       }
 
-      // Se existe, podemos montar a sessão normalmente
       req.session.empresa = {
         id: empresa.id,
         usuario_id: usuario.id,
@@ -233,11 +226,9 @@ exports.login = async (req, res) => {
       const candidato = await candidatoModel.obterCandidatoPorUsuarioId(usuario.id);
 
       if (!candidato) {
-        return redirecionarFluxoCandidato(usuario.id, res); // :contentReference[oaicite:4]{index=4}
+        return redirecionarFluxoCandidato(usuario.id, res);
       }
 
-      // Se existe candidato, checa se está completo; se não, retoma
-      // localidade, telefone, foto e 3 áreas
       if (!candidato.cidade || !candidato.pais || !candidato.telefone || !candidato.foto_perfil
         || (candidato.candidato_area || []).length !== 3) {
         return redirecionarFluxoCandidato(usuario.id, res);
@@ -261,12 +252,12 @@ exports.login = async (req, res) => {
       return req.session.save(() => res.redirect('/candidatos/home'));
     }
 
-    // Caso raro: usuário sem tipo definido ainda → peça o tipo novamente
-    return res.redirect('/cadastro'); // escolha de candidato/empresa
+    return res.redirect('/cadastro');
 
   } catch (err) {
     console.error('Erro ao realizar login:', err);
-    return res.status(500).send('Erro ao realizar login.');
+    req.session.erro = 'Erro ao realizar login.';
+    return res.redirect('/login');
   }
 };
 
@@ -279,13 +270,16 @@ exports.verificarEmail = async (req, res) => {
 
     await usuarioModel.marcarEmailComoVerificado(usuario_id);
     const usuario = await usuarioModel.buscarPorId(usuario_id);
-    if (!usuario) return res.status(404).send('Usuário não encontrado.');
+    if (!usuario) {
+      req.session.erro = 'Usuário não encontrado.';
+      return res.redirect('/login');
+    }
 
-    // Depois de verificar o e-mail, enviamos para tela de escolha/continuação
     return res.redirect(`/usuarios/email-verificado?usuario_id=${usuario_id}&tipo=${usuario.tipo}`);
   } catch (error) {
     console.error('Erro ao verificar token:', error);
-    return res.status(400).send('Link inválido ou expirado.');
+    req.session.erro = 'Link inválido ou expirado.';
+    return res.redirect('/login');
   }
 };
 
@@ -294,14 +288,21 @@ exports.reenviarEmail = async (req, res) => {
 
   try {
     const usuario = await usuarioModel.buscarPorEmail(email);
-    if (!usuario) return res.status(400).send('Usuário não encontrado.');
-    if (usuario.email_verificado) return res.status(400).send('E-mail já foi verificado.');
+    if (!usuario) {
+      req.session.erro = 'Usuário não encontrado.';
+      return res.redirect('/login');
+    }
+    if (usuario.email_verificado) {
+      req.session.sucesso = 'E-mail já verificado.';
+      return res.redirect('/login');
+    }
 
     await enviarEmailVerificacao(email, usuario.id);
     return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(email)}&reenviado=true`);
   } catch (error) {
     console.error('Erro ao reenviar e-mail:', error);
-    return res.status(500).send('Erro ao reenviar e-mail.');
+    req.session.erro = 'Erro ao reenviar e-mail.';
+    return res.redirect('/login');
   }
 };
 
@@ -392,7 +393,10 @@ exports.recuperarSenha = async (req, res) => {
 
 exports.telaRedefinirSenha = (req, res) => {
   const { token } = req.query || req.params;
-  if (!token) return res.status(400).send('Token não fornecido.');
+  if (!token) {
+    req.session.erro = 'Token não fornecido.';
+    return res.redirect('/usuarios/recuperar-senha');
+  }
   return res.render('auth/redefinir-senha', { token, erro: null });
 };
 
@@ -414,12 +418,7 @@ exports.redefinirSenha = async (req, res) => {
     return res.render('auth/redefinicao-sucesso');
   } catch (erro) {
     console.error('Erro ao redefinir senha:', erro);
-    return res.status(400).send('Token inválido ou expirado.');
+    req.session.erro = 'Token inválido ou expirado.';
+    return res.redirect('/usuarios/recuperar-senha');
   }
-};
-
-// (opcional) view simples
-const exibirFormularioRedefinirSenha = async (req, res) => {
-  const { token } = req.params;
-  return res.render('redefinicao-sucesso', { token });
 };

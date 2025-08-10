@@ -6,9 +6,11 @@ exports.salvarPerfil = (req, res) => {
   const { nome } = req.body;
 
   if (!nome) {
-    return res.status(400).send('Nome é obrigatório.');
+    req.session.erro = 'Nome é obrigatório.';
+    return res.redirect('/');
   }
 
   req.session.nomeUsuario = nome;
-  res.redirect('/candidato/home-candidatos'); 
+  req.session.sucesso = 'Perfil salvo!';
+  res.redirect('/candidato/home-candidatos');
 };

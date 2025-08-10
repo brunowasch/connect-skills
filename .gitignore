@@ -20,10 +20,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Editor (opcional)
+# Editor
 .vscode/
 .idea/
 *.swp
 
-# Testes (se aplicável)
+# Testes
 coverage/
