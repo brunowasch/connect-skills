@@ -576,7 +576,7 @@ exports.complementarGoogle = async (req, res) => {
 
     req.session.save(() => res.redirect(`/candidato/cadastro/areas?usuario_id=${usuarioId}`));
   } catch (erro) {
-    console.error('❌ Erro ao complementar cadastro com Google:', erro.message, erro);
+    console.error('Erro ao complementar cadastro com Google:', erro.message, erro);
     req.session.erro = 'Erro ao salvar informações do candidato.';
     res.redirect('/candidatos/cadastro/google/complementar');
   }

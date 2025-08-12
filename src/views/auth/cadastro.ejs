@@ -10,6 +10,7 @@
   <link rel="icon" href="/img/CONNECT.png">
 </head>
 <body>
+  <%- include('../partials/flash-messages') %>
   <%- include('../partials/header') %>
 <main>
   <div class="container container-page d-flex flex-column justify-content-start align-items-center mt-5 mb-5">
@@ -80,6 +81,7 @@
 
         <div class="d-grid mt-4">
           <button type="submit" class="btn btn-primary btn-lg">Cadastrar</button>
+          <p class="mt-2">Já tem uma conta? <a href="/login" class="text-primary ">Faça login aqui</a></p>
         </div>
                   <div class="d-flex align-items-center my-3">
             <hr class="flex-grow-1 border-secondary">
