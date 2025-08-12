@@ -548,7 +548,11 @@ exports.salvarEditarVaga = async (req, res) => {
 };
 
 exports.perfilPublico = async (req, res) => {
-  const empresaId = parseInt(req.params.id);
+  const empresaId = parseInt(req.params.id, 10);
+  if (Number.isNaN(empresaId)) {
+    req.session.erro = 'ID de empresa inválido.';
+    return res.redirect('/');
+  }
 
   try {
     const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
@@ -565,13 +569,21 @@ exports.perfilPublico = async (req, res) => {
       }
     });
 
-    res.render('empresas/perfil-publico', { empresa, vagasPublicadas });
+    const somentePreview = !req.session?.usuario;
+
+    return res.render('empresas/perfil-publico', {
+      empresa,
+      vagasPublicadas,
+      somentePreview, 
+    });
   } catch (error) {
     console.error('Erro ao carregar perfil público:', error);
     req.session.erro = 'Erro ao carregar perfil.';
-    res.redirect('/');
+    return res.redirect('/');
   }
 };
+
+
 
 exports.telaComplementarGoogle = (req, res) => {
   if (!req.session.usuario || req.session.usuario.tipo !== 'empresa') {

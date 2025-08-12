@@ -219,7 +219,10 @@ exports.login = async (req, res) => {
       };
       req.session.usuario = { id: usuario.id, tipo: 'empresa', nome: empresa.nome_empresa, email: usuario.email };
 
-      return req.session.save(() => res.redirect('/empresa/home'));
+      // ↓↓↓ NOVO: respeita returnTo, se existir
+      const destino = req.session.returnTo || '/empresa/home';
+      delete req.session.returnTo;
+      return req.session.save(() => res.redirect(destino));
     }
 
     if (usuario.tipo === 'candidato') {
@@ -249,7 +252,9 @@ exports.login = async (req, res) => {
       };
       req.session.usuario = { id: usuario.id, tipo: 'candidato', nome: candidato.nome, sobrenome: candidato.sobrenome };
 
-      return req.session.save(() => res.redirect('/candidatos/home'));
+      const destino = req.session.returnTo || '/candidatos/home';
+      delete req.session.returnTo;
+      return req.session.save(() => res.redirect(destino));
     }
 
     return res.redirect('/cadastro');
