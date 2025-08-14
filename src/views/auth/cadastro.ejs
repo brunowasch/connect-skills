@@ -12,6 +12,7 @@
 <body>
   <%- include('../partials/flash-messages') %>
   <%- include('../partials/header') %>
+
 <main>
   <div class="container container-page d-flex flex-column justify-content-start align-items-center mt-5 mb-5">
 
@@ -45,7 +46,7 @@
 
         <div class="mb-3">
           <label for="email" class="form-label">E-mail</label>
-          <input type="email" class="form-control" id="email" name="email" placeholder="Digite seu e-mail" required>
+          <input type="email" class="form-control" id="email" name="email" placeholder="Digite seu e-mail" value="<%= typeof emailPrefill !== 'undefined' ? emailPrefill : '' %>" required>
         </div>
 
         <div class="mb-3 position-relative">
@@ -73,7 +74,7 @@
             As senhas não coincidem. Por favor, verifique.
           </div>
         </div>
-          <!-- Divider bonito com "ou" -->
+
         <div class="mb-3 form-check">
           <input type="checkbox" class="form-check-input" id="termos" required>
           <label class="form-check-label" for="termos">Li e aceito os <a href="#">Termos de uso</a></label>
@@ -83,32 +84,89 @@
           <button type="submit" class="btn btn-primary btn-lg">Cadastrar</button>
           <p class="mt-2">Já tem uma conta? <a href="/login" class="text-primary ">Faça login aqui</a></p>
         </div>
-                  <div class="d-flex align-items-center my-3">
-            <hr class="flex-grow-1 border-secondary">
-            <span class="mx-2 text-secondary">ou</span>
-            <hr class="flex-grow-1 border-secondary">
-          </div>
 
-          <!-- Botão Google dinâmico -->
-          <div class="mb-4 w-100" style="max-width: 400px;">
-            <a id="btnGoogleCadastro" href="#" class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2 rounded-pill">
-              <i class="bi bi-google"></i>Cadastrar com Google
-            </a>
-          </div>
+        <div class="d-flex align-items-center my-3">
+          <hr class="flex-grow-1 border-secondary">
+          <span class="mx-2 text-secondary">ou</span>
+          <hr class="flex-grow-1 border-secondary">
+        </div>
+
+        <!-- Botão Google dinâmico -->
+        <div class="mb-4 w-100" style="max-width: 400px;">
+          <a id="btnGoogleCadastro" href="#" class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2 rounded-pill">
+            <i class="bi bi-google"></i>Cadastrar com Google
+          </a>
+        </div>
       </form>
     </div>
   </div>
 </main>
 
+<!-- MODAL: Cadastro em andamento -->
+<div class="modal fade" id="modalCadastroPendente" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4">
+      <div class="modal-header">
+        <h5 class="modal-title">Cadastro em andamento</h5>
+        <!-- Mantém o X visível e funcional -->
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <p>Este e-mail já possui um cadastro em andamento. O que deseja fazer?</p>
+        <ul class="mb-0">
+          <li><strong>Continuar cadastro</strong>: voltar para a etapa em que parou.</li>
+          <li><strong>Reiniciar</strong>: começar do zero a partir da primeira tela do cadastro <span class="text-muted">(mantendo sua conta)</span>.</li>
+        </ul>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <a id="btnReiniciar" class="btn btn-outline-secondary">Reiniciar</a>
+        <a id="btnContinuar" class="btn btn-primary">Continuar cadastro</a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <%- include('../partials/footer') %>
 
-<script>
-  const radioFisica = document.getElementById('fisica');
-  const radioJuridica = document.getElementById('juridica');
-  const form = document.getElementById('formCadastro');
-  const formContainer = document.getElementById('formularioCadastro');
-  const tipoHidden = document.getElementById('tipoHidden');
+<!-- BLOCO JSON COM DADOS DO SERVIDOR (sem quebrar o linter) -->
+<script id="server-data" type="application/json">
+<%- JSON.stringify({
+  showResume: (typeof showResumeModal !== 'undefined' && !!showResumeModal),
+  pendingUserId: (typeof pendingUserId !== 'undefined' ? String(pendingUserId) : ''),
+  tipo: (typeof tipo !== 'undefined' ? String(tipo) : ''),
+  erroMsg: (typeof erro !== 'undefined' && erro ? String(erro) : '')
+}) %>
+</script>
 
+<!-- Bootstrap JS (necessário para modal) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // --- Ler dados vindos do servidor (JSON) ---
+  const serverEl = document.getElementById('server-data');
+  const server = serverEl ? JSON.parse(serverEl.textContent || '{}') : {};
+
+  // --- Elementos da página ---
+  const radioFisica   = document.getElementById('fisica');
+  const radioJuridica = document.getElementById('juridica');
+  const form          = document.getElementById('formCadastro');
+  const formContainer = document.getElementById('formularioCadastro');
+  const tipoHidden    = document.getElementById('tipoHidden');
+
+  // --- Pré-seleciona tipo se veio do servidor (sem EJS no JS) ---
+  const serverTipo = server.tipo || '';
+  if (serverTipo === 'candidato') {
+    radioFisica.checked = true;
+    tipoHidden.value = 'candidato';
+    formContainer.classList.remove('d-none');
+  } else if (serverTipo === 'empresa') {
+    radioJuridica.checked = true;
+    tipoHidden.value = 'empresa';
+    formContainer.classList.remove('d-none');
+  }
+
+  // --- Handlers de troca de tipo ---
   radioFisica.addEventListener('change', () => {
     tipoHidden.value = 'candidato';
     formContainer.classList.remove('d-none');
@@ -119,10 +177,11 @@
     formContainer.classList.remove('d-none');
   });
 
+  // --- Toggle de senha ---
   document.getElementById("toggleSenha").addEventListener("click", function () {
     const senhaInput = document.getElementById("senha");
     const icon = document.getElementById("iconSenha");
-    senhaInput.type = senhaInput.type === "password" ? "text" : "password";
+    senhaInput.type = (senhaInput.type === "password") ? "text" : "password";
     icon.classList.toggle("bi-eye");
     icon.classList.toggle("bi-eye-slash");
   });
@@ -130,11 +189,12 @@
   document.getElementById("toggleConfirmar").addEventListener("click", function () {
     const confirmarInput = document.getElementById("confirmarSenha");
     const icon = document.getElementById("iconConfirmar");
-    confirmarInput.type = confirmarInput.type === "password" ? "text" : "password";
+    confirmarInput.type = (confirmarInput.type === "password") ? "text" : "password";
     icon.classList.toggle("bi-eye");
     icon.classList.toggle("bi-eye-slash");
   });
 
+  // --- Validação do formulário ---
   form.addEventListener('submit', function (e) {
     let ok = true;
 
@@ -168,18 +228,70 @@
 
     if (!ok) e.preventDefault();
   });
-  btnGoogleCadastro.addEventListener('click', function (e) {
-  e.preventDefault();
-  const tipo = tipoHidden.value;
 
-  if (!tipo) {
-    alert('Selecione primeiro o tipo de conta (Pessoa Física ou Jurídica).');
-    return;
+  // --- Botão Google ---
+  document.getElementById('btnGoogleCadastro').addEventListener('click', function (e) {
+    e.preventDefault();
+    const tipo = tipoHidden.value;
+    if (!tipo) {
+      alert('Selecione primeiro o tipo de conta (Pessoa Física ou Jurídica).');
+      return;
+    }
+    window.location.href = `/auth/google?tipo=${tipo}&cadastro=1`;
+  });
+
+  // --- Lógica dos modais (com X habilitado e sem travas) ---
+  // Caso você tenha mais modais, todos que forem instanciados assim terão X funcional
+  function openModal(modalEl, options = {}) {
+    const modal = new bootstrap.Modal(modalEl, {
+      backdrop: true,  // permite fechar clicando fora
+      keyboard: true,  // permite fechar com ESC
+      ...options
+    });
+    modal.show();
+    return modal;
   }
 
-  window.location.href = `/auth/google?tipo=${tipo}&cadastro=1`;
-});
+  // --- Modal de cadastro pendente (condicional) ---
+  const showResume    = !!server.showResume;
+  const pendingUserId = server.pendingUserId || '';
+  const tipo          = server.tipo || '';
+  const erroMsg       = server.erroMsg || '';
+  const hasTypeConflict = !!erroMsg && /perfil do tipo/i.test(erroMsg);
 
+  if (showResume && pendingUserId && tipo) {
+    const modalEl = document.getElementById('modalCadastroPendente');
+
+    const btnContinuar = document.getElementById('btnContinuar');
+    const btnReiniciar = document.getElementById('btnReiniciar');
+    const modalTitle   = modalEl.querySelector('.modal-title');
+    const modalBody    = modalEl.querySelector('.modal-body');
+
+    // Links padrão
+    btnContinuar.href = `/usuarios/continuar-cadastro?usuario_id=${pendingUserId}&tipo=${tipo}`;
+    btnReiniciar.href = `/usuarios/reiniciar-cadastro?usuario_id=${pendingUserId}&tipo=${tipo}`;
+
+    if (hasTypeConflict) {
+      // Deixa o X visível e funcional (não escondemos o btn-close)
+      modalTitle.textContent = 'Este e-mail já possui um perfil';
+      modalBody.innerHTML = `
+        <p class="mb-2">Detectamos que este e-mail já está vinculado a um perfil do tipo <strong>${tipo}</strong>.</p>
+        <p class="mb-0"><strong>Opções:</strong></p>
+        <ul class="mb-0">
+          <li><strong>Continuar cadastro</strong>: voltar para a etapa em que parou do mesmo tipo (${tipo}).</li>
+          <li><strong>Reiniciar</strong>: começar do zero para o mesmo tipo (${tipo}).</li>
+        </ul>
+      `;
+
+      // Garante os textos dos botões
+      btnReiniciar.style.display = 'inline-block';
+      btnReiniciar.textContent = 'Reiniciar';
+      btnContinuar.textContent = 'Continuar cadastro';
+    }
+
+    openModal(modalEl);
+  }
+});
 </script>
 
 </body>

@@ -13,7 +13,6 @@ router.post('/cadastro/nome', candidatoController.salvarNomeCandidato);
 router.get('/cadastro/google/complementar', candidatoController.exibirComplementarGoogle);
 router.post('/complementar', candidatoController.complementarGoogle);
 
-
 // Outras etapas do cadastro padrão
 router.get('/localizacao', candidatoController.telaLocalizacao);
 router.post('/localizacao', candidatoController.salvarLocalizacao);

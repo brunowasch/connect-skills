@@ -6,6 +6,9 @@ const usuarioController = require('../controllers/usuarioController');
 router.post('/cadastrar', usuarioController.criarUsuario);
 router.post('/login', usuarioController.login);
 
+router.get('/continuar-cadastro', usuarioController.continuarCadastro);
+router.get('/reiniciar-cadastro', usuarioController.reiniciarCadastro);
+
 // Verificação de e-mail
 router.get('/verificar-email', usuarioController.verificarEmail);
 router.get('/aguardando-verificacao', usuarioController.telaAguardandoVerificacao);

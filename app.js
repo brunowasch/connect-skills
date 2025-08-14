@@ -2,8 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
-// const bodyParser = require('body-parser'); // (opcional) não usado abaixo
-// const db = require('./src/config/db');     // (opcional) se não usar, pode remover
 const MySQLStore = require('express-mysql-session')(session);
 const passport = require('passport');
 require('./src/config/passportGoogle');
@@ -12,6 +10,7 @@ const nodemailer = require('nodemailer');
 
 const flashMessage = require('./src/middlewares/flashMessage');
 
+const aliasRoutes = require('./src/routes/aliasRoutes');
 const authRoutes = require('./src/routes/authRoutes');
 const usuarioRoutes = require('./src/routes/usuarioRoutes');
 const candidatoRoutes = require('./src/routes/candidatoRoutes');
@@ -85,10 +84,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 // Rotas
 app.use('/', mainRoutes);
 app.use('/', authRoutes);
+app.use('/', aliasRoutes);
 app.use('/usuarios', usuarioRoutes);
 app.use('/candidatos', candidatoRoutes);
 app.use('/empresas', empresaRoutes);
-
+ 
 // Callback do Google (se você já trata isso em authRoutes, pode remover daqui)
 app.get('/auth/google/callback', (req, res, next) => {
   passport.authenticate('google', { failWithError: true }, async (err, user) => {

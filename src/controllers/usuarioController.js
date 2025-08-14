@@ -7,7 +7,7 @@ const empresaModel = require('../models/empresaModel');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-/** Utilidades */
+/* ===================== Utils ===================== */
 function baseUrl() {
   return process.env.NODE_ENV === 'production'
     ? process.env.BASE_URL
@@ -51,11 +51,48 @@ async function enviarEmailVerificacao(email, usuario_id) {
   });
 }
 
+/* ===================== Regras de incompleto ===================== */
+function isCandidatoIncompleto(c) {
+  if (!c) return true;
+  const faltandoNome = !c.nome || !c.sobrenome;
+  const faltandoData = !c.data_nascimento;
+  const faltandoLocal = !c.cidade || !c.pais;
+  const faltandoTelefone = !c.telefone;
+  const faltandoFoto = !c.foto_perfil || c.foto_perfil.trim() === '';
+  const faltandoAreas = !c.candidato_area || c.candidato_area.length < 3;
+  return (
+    faltandoNome ||
+    faltandoData ||
+    faltandoLocal ||
+    faltandoTelefone ||
+    faltandoFoto ||
+    faltandoAreas
+  );
+}
+
+function isEmpresaIncompleto(e) {
+  if (!e) return true;
+  const faltandoNome = !e.nome_empresa;
+  const faltandoLocal = !e.cidade || !e.pais;
+  const faltandoTelefone = !e.telefone;
+  const faltandoFoto = !e.foto_perfil || e.foto_perfil.trim() === '';
+  return faltandoNome || faltandoLocal || faltandoTelefone || faltandoFoto;
+}
+
+/* ===================== Redireciono por etapa ===================== */
 async function redirecionarFluxoCandidato(usuarioId, res) {
   const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuarioId));
 
   if (!candidato) {
     return res.redirect(`/candidato/nome?usuario_id=${usuarioId}`);
+  }
+
+  if (!candidato.nome || !candidato.sobrenome) {
+    return res.redirect(`/candidato/nome?usuario_id=${usuarioId}`);
+  }
+
+  if (!candidato.data_nascimento) {
+    return res.redirect(`/candidato/data-nascimento?usuario_id=${usuarioId}`);
   }
 
   if (!candidato.cidade || !candidato.pais) {
@@ -81,7 +118,7 @@ async function redirecionarFluxoCandidato(usuarioId, res) {
 async function redirecionarFluxoEmpresa(usuarioId, res) {
   const empresa = await empresaModel.obterEmpresaPorUsuarioId(Number(usuarioId));
 
-  if (!empresa) {
+  if (!empresa || !empresa.nome_empresa) {
     return res.redirect(`/empresa/nome-empresa?usuario_id=${usuarioId}`);
   }
 
@@ -100,7 +137,59 @@ async function redirecionarFluxoEmpresa(usuarioId, res) {
   return res.redirect('/empresa/home');
 }
 
-/** ROTAS */
+/* ===================== Reset “do zero” ===================== */
+// Usa os nomes exatos do seu schema.prisma
+async function resetParcialCandidato(usuarioId) {
+  await prisma.$transaction(async (tx) => {
+    const cand = await tx.candidato.findUnique({
+      where: { usuario_id: Number(usuarioId) },
+      select: { id: true },
+    });
+    if (!cand) return;
+
+    await tx.candidato_area.deleteMany({
+      where: { candidato_id: cand.id }
+    });
+
+    await tx.candidato.delete({
+      where: { usuario_id: Number(usuarioId) }
+    });
+  });
+}
+
+async function resetParcialEmpresa(usuarioId) {
+  await prisma.$transaction(async (tx) => {
+    const emp = await tx.empresa.findUnique({
+      where: { usuario_id: Number(usuarioId) },
+      select: { id: true },
+    });
+    if (!emp) return;
+
+    const vagas = await tx.vaga.findMany({
+      where: { empresa_id: emp.id },
+      select: { id: true }
+    });
+    const vagaIds = vagas.map(v => v.id);
+
+    if (vagaIds.length) {
+      await tx.vaga_area.deleteMany({
+        where: { vaga_id: { in: vagaIds } }
+      });
+      await tx.vaga_soft_skill.deleteMany({
+        where: { vaga_id: { in: vagaIds } }
+      });
+      await tx.vaga.deleteMany({
+        where: { id: { in: vagaIds } }
+      });
+    }
+
+    await tx.empresa.delete({
+      where: { usuario_id: Number(usuarioId) }
+    });
+  });
+}
+
+// usuarioController.js (apenas a função criarUsuario completa, ajustada)
 exports.criarUsuario = async (req, res) => {
   let { email, senha, tipo } = req.body;
   if (!email || !senha || !tipo) {
@@ -114,38 +203,71 @@ exports.criarUsuario = async (req, res) => {
     const usuarioExistente = await usuarioModel.buscarPorEmail(emailNormalizado);
 
     if (usuarioExistente) {
+      // E-mail já existe
       if (usuarioExistente.email_verificado) {
         const usuarioId = usuarioExistente.id;
 
+        // Carrega perfis existentes
+        const cand = await candidatoModel.obterCandidatoPorUsuarioId(usuarioId);
+        const emp  = await empresaModel.obterEmpresaPorUsuarioId(usuarioId);
+        const jaTemCandidato = !!cand;
+        const jaTemEmpresa   = !!emp;
+
+        // Se já existe QUALQUER perfil, congela tipo e bloqueia criar o outro
+        if (jaTemCandidato || jaTemEmpresa) {
+          const tipoAtual = jaTemCandidato ? 'candidato' : 'empresa';
+
+          if (tipo !== tipoAtual) {
+            return res.status(200).render('auth/cadastro', {
+              erro: `Este e-mail já possui um perfil do tipo ${tipoAtual}. Para mudar, exclua o perfil atual antes.`,
+              emailPrefill: emailNormalizado,
+              showResumeModal: true,
+              pendingUserId: usuarioId,
+              tipo: tipoAtual
+            });
+          }
+
+          // Mesmo tipo: se incompleto, abre modal; se completo, mostra aviso na própria tela de cadastro
+          const incompleto = (tipoAtual === 'candidato')
+            ? isCandidatoIncompleto(cand)
+            : isEmpresaIncompleto(emp);
+
+          if (incompleto) {
+            return res.status(200).render('auth/cadastro', {
+              erro: null,
+              emailPrefill: emailNormalizado,
+              showResumeModal: true,
+              pendingUserId: usuarioId,
+              tipo: tipoAtual
+            });
+          }
+
+          // Cadastro COMPLETO - renderiza a própria tela de cadastro com aviso + link de login
+          return res.status(200).render('auth/cadastro', {
+            erro: 'Já existe uma conta com este e-mail. <a href="/login" class="text-primary">Clique aqui para fazer login</a>.',
+            emailPrefill: emailNormalizado,
+            showResumeModal: false,
+            pendingUserId: null,
+            tipo: tipoAtual
+          });
+        }
+
+        // NÃO tem perfil ainda -> agora pode fixar o tipo (uma única vez)
         if (usuarioExistente.tipo !== tipo) {
           await usuarioModel.atualizarUsuario(usuarioId, { tipo });
         }
 
-        const perfilCandidato = await candidatoModel.obterCandidatoPorUsuarioId(usuarioId);
-        const perfilEmpresa   = await empresaModel.obterEmpresaPorUsuarioId(usuarioId);
-
-        const semPerfil =
-          (tipo === 'candidato' && !perfilCandidato) ||
-          (tipo === 'empresa'   && !perfilEmpresa);
-
-        if (semPerfil) {
-          return res.status(200).render('auth/cadastro', {
-            erro: null,
-            emailPrefill: emailNormalizado,
-            showResumeModal: true,
-            pendingUserId: usuarioId,
-            email: usuarioExistente.email
-          });
-        }
-
-        req.session.usuario = { id: usuarioId, tipo, email: emailNormalizado };
-        if (tipo === 'candidato') {
-          return redirecionarFluxoCandidato(usuarioId, res);
-        } else {
-          return redirecionarFluxoEmpresa(usuarioId, res);
-        }
+        // Mostrar modal para iniciar criação do primeiro perfil desse tipo
+        return res.status(200).render('auth/cadastro', {
+          erro: null,
+          emailPrefill: emailNormalizado,
+          showResumeModal: true,
+          pendingUserId: usuarioId,
+          tipo
+        });
       }
 
+      // E-mail existe, mas ainda não verificado -> atualiza senha/tipo e reenvia verificação
       const salt = await bcrypt.genSalt(10);
       const senhaCriptografada = await bcrypt.hash(senha, salt);
 
@@ -155,6 +277,7 @@ exports.criarUsuario = async (req, res) => {
       return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(emailNormalizado)}`);
     }
 
+    // Usuário novo
     const salt = await bcrypt.genSalt(10);
     const senhaCriptografada = await bcrypt.hash(senha, salt);
 
@@ -201,7 +324,7 @@ exports.login = async (req, res) => {
     if (usuario.tipo === 'empresa') {
       const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario.id);
 
-      if (!empresa) {
+      if (!empresa || isEmpresaIncompleto(empresa)) {
         return redirecionarFluxoEmpresa(usuario.id, res);
       }
 
@@ -219,7 +342,6 @@ exports.login = async (req, res) => {
       };
       req.session.usuario = { id: usuario.id, tipo: 'empresa', nome: empresa.nome_empresa, email: usuario.email };
 
-      // ↓↓↓ NOVO: respeita returnTo, se existir
       const destino = req.session.returnTo || '/empresa/home';
       delete req.session.returnTo;
       return req.session.save(() => res.redirect(destino));
@@ -228,12 +350,7 @@ exports.login = async (req, res) => {
     if (usuario.tipo === 'candidato') {
       const candidato = await candidatoModel.obterCandidatoPorUsuarioId(usuario.id);
 
-      if (!candidato) {
-        return redirecionarFluxoCandidato(usuario.id, res);
-      }
-
-      if (!candidato.cidade || !candidato.pais || !candidato.telefone || !candidato.foto_perfil
-        || (candidato.candidato_area || []).length !== 3) {
+      if (!candidato || isCandidatoIncompleto(candidato)) {
         return redirecionarFluxoCandidato(usuario.id, res);
       }
 
@@ -364,10 +481,7 @@ exports.recuperarSenha = async (req, res) => {
       subject: 'Recuperação de senha',
       html: `
         <p>Olá,</p>
-        <p>
-          Recebemos uma solicitação de redefinição de senha para sua conta no 
-          <strong style="color: #6a1b9a;">Connect Skills</strong>.
-        </p>
+        <p>Recebemos uma solicitação de redefinição de senha para sua conta no <strong>Connect Skills</strong>.</p>
         <p>Clique no botão abaixo para escolher uma nova senha:</p>
         <p style="margin: 16px 0;">
           <a href="${resetLink}" target="_blank" rel="noopener noreferrer" style="
@@ -425,5 +539,51 @@ exports.redefinirSenha = async (req, res) => {
     console.error('Erro ao redefinir senha:', erro);
     req.session.erro = 'Token inválido ou expirado.';
     return res.redirect('/usuarios/recuperar-senha');
+  }
+};
+
+/* ===== Continuar/Reiniciar ===== */
+exports.continuarCadastro = async (req, res) => {
+  const { usuario_id, tipo } = req.query;
+  if (!usuario_id || !tipo) return res.redirect('/cadastro');
+
+  try {
+    if (tipo === 'candidato') {
+      return redirecionarFluxoCandidato(Number(usuario_id), res);
+    }
+    if (tipo === 'empresa') {
+      return redirecionarFluxoEmpresa(Number(usuario_id), res);
+    }
+    return res.redirect('/cadastro');
+  } catch (err) {
+    console.error('Erro ao continuar cadastro:', err);
+    req.session.erro = 'Não foi possível continuar o cadastro.';
+    return res.redirect('/cadastro');
+  }
+};
+
+exports.reiniciarCadastro = async (req, res) => {
+  const { usuario_id, tipo } = req.query;
+  if (!usuario_id || !tipo) return res.redirect('/cadastro');
+
+  try {
+    // Limpa sessão para não travar inputs com dados antigos
+    delete req.session.candidato;
+    delete req.session.empresa;
+
+    if (tipo === 'candidato') {
+      await resetParcialCandidato(Number(usuario_id));
+      return res.redirect(`/candidato/nome?usuario_id=${Number(usuario_id)}&restart=1`);
+    }
+    if (tipo === 'empresa') {
+      await resetParcialEmpresa(Number(usuario_id));
+      return res.redirect(`/empresa/nome-empresa?usuario_id=${Number(usuario_id)}&restart=1`);
+    }
+
+    return res.redirect('/cadastro');
+  } catch (err) {
+    console.error('Erro ao reiniciar cadastro:', err);
+    req.session.erro = 'Não foi possível reiniciar o cadastro.';
+    return res.redirect('/cadastro');
   }
 };
