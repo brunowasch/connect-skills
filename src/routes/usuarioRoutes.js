@@ -15,6 +15,7 @@ router.get('/aguardando-verificacao', usuarioController.telaAguardandoVerificaca
 router.get('/status-verificacao', usuarioController.statusVerificacao);
 router.get('/email-verificado', usuarioController.telaEmailVerificado);
 router.post('/reenviar-email', usuarioController.reenviarEmail);
+router.get('/confirmar-cadastro', usuarioController.confirmarAcaoCadastro);
 
 // Recuperação de senha
 router.get('/recuperar-senha', usuarioController.telaRecuperarSenha);

@@ -16,7 +16,7 @@
 <main>
   <div class="container container-page d-flex flex-column justify-content-start align-items-center mt-5 mb-5">
 
-    <img src="/img/CONNECT.png" alt="Logo" class="logo mb-4 mt-4" style="width: 120px; height: 130px;"> 
+    <img src="/img/CONNECT.png" alt="Logo" class="logo mb-4 mt-4" style="width: 120px; height: 130px;">
     <h2 class="text-center fw-bold">Cadastre-se!</h2>
 
     <% if (erro) { %>
@@ -25,8 +25,24 @@
       </div>
     <% } %>
 
+    <!-- ALERTA: Aguardando verificação de e-mail (exibido NA PÁGINA) -->
+    <div id="alertAguardandoVerificacao" class="alert alert-warning d-none mt-3" role="alert" style="max-width: 640px;">
+      <div class="d-flex flex-column gap-2">
+        <div>
+          <strong>Verifique seu e-mail para continuar.</strong>
+          <div class="text-muted small">Enviamos um link de verificação para o seu endereço. Confirme para prosseguir com o cadastro.</div>
+        </div>
+
+        <form action="/usuarios/reenviar-email" method="POST" class="d-flex flex-wrap gap-2 align-items-center">
+          <input type="hidden" name="email" id="inputEmailReenvio" value="">
+          <button type="submit" class="btn btn-sm btn-primary">Reenviar e-mail de verificação</button>
+          <a href="/usuarios/aguardando-verificacao" class="btn btn-sm btn-outline-secondary">Abrir instruções</a>
+        </form>
+      </div>
+    </div>
+
     <!-- SELEÇÃO DE TIPO -->
-    <div class="card shadow p-4 border-0 rounded-3 mt-2 mb-4" style="min-width: 320px;">
+    <div class="card shadow p-4 border-0 rounded-3 mt-3 mb-4" style="min-width: 320px;">
       <div class="d-flex justify-content-center gap-4">
         <div class="form-check">
           <input class="form-check-input" type="radio" name="tipoSelecao" id="fisica" value="fisica">
@@ -46,7 +62,15 @@
 
         <div class="mb-3">
           <label for="email" class="form-label">E-mail</label>
-          <input type="email" class="form-control" id="email" name="email" placeholder="Digite seu e-mail" value="<%= typeof emailPrefill !== 'undefined' ? emailPrefill : '' %>" required>
+          <input
+            type="email"
+            class="form-control"
+            id="email"
+            name="email"
+            placeholder="Digite seu e-mail"
+            value="<%= typeof emailPrefill !== 'undefined' ? emailPrefill : '' %>"
+            required
+          >
         </div>
 
         <div class="mb-3 position-relative">
@@ -82,7 +106,7 @@
 
         <div class="d-grid mt-4">
           <button type="submit" class="btn btn-primary btn-lg">Cadastrar</button>
-          <p class="mt-2">Já tem uma conta? <a href="/login" class="text-primary ">Faça login aqui</a></p>
+          <p class="mt-2">Já tem uma conta? <a href="/login" class="text-primary">Faça login aqui</a></p>
         </div>
 
         <div class="d-flex align-items-center my-3">
@@ -102,25 +126,46 @@
   </div>
 </main>
 
-<!-- MODAL: Cadastro em andamento -->
+<!-- MODAL atualizado (exibido APENAS se e-mail JÁ estiver verificado e houver cadastro pendente) -->
 <div class="modal fade" id="modalCadastroPendente" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content rounded-4">
-      <div class="modal-header">
-        <h5 class="modal-title">Cadastro em andamento</h5>
-        <!-- Mantém o X visível e funcional -->
+    <div class="modal-content rounded-4 border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title d-flex align-items-center gap-2">
+          <i class="bi bi-hourglass-split"></i>
+          Cadastro em andamento
+        </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
       </div>
-      <div class="modal-body">
-        <p>Este e-mail já possui um cadastro em andamento. O que deseja fazer?</p>
-        <ul class="mb-0">
-          <li><strong>Continuar cadastro</strong>: voltar para a etapa em que parou.</li>
-          <li><strong>Reiniciar</strong>: começar do zero a partir da primeira tela do cadastro <span class="text-muted">(mantendo sua conta)</span>.</li>
-        </ul>
+
+      <div class="modal-body pt-2">
+        <div class="d-flex gap-3">
+          <div class="flex-shrink-0 d-none d-sm-block">
+            <div class="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center" style="width:56px;height:56px;">
+              <i class="bi bi-person-check" style="font-size: 1.4rem;"></i>
+            </div>
+          </div>
+          <div class="flex-grow-1">
+            <p class="mb-2">
+              Encontramos um <strong>cadastro não finalizado</strong> para o e-mail abaixo. Como seu e-mail já foi verificado, você pode continuar de onde parou. Verifique o seguinte email:
+            </p>
+            <p class="mb-3">
+              <span class="fw-semibold text-primary" style="word-break: break-all;"><%= typeof emailPrefill !== 'undefined' ? emailPrefill : '' %></span>
+            </p>
+
+            <form action="/continuar-cadastro" method="POST" class="d-grid gap-2 mb-2">
+              <input type="hidden" name="userId" value="<%= typeof pendingUserId !== 'undefined' ? String(pendingUserId) : '' %>">
+              <input type="hidden" name="tipo" value="<%= typeof tipo !== 'undefined' ? String(tipo) : '' %>">
+            </form>
+            <p class="text-muted small mt-3 mb-0">
+              Se isso não parece correto, feche este aviso e tente novamente.
+            </p>
+          </div>
+        </div>
       </div>
-      <div class="modal-footer d-flex justify-content-between">
-        <a id="btnReiniciar" class="btn btn-outline-secondary">Reiniciar</a>
-        <a id="btnContinuar" class="btn btn-primary">Continuar cadastro</a>
+
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">Fechar</button>
       </div>
     </div>
   </div>
@@ -128,22 +173,24 @@
 
 <%- include('../partials/footer') %>
 
-<!-- BLOCO JSON COM DADOS DO SERVIDOR (sem quebrar o linter) -->
+<!-- BLOCO JSON COM DADOS DO SERVIDOR -->
 <script id="server-data" type="application/json">
 <%- JSON.stringify({
   showResume: (typeof showResumeModal !== 'undefined' && !!showResumeModal),
   pendingUserId: (typeof pendingUserId !== 'undefined' ? String(pendingUserId) : ''),
   tipo: (typeof tipo !== 'undefined' ? String(tipo) : ''),
-  erroMsg: (typeof erro !== 'undefined' && erro ? String(erro) : '')
+  erroMsg: (typeof erro !== 'undefined' && erro ? String(erro) : ''),
+  // NOVOS CAMPOS (para bloquear modal e mostrar alerta)
+  awaitEmailVerification: (typeof awaitEmailVerification !== 'undefined' ? !!awaitEmailVerification : false),
+  emailPrefill: (typeof emailPrefill !== 'undefined' ? String(emailPrefill) : '')
 }) %>
 </script>
 
-<!-- Bootstrap JS (necessário para modal) -->
+<!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // --- Ler dados vindos do servidor (JSON) ---
   const serverEl = document.getElementById('server-data');
   const server = serverEl ? JSON.parse(serverEl.textContent || '{}') : {};
 
@@ -154,24 +201,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const formContainer = document.getElementById('formularioCadastro');
   const tipoHidden    = document.getElementById('tipoHidden');
 
-  // --- Pré-seleciona tipo se veio do servidor (sem EJS no JS) ---
-  const serverTipo = server.tipo || '';
-  if (serverTipo === 'candidato') {
-    radioFisica.checked = true;
-    tipoHidden.value = 'candidato';
-    formContainer.classList.remove('d-none');
-  } else if (serverTipo === 'empresa') {
-    radioJuridica.checked = true;
-    tipoHidden.value = 'empresa';
-    formContainer.classList.remove('d-none');
-  }
+  // --- Flags/valores do servidor ---
+  const showResume    = !!server.showResume;
+  const pendingUserId = server.pendingUserId || '';
+  const tipo          = server.tipo || '';
+  const erroMsg       = server.erroMsg || '';
+  const hasTypeConflict = !!erroMsg && /perfil do tipo/i.test(erroMsg);
+  const awaitEmailVerification = !!server.awaitEmailVerification;
+  const emailPrefill = server.emailPrefill || '';
+
+  // Preenche o e-mail no reenvio (alerta da página)
+  const inputEmailReenvio = document.getElementById('inputEmailReenvio');
+  if (inputEmailReenvio) inputEmailReenvio.value = emailPrefill;
 
   // --- Handlers de troca de tipo ---
   radioFisica.addEventListener('change', () => {
     tipoHidden.value = 'candidato';
     formContainer.classList.remove('d-none');
   });
-
   radioJuridica.addEventListener('change', () => {
     tipoHidden.value = 'empresa';
     formContainer.classList.remove('d-none');
@@ -185,7 +232,6 @@ document.addEventListener('DOMContentLoaded', () => {
     icon.classList.toggle("bi-eye");
     icon.classList.toggle("bi-eye-slash");
   });
-
   document.getElementById("toggleConfirmar").addEventListener("click", function () {
     const confirmarInput = document.getElementById("confirmarSenha");
     const icon = document.getElementById("iconConfirmar");
@@ -240,55 +286,24 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = `/auth/google?tipo=${tipo}&cadastro=1`;
   });
 
-  // --- Lógica dos modais (com X habilitado e sem travas) ---
-  // Caso você tenha mais modais, todos que forem instanciados assim terão X funcional
+  // --- Modal / Alerta ---
   function openModal(modalEl, options = {}) {
     const modal = new bootstrap.Modal(modalEl, {
-      backdrop: true,  // permite fechar clicando fora
-      keyboard: true,  // permite fechar com ESC
+      backdrop: true,
+      keyboard: true,
       ...options
     });
     modal.show();
     return modal;
   }
 
-  // --- Modal de cadastro pendente (condicional) ---
-  const showResume    = !!server.showResume;
-  const pendingUserId = server.pendingUserId || '';
-  const tipo          = server.tipo || '';
-  const erroMsg       = server.erroMsg || '';
-  const hasTypeConflict = !!erroMsg && /perfil do tipo/i.test(erroMsg);
-
-  if (showResume && pendingUserId && tipo) {
+  // Se precisa verificar e-mail, mostra ALERTA na página e NÃO abre modal
+  if (awaitEmailVerification) {
+    const alertBox = document.getElementById('alertAguardandoVerificacao');
+    if (alertBox) alertBox.classList.remove('d-none');
+  } else if (showResume && pendingUserId && tipo) {
+    // Somente se e-mail já estiver verificado e houver cadastro pendente
     const modalEl = document.getElementById('modalCadastroPendente');
-
-    const btnContinuar = document.getElementById('btnContinuar');
-    const btnReiniciar = document.getElementById('btnReiniciar');
-    const modalTitle   = modalEl.querySelector('.modal-title');
-    const modalBody    = modalEl.querySelector('.modal-body');
-
-    // Links padrão
-    btnContinuar.href = `/usuarios/continuar-cadastro?usuario_id=${pendingUserId}&tipo=${tipo}`;
-    btnReiniciar.href = `/usuarios/reiniciar-cadastro?usuario_id=${pendingUserId}&tipo=${tipo}`;
-
-    if (hasTypeConflict) {
-      // Deixa o X visível e funcional (não escondemos o btn-close)
-      modalTitle.textContent = 'Este e-mail já possui um perfil';
-      modalBody.innerHTML = `
-        <p class="mb-2">Detectamos que este e-mail já está vinculado a um perfil do tipo <strong>${tipo}</strong>.</p>
-        <p class="mb-0"><strong>Opções:</strong></p>
-        <ul class="mb-0">
-          <li><strong>Continuar cadastro</strong>: voltar para a etapa em que parou do mesmo tipo (${tipo}).</li>
-          <li><strong>Reiniciar</strong>: começar do zero para o mesmo tipo (${tipo}).</li>
-        </ul>
-      `;
-
-      // Garante os textos dos botões
-      btnReiniciar.style.display = 'inline-block';
-      btnReiniciar.textContent = 'Reiniciar';
-      btnContinuar.textContent = 'Continuar cadastro';
-    }
-
     openModal(modalEl);
   }
 });

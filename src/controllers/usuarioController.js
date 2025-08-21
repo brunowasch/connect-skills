@@ -7,7 +7,6 @@ const empresaModel = require('../models/empresaModel');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-/* ===================== Utils ===================== */
 function baseUrl() {
   return process.env.NODE_ENV === 'production'
     ? process.env.BASE_URL
@@ -28,30 +27,96 @@ async function enviarEmailVerificacao(email, usuario_id) {
     to: email,
     subject: 'Confirmação de e-mail',
     html: `
-      <p>Olá!</p>
-      <p>Obrigado por se cadastrar no <strong>Connect Skills</strong>.</p>
-      <p>Para continuar seu cadastro, é necessário confirmar o seu endereço de e-mail.</p>
-      <p>Clique no botão abaixo para verificar seu e-mail:</p>
-      <p style="margin: 16px 0;">
-        <a href="${link}" target="_blank" rel="noopener noreferrer" style="
-          display: inline-block;
-          padding: 10px 20px;
-          background-color: #0d6efd;
-          color: white;
-          text-decoration: none;
-          border-radius: 6px;
-          font-weight: bold;
-        ">
-          Verificar e-mail
-        </a>
-      </p>
-      <p>Se você não solicitou este cadastro, pode ignorar este e-mail com segurança.</p>
-      <p>Atenciosamente,<br><strong>Equipe Connect Skills</strong></p>
+      <div style="font-family: Arial, sans-serif; line-height: 1.5; color:#000000;">
+        <p>Olá!</p>
+        <p>Obrigado por se cadastrar no <strong>Connect Skills</strong>.</p>
+        <p>Para continuar seu cadastro, é necessário confirmar o seu endereço de e-mail.</p>
+        <p>Clique no botão abaixo para verificar seu e-mail:</p>
+        <p style="margin: 16px 0;">
+          <a href="${link}" target="_blank" rel="noopener noreferrer" style="
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #0d6efd;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+          ">
+            Verificar e-mail
+          </a>
+        </p>
+        <p>Se você não solicitou este cadastro, pode ignorar este e-mail com segurança.</p>
+        <p>Atenciosamente,<br><strong>Equipe Connect Skills</strong></p>
+      </div>
     `
   });
 }
 
-/* ===================== Regras de incompleto ===================== */
+async function enviarEmailConfirmacaoAcao(email, usuario_id, tipo) {
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+  });
+
+  const continuarToken = jwt.sign(
+    { id: usuario_id, tipo, acao: 'continuar' },
+    process.env.JWT_SECRET,
+    { expiresIn: '2h' }
+  );
+  const reiniciarToken = jwt.sign(
+    { id: usuario_id, tipo, acao: 'reiniciar' },
+    process.env.JWT_SECRET,
+    { expiresIn: '2h' }
+  );
+
+  const continuarLink = `${baseUrl()}/usuarios/confirmar-cadastro?token=${continuarToken}`;
+  const reiniciarLink = `${baseUrl()}/usuarios/confirmar-cadastro?token=${reiniciarToken}`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.5; color:#000000;">
+      <p>Olá!</p>
+      <p>Identificamos que você já possui um <strong>cadastro em andamento</strong> no Connect Skills (${tipo === 'candidato' ? 'Pessoa Física' : 'Pessoa Jurídica'}).</p>
+      <p>Por segurança, confirme a ação que deseja realizar:</p>
+
+      <div style="margin: 20px 0; flex-wrap: wrap; gap: 20px;">
+        <a href="${continuarLink}" target="_blank" rel="noopener noreferrer" style="
+          display: inline-block; 
+          padding: 10px 16px; 
+          border-radius: 6px; 
+          background: #0d6efd; 
+          color: #ffffff !important; 
+          text-decoration: none; 
+          font-weight: bold;
+        ">
+          Continuar cadastro
+        </a>
+
+        <a href="${reiniciarLink}" target="_blank" rel="noopener noreferrer" style="
+          display: inline-block; 
+          padding: 10px 16px; 
+          border-radius: 6px; 
+          background: #6c757d; 
+          color: #ffffff !important; 
+          text-decoration: none; 
+          font-weight: bold;
+        ">
+          Reiniciar cadastro
+        </a>
+      </div>
+
+      <p style="color:#555; font-size: 14px;">Esses links expiram em 2 horas. Caso não tenha solicitado, ignore este e-mail.</p>
+      <p>Equipe Connect Skills</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: 'Connect Skills <no-reply@connectskills.com>',
+    to: email,
+    subject: 'Confirme como deseja prosseguir com seu cadastro',
+    html
+  });
+}
+
 function isCandidatoIncompleto(c) {
   if (!c) return true;
   const faltandoNome = !c.nome || !c.sobrenome;
@@ -79,7 +144,6 @@ function isEmpresaIncompleto(e) {
   return faltandoNome || faltandoLocal || faltandoTelefone || faltandoFoto;
 }
 
-/* ===================== Redireciono por etapa ===================== */
 async function redirecionarFluxoCandidato(usuarioId, res) {
   const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuarioId));
 
@@ -189,7 +253,7 @@ async function resetParcialEmpresa(usuarioId) {
   });
 }
 
-// usuarioController.js (apenas a função criarUsuario completa, ajustada)
+// === criarUsuario (ajustada) ===
 exports.criarUsuario = async (req, res) => {
   let { email, senha, tipo } = req.body;
   if (!email || !senha || !tipo) {
@@ -218,6 +282,8 @@ exports.criarUsuario = async (req, res) => {
           const tipoAtual = jaTemCandidato ? 'candidato' : 'empresa';
 
           if (tipo !== tipoAtual) {
+            // Conflito de tipo — mostra modal e envia e-mail de confirmação de ação
+            await enviarEmailConfirmacaoAcao(emailNormalizado, usuarioId, tipoAtual);
             return res.status(200).render('auth/cadastro', {
               erro: `Este e-mail já possui um perfil do tipo ${tipoAtual}. Para mudar, exclua o perfil atual antes.`,
               emailPrefill: emailNormalizado,
@@ -227,12 +293,15 @@ exports.criarUsuario = async (req, res) => {
             });
           }
 
-          // Mesmo tipo: se incompleto, abre modal; se completo, mostra aviso na própria tela de cadastro
+          // Mesmo tipo: se incompleto, abre modal + envia e-mail; se completo, mostra aviso com link de login
           const incompleto = (tipoAtual === 'candidato')
             ? isCandidatoIncompleto(cand)
             : isEmpresaIncompleto(emp);
 
           if (incompleto) {
+            // Envia e-mail de confirmação de ação (continuar/reiniciar)
+            await enviarEmailConfirmacaoAcao(emailNormalizado, usuarioId, tipoAtual);
+
             return res.status(200).render('auth/cadastro', {
               erro: null,
               emailPrefill: emailNormalizado,
@@ -257,7 +326,9 @@ exports.criarUsuario = async (req, res) => {
           await usuarioModel.atualizarUsuario(usuarioId, { tipo });
         }
 
-        // Mostrar modal para iniciar criação do primeiro perfil desse tipo
+        // Primeiro perfil do tipo selecionado — mostra modal e também manda e-mail de confirmação de ação
+        await enviarEmailConfirmacaoAcao(emailNormalizado, usuarioId, tipo);
+
         return res.status(200).render('auth/cadastro', {
           erro: null,
           emailPrefill: emailNormalizado,
@@ -267,7 +338,7 @@ exports.criarUsuario = async (req, res) => {
         });
       }
 
-      // E-mail existe, mas ainda não verificado -> atualiza senha/tipo e reenvia verificação
+      // E-mail existe, mas ainda não verificado -> atualiza senha/tipo e reenvia verificação padrão
       const salt = await bcrypt.genSalt(10);
       const senhaCriptografada = await bcrypt.hash(senha, salt);
 
@@ -299,7 +370,6 @@ exports.criarUsuario = async (req, res) => {
   }
 };
 
-
 exports.login = async (req, res) => {
   const { email, senha } = req.body;
   if (!email || !senha) {
@@ -319,6 +389,12 @@ exports.login = async (req, res) => {
     if (!senhaCorreta) {
       req.session.erro = 'Senha incorreta.';
       return res.redirect('/login');
+    }
+
+    // 🚫 NOVO: impedir acesso caso o e-mail ainda não tenha sido verificado
+    if (!usuario.email_verificado) {
+      // Mantém experiência: leva para a tela que orienta a verificar o e-mail, com opção de reenviar
+      return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(usuario.email)}`);
     }
 
     if (usuario.tipo === 'empresa') {
@@ -382,6 +458,7 @@ exports.login = async (req, res) => {
     return res.redirect('/login');
   }
 };
+
 
 exports.verificarEmail = async (req, res) => {
   const { token } = req.query;
@@ -542,18 +619,20 @@ exports.redefinirSenha = async (req, res) => {
   }
 };
 
-/* ===== Continuar/Reiniciar ===== */
 exports.continuarCadastro = async (req, res) => {
   const { usuario_id, tipo } = req.query;
   if (!usuario_id || !tipo) return res.redirect('/cadastro');
 
   try {
-    if (tipo === 'candidato') {
-      return redirecionarFluxoCandidato(Number(usuario_id), res);
+    const usuario = await usuarioModel.buscarPorId(Number(usuario_id));
+    if (!usuario) return res.redirect('/cadastro');
+
+    if (!usuario.email_verificado) {
+      return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(usuario.email)}`);
     }
-    if (tipo === 'empresa') {
-      return redirecionarFluxoEmpresa(Number(usuario_id), res);
-    }
+
+    if (tipo === 'candidato') return redirecionarFluxoCandidato(Number(usuario_id), res);
+    if (tipo === 'empresa')   return redirecionarFluxoEmpresa(Number(usuario_id), res);
     return res.redirect('/cadastro');
   } catch (err) {
     console.error('Erro ao continuar cadastro:', err);
@@ -567,7 +646,14 @@ exports.reiniciarCadastro = async (req, res) => {
   if (!usuario_id || !tipo) return res.redirect('/cadastro');
 
   try {
-    // Limpa sessão para não travar inputs com dados antigos
+    const usuario = await usuarioModel.buscarPorId(Number(usuario_id));
+    if (!usuario) return res.redirect('/cadastro');
+
+    // 🚫 Bloqueio: precisa verificar o e-mail antes de reiniciar
+    if (!usuario.email_verificado) {
+      return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(usuario.email)}`);
+    }
+
     delete req.session.candidato;
     delete req.session.empresa;
 
@@ -584,6 +670,60 @@ exports.reiniciarCadastro = async (req, res) => {
   } catch (err) {
     console.error('Erro ao reiniciar cadastro:', err);
     req.session.erro = 'Não foi possível reiniciar o cadastro.';
+    return res.redirect('/cadastro');
+  }
+};
+
+exports.confirmarAcaoCadastro = async (req, res) => {
+  const { token } = req.query;
+  if (!token) {
+    req.session.erro = 'Token não fornecido.';
+    return res.redirect('/cadastro');
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const usuario_id = Number(decoded.id);
+    const tipo = decoded.tipo;
+    const acao = decoded.acao; // 'continuar' | 'reiniciar'
+
+    if (!usuario_id || !tipo || !acao) {
+      req.session.erro = 'Dados do token incompletos.';
+      return res.redirect('/cadastro');
+    }
+
+    // Segurança extra: valida se o usuário existe e está verificado
+    const usuario = await usuarioModel.buscarPorId(usuario_id);
+    if (!usuario || !usuario.email_verificado) {
+      req.session.erro = 'Ação não permitida para esta conta.';
+      return res.redirect('/cadastro');
+    }
+
+    if (acao === 'continuar') {
+      if (tipo === 'candidato') return redirecionarFluxoCandidato(usuario_id, res);
+      if (tipo === 'empresa')   return redirecionarFluxoEmpresa(usuario_id, res);
+    }
+
+    if (acao === 'reiniciar') {
+      // Limpa sessão
+      delete req.session.candidato;
+      delete req.session.empresa;
+
+      if (tipo === 'candidato') {
+        await resetParcialCandidato(usuario_id);
+        return res.redirect(`/candidato/nome?usuario_id=${usuario_id}&restart=1`);
+      }
+      if (tipo === 'empresa') {
+        await resetParcialEmpresa(usuario_id);
+        return res.redirect(`/empresa/nome-empresa?usuario_id=${usuario_id}&restart=1`);
+      }
+    }
+
+    req.session.erro = 'Ação inválida.';
+    return res.redirect('/cadastro');
+  } catch (error) {
+    console.error('Erro ao confirmar ação do cadastro via e-mail:', error);
+    req.session.erro = 'Link inválido ou expirado.';
     return res.redirect('/cadastro');
   }
 };
