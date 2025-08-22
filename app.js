@@ -67,6 +67,14 @@ app.use(passport.session());
 // Flash (depois da sessão, antes das rotas)
 app.use(flashMessage);
 
+app.use((req, res, next) => {
+  res.locals.sucessoContato = req.session.sucessoContato || null;
+  res.locals.erroContato     = req.session.erroContato || null;
+  delete req.session.sucessoContato;
+  delete req.session.erroContato;
+  next();
+});
+
 // Expor usuário atual nas views (não toca nas mensagens)
 app.use((req, res, next) => {
   res.locals.candidato = req.session.candidato || null;
@@ -233,54 +241,15 @@ app.post('/enviar-contato', async (req, res) => {
       `
     });
 
-    if (req.session.candidato) {
-      return res.render('candidatos/home-candidatos', {
-        sucesso: 'Email enviado com sucesso! Entraremos em contato em breve.',
-        erro: null,
-        candidato: req.session.candidato,
-        empresa: null
-      });
-    } else if (req.session.empresa) {
-      return res.render('empresas/home-empresas', {
-        sucesso: 'Email enviado com sucesso! Entraremos em contato em breve.',
-        erro: null,
-        empresa: req.session.empresa,
-        candidato: null,
-        usuario: {
-          nome: req.session.empresa.nome_empresa,
-          email: req.session.usuario?.email || ''
-        }
-      });
-    } else {
-      return res.render('shared/home', {
-        sucesso: 'Email enviado com sucesso! Entraremos em contato em breve.',
-        erro: null
-      });
-    }
-  } catch (error) {
-    console.error('Erro ao enviar email de contato:', error);
-    const mensagemErro = 'Erro ao enviar o email. Tente novamente mais tarde.';
+    req.session.sucessoContato = 'Email enviado com sucesso! Entraremos em contato em breve.';
+    const destino = req.session.candidato ? '/candidatos/home' : '/empresas/home';
+    return res.redirect(destino);
 
-    if (req.session.candidato) {
-      return res.render('candidatos/home-candidatos', {
-        sucesso: null,
-        erro: mensagemErro,
-        candidato: req.session.candidato,
-        empresa: null
-      });
-    } else if (req.session.empresa) {
-      return res.render('empresas/home-empresas', {
-        sucesso: null,
-        erro: mensagemErro,
-        empresa: req.session.empresa,
-        candidato: null
-      });
-    } else {
-      return res.render('shared/home', {
-        sucesso: null,
-        erro: mensagemErro
-      });
-    }
+  } catch (e) {
+    console.error('Erro ao enviar contato:', e);
+    req.session.erroContato = 'Não conseguimos enviar sua mensagem. Tente novamente.';
+    const destino = req.session.candidato ? '/candidatos/home' : '/empresas/home';
+    return res.redirect(destino);
   }
 });
 
