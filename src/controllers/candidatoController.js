@@ -237,54 +237,89 @@ exports.telaHomeCandidato = (req, res) => {
 exports.renderMeuPerfil = async (req, res) => {
   if (!req.session.candidato) return res.redirect('/login');
 
-  const candidato = await prisma.candidato.findUnique({
-    where: { id: Number(req.session.candidato.id) },
-    include: {
-      candidato_area: { select: { area_interesse: { select: { nome: true } } } },
-      usuario: { select: { avatarUrl: true } }
+  try {
+    const candidato = await prisma.candidato.findUnique({
+      where: { id: Number(req.session.candidato.id) },
+      include: {
+        candidato_area: {
+          select: {
+            area_interesse: {
+              select: { nome: true }
+            }
+          }
+        },
+        usuario: { // 🔹 Não pedimos mais foto aqui
+          select: {
+            id: true,
+            email: true,
+            senha: true,
+            tipo: true,
+            email_verificado: true,
+            nome: true,
+            sobrenome: true
+          }
+        }
+      }
+    });
+
+    if (!candidato) return res.redirect('/login');
+
+    // Formatar telefone
+    let ddi = '', ddd = '', numero = '';
+    if (candidato.telefone) {
+      if (candidato.telefone.includes('(')) {
+        const match = candidato.telefone.match(/(\+\d+)\s+\((\d+)\)\s+(.*)/);
+        if (match) {
+          ddi = match[1];
+          ddd = match[2];
+          numero = match[3].replace(/\D/g, '');
+        }
+      } else {
+        [ddi, ddd, numero] = candidato.telefone.split('-');
+      }
     }
-  });
 
-  if (!candidato) return res.redirect('/login');
+    const numeroFormatado = numero
+      ? numero.length === 9
+        ? `${numero.slice(0, 5)}-${numero.slice(5)}`
+        : `${numero.slice(0, 4)}-${numero.slice(4)}`
+      : '';
 
-  let ddi = '';
-  let ddd = '';
-  let numero = '';
-  if (candidato.telefone) {
-    if (candidato.telefone.includes('(')) {
-      const match = candidato.telefone.match(/(\+\d+)\s+\((\d+)\)\s+(.*)/);
-      if (match) { ddi = match[1]; ddd = match[2]; numero = match[3].replace(/\D/g, ''); }
-    } else {
-      [ddi, ddd, numero] = candidato.telefone.split('-');
-    }
+    const localidade = [candidato.cidade, candidato.estado, candidato.pais]
+      .filter(Boolean)
+      .join(', ');
+
+    const areas = candidato.candidato_area.map(r => r.area_interesse.nome);
+
+    const dataNascimento = candidato.data_nascimento
+      ? new Date(candidato.data_nascimento).toISOString().slice(0, 10)
+      : '';
+
+    // Foto de perfil do candidato, com fallback para imagem padrão
+    const fotoPerfil = candidato.foto_perfil && candidato.foto_perfil.trim() !== ''
+      ? candidato.foto_perfil.trim()
+      : '/img/avatar.png';
+
+    // Renderiza a página
+    res.render('candidatos/meu-perfil', {
+      candidato,
+      fotoPerfil,
+      localidade,
+      areas,
+      ddi,
+      ddd,
+      numeroFormatado,
+      dataNascimento,
+      activePage: 'perfil'
+    });
+  } catch (error) {
+    console.error('Erro ao carregar perfil do candidato:', error);
+    req.session.erro = 'Erro ao carregar seu perfil.';
+    return res.redirect('/candidatos/home');
   }
-
-  const numeroFormatado = numero
-    ? numero.length === 9 ? `${numero.slice(0, 5)}-${numero.slice(5)}` : `${numero.slice(0, 4)}-${numero.slice(4)}`
-    : '';
-
-  const localidade = [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ');
-  const areas = candidato.candidato_area.map(r => r.area_interesse.nome);
-
-  const dataNascimento = candidato.data_nascimento
-    ? new Date(candidato.data_nascimento).toISOString().slice(0, 10)
-    : '';
-
-  let fotoPerfil = null;
-  if (candidato.foto_perfil && candidato.foto_perfil.trim() !== '') {
-    fotoPerfil = candidato.foto_perfil.trim();
-  }
-
-  res.render('candidatos/meu-perfil', {
-    candidato,
-    fotoPerfil,
-    localidade,
-    areas,
-    ddi, ddd, numeroFormatado,
-    dataNascimento,
-    activePage: 'perfil'
-  });
 };
+
+
 
 exports.mostrarVagas = async (req, res) => {
   const usuario = req.session.candidato;
