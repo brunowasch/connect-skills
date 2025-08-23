@@ -5,7 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "delete-user": "ts-node scripts/deleteUsuario.ts",
-    "start": "nodemon app.js"
+    "start": "npx prisma --version && nodemon app.js",
+    "postinstall": "npx prisma generate"
   },
   "keywords": [],
   "author": "",
