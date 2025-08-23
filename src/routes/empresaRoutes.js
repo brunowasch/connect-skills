@@ -7,6 +7,8 @@ const { uploadEmpresa } = require('../middlewares/uploadEmpresa');
 // Fluxo de cadastro/edição de perfil
 router.get('/cadastro', empresaController.telaCadastro);
 router.post('/cadastro', empresaController.cadastrarEmpresa);
+router.get('/complementar', ensureEmpresa, empresaController.telaComplementarGoogle);
+router.post('/complementar', empresaController.salvarComplementarGoogle);
 router.get('/nome-empresa', empresaController.telaNomeEmpresa);
 router.post('/nome-empresa', empresaController.salvarNomeEmpresa);
 router.get('/localizacao', empresaController.telaLocalizacao);

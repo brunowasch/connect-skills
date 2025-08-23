@@ -66,11 +66,14 @@ model usuario {
   senha            String
   tipo             String
   email_verificado Boolean    @default(false)
-  created_at       DateTime   @default(now()) 
+  created_at       DateTime?  @default(now()) @db.DateTime(0)
+  googleId         String?    @unique(map: "googleId")
+  avatarUrl        String?
+  nome             String?    @db.VarChar(255)
+  sobrenome        String?    @db.VarChar(255)
   candidato        candidato?
   empresa          empresa?
 }
-
 
 model vaga {
   id                  Int                      @id @default(autoincrement()) @db.UnsignedInt
@@ -86,6 +89,7 @@ model vaga {
   beneficio           String?                  @db.Text
   pergunta            String?                  @db.Text
   opcao               String?                  @db.Text
+  created_at          DateTime                 @default(now())
   empresa             empresa                  @relation(fields: [empresa_id], references: [id])
   vaga_area           vaga_area[]
   vaga_soft_skill     vaga_soft_skill[]

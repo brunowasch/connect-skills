@@ -36,9 +36,11 @@ exports.salvarVaga = async (req, res) => {
       soft_skills_ids
     });
 
+    req.session.sucesso = 'Vaga publicada com sucesso!';
     return res.redirect('/empresa/meu-perfil');
   } catch (err) {
     console.error('Erro ao salvar vaga:', err);
-    res.status(500).send('Erro ao salvar vaga.');
+    req.session.erro = 'Erro ao salvar vaga.';
+    return res.redirect('/empresa/publicar-vaga');
   }
 };

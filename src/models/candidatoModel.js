@@ -76,18 +76,22 @@ exports.atualizarFotoPerfil = async ({
  */
 exports.obterCandidatoPorUsuarioId = async (usuario_id) => {
   const candidato = await prisma.candidato.findUnique({
-  where: { 
-    usuario_id: Number(usuario_id) 
-  },
-  include: {
-    candidato_area: {
-      include: {
-        area_interesse: true
+    where: { 
+      usuario_id: Number(usuario_id) 
+    },
+    include: {
+      usuario: {
+        select: {
+          email: true
+        }
+      },
+      candidato_area: {
+        include: {
+          area_interesse: true
+        }
       }
     }
-  }
-});
-
+  });
 
   if (!candidato) {
     console.warn(`Nenhum candidato encontrado com usuario_id=${usuario_id}`);
@@ -96,6 +100,7 @@ exports.obterCandidatoPorUsuarioId = async (usuario_id) => {
 
   return candidato;
 };
+
 
 
 /**
@@ -231,5 +236,26 @@ exports.upsertNovaArea = async (nome) => {
     where: { nome },
     update: {},
     create: { nome }
+  });
+};
+
+/**
+ * Complementa o cadastro do candidato vindo do Google
+ * @param {number} usuario_id
+ * @param {Object} dados
+ */
+exports.complementarCadastroGoogle = async (usuario_id, dados) => {
+  return await prisma.candidato.update({
+    where: { usuario_id: Number(usuario_id) },
+    data: {
+      nome: dados.nome,
+      sobrenome: dados.sobrenome,
+      data_nascimento: dados.data_nascimento,
+      pais: dados.pais,
+      estado: dados.estado,
+      cidade: dados.cidade,
+      telefone: dados.telefone,
+      foto_perfil: dados.foto_perfil || null
+    }
   });
 };

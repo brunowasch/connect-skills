@@ -11,7 +11,7 @@
   </head>
   <body id="home">
   <%- include('../partials/header') %>
-
+  <%- include('../partials/flash-messages') %>
       <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
         <div class="carousel-inner">
           <div class="carousel-item active">
@@ -96,11 +96,12 @@
     <div class="card text-center shadow-sm p-4 rounded-3 h-100">
       <div class="circle bg-primary text-white rounded-circle fw-bold mb-3" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">4</div>
       <p>Acompanhe o processo seletivo e encontre o profissional perfeito para sua equipe!</p>
+      </div>
     </div>
   </div>
 </div>
+<%- include('../partials/contato', { sucesso, erro, candidato: null, empresa: null }) %>
 
-        </div>
 <%- include('../partials/footer') %>
 
 
