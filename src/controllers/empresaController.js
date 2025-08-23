@@ -180,7 +180,7 @@ exports.salvarFotoPerfil = async (req, res) => {
 
     req.session.usuario = { id: empresa.usuario_id, tipo: 'empresa', nome: empresa.nome_empresa };
 
-    req.session.sucesso = 'Foto de perfil salva com sucesso!';
+    req.session.sucessoCadastro = 'Foto de perfil salva com sucesso!';
     req.session.save(() => res.redirect('/empresa/home'));
   } catch (err) {
     console.error('Erro ao salvar foto de perfil da empresa:', err);
@@ -386,7 +386,7 @@ exports.salvarVaga = async (req, res) => {
       }
     });
 
-    req.session.sucesso = 'Vaga publicada com sucesso!';
+    req.session.sucessoVaga = 'Vaga publicada com sucesso!';
     return res.redirect('/empresa/meu-perfil');
   } catch (err) {
     console.error('[ERRO] salvarVaga:', err);
@@ -428,7 +428,7 @@ exports.excluirVaga = async (req, res) => {
     const { id } = req.params;
     await vagaModel.excluirVaga(id);
 
-    req.session.sucesso = 'Vaga excluída com sucesso!';
+    req.session.sucessoVaga = 'Vaga excluída com sucesso!';
     res.redirect('/empresa/meu-perfil');
   } catch (error) {
     console.error('Erro ao excluir vaga:', error);
@@ -538,7 +538,7 @@ exports.salvarEditarVaga = async (req, res) => {
       await prisma.vaga_soft_skill.create({ data: { vaga_id: vagaId, soft_skill_id: skillId } });
     }
 
-    req.session.sucesso = 'Vaga atualizada com sucesso!';
+    req.session.sucessoVaga = 'Vaga atualizada com sucesso!';
     res.redirect('/empresa/meu-perfil');
   } catch (err) {
     console.error('[ERRO] Falha ao editar vaga:', err);

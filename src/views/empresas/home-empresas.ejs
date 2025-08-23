@@ -16,7 +16,6 @@
       <% var erro = typeof erro !== 'undefined' ? erro : false; %>
       
       <%- include('../partials/header-empresa') %>
-      <%- include('../partials/flash-messages') %>
       <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
         <div class="carousel-inner">
           <div class="carousel-item active">
@@ -81,7 +80,7 @@
       </section>
     </main>
 
-    <%- include('../partials/contato', { sucesso, erro, candidato: null, empresa }) %>
+<%- include('../partials/contato', { sucesso: sucessoContato, erro: erroContato, candidato: null, empresa }) %>
 
     <!-- FORMULARIO -->
     <!-- <section class="py-5">

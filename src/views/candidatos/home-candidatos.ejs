@@ -11,11 +11,8 @@
     <link rel="icon" href="/img/CONNECT.png">
   </head>
   <body id="home">
-    <%- include('../partials/flash-messages') %>
     <main style="margin-top: 0; padding-top: 0;">
       <%- include ('../partials/header-candidato') %>
-      <% var sucesso = typeof sucesso !== 'undefined' ? sucesso : false; %>
-      <% var erro = typeof erro !== 'undefined' ? erro : false; %>
       <div id="carouselExampleSlidesOnly" class="carousel slide mt-0" data-bs-ride="carousel">
         <div class="carousel-inner">
           <div class="carousel-item active">
@@ -85,7 +82,7 @@
         </div>
       </section>
     </main>
-    <%- include('../partials/contato', { sucesso, erro, candidato, empresa: null }) %>
+<%- include('../partials/contato', { sucesso: sucessoContato, erro: erroContato, candidato, empresa: null }) %>
     <!-- RODAPÉ -->
     <%- include('../partials/footer') %>
 

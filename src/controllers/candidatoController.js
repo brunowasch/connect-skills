@@ -212,7 +212,7 @@ exports.salvarAreas = async (req, res) => {
       areas: cAtual.candidato_area.map(r => r.area_interesse.nome)
     };
 
-    req.session.sucesso = 'Áreas de interesse salvas com sucesso!';
+    req.session.sucessoCadastro = 'Áreas de interesse salvas com sucesso!';
     req.session.save(() => res.redirect('/candidatos/home'));
   } catch (error) {
     console.error('Erro ao salvar áreas de interesse:', error);
@@ -388,7 +388,7 @@ exports.salvarEditarPerfil = async (req, res) => {
     sess.telefone = telefone;
     sess.data_nascimento = dataNascimento;
 
-    req.session.sucesso = 'Perfil atualizado com sucesso!';
+    req.session.sucessoPerfil = 'Perfil atualizado com sucesso!';
     res.redirect('/candidatos/meu-perfil');
   } catch (err) {
     console.error('Erro ao atualizar perfil básico:', err);
