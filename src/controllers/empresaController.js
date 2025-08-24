@@ -768,3 +768,78 @@ exports.mostrarVagas = async (req, res) => {
     return res.redirect('/empresa/home');
   }
 };
+
+async function getEmpresaIdDaSessao(req) {
+  if (req.session?.empresa?.id) return Number(req.session.empresa.id);
+
+  if (req.session?.usuario?.id && req.session?.usuario?.tipo === 'empresa') {
+    if (req.session.usuario.empresa_id) return Number(req.session.usuario.empresa_id);
+
+    const emp = await prisma.empresa.findUnique({
+      where: { usuario_id: Number(req.session.usuario.id) },
+      select: { id: true }
+    });
+    if (emp?.id) {
+      req.session.usuario.empresa_id = Number(emp.id);
+      return Number(emp.id);
+    }
+  }
+  return null;
+}
+
+exports.rankingCandidatos = async (req, res) => {
+  try {
+    const vagaId = Number(req.params.vagaId);
+    const empresaId = await getEmpresaIdDaSessao(req);
+    if (!empresaId) {
+      req.session.erro = 'Faça login como empresa para ver o ranking.';
+      return res.redirect('/login');
+    }
+
+    // Garante que a vaga é desta empresa
+    const vaga = await prisma.vaga.findFirst({
+      where: { id: vagaId, empresa_id: empresaId },
+      include: { empresa: true }
+    });
+    if (!vaga) {
+      req.session.erro = 'Vaga não encontrada ou não pertence a esta empresa.';
+      return res.redirect('/empresas/home');
+    }
+
+    // Busca avaliações (pode vir vazio)
+    let avaliacoes = [];
+    try {
+      avaliacoes = await prisma.vaga_avaliacao.findMany({
+        where: { vaga_id: vagaId },
+        orderBy: { score: 'desc' },
+        include: {
+          candidato: { include: { usuario: true } }
+        }
+      });
+    } catch (err) {
+      // Se por algum motivo a tabela ainda não estiver no DB, mostra vazio (sem quebrar a página)
+      if (err?.code === 'P2021') {
+        avaliacoes = [];
+      } else {
+        throw err;
+      }
+    }
+
+    const rows = avaliacoes.map((a, idx) => {
+      const c = a.candidato || {};
+      const nome =
+        [c.nome, c.sobrenome].filter(Boolean).join(' ') ||
+        c.usuario?.nome ||
+        `Candidato #${c.id}`;
+      const local = [c.cidade, c.estado, c.pais].filter(Boolean).join(', ') || '—';
+      const telefone = c.telefone || '—';
+      return { pos: idx + 1, nome, local, telefone, score: a.score };
+    });
+
+    return res.render('empresas/ranking-candidatos', { vaga, rows });
+  } catch (err) {
+    console.error('Erro ao carregar ranking:', err);
+    req.session.erro = 'Não foi possível carregar o ranking.';
+    return res.redirect('/empresas/home');
+  }
+};

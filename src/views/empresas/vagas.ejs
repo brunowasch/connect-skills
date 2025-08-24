@@ -101,7 +101,10 @@
           <div class="d-flex justify-content-end mt-3">
             <div class="text-end">
               <p class="text-muted mb-2">Candidatos encontrados!</p>
-              <a href="#" class="btn btn-outline-primary btn-sm">Ver ranqueamento</a>
+              <a href="/empresas/ranking-candidatos/<%= vaga.id %>" class="btn btn-outline-primary btn-sm">
+                Ver ranqueamento
+              </a>
+
             </div>
           </div>
         </div>
@@ -109,12 +112,12 @@
 
       <div class="d-flex flex-column justify-content-center align-items-center" style="min-height: 30vh;">
         <p class="text-center fs-5">Essas são suas vagas registradas. <br /> Deseja criar novas vagas?</p>
-        <a href="/empresa/publicar-vaga" class="btn btn-outline-primary px-4 mt-3">Publicar vaga</a>
+        <a href="/empresas/publicar-vaga" class="btn btn-outline-primary px-4 mt-3">Publicar vaga</a>
       </div>
     <% } else { %>
       <div class="d-flex flex-column justify-content-center align-items-center" style="min-height: 50vh;">
         <p class="text-center fs-5">Parece que você não possui nenhuma vaga publicada.</p>
-        <a href="/empresa/publicar-vaga" class="btn btn-outline-primary px-4 mt-3">Publicar vaga</a>
+        <a href="/empresas/publicar-vaga" class="btn btn-outline-primary px-4 mt-3">Publicar vaga</a>
       </div>
     <% } %>
   </main>

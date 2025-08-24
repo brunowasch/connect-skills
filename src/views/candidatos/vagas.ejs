@@ -13,6 +13,7 @@
 <body>
   <%- include('../partials/header-candidato') %>
   <%- include('../partials/flash-messages') %>
+
   <%
     const tipoMap = {
       Presencial:   'Presencial',
@@ -33,17 +34,20 @@
             <div class="row g-3 align-items-start">
               <div class="col-12 col-md-auto text-center">
                 <a href="/empresa/perfil/<%= vaga.empresa.id %>">
-                  <img src="<%= vaga.empresa.foto_perfil || '/img/empresa-padrao.png' %>" 
-                       alt="Logo da empresa" 
-                       class="rounded-circle"
-                       width="80" 
-                       height="80" 
-                       style="object-fit: cover;">
+                  <img
+                    src="<%= vaga.empresa.foto_perfil || '/img/empresa-padrao.png' %>"
+                    alt="Logo da empresa"
+                    class="rounded-circle"
+                    width="80"
+                    height="80"
+                    style="object-fit: cover;"
+                  >
                 </a>
               </div>
 
               <div class="col">
                 <h5 class="mb-1 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>
+
                 <%
                   const normalizar = str => str?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
                   const partesOriginais = [vaga.empresa?.cidade, vaga.empresa?.estado, vaga.empresa?.pais]
@@ -61,10 +65,10 @@
 
                   const localidade = partesUnicas.join(', ');
                 %>
+
                 <small class="text-muted d-block mb-2">
                   <%= localidade || 'Localidade não informada' %>
                 </small>
-
 
                 <p class="fw-semibold mb-1"><%= vaga.cargo %></p>
                 <p class="mb-2"><%= vaga.descricao %></p>
@@ -75,7 +79,7 @@
                   <strong>Escala:</strong> <%= vaga.escala_trabalho %><br>
 
                   <% if (vaga.salario) { %>
-                    <strong>Salário:</strong> 
+                    <strong>Salário:</strong>
                     <%= Number(vaga.salario).toLocaleString('pt-BR', { style: 'currency', currency: vaga.moeda || 'BRL' }) %><br>
                   <% } %>
 
@@ -87,7 +91,7 @@
                   <% } %>
 
                   <% if (vaga.beneficio && typeof vaga.beneficio === 'string' && vaga.beneficio.trim() !== '') { %>
-                    <strong>Benefícios:</strong> 
+                    <strong>Benefícios:</strong>
                     <%= vaga.beneficio.split(',').map(b => b.trim()).filter(b => b.length > 0).join(', ') %><br>
                   <% } %>
 
@@ -110,19 +114,70 @@
             </div>
           </div>
 
+          <!-- Botão para abrir/fechar o bloco da IA -->
           <div class="text-center pb-4">
             <button class="btn btn-outline-primary fw-bold botao-ia">Iniciar teste com a IA</button>
           </div>
 
-          <div class="iframe-container px-3 pb-4" style="display: none; justify-content: center; align-items: center; flex-direction: column;">
-            <div style="width: 100%; max-width: 800px;">
-              <iframe 
-                src="https://www.stadyo.com/ai_assis/SUDXZZ7Rznv8IL09" 
-                style="width: 100%; height: 500px; border: none;" 
-                seamless>
-              </iframe>
+          <!-- Bloco da IA (colapsado por padrão) -->
+          <div class="mt-3 border rounded p-3 bg-light bloco-ia" style="display:none;">
+            <%
+              // Perguntas: 1 por linha no campo "pergunta" da vaga
+              const perguntas = (vaga.pergunta || '')
+                .split('\n')
+                .map(s => s.trim())
+                .filter(Boolean);
+
+              const opcoes = (vaga.opcao || '')
+                .split('|')
+                .map(s => s.trim())
+                .filter(Boolean);
+            %>
+
+            <!-- Cabeçalho -->
+            <div class="alert alert-secondary small mb-3">
+              <strong>Questionário da vaga:</strong>
+              <% if (!perguntas.length) { %>
+                <span> — (esta vaga não possui perguntas configuradas)</span>
+              <% } %>
             </div>
-            <button class="btn btn-outline-danger mt-3 fechar-ia">Fechar teste</button>
+
+            <!-- Lista de perguntas + inputs de resposta -->
+            <% if (perguntas.length) { %>
+              <div class="mb-3">
+                <% perguntas.forEach((q, idx) => { %>
+                  <div class="mb-2">
+                    <label class="form-label"><%= (idx + 1) + '. ' + q %></label>
+                    <input type="text" class="form-control resposta-ia-item" placeholder="Sua resposta...">
+                  </div>
+                <% }) %>
+              </div>
+            <% } else { %>
+              <!-- Fallback: se a empresa cadastrou zero perguntas, uso um único campo livre -->
+              <label class="form-label fw-semibold">Sua resposta:</label>
+              <textarea class="form-control resposta-ia" rows="3" placeholder="Ex.: Sim, configuração de switches e roteadores."></textarea>
+            <% } %>
+
+            <!-- Opções (itens) apenas como referência visual
+            <% if (opcoes.length) { %>
+              <p class="mb-1"><small class="text-muted">Áreas da vaga (itens usados pela IA):</small></p>
+              <div class="d-flex flex-wrap gap-1 mb-2">
+                <% opcoes.forEach(o => { %>
+                  <span class="badge text-bg-light border"><%= o %></span>
+                <% }) %>
+              </div>
+            <% } %> -->
+
+            <div class="d-flex gap-2 mt-2">
+              <button class="btn btn-primary btn-avaliar" data-vaga-id="<%= vaga.id %>">
+                Analisar compatibilidade
+              </button>
+              <span class="text-muted small status-ia" style="display:none;">
+                Espere alguns segundos, a análise está sendo feita...
+              </span>
+            </div>
+
+            <div class="mt-3 resultados-ia"></div>
           </div>
         </div>
       <% }) %>
@@ -130,20 +185,108 @@
   </main>
 
   <script>
-    document.querySelectorAll(".botao-ia").forEach((btn, index) => {
-      btn.addEventListener("click", () => {
-        const container = document.querySelectorAll(".iframe-container")[index];
-        container.style.display = "flex";
-        btn.style.display = "none";
-      });
+    // Toggle do bloco da IA (delegation)
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.botao-ia');
+      if (!btn) return;
+      const card = btn.closest('.card');
+      const bloco = card.querySelector('.bloco-ia');
+      if (!bloco) return;
+      const showing = bloco.style.display !== 'none';
+      bloco.style.display = showing ? 'none' : 'block';
+      btn.textContent = showing ? 'Iniciar teste com a IA' : 'Ocultar teste';
     });
 
-    document.querySelectorAll(".fechar-ia").forEach((btn, index) => {
-      btn.addEventListener("click", () => {
-        const container = document.querySelectorAll(".iframe-container")[index];
-        container.style.display = "none";
-        document.querySelectorAll(".botao-ia")[index].style.display = "inline-block";
-      });
+    // Avaliar compatibilidade (delegation)
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.btn-avaliar');
+      if (!btn) return;
+
+      const container = btn.closest('.mt-3.border');
+      const status    = container.querySelector('.status-ia');
+      const output    = container.querySelector('.resultados-ia');
+
+      // Inputs por pergunta
+      const inputs = container.querySelectorAll('.resposta-ia-item');
+      // Fallback: single textarea
+      const textarea = container.querySelector('.resposta-ia');
+
+      const vagaId = btn.getAttribute('data-vaga-id');
+      output.innerHTML = '';
+
+      // Monta payload
+      let payload = {};
+      if (inputs && inputs.length) {
+        const respostas = Array.from(inputs).map(i => (i.value || '').trim());
+        const temAlgo = respostas.some(v => v.length > 0);
+        if (!temAlgo) {
+          output.innerHTML = '<div class="text-danger">Preencha ao menos uma resposta.</div>';
+          return;
+        }
+        payload = { respostas }; // array alinhado com as perguntas
+      } else if (textarea) {
+        const resposta = (textarea.value || '').trim();
+        if (!resposta) {
+          output.innerHTML = '<div class="text-danger">Digite sua resposta antes de analisar.</div>';
+          return;
+        }
+        payload = { resposta }; // fallback
+      } else {
+        output.innerHTML = '<div class="text-danger">Não foi possível ler suas respostas.</div>';
+        return;
+      }
+
+      // Loading
+      btn.disabled = true;
+      status.style.display = 'inline';
+
+      try {
+        const resp = await fetch(`/candidato/vaga/${vagaId}/avaliar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await resp.json();
+
+        if (!data.ok) {
+          output.innerHTML = `<div class="text-danger">${data.error || 'Erro desconhecido.'}</div>`;
+          return;
+        }
+
+        // Nota geral
+        if (typeof data.score === 'number') {
+          output.insertAdjacentHTML('afterbegin',
+            `<div class="alert alert-info py-2 mb-3">
+               <strong>Sua compatibilidade geral:</strong> ${data.score}%
+             </div>`);
+        }
+
+        // Itens
+        if (Array.isArray(data.results) && data.results.length) {
+          const lista = data.results.map(r => {
+            const item = String(r.Item || '').replace(/^Item\s*\d+:\s*/i, '');
+            const rating = (typeof r.rating === 'number') ? `${r.rating}%` : '-';
+            return `<li class="list-group-item d-flex justify-content-between align-items-center">
+              <span>${item}</span>
+              <span class="badge bg-secondary rounded-pill">${rating}</span>
+            </li>`;
+          }).join('');
+
+          output.innerHTML += `
+            <div class="mt-2">
+              <div class="fw-semibold mb-1">Compatibilidade por opção</div>
+              <ul class="list-group">${lista}</ul>
+            </div>`;
+        } else {
+          output.innerHTML += '<div class="text-muted">A IA não retornou itens para avaliar.</div>';
+        }
+      } catch (err) {
+        output.innerHTML = '<div class="text-danger">Falha ao contatar o serviço de análise. Tente novamente.</div>';
+      } finally {
+        status.style.display = 'none';
+        btn.disabled = false;
+      }
     });
   </script>
 
