@@ -8,9 +8,10 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 function baseUrl() {
-  return process.env.NODE_ENV === 'production'
+  const url = process.env.NODE_ENV === 'production'
     ? process.env.BASE_URL
     : 'http://localhost:3000';
+  return url.endsWith('/') ? url.slice(0, -1) : url;
 }
 
 async function enviarEmailVerificacao(email, usuario_id) {
