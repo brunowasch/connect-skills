@@ -42,5 +42,6 @@ router.post('/excluir-vaga/:id', ensureEmpresa, empresaController.excluirVaga);
 router.get('/perfil/:id', empresaController.perfilPublico);
 
 router.get('/ranking-candidatos/:vagaId', ensureEmpresa, empresaController.rankingCandidatos);
+router.post('/excluir-conta', ensureEmpresa, empresaController.excluirConta);
 
 module.exports = router;

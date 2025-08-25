@@ -12,10 +12,9 @@
 <body class="bg-light">
 
   <%- include('../partials/header-empresa') %>
-<%- include('../partials/flash-messages') %>
+  <%- include('../partials/flash-messages') %>
   <main class="container py-5">
     <h2 class="mb-4 mt-3">Editar perfil</h2>
-
 
     <form id="formLocalizacao" action="/empresa/editar-empresa" method="POST" enctype="multipart/form-data">
       <div class="row justify-content-center g-4">
@@ -33,7 +32,6 @@
             alt="Logo da Empresa" 
             class="perfil-foto rounded-circle border border-dark"
             width="100" height="100">
-
 
           <div class="mt-2 text-center">
             <button type="button" id="btnAlterarFoto" class="btn btn-primary btn-sm">
@@ -124,7 +122,7 @@
             </button>
           </div>
 
-                    <!-- TELEFONE -->
+          <!-- TELEFONE -->
           <div class="mb-3">
             <div class="row mb-2 g-2">
               <!-- DDI -->
@@ -155,10 +153,37 @@
           <div class="d-flex gap-3 mt-4">
             <button type="submit" class="btn btn-primary">Salvar</button>
             <a href="/empresa/meu-perfil" class="btn btn-danger">Cancelar</a>
+            <!-- Formulário para excluir conta -->
+            <form action="/empresa/excluir-conta" method="POST" class="mt-3">
+              <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalExcluir">
+                <i class="bi bi-trash me-1"></i> Excluir conta
+              </button>
+            </form>
           </div>
         </div>
       </div>
     </form>
+
+    <!-- Modal de confirmação de exclusão -->
+    <div class="modal fade" id="modalExcluir" tabindex="-1" aria-labelledby="modalExcluirLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalExcluirLabel">Confirmar Exclusão</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>Tem certeza de que deseja excluir sua conta? Esta ação não pode ser desfeita.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <form action="/empresa/excluir-conta" method="POST">
+              <button type="submit" class="btn btn-danger">Excluir conta</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <%- include('../partials/footer') %>
@@ -168,6 +193,12 @@
   <script src="/js/shared/botoesFotosEditarPerfil.js"></script>
   <script src="/js/empresas/numeroTelefoneEditarEmpresa.js"></script>
 
+  <script>
+    document.getElementById('btnExcluirConta').addEventListener('click', function() {
+      var modal = new bootstrap.Modal(document.getElementById('modalExcluir'));
+      modal.show();
+    });
+  </script>
   <script>
     function formatarNumero(input) {
       let num = input.value.replace(/\D/g, '');

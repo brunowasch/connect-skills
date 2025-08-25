@@ -18,7 +18,7 @@ const empresaRoutes = require('./src/routes/empresaRoutes');
 const mainRoutes = require('./src/routes/index');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT;
 
 // Parsers
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -31,18 +31,17 @@ passport.deserializeUser(async (id, done) => {
   done(null, user);
 });
 
-// Session store
 const sessionStore = new MySQLStore({
   host: process.env.DB_HOST,
-  port: 3306,
+  port: process.env.DB_PORT,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   clearExpired: true,
   checkExpirationInterval: 900000,
   expiration: 86400000,
-  connectionLimit: 5,
-  connectTimeout: 10000,
+  connectionLimit: 3,
+  connectTimeout: 50000,
   waitForConnections: true,
   queueLimit: 0
 });
@@ -189,6 +188,21 @@ app.get('/auth/google/callback', (req, res, next) => {
       return res.redirect('/');
     });
   })(req, res, next);
+});
+
+app.get('/termos', (req, res) => {
+  res.render('shared/termos', {
+    candidato: req.session.candidato || null,
+    empresa: req.session.empresa || null,
+    usuario: req.session.candidato || req.session.empresa || null
+  });
+});
+app.get('/politica-privacidade', (req, res) => {
+  res.render('shared/politica-privacidade', {
+    candidato: req.session.candidato || null,
+    empresa: req.session.empresa || null,
+    usuario: req.session.candidato || req.session.empresa || null
+  });
 });
 
 // Logout
