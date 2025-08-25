@@ -191,6 +191,21 @@ app.get('/auth/google/callback', (req, res, next) => {
   })(req, res, next);
 });
 
+app.get('/termos', (req, res) => {
+  res.render('shared/termos', {
+    candidato: req.session.candidato || null,
+    empresa: req.session.empresa || null,
+    usuario: req.session.candidato || req.session.empresa || null
+  });
+});
+app.get('/politica-privacidade', (req, res) => {
+  res.render('shared/politica-privacidade', {
+    candidato: req.session.candidato || null,
+    empresa: req.session.empresa || null,
+    usuario: req.session.candidato || req.session.empresa || null
+  });
+});
+
 // Logout
 app.get('/logout', (req, res) => {
   req.session.destroy(err => {
