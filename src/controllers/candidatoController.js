@@ -1,7 +1,10 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const axios = require('axios');
 const candidatoModel = require('../models/candidatoModel');
 const vagaModel = require('../models/vagaModel');
+const { sugerirCompatibilidade } = require('../services/iaClient');
+const vagaAvaliacaoModel = require('../models/vagaAvaliacaoModel');
 const { cloudinary } = require('../config/cloudinary');
 
 exports.telaNomeCandidato = (req, res) => {
@@ -248,7 +251,7 @@ exports.renderMeuPerfil = async (req, res) => {
             }
           }
         },
-        usuario: { // 🔹 Não pedimos mais foto aqui
+        usuario: {
           select: {
             id: true,
             email: true,
@@ -295,12 +298,10 @@ exports.renderMeuPerfil = async (req, res) => {
       ? new Date(candidato.data_nascimento).toISOString().slice(0, 10)
       : '';
 
-    // Foto de perfil do candidato, com fallback para imagem padrão
     const fotoPerfil = candidato.foto_perfil && candidato.foto_perfil.trim() !== ''
       ? candidato.foto_perfil.trim()
       : '/img/avatar.png';
 
-    // Renderiza a página
     res.render('candidatos/meu-perfil', {
       candidato,
       fotoPerfil,
@@ -319,13 +320,39 @@ exports.renderMeuPerfil = async (req, res) => {
   }
 };
 
-
-
 exports.mostrarVagas = async (req, res) => {
   const usuario = req.session.candidato;
   if (!usuario) return res.redirect('/login');
   try {
     const vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
+
+    // ids de vagas na página
+    const vagaIds = vagas.map(v => v.id);
+    // pega avaliações existentes do usuário nessas vagas
+    const avaliacoes = await prisma.vaga_avaliacao.findMany({
+      where: { candidato_id: Number(usuario.id), vaga_id: { in: vagaIds } },
+      select: { vaga_id: true, resposta: true }
+    });
+    const mapAval = new Map(avaliacoes.map(a => [a.vaga_id, a.resposta || '']));
+
+    // para cada vaga, extrair apenas as respostas
+    for (const vaga of vagas) {
+      const texto = mapAval.get(vaga.id) || '';
+      if (!texto) continue;
+
+      // transforma cada linha "Pergunta? Resposta" em apenas "Resposta"
+      const linhas = texto.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      const apenasRespostas = linhas.map(l => {
+        const m = l.match(/\?\s*(.*)$/); // pega tudo depois do primeiro "?"
+        return m ? m[1].trim() : '';
+      }).filter(x => x.length > 0);
+
+      // manda pra view nas duas formas para cobrirmos ambos os layouts
+      vaga.respostas_previas = apenasRespostas;    // para inputs por pergunta
+      vaga.resposta_unica    = apenasRespostas[0] || ''; // para textarea única
+      // dica: sua flag `ja_avaliada` já é usada pela view para bloquear reenvio
+    }
+
     res.render('candidatos/vagas', { vagas, activePage: 'vagas' });
   } catch (err) {
     console.error('Erro ao buscar vagas para candidato:', err);
@@ -640,5 +667,239 @@ exports.restaurarFotoGoogle = async (req, res) => {
     console.error('Erro ao restaurar foto do Google:', err.message);
     req.session.erro = 'Não foi possível restaurar a foto.';
     res.redirect('/candidato/editar-perfil');
+  }
+};
+
+exports.avaliarCompatibilidade = async (req, res) => {
+  try {
+    // 1) Sessão e ids
+    const sess = req.session.candidato;
+    if (!sess) {
+      return res.status(401).json({ ok: false, error: 'Não autenticado' });
+    }
+    const candidato_id = Number(sess.id);
+    const vaga_id = Number(req.params.id);
+
+    // 2) (Opcional) Bloquear reenvio
+    const existente = await prisma.vaga_avaliacao.findFirst({
+      where: { vaga_id, candidato_id },
+      select: { id: true }
+    });
+    if (existente) {
+      return res.status(409).json({ ok: false, error: 'Você já realizou o teste desta vaga.' });
+    }
+
+    // 3) Buscar dados da vaga (pergunta/opcao)
+    const vaga = await prisma.vaga.findUnique({
+      where: { id: vaga_id },
+      select: { pergunta: true, opcao: true }
+    });
+    if (!vaga) return res.status(404).json({ ok: false, error: 'Vaga não encontrada.' });
+
+    // 4) Montar QUESTIONS = "Pergunta? Resposta"
+    const perguntas = (vaga.pergunta || '')
+      .split(/\r?\n/)
+      .map(s => s.trim())
+      .filter(Boolean); // :contentReference[oaicite:1]{index=1}
+
+    const respostasArray = Array.isArray(req.body.respostas)
+      ? req.body.respostas.map(r => String(r || '').trim())
+      : null;
+    const respostaUnica = typeof req.body.resposta === 'string'
+      ? req.body.resposta.trim() : '';
+
+    const temArrayValido = Array.isArray(respostasArray) && respostasArray.some(v => v.length > 0);
+    const temUnica = !!respostaUnica;
+    if (!temArrayValido && !temUnica) {
+      return res.status(400).json({ ok: false, error: 'Resposta é obrigatória.' });
+    }
+
+    const ensureQmark = (q) => {
+      const t = (q || '').trim();
+      return t.endsWith('?') ? t : t + '?';
+    };
+
+    let questions = '';
+    if (temArrayValido) {
+      const linhas = [];
+      const max = Math.max(perguntas.length, respostasArray.length);
+      for (let i = 0; i < max; i++) {
+        const q = perguntas[i] ? ensureQmark(perguntas[i]) : 'Pergunta?';
+        const r = (respostasArray[i] || '').trim();
+        if (r) linhas.push(`${q} ${r}`);
+      }
+      questions = linhas.join('\n');
+    } else {
+      const q0 = perguntas[0] ? ensureQmark(perguntas[0]) : 'Pergunta?';
+      questions = `${q0} ${respostaUnica}`.trim();
+    }
+    if (!questions) {
+      return res.status(400).json({ ok: false, error: 'Nenhuma resposta informada.' });
+    }
+
+    // 5) ITEMS = "Item 1: ...\nItem 2: ..." (da vaga)
+    const items = (vaga.opcao || '').trim();
+
+    // 6) Chamar tua API de sugestão
+    // Se você já usa services/iaClient, pode substituir por ele.
+    // Aqui faço a chamada direta com parse robusto + normalização local.
+    const axiosResp = await axios.post(
+      process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest',
+      { questions, items },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
+    );
+
+    // 7) SAFE PARSE (se vier string)
+    const safeParse = (x) => {
+      if (x == null) return x;
+      if (typeof x !== 'string') return x;
+      const s = x.replace(/^\uFEFF/, '').trim();
+      if (!s) return s;
+      try { return JSON.parse(s); } catch { return x; }
+    };
+
+    const raw = safeParse(axiosResp.data);
+
+    // 8) NORMALIZA result em array [{ Item, rating }]
+    const toRating = (val) => {
+      if (val == null) return null;
+      if (typeof val === 'number' && Number.isFinite(val)) return Math.round(val);
+      const m = String(val).match(/-?\d+(\.\d+)?/);
+      return m ? Math.round(Number(m[0])) : null;
+    };
+    const cleanItem = (t) => String(t ?? '').replace(/^Item\s*\d+\s*:\s*/i, '').trim();
+
+    const mapPair = (obj) => {
+      if (!obj || typeof obj !== 'object') return null;
+      const item = obj.Item ?? obj.item ?? obj.titulo ?? obj.title;
+      const rating = toRating(obj.rating ?? obj.Rating ?? obj.score ?? obj.nota);
+      const txt = cleanItem(item);
+      if (!txt) return null;
+      return { Item: String(txt), rating: rating ?? null };
+    };
+
+    // tenta results/result/items/data/output (array)
+    let results =
+      (raw && typeof raw === 'object' && (raw.results || raw.result || raw.Items || raw.items)) ??
+      (Array.isArray(raw) ? raw : null);
+    if (typeof results === 'string') {
+      results = safeParse(results);
+    }
+
+    // Caso 8.1: Objeto único {Item, rating}
+    if (!Array.isArray(results)) {
+      const single = mapPair(raw);
+      if (single) {
+        results = [single];
+      }
+    } else {
+      // Mapear array
+      results = results.map(mapPair).filter(Boolean);
+    }
+
+    if (!Array.isArray(results) || results.length === 0) {
+      // Persistir para debug (mantém padrão do teu controller) :contentReference[oaicite:2]{index=2}
+      await prisma.vaga_avaliacao.upsert({
+        where: { vaga_candidato_unique: { vaga_id, candidato_id } },
+        create: { vaga_id, candidato_id, score: 0, resposta: questions, breakdown: { erro: '[IA] Formato inesperado', raw } },
+        update: { score: 0, resposta: questions, breakdown: { erro: '[IA] Formato inesperado', raw } }
+      });
+
+      console.warn('[IA] Formato inesperado:', JSON.stringify(raw).slice(0, 400));
+      return res.status(422).json({ ok: false, error: '[IA] Formato inesperado', raw });
+    }
+
+    // 9) Score final = média dos ratings válidos (0..100)
+    const ratings = results
+      .map(x => (typeof x.rating === 'number' ? x.rating : null))
+      .filter(v => v !== null);
+    const score = ratings.length
+      ? Math.max(0, Math.min(100, Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length)))
+      : 0;
+
+    // 10) Persistir (mesmo contrato que você já usa) :contentReference[oaicite:3]{index=3}
+    await prisma.vaga_avaliacao.upsert({
+      where: { vaga_candidato_unique: { vaga_id, candidato_id } },
+      create: { vaga_id, candidato_id, score, resposta: questions, breakdown: results },
+      update: { score, resposta: questions, breakdown: results }
+    });
+
+    // 11) Resposta
+    return res.json({ ok: true, score, results });
+
+  } catch (err) {
+    console.error('Erro ao avaliar compatibilidade:', err?.message || err);
+    const reason =
+      err?.code === 'ECONNABORTED'
+        ? 'Tempo limite excedido. Tente novamente.'
+        : 'Falha ao contatar o serviço de análise.';
+    return res.status(500).json({ ok: false, error: reason });
+  }
+};
+
+
+exports.avaliarVagaIa = async (req, res) => {
+  try {
+    if (!req.session?.candidato) return res.status(401).json({ ok: false, erro: 'Não autenticado' });
+
+    const candidato_id = Number(req.session.candidato.id);
+    const vaga_id = Number(req.params.vagaId);
+    const { respostaTexto, itemsTexto } = req.body;
+
+    // Busca pergunta/opção cadastradas na vaga para compor "questions"
+    const vaga = await prisma.vaga.findUnique({
+      where: { id: vaga_id },
+      select: { pergunta: true, opcao: true }
+    });
+
+    // Monta "questions": perguntas da empresa + respostas do candidato
+    // Se vierem várias linhas do front, mantemos o \n
+    const questionsStr = vaga?.pergunta
+      ? `${vaga.pergunta.trim()} ${respostaTexto ? String(respostaTexto).trim() : ''}`.trim()
+      : String(respostaTexto || '').trim();
+
+    // Items: opções da vaga (texto livre: "Item 1: ...\nItem 2: ...")
+    const itemsStr = itemsTexto ? String(itemsTexto).trim() : (vaga?.opcao || '').trim();
+
+    // Chama IA e normaliza
+    const { results, raw } = await sugerirCompatibilidade({
+      apiUrl: process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest',
+      questionsStr,
+      itemsStr
+    });
+
+    if (!results.length) {
+      // Guarda mesmo assim o "bruto" para debug
+      await vagaAvaliacaoModel.upsertAvaliacao({
+        vaga_id,
+        candidato_id,
+        score: 0,
+        resposta: questionsStr,         // mantém o que foi avaliado
+        breakdown: { erro: '[IA] Formato inesperado', raw }
+      });
+      return res.status(422).json({
+        ok: false,
+        erro: '[IA] Formato inesperado',
+        raw
+      });
+    }
+
+    // Define um score geral (média dos ratings válidos)
+    const valid = results.filter(r => Number.isFinite(r.rating));
+    const media = valid.length ? Math.round(valid.reduce((s, r) => s + r.rating, 0) / valid.length) : 0;
+
+    // Salva/atualiza avaliação (o model já faz upsert e salva breakdown como string JSON)
+    await vagaAvaliacaoModel.upsertAvaliacao({
+      vaga_id,
+      candidato_id,
+      score: media,
+      resposta: questionsStr,
+      breakdown: results
+    });
+
+    return res.json({ ok: true, score: media, results });
+  } catch (err) {
+    console.error('[avaliarVagaIa] erro:', err);
+    return res.status(500).json({ ok: false, erro: 'Erro interno ao avaliar a vaga.' });
   }
 };

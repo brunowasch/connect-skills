@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connect Skills</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/css/shared/style.css">
+  <link rel="icon" href="/img/CONNECT.png">
+</head>
+<body class="bg-light">
+  <%- include('../partials/header-empresa') %>
+  <%- include('../partials/flash-messages') %>
+
+  <main class="container py-5 mt-4">
+    <div class="d-flex align-items-center gap-3 mb-4">
+      <a href="/empresas/vagas" class="text-decoration-none" title="Voltar">
+        <i class="bi bi-arrow-left fs-4"></i>
+      </a>
+      <div>
+        <h3 class="mb-1">Ranqueamento de candidatos</h3>
+        <div class="text-muted">
+          Cargo: <strong><%= vaga.cargo %></strong> · Empresa: <strong><%= vaga.empresa?.nome_empresa %></strong>
+        </div>
+        <div class="text-muted small">
+          Os candidatos estão ranqueados com base na compatibilidade (0–100) calculada pela nossa IA a partir das respostas. Em caso de empate, são ranqueados em ordem de chegada.
+        </div>
+      </div>
+    </div>
+
+    <% if (!rows.length) { %>
+      <div class="alert alert-light d-flex align-items-center gap-2">
+        <i class="bi bi-info-circle"></i>
+        <span>Nenhum candidato aplicou para esta vaga.</span>
+      </div>
+    <% } else { %>
+
+    <div class="bg-white rounded shadow-sm">
+      <% rows.forEach((r, idx) => { 
+          const modalId = `modal-respostas-${r.candidato_id || idx}`;
+
+          // ===== Fonte de perguntas+respostas =====
+          // 1) Preferimos r.questions (API: "Pergunta? Resposta\n...")
+          // 2) Se não houver, usamos vaga.pergunta (apenas perguntas)
+          const fonte = String(r.questions || '').trim();
+          const linhasFonte = (fonte ? fonte : String(vaga.pergunta || ''))
+            .split(/\r?\n/)
+            .map(s => s.trim())
+            .filter(Boolean);
+
+          // Se a fonte vier da API, cada linha tem "Pergunta? Resposta"
+          // Separa no primeiro "?"
+          const pares = linhasFonte.map(L => {
+            const m = L.match(/^(.*?\?)\s*(.*)$/);
+            return {
+              pergunta: m ? m[1].trim() : L,
+              resposta: m ? m[2].trim() : ''
+            };
+          });
+
+          const perguntas = pares.map(p => p.pergunta);
+          const respostas = pares.map(p => p.resposta);
+      %>
+        <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
+
+          <!-- Posição -->
+          <div class="fs-5 fw-bold" style="width: 2.5rem; text-align: right;">
+            <%= r.pos %>º
+          </div>
+
+          <!-- Foto + dados -->
+          <div class="d-flex align-items-center gap-3 flex-grow-1">
+            <img src="<%= r.foto_perfil || '/img/avatar.png' %>"
+                 alt="Foto do candidato"
+                 class="rounded-circle"
+                 style="width: 48px; height: 48px; object-fit: cover;">
+            <div>
+              <div class="fw-semibold"><%= r.nome %></div>
+              <div class="text-muted small"><%= r.local %></div>
+
+              <div class="d-flex flex-wrap gap-3 small mt-1">
+                <% if (r.telefone) { %>
+                  <a href="tel:<%= r.telefone.replace(/\D/g,'') %>" class="text-decoration-none">
+                    <i class="bi bi-telephone"></i> <%= r.telefone %>
+                  </a>
+                <% } %>
+                <% if (r.email) { %>
+                  <a href="mailto:<%= r.email %>" class="text-decoration-none">
+                    <i class="bi bi-envelope"></i> <%= r.email %>
+                  </a>
+                <% } %>
+                <button type="button"
+                        class="btn btn-outline-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#<%= modalId %>">
+                  Ver respostas
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Compatibilidade -->
+          <div class="text-end" style="min-width: 190px;">
+            <div class="fw-semibold"><%= r.score %>%</div>
+            <div class="progress" style="height: 8px; width: 180px;">
+              <div class="progress-bar" role="progressbar"
+                data-score="<%= r.score %>"
+                aria-valuenow="<%= r.score %>"
+                aria-valuemin="0" aria-valuemax="100"></div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- MODAL com Perguntas & Respostas do candidato -->
+        <div class="modal fade" id="<%= modalId %>" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+              <div class="modal-header">
+                <div>
+                  <h5 class="modal-title">Respostas do candidato</h5>
+                  <div class="text-muted small">
+                    <strong><%= r.nome %></strong> · Compatibilidade: <strong><%= r.score %>%</strong>
+                  </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <!-- BLOCO 1: Questionário com inputs (somente leitura) -->
+                <% if (perguntas.length) { %>
+                  <div class="mb-4">
+                    <div class="alert alert-secondary py-1 px-2 mb-3 small">
+                      <strong>Questionário da vaga</strong>
+                    </div>
+
+                    <% perguntas.forEach((q, i) => { %>
+                      <div class="mb-3">
+                        <label class="form-label"><%= (i + 1) + '. ' + q %></label>
+                        <input type="text"
+                               class="form-control"
+                               value="<%= (respostas[i] || '') %>"
+                               placeholder="<%= respostas[i] ? '' : 'Sem resposta' %>"
+                               readonly>
+                      </div>
+                    <% }) %>
+                  </div>
+                <% } %>
+
+                <!-- BLOCO 2: Lista em texto (pergunta + resposta) -->
+                <%
+                  const temAlguma = pares.some(p => p.pergunta || p.resposta);
+                %>
+                <% if (temAlguma) { %>
+                  <div class="mb-2 fw-semibold">Perguntas e respostas (texto):</div>
+                  <ol class="list-group list-group-numbered">
+                    <% pares.forEach(p => { %>
+                      <li class="list-group-item">
+                        <div class="fw-semibold"><%= p.pergunta || 'Pergunta' %></div>
+                        <div class="text-muted"><%= p.resposta || '—' %></div>
+                      </li>
+                    <% }) %>
+                  </ol>
+                <% } else { %>
+                  <div class="alert alert-light mb-0">
+                    Nenhuma resposta registrada para este candidato.
+                  </div>
+                <% } %>
+              </div>
+
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /MODAL -->
+      <% }) %>
+    </div>
+
+    <% } %>
+  </main>
+  <script>
+    document.querySelectorAll('.progress-bar').forEach(el => {
+      el.style.width = el.dataset.score + '%';
+    });
+  </script>
+  <%- include('../partials/footer') %>
+
+  <!-- Bootstrap JS (necessário para o modal funcionar) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
