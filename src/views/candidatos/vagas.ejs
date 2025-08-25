@@ -13,6 +13,7 @@
     /* Espaços extras para o bloco da IA e resultados não "apertarem" o botão */
     .bloco-ia { margin-bottom: 2rem; }
     .resultados-ia { margin-top: 1rem; padding-bottom: 1rem; }
+
     /* Cabeçalho do bloco fica visível ao rolar */
     .ia-header {
       display: flex; align-items: center; justify-content: space-between; gap: .75rem;
@@ -21,7 +22,7 @@
 
     /* Rodapé do bloco com espaçamento e divisor para o botão "Ocultar" */
     .ia-footer {
-      margin-top: 2rem;           /* mais espaço entre opções e botão */
+      margin-top: 2rem;
       padding-top: 1rem;
       border-top: 1px dashed #ddd;
       display: flex;
@@ -135,9 +136,10 @@
             </div>
           </div>
 
-          <!-- Botão para abrir/fechar o bloco da IA -->
-          <div class="text-center mb-4 mt-4">
-            <button class="btn btn-outline-primary fw-bold botao-ia">
+          <!-- Botão (TOGGLE) para abrir o bloco da IA.
+               Envolvido por .ia-toggle para podermos esconder quando aberto -->
+          <div class="text-center mb-4 mt-2 ia-toggle">
+            <button class="btn btn-outline-primary fw-bold botao-ia" type="button" aria-expanded="false">
               Iniciar teste com a IA
             </button>
           </div>
@@ -159,19 +161,23 @@
 
             <!-- Lista de perguntas + inputs de resposta -->
             <% if (perguntas.length) { %>
-              <div class="mb-3 mt-2">
-                <% perguntas.forEach((q, idx) => { %>
-                  <div class="mb-2">
-                    <label class="form-label"><%= (idx + 1) + '. ' + q %></label>
-                    <input type="text" class="form-control resposta-ia-item" placeholder="Sua resposta...">
-                  </div>
-                <% }) %>
-              </div>
-            <% } else { %>
-              <label class="form-label fw-semibold mt-2">Sua resposta:</label>
-              <textarea class="form-control resposta-ia" rows="3" placeholder="Ex.: Sim, configuração de switches e roteadores."></textarea>
-            <% } %>
-
+            <div class="mb-3 mt-2">
+              <% perguntas.forEach((q, idx) => { %>
+                <div class="mb-2">
+                  <label class="form-label"><%= (idx + 1) + '. ' + q %></label>
+                  <input
+                    type="text"
+                    class="form-control resposta-ia-item"
+                    placeholder="Sua resposta..."
+                    value="<%= (vaga.respostas_previas && vaga.respostas_previas[idx]) ? vaga.respostas_previas[idx] : '' %>"
+                  >
+                </div>
+              <% }) %>
+            </div>
+          <% } else { %>
+            <label class="form-label fw-semibold mt-2">Sua resposta:</label>
+            <textarea class="form-control resposta-ia" rows="3" placeholder="Ex.: Sim, configuração de switches e roteadores."><%= vaga.resposta_unica || '' %></textarea>
+          <% } %>
             <div class="d-flex gap-2 mt-3">
               <button class="btn btn-primary btn-avaliar" data-vaga-id="<%= vaga.id %>">
                 Analisar compatibilidade
@@ -185,11 +191,11 @@
             <div class="mt-3 msg-ja-avaliada alert alert-info py-2 px-3" style="display:none;">
               Você já realizou o teste desta vaga. Apenas a última avaliação é considerada no ranking.
             </div>
+
             <div class="ia-footer">
-              <button class="btn btn-outline-secondary fechar-ia-baixo">
+              <button class="btn btn-outline-secondary fechar-ia-baixo" type="button">
                 Ocultar teste
               </button>
-            </div>
             </div>
           </div>
         </div>
@@ -204,7 +210,6 @@
     document.querySelectorAll('.card[data-vaga-id]').forEach(card => {
       const vagaId = card.getAttribute('data-vaga-id');
       const btnToggle = card.querySelector('.botao-ia');
-      const btnAvaliar = card.querySelector('.btn-avaliar');
       const msgJa = card.querySelector('.msg-ja-avaliada');
 
       const jaFlag = card.getAttribute('data-ja-avaliada') === '1';
@@ -212,6 +217,7 @@
       const jaAvaliou = jaFlag || jaLocal;
 
       if (jaAvaliou) {
+        const btnAvaliar = card.querySelector('.btn-avaliar');
         btnAvaliar?.setAttribute('disabled', 'disabled');
         btnAvaliar?.classList.add('disabled');
         btnAvaliar?.classList.replace('btn-primary', 'btn-outline-secondary');
@@ -220,24 +226,39 @@
       }
     });
 
-    // Toggle do bloco da IA (topo e rodapé)
+    // Toggle do bloco da IA
     document.addEventListener('click', (e) => {
+      // Abrir pelo botão de cima
       const openBtn = e.target.closest('.botao-ia');
       if (openBtn) {
         const card = openBtn.closest('.card');
         const bloco = card.querySelector('.bloco-ia');
-        const showing = bloco.style.display !== 'none';
-        bloco.style.display = showing ? 'none' : 'block';
+        const toggleWrap = card.querySelector('.ia-toggle');
+
+        // Mostrar bloco e esconder botão superior
+        bloco.style.display = 'block';
+        toggleWrap?.classList.add('d-none');
+        openBtn.setAttribute('aria-expanded', 'true');
         return;
       }
 
-      const closeTop = e.target.closest('.fechar-ia');
+      // Fechar pelo botão do rodapé
       const closeBottom = e.target.closest('.fechar-ia-baixo');
-      if (closeTop || closeBottom) {
-        const card = (closeTop || closeBottom).closest('.card');
+      if (closeBottom) {
+        const card = closeBottom.closest('.card');
         const bloco = card.querySelector('.bloco-ia');
-        const toggle = card.querySelector('.botao-ia');
+        const toggleWrap = card.querySelector('.ia-toggle');
+        const toggleBtn = card.querySelector('.botao-ia');
+
         bloco.style.display = 'none';
+        toggleWrap?.classList.remove('d-none');
+        // Mantém o texto padrão no botão superior
+        if (toggleBtn) {
+          const ja = card.getAttribute('data-ja-avaliada') === '1' ||
+                     localStorage.getItem(keyVagaAvaliada(card.getAttribute('data-vaga-id'))) === '1';
+          toggleBtn.textContent = ja ? 'Ver teste da IA' : 'Iniciar teste com a IA';
+          toggleBtn.setAttribute('aria-expanded', 'false');
+        }
         return;
       }
     });
@@ -309,14 +330,6 @@
           btn.disabled = false;
           output.innerHTML = `<div class="text-danger">${data.error || 'Erro desconhecido.'}</div>`;
           return;
-        }
-
-        if (typeof data.score === 'number') {
-          output.insertAdjacentHTML('afterbegin',
-            `<div class="alert alert-info py-2 mb-3">
-               <strong>Sua compatibilidade geral:</strong> ${data.score}%<br>
-               <small class="text-muted">Sua participação foi registrada para o ranking.</small>
-             </div>`);
         }
 
         if (Array.isArray(data.results) && data.results.length) {

@@ -477,26 +477,44 @@ exports.telaEditarVaga = async (req, res) => {
   }
 };
 
+// empresaController.js
 exports.salvarEditarVaga = async (req, res) => {
   try {
     const vagaId = Number(req.params.id);
     const empresaId = req.session.empresa.id;
 
+    // Campos vindos do form de edição
     const {
-      cargo, tipo, escala, diasPresenciais, diasHomeOffice,
-      salario, moeda, descricao, beneficio,
-      areasSelecionadas, habilidadesSelecionadas
+      cargo,
+      tipo,
+      escala,
+      diasPresenciais,
+      diasHomeOffice,
+      salario,
+      moeda,
+      descricao,
+
+      // ✅ agora lendo os campos da IA
+      pergunta,
+      opcao,
+
+      // benefícios (checkboxes + outro)
+      beneficio,
+      beneficioOutro,
+
+      // seleção dinâmica
+      areasSelecionadas,
+      habilidadesSelecionadas
     } = req.body;
 
+    // === ÁREAS: suporta "nova:" e limita a 3 ===
     const areaIds = [];
-    const skillIds = JSON.parse(habilidadesSelecionadas || '[]');
-
     try {
       const areasBrutas = JSON.parse(areasSelecionadas || '[]');
       for (const area of areasBrutas) {
         const valor = String(area);
         if (valor.startsWith('nova:')) {
-          const nomeNova = valor.replace('nova:', '').trim();
+          const nomeNova = valor.slice(5).trim();
           if (!nomeNova) continue;
           let nova = await prisma.area_interesse.findFirst({ where: { nome: nomeNova } });
           if (!nova) {
@@ -508,14 +526,32 @@ exports.salvarEditarVaga = async (req, res) => {
         }
       }
     } catch (e) {
-      console.error('[ERRO] Falha no parse de áreasSelecionadas:', e);
+      console.error('[ERRO] Falha no parse de areasSelecionadas:', e);
       req.session.erro = 'Erro ao processar áreas selecionadas.';
       return res.redirect(`/empresa/vagas/${vagaId}/editar`);
     }
 
+    // === SKILLS ===
+    const skillIds = (() => {
+      try { return JSON.parse(habilidadesSelecionadas || '[]').map(Number); }
+      catch { return []; }
+    })();
+
+    // === BENEFÍCIOS: mesma lógica da criação ===
+    let beneficiosArr = Array.isArray(beneficio) ? beneficio : (beneficio ? [beneficio] : []);
+    if (beneficioOutro?.trim()) beneficiosArr.push(beneficioOutro.trim());
+    const beneficiosTexto = beneficiosArr.join(', ');
+
+    // === Salário: normaliza número ===
+    const salarioNum = salario
+      ? parseFloat(String(salario).replace(/\./g, '').replace(',', '.'))
+      : null;
+
+    // Limpa relações antigas
     await prisma.vaga_area.deleteMany({ where: { vaga_id: vagaId } });
     await prisma.vaga_soft_skill.deleteMany({ where: { vaga_id: vagaId } });
 
+    // ✅ Atualiza também pergunta/opcao/beneficio
     await prisma.vaga.update({
       where: { id: vagaId, empresa_id: empresaId },
       data: {
@@ -524,30 +560,37 @@ exports.salvarEditarVaga = async (req, res) => {
         escala_trabalho: escala,
         dias_presenciais: diasPresenciais ? Number(diasPresenciais) : null,
         dias_home_office: diasHomeOffice ? Number(diasHomeOffice) : null,
-        salario: salario ? parseFloat(salario.replace(',', '.')) : null,
+        salario: salarioNum,
         moeda,
         descricao,
-        beneficio
+        beneficio: beneficiosTexto,
+        pergunta,        
+        opcao             
       }
     });
 
+    // Recria relações com limite de 3 áreas
     const areaIdsLimitadas = areaIds.slice(0, 3);
-    for (const areaId of areaIdsLimitadas) {
-      await prisma.vaga_area.create({ data: { vaga_id: vagaId, area_interesse_id: areaId } });
+    if (areaIdsLimitadas.length) {
+      await prisma.vaga_area.createMany({
+        data: areaIdsLimitadas.map(id => ({ vaga_id: vagaId, area_interesse_id: id }))
+      });
     }
-
-    for (const skillId of skillIds) {
-      await prisma.vaga_soft_skill.create({ data: { vaga_id: vagaId, soft_skill_id: skillId } });
+    if (skillIds.length) {
+      await prisma.vaga_soft_skill.createMany({
+        data: skillIds.map(id => ({ vaga_id: vagaId, soft_skill_id: id }))
+      });
     }
 
     req.session.sucessoVaga = 'Vaga atualizada com sucesso!';
-    res.redirect('/empresa/meu-perfil');
+    return res.redirect('/empresa/meu-perfil');
   } catch (err) {
     console.error('[ERRO] Falha ao editar vaga:', err);
     req.session.erro = 'Não foi possível editar a vaga.';
-    res.redirect('/empresa/meu-perfil');
+    return res.redirect('/empresa/meu-perfil');
   }
 };
+
 
 exports.perfilPublico = async (req, res) => {
   const empresaId = parseInt(req.params.id, 10);
@@ -773,16 +816,13 @@ exports.mostrarVagas = async (req, res) => {
 
 async function getEmpresaIdDaSessao(req) {
   if (req.session?.empresa?.id) return Number(req.session.empresa.id);
-
-  if (req.session?.usuario?.id && req.session?.usuario?.tipo === 'empresa') {
-    const emp = await prisma.empresa.findUnique({
+  // fallback: quando só temos usuario na sessão
+  if (req.session?.usuario?.tipo === 'empresa') {
+    const emp = await prisma.empresa.findFirst({
       where: { usuario_id: Number(req.session.usuario.id) },
       select: { id: true }
     });
-    if (emp?.id) {
-      req.session.usuario.empresa_id = Number(emp.id);
-      return Number(emp.id);
-    }
+    return emp?.id || null;
   }
   return null;
 }
@@ -808,40 +848,66 @@ exports.rankingCandidatos = async (req, res) => {
       return res.redirect('/empresa/vagas');
     }
 
-    // busca avaliações
+    // busca avaliações dessa vaga
     const avaliacoes = await vagaAvaliacaoModel.listarPorVaga({ vaga_id: params.vaga_id });
 
     // monta linhas para a view
     const rows = avaliacoes.map((a, idx) => {
-  const c = a.candidato || {};
-  const u = c.usuario || {};
+      const c = a.candidato || {};
+      const u = c.usuario || {};
 
-  const nome =
-    [c.nome, c.sobrenome].filter(Boolean).join(' ').trim() ||
-    u.nome ||                                  // se você popular nome no usuário
-    u.email ||                                 // senão usa email
-    `Candidato #${c.id || ''}`.trim();         // último fallback
+      const nome =
+        [c.nome, c.sobrenome].filter(Boolean).join(' ').trim() ||
+        u.nome ||
+        u.email ||
+        `Candidato #${c.id || ''}`.trim();
 
-  const local = [c.cidade, c.estado, c.pais].filter(Boolean).join(', ') || '—';
+      const local = [c.cidade, c.estado, c.pais].filter(Boolean).join(', ') || '—';
+      const telefone = c.telefone || '—';
+      const foto_perfil = c.foto_perfil || '/img/avatar.png';
+      const email = u.email || '';
 
-  // mantém formatação original; o EJS já sanitiza para tel: com regex
-  const telefone = c.telefone || '—';
+      let questions = '';
+      // 1) API atual: campo questions no próprio registro
+      if (a.questions && typeof a.questions === 'string') {
+        questions = a.questions.trim();
+      }
+      // 2) Formato antigo: texto consolidado em a.resposta (linhas "Pergunta? Resposta")
+      if (!questions && a.resposta && typeof a.resposta === 'string') {
+        questions = a.resposta.trim();
+      }
+      // 3) Algum JSON stringificado que contenha { questions: "..." }
+      const tryParse = (s) => {
+        try {
+          const obj = JSON.parse(s);
+          if (obj && obj.questions && typeof obj.questions === 'string') {
+            return obj.questions.trim();
+          }
+        } catch (_) {}
+        return '';
+      };
+      if (!questions && typeof a.payload === 'string') {
+        questions = tryParse(a.payload);
+      }
+      if (!questions && typeof a.api_result === 'string') {
+        questions = tryParse(a.api_result);
+      }
+      if (!questions && typeof a.result === 'string') {
+        questions = tryParse(a.result);
+      }
 
-  // novos campos que sua view usa
-  const foto_perfil = c.foto_perfil || '/img/avatar.png';
-  const email = u.email || '';
-
-  return {
-    pos: idx + 1,
-    nome,
-    local,
-    telefone,
-    email,
-    foto_perfil,
-    score: Number(a.score) || 0
-  };
-});
-
+      return {
+        pos: idx + 1,
+        nome,
+        local,
+        telefone,
+        email,
+        foto_perfil,
+        score: Number(a.score) || 0,
+        // >>> passa para o EJS:
+        questions
+      };
+    });
 
     return res.render('empresas/ranking-candidatos', {
       vaga,
