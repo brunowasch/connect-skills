@@ -958,28 +958,6 @@ exports.excluirConta = async (req, res) => {
       return res.redirect('/login');
     }
 
-    await prisma.empresa.delete({
-      where: { id: empresa.id },
-    });
-
-    req.session.destroy(() => {
-      res.redirect('/');
-    });
-  } catch (err) {
-    console.error('Erro ao excluir conta da empresa:', err);
-    req.session.erro = 'Erro ao excluir conta. Tente novamente.';
-    res.redirect('/empresa/meu-perfil');
-  }
-};
-
-exports.excluirConta = async (req, res) => {
-  try {
-    const empresa = req.session.empresa;
-    if (!empresa) {
-      req.session.erro = 'Usuário não autenticado.';
-      return res.redirect('/login');
-    }
-
     // Verificar se a empresa tem um usuario_id associado
     if (!empresa.usuario_id) {
       req.session.erro = 'Usuário não encontrado.';

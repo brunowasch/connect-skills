@@ -906,19 +906,23 @@ exports.avaliarVagaIa = async (req, res) => {
 
 exports.excluirConta = async (req, res) => {
   try {
-    const candidato = req.session.candidato;
+    const candidato = await prisma.candidato.findUnique({
+      where: { id: req.session.candidato.id },
+    });
+
     if (!candidato) {
       req.session.erro = 'Usuário não autenticado.';
       return res.redirect('/login');
     }
 
-    // Verificar se o candidato tem um usuario_id associado
     if (!candidato.usuario_id) {
       req.session.erro = 'Usuário não encontrado.';
       return res.redirect('/login');
     }
 
-    // Excluir as relações do candidato nas outras tabelas
+    console.log('Excluindo candidato:', candidato);
+
+    // Excluir dependências primeiro
     await prisma.candidato_area.deleteMany({
       where: { candidato_id: candidato.id },
     });
@@ -932,12 +936,12 @@ exports.excluirConta = async (req, res) => {
       where: { id: candidato.id },
     });
 
-    // Excluir o usuário associado ao candidato
+    // Excluir o usuário associado
     await prisma.usuario.delete({
       where: { id: candidato.usuario_id },
     });
 
-    // Destruir a sessão após excluir o candidato e o usuário
+    // Destruir sessão e redirecionar
     req.session.destroy((err) => {
       if (err) {
         console.error('Erro ao destruir a sessão:', err);
@@ -947,9 +951,8 @@ exports.excluirConta = async (req, res) => {
   } catch (err) {
     console.error('Erro ao excluir conta do candidato:', err);
     req.session.erro = 'Erro ao excluir conta. Tente novamente.';
-    res.redirect('/candidato/meu-perfil');
+    return res.redirect('/candidato/meu-perfil');
   }
 };
-
 
 
