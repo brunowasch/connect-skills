@@ -5,12 +5,9 @@ const crypto = require('crypto');
 
 const prisma = new PrismaClient();
 
+// Checa o ambiente de produção ou desenvolvimento
 const isProd = process.env.NODE_ENV === 'development';
-// BASE_URL absoluto para evitar http/https errado atrás de proxy
-const BASE_URL =
-  process.env.BASE_URL ||
-  (isProd ? process.env.BASE_ENV : 'http://localhost:3000');
-
+const BASE_URL = process.env.BASE_URL || (isProd ? 'https://connectskills.com.br' : 'http://localhost:3000');
 const CALLBACK_URL = `${BASE_URL}/auth/google/callback`;
 console.log('[OAUTH] Google callbackURL:', CALLBACK_URL);
 
@@ -57,7 +54,6 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      // IMPORTANTE: callback absoluto para bater com o Console do Google
       callbackURL: CALLBACK_URL,
       passReqToCallback: true,
     },
@@ -171,7 +167,11 @@ passport.use(
         };
         await new Promise((r) => req.session.save(r));
 
-        return done(null, usuario);
+        // Defina o redirecionamento correto com base no tipo de usuário
+        const redirectTo = req.query.redirectTo || (usuario.tipo === 'candidato' ? '/candidatos/home' : '/empresa/home');
+
+        // Redireciona para a página correta após o login
+        return res.redirect(redirectTo);
       } catch (err) {
         console.error('Erro no login/cadastro com Google:', err);
         return done(err, null);
