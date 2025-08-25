@@ -592,6 +592,7 @@ exports.salvarEditarVaga = async (req, res) => {
 };
 
 
+// empresaController.js
 exports.perfilPublico = async (req, res) => {
   const empresaId = parseInt(req.params.id, 10);
   if (Number.isNaN(empresaId)) {
@@ -606,6 +607,7 @@ exports.perfilPublico = async (req, res) => {
       return res.redirect('/');
     }
 
+    // Vagas publicadas (mantém os includes que você já tinha)
     const vagasPublicadas = await prisma.vaga.findMany({
       where: { empresa_id: empresaId },
       include: {
@@ -614,12 +616,42 @@ exports.perfilPublico = async (req, res) => {
       }
     });
 
-    const somentePreview = !req.session?.usuario;
+    // ✅ Só candidato pode usar o teste da IA nesta tela
+    const podeTestar = !!req.session?.candidato; // << chave da correção
+    const somentePreview = !podeTestar;
+
+    // ✅ (Opcional) Preencher respostas anteriores do candidato, por vaga
+    if (podeTestar && vagasPublicadas.length) {
+      const candidatoId = Number(req.session.candidato.id);
+      const ids = vagasPublicadas.map(v => v.id);
+
+      const avals = await prisma.vaga_avaliacao.findMany({
+        where: { candidato_id: candidatoId, vaga_id: { in: ids } },
+        select: { vaga_id: true, resposta: true } // "resposta" = "Pergunta? Resposta" por linha
+      });
+      const mapResp = new Map(avals.map(a => [a.vaga_id, a.resposta || '']));
+
+      for (const vaga of vagasPublicadas) {
+        const texto = mapResp.get(vaga.id) || '';
+        if (!texto) continue;
+        const linhas = texto.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        const apenasRespostas = linhas.map(L => {
+          const m = L.match(/\?\s*(.*)$/);
+          return m ? m[1].trim() : '';
+        }).filter(Boolean);
+
+        // manda para a view (mesma convenção do vagas.ejs do candidato)
+        vaga.respostas_previas = apenasRespostas;
+        vaga.resposta_unica   = apenasRespostas[0] || '';
+        // dica: Se quiser, você pode também renderizar um aviso "já testou"
+      }
+    }
 
     return res.render('empresas/perfil-publico', {
       empresa,
       vagasPublicadas,
-      somentePreview, 
+      somentePreview,
+      podeTestar
     });
   } catch (error) {
     console.error('Erro ao carregar perfil público:', error);
@@ -627,8 +659,6 @@ exports.perfilPublico = async (req, res) => {
     return res.redirect('/');
   }
 };
-
-
 
 exports.telaComplementarGoogle = (req, res) => {
   if (!req.session.usuario || req.session.usuario.tipo !== 'empresa') {
