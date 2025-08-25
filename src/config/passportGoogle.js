@@ -6,15 +6,12 @@ const crypto = require('crypto');
 const prisma = new PrismaClient();
 
 // Checa o ambiente de produção ou desenvolvimento
-const isProd = process.env.NODE_ENV === 'development';
+const isProd = process.env.NODE_ENV === 'production';  // Corrigido para produção
 const BASE_URL = process.env.BASE_URL || (isProd ? 'https://connectskills.com.br' : 'http://localhost:3000');
 const CALLBACK_URL = `${BASE_URL}/auth/google/callback`;
 console.log('[OAUTH] Google callbackURL:', CALLBACK_URL);
 
-/**
- * Cria usuário tentando incluir avatarUrl; se o schema não tiver esse campo
- * (ex.: erro do Prisma "Unknown field"), refaz sem avatarUrl.
- */
+// Funções de criação e atualização de usuário
 async function safeCreateUsuario(data) {
   try {
     return await prisma.usuario.create({ data });
@@ -30,10 +27,6 @@ async function safeCreateUsuario(data) {
   }
 }
 
-/**
- * Atualiza usuário tentando incluir avatarUrl; se o schema não tiver esse campo,
- * refaz sem avatarUrl.
- */
 async function safeUpdateUsuario(where, data) {
   try {
     return await prisma.usuario.update({ where, data });
@@ -59,7 +52,7 @@ passport.use(
     },
     async (req, accessToken, refreshToken, profile, done) => {
       try {
-        // state esperado: "cadastro_candidato" | "cadastro_empresa" | (login quando vazio)
+        // Checa se o usuário está tentando cadastrar ou logar
         const state = (req.query.state || '').trim();
         const isCadastro = state.startsWith('cadastro_');
         let tipoSolicitado = state.replace('cadastro_', '').toLowerCase().trim();
@@ -67,36 +60,27 @@ passport.use(
           tipoSolicitado = 'candidato';
         }
 
-        // Extrai/normaliza dados do Google
+        // Extração de dados do Google
         const googleId = profile?.id || '';
-        const rawEmail =
-          (profile?.emails && profile.emails[0] && profile.emails[0].value) || '';
+        const rawEmail = (profile?.emails && profile.emails[0] && profile.emails[0].value) || '';
         const email = rawEmail.trim().toLowerCase();
-        const avatarUrl =
-          (profile?.photos && profile.photos[0] && profile.photos[0].value) ||
-          'https://via.placeholder.com/150';
+        const avatarUrl = (profile?.photos && profile.photos[0] && profile.photos[0].value) || 'https://via.placeholder.com/150';
         const nome = (profile?.name?.givenName || '').trim();
         const sobrenome = (profile?.name?.familyName || '').trim();
 
-        // Se não veio e-mail do Google, não dá para continuar
         if (!email) {
-          req.session.erro =
-            'Não foi possível obter seu e-mail do Google. Verifique as permissões da conta ou tente outra conta.';
+          req.session.erro = 'Não foi possível obter seu e-mail do Google. Verifique as permissões da conta ou tente outra conta.';
           await new Promise((r) => req.session.save(r));
           return done(null, false);
         }
 
-        // Verifica existência por e-mail e por googleId
+        // Verifica se o e-mail ou o googleId já existe
         const usuarioPorEmail = await prisma.usuario.findUnique({ where: { email } });
-        const usuarioPorGoogleId = googleId
-          ? await prisma.usuario.findUnique({ where: { googleId } })
-          : null;
+        const usuarioPorGoogleId = googleId ? await prisma.usuario.findUnique({ where: { googleId } }) : null;
 
         if (isCadastro) {
-          // Cadastro: sem duplicidade por e-mail ou por googleId
           if (usuarioPorEmail) {
-            req.session.erro =
-              'Já existe uma conta com este e-mail. <a href="/login">Clique aqui para fazer login</a>.';
+            req.session.erro = 'Já existe uma conta com este e-mail. <a href="/login">Clique aqui para fazer login</a>.';
             await new Promise((r) => req.session.save(r));
             return done(null, false);
           }
@@ -106,7 +90,7 @@ passport.use(
             return done(null, false);
           }
 
-          // Cria novo usuário
+          // Criação de um novo usuário
           const senhaGerada = crypto.randomBytes(16).toString('hex');
           let novoUsuario = await safeCreateUsuario({
             email,
@@ -114,19 +98,15 @@ passport.use(
             senha: senhaGerada,
             nome,
             sobrenome,
-            avatarUrl, // removido automaticamente se o schema não tiver
+            avatarUrl,
             tipo: tipoSolicitado,
           });
 
-          // Cria perfil mínimo
+          // Criação do perfil de candidato ou empresa
           if (tipoSolicitado === 'candidato') {
             await prisma.candidato.create({ data: { usuario_id: novoUsuario.id } });
-          } else if (tipoSolicitado === 'empresa') {
-            // Se necessário, crie registro mínimo de empresa aqui.
-            // await prisma.empresa.create({ data: { usuario_id: novoUsuario.id } });
           }
 
-          // Seta sessão
           req.session.usuario = {
             id: novoUsuario.id,
             nome: novoUsuario.nome,
@@ -139,24 +119,18 @@ passport.use(
           return done(null, novoUsuario);
         }
 
-        // LOGIN (ou linkagem): precisa existir por e-mail ou por googleId
+        // Verificação para login ou vinculação do Google ID
         if (!usuarioPorGoogleId && !usuarioPorEmail) {
-          req.session.erro =
-            'Não identificamos nenhuma conta Google cadastrada. <a href="/cadastro">Clique aqui para se cadastrar</a>.';
+          req.session.erro = 'Não identificamos nenhuma conta Google cadastrada. <a href="/cadastro">Clique aqui para se cadastrar</a>.';
           await new Promise((r) => req.session.save(r));
           return done(null, false);
         }
 
-        // Se achou por e-mail mas ainda não tem googleId, vincula
         let usuario = usuarioPorGoogleId || usuarioPorEmail;
         if (usuario && !usuario.googleId && googleId) {
-          usuario = await safeUpdateUsuario(
-            { id: usuario.id },
-            { googleId, avatarUrl } // fallback remove avatar se campo não existir
-          );
+          usuario = await safeUpdateUsuario({ id: usuario.id }, { googleId, avatarUrl });
         }
 
-        // Seta sessão
         req.session.usuario = {
           id: usuario.id,
           nome: usuario.nome,
@@ -167,10 +141,8 @@ passport.use(
         };
         await new Promise((r) => req.session.save(r));
 
-        // Defina o redirecionamento correto com base no tipo de usuário
+        // Definindo o redirecionamento correto
         const redirectTo = req.query.redirectTo || (usuario.tipo === 'candidato' ? '/candidatos/home' : '/empresa/home');
-
-        // Redireciona para a página correta após o login
         return res.redirect(redirectTo);
       } catch (err) {
         console.error('Erro no login/cadastro com Google:', err);
