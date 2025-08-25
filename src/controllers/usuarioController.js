@@ -8,7 +8,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 function baseUrl() {
-  const url = process.env.NODE_ENV === 'production'
+  const url = process.env.NODE_ENV === 'development'
     ? process.env.BASE_URL
     : 'http://localhost:3000';
   return url.endsWith('/') ? url.slice(0, -1) : url;
