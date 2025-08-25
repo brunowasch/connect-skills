@@ -28,6 +28,9 @@ model candidato {
   foto_perfil     String?
   usuario         usuario          @relation(fields: [usuario_id], references: [id])
   candidato_area  candidato_area[]
+
+  // <<< back-relation para as avaliações >>>
+  avaliacoes vaga_avaliacao[] @relation("CandidatoAvaliacoes")
 }
 
 model candidato_area {
@@ -94,6 +97,9 @@ model vaga {
   vaga_area           vaga_area[]
   vaga_soft_skill     vaga_soft_skill[]
 
+  // <<< back-relation para as avaliações >>>
+  avaliacoes vaga_avaliacao[] @relation("VagaAvaliacoes")
+
   @@index([empresa_id], map: "vaga_empresa_id_fkey")
 }
 
@@ -124,6 +130,26 @@ model sessions {
   expires    Int     @db.UnsignedInt
   data       String? @db.MediumText
 }
+
+model vaga_avaliacao {
+  id            Int        @id @default(autoincrement()) @db.UnsignedInt
+  vaga_id       Int        @db.UnsignedInt
+  candidato_id  Int
+  score         Int
+  resposta      String?
+  // Se no MySQL você criou JSON: mantenha Json?
+  // Se criou LONGTEXT: troque para String?
+  breakdown     Json?      // ou: String?
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt      @map("updated_at")
+
+  vaga          vaga       @relation("VagaAvaliacoes", fields: [vaga_id], references: [id])
+  candidato     candidato  @relation("CandidatoAvaliacoes", fields: [candidato_id], references: [id])
+
+  @@unique([vaga_id, candidato_id], name: "vaga_candidato_unique")
+  @@map("vaga_avaliacao") // opcional (só se você quiser explicitar o nome da tabela)
+}
+
 
 enum vaga_tipo_local_trabalho {
   Presencial

@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 const empresaModel = require('../models/empresaModel');
 const vagaModel = require('../models/vagaModel');
+const vagaAvaliacaoModel = require('../models/vagaAvaliacaoModel');
 const { cloudinary } = require('../config/cloudinary');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
@@ -475,26 +477,44 @@ exports.telaEditarVaga = async (req, res) => {
   }
 };
 
+// empresaController.js
 exports.salvarEditarVaga = async (req, res) => {
   try {
     const vagaId = Number(req.params.id);
     const empresaId = req.session.empresa.id;
 
+    // Campos vindos do form de edição
     const {
-      cargo, tipo, escala, diasPresenciais, diasHomeOffice,
-      salario, moeda, descricao, beneficio,
-      areasSelecionadas, habilidadesSelecionadas
+      cargo,
+      tipo,
+      escala,
+      diasPresenciais,
+      diasHomeOffice,
+      salario,
+      moeda,
+      descricao,
+
+      // ✅ agora lendo os campos da IA
+      pergunta,
+      opcao,
+
+      // benefícios (checkboxes + outro)
+      beneficio,
+      beneficioOutro,
+
+      // seleção dinâmica
+      areasSelecionadas,
+      habilidadesSelecionadas
     } = req.body;
 
+    // === ÁREAS: suporta "nova:" e limita a 3 ===
     const areaIds = [];
-    const skillIds = JSON.parse(habilidadesSelecionadas || '[]');
-
     try {
       const areasBrutas = JSON.parse(areasSelecionadas || '[]');
       for (const area of areasBrutas) {
         const valor = String(area);
         if (valor.startsWith('nova:')) {
-          const nomeNova = valor.replace('nova:', '').trim();
+          const nomeNova = valor.slice(5).trim();
           if (!nomeNova) continue;
           let nova = await prisma.area_interesse.findFirst({ where: { nome: nomeNova } });
           if (!nova) {
@@ -506,14 +526,32 @@ exports.salvarEditarVaga = async (req, res) => {
         }
       }
     } catch (e) {
-      console.error('[ERRO] Falha no parse de áreasSelecionadas:', e);
+      console.error('[ERRO] Falha no parse de areasSelecionadas:', e);
       req.session.erro = 'Erro ao processar áreas selecionadas.';
       return res.redirect(`/empresa/vagas/${vagaId}/editar`);
     }
 
+    // === SKILLS ===
+    const skillIds = (() => {
+      try { return JSON.parse(habilidadesSelecionadas || '[]').map(Number); }
+      catch { return []; }
+    })();
+
+    // === BENEFÍCIOS: mesma lógica da criação ===
+    let beneficiosArr = Array.isArray(beneficio) ? beneficio : (beneficio ? [beneficio] : []);
+    if (beneficioOutro?.trim()) beneficiosArr.push(beneficioOutro.trim());
+    const beneficiosTexto = beneficiosArr.join(', ');
+
+    // === Salário: normaliza número ===
+    const salarioNum = salario
+      ? parseFloat(String(salario).replace(/\./g, '').replace(',', '.'))
+      : null;
+
+    // Limpa relações antigas
     await prisma.vaga_area.deleteMany({ where: { vaga_id: vagaId } });
     await prisma.vaga_soft_skill.deleteMany({ where: { vaga_id: vagaId } });
 
+    // ✅ Atualiza também pergunta/opcao/beneficio
     await prisma.vaga.update({
       where: { id: vagaId, empresa_id: empresaId },
       data: {
@@ -522,31 +560,39 @@ exports.salvarEditarVaga = async (req, res) => {
         escala_trabalho: escala,
         dias_presenciais: diasPresenciais ? Number(diasPresenciais) : null,
         dias_home_office: diasHomeOffice ? Number(diasHomeOffice) : null,
-        salario: salario ? parseFloat(salario.replace(',', '.')) : null,
+        salario: salarioNum,
         moeda,
         descricao,
-        beneficio
+        beneficio: beneficiosTexto,
+        pergunta,        
+        opcao             
       }
     });
 
+    // Recria relações com limite de 3 áreas
     const areaIdsLimitadas = areaIds.slice(0, 3);
-    for (const areaId of areaIdsLimitadas) {
-      await prisma.vaga_area.create({ data: { vaga_id: vagaId, area_interesse_id: areaId } });
+    if (areaIdsLimitadas.length) {
+      await prisma.vaga_area.createMany({
+        data: areaIdsLimitadas.map(id => ({ vaga_id: vagaId, area_interesse_id: id }))
+      });
     }
-
-    for (const skillId of skillIds) {
-      await prisma.vaga_soft_skill.create({ data: { vaga_id: vagaId, soft_skill_id: skillId } });
+    if (skillIds.length) {
+      await prisma.vaga_soft_skill.createMany({
+        data: skillIds.map(id => ({ vaga_id: vagaId, soft_skill_id: id }))
+      });
     }
 
     req.session.sucessoVaga = 'Vaga atualizada com sucesso!';
-    res.redirect('/empresa/meu-perfil');
+    return res.redirect('/empresa/meu-perfil');
   } catch (err) {
     console.error('[ERRO] Falha ao editar vaga:', err);
     req.session.erro = 'Não foi possível editar a vaga.';
-    res.redirect('/empresa/meu-perfil');
+    return res.redirect('/empresa/meu-perfil');
   }
 };
 
+
+// empresaController.js
 exports.perfilPublico = async (req, res) => {
   const empresaId = parseInt(req.params.id, 10);
   if (Number.isNaN(empresaId)) {
@@ -561,6 +607,7 @@ exports.perfilPublico = async (req, res) => {
       return res.redirect('/');
     }
 
+    // Vagas publicadas (mantém os includes que você já tinha)
     const vagasPublicadas = await prisma.vaga.findMany({
       where: { empresa_id: empresaId },
       include: {
@@ -569,12 +616,42 @@ exports.perfilPublico = async (req, res) => {
       }
     });
 
-    const somentePreview = !req.session?.usuario;
+    // ✅ Só candidato pode usar o teste da IA nesta tela
+    const podeTestar = !!req.session?.candidato; // << chave da correção
+    const somentePreview = !podeTestar;
+
+    // ✅ (Opcional) Preencher respostas anteriores do candidato, por vaga
+    if (podeTestar && vagasPublicadas.length) {
+      const candidatoId = Number(req.session.candidato.id);
+      const ids = vagasPublicadas.map(v => v.id);
+
+      const avals = await prisma.vaga_avaliacao.findMany({
+        where: { candidato_id: candidatoId, vaga_id: { in: ids } },
+        select: { vaga_id: true, resposta: true } // "resposta" = "Pergunta? Resposta" por linha
+      });
+      const mapResp = new Map(avals.map(a => [a.vaga_id, a.resposta || '']));
+
+      for (const vaga of vagasPublicadas) {
+        const texto = mapResp.get(vaga.id) || '';
+        if (!texto) continue;
+        const linhas = texto.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        const apenasRespostas = linhas.map(L => {
+          const m = L.match(/\?\s*(.*)$/);
+          return m ? m[1].trim() : '';
+        }).filter(Boolean);
+
+        // manda para a view (mesma convenção do vagas.ejs do candidato)
+        vaga.respostas_previas = apenasRespostas;
+        vaga.resposta_unica   = apenasRespostas[0] || '';
+        // dica: Se quiser, você pode também renderizar um aviso "já testou"
+      }
+    }
 
     return res.render('empresas/perfil-publico', {
       empresa,
       vagasPublicadas,
-      somentePreview, 
+      somentePreview,
+      podeTestar
     });
   } catch (error) {
     console.error('Erro ao carregar perfil público:', error);
@@ -582,8 +659,6 @@ exports.perfilPublico = async (req, res) => {
     return res.redirect('/');
   }
 };
-
-
 
 exports.telaComplementarGoogle = (req, res) => {
   if (!req.session.usuario || req.session.usuario.tipo !== 'empresa') {
@@ -766,5 +841,111 @@ exports.mostrarVagas = async (req, res) => {
     console.error('Erro ao listar vagas da empresa:', err);
     req.session.erro = 'Erro ao listar vagas.';
     return res.redirect('/empresa/home');
+  }
+};
+
+async function getEmpresaIdDaSessao(req) {
+  if (req.session?.empresa?.id) return Number(req.session.empresa.id);
+  // fallback: quando só temos usuario na sessão
+  if (req.session?.usuario?.tipo === 'empresa') {
+    const emp = await prisma.empresa.findFirst({
+      where: { usuario_id: Number(req.session.usuario.id) },
+      select: { id: true }
+    });
+    return emp?.id || null;
+  }
+  return null;
+}
+
+exports.rankingCandidatos = async (req, res) => {
+  try {
+    const params = {
+      vaga_id: Number(req.params.vagaId),
+      empresa_id: await getEmpresaIdDaSessao(req)
+    };
+    if (!params.empresa_id) {
+      req.session.erro = 'Faça login como empresa para ver o ranking.';
+      return res.redirect('/login');
+    }
+
+    // valida a vaga/empresa
+    const vaga = await prisma.vaga.findFirst({
+      where: { id: params.vaga_id, empresa_id: params.empresa_id },
+      include: { empresa: true }
+    });
+    if (!vaga) {
+      req.session.erro = 'Vaga não encontrada ou não pertence a esta empresa.';
+      return res.redirect('/empresa/vagas');
+    }
+
+    // busca avaliações dessa vaga
+    const avaliacoes = await vagaAvaliacaoModel.listarPorVaga({ vaga_id: params.vaga_id });
+
+    // monta linhas para a view
+    const rows = avaliacoes.map((a, idx) => {
+      const c = a.candidato || {};
+      const u = c.usuario || {};
+
+      const nome =
+        [c.nome, c.sobrenome].filter(Boolean).join(' ').trim() ||
+        u.nome ||
+        u.email ||
+        `Candidato #${c.id || ''}`.trim();
+
+      const local = [c.cidade, c.estado, c.pais].filter(Boolean).join(', ') || '—';
+      const telefone = c.telefone || '—';
+      const foto_perfil = c.foto_perfil || '/img/avatar.png';
+      const email = u.email || '';
+
+      let questions = '';
+      // 1) API atual: campo questions no próprio registro
+      if (a.questions && typeof a.questions === 'string') {
+        questions = a.questions.trim();
+      }
+      // 2) Formato antigo: texto consolidado em a.resposta (linhas "Pergunta? Resposta")
+      if (!questions && a.resposta && typeof a.resposta === 'string') {
+        questions = a.resposta.trim();
+      }
+      // 3) Algum JSON stringificado que contenha { questions: "..." }
+      const tryParse = (s) => {
+        try {
+          const obj = JSON.parse(s);
+          if (obj && obj.questions && typeof obj.questions === 'string') {
+            return obj.questions.trim();
+          }
+        } catch (_) {}
+        return '';
+      };
+      if (!questions && typeof a.payload === 'string') {
+        questions = tryParse(a.payload);
+      }
+      if (!questions && typeof a.api_result === 'string') {
+        questions = tryParse(a.api_result);
+      }
+      if (!questions && typeof a.result === 'string') {
+        questions = tryParse(a.result);
+      }
+
+      return {
+        pos: idx + 1,
+        nome,
+        local,
+        telefone,
+        email,
+        foto_perfil,
+        score: Number(a.score) || 0,
+        // >>> passa para o EJS:
+        questions
+      };
+    });
+
+    return res.render('empresas/ranking-candidatos', {
+      vaga,
+      rows
+    });
+  } catch (err) {
+    console.error('Erro ao carregar ranking:', err?.message || err);
+    req.session.erro = 'Erro ao carregar ranking.';
+    return res.redirect('/empresa/vagas');
   }
 };
