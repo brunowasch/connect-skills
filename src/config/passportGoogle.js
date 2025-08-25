@@ -1,4 +1,3 @@
-// passportGoogle.js (robusto p/ prod + anti-duplicidade + fallback sem avatarUrl)
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { PrismaClient } = require('@prisma/client');
@@ -6,11 +5,11 @@ const crypto = require('crypto');
 
 const prisma = new PrismaClient();
 
-const isProd = process.env.NODE_ENV === 'production';
+const isProd = process.env.NODE_ENV === 'development';
 // BASE_URL absoluto para evitar http/https errado atrás de proxy
 const BASE_URL =
   process.env.BASE_URL ||
-  (isProd ? 'https://connectskills.com.br' : 'http://localhost:3000');
+  (isProd ? process.env.BASE_ENV : 'http://localhost:3000');
 
 const CALLBACK_URL = `${BASE_URL}/auth/google/callback`;
 console.log('[OAUTH] Google callbackURL:', CALLBACK_URL);
