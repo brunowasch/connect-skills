@@ -949,3 +949,89 @@ exports.rankingCandidatos = async (req, res) => {
     return res.redirect('/empresa/vagas');
   }
 };
+
+exports.excluirConta = async (req, res) => {
+  try {
+    const empresa = req.session.empresa;
+    if (!empresa) {
+      req.session.erro = 'Usuário não autenticado.';
+      return res.redirect('/login');
+    }
+
+    await prisma.empresa.delete({
+      where: { id: empresa.id },
+    });
+
+    req.session.destroy(() => {
+      res.redirect('/');
+    });
+  } catch (err) {
+    console.error('Erro ao excluir conta da empresa:', err);
+    req.session.erro = 'Erro ao excluir conta. Tente novamente.';
+    res.redirect('/empresa/meu-perfil');
+  }
+};
+
+exports.excluirConta = async (req, res) => {
+  try {
+    const empresa = req.session.empresa;
+    if (!empresa) {
+      req.session.erro = 'Usuário não autenticado.';
+      return res.redirect('/login');
+    }
+
+    // Verificar se a empresa tem um usuario_id associado
+    if (!empresa.usuario_id) {
+      req.session.erro = 'Usuário não encontrado.';
+      return res.redirect('/login');
+    }
+
+    // Carregar as vagas associadas à empresa
+    const vagas = await prisma.vaga.findMany({
+      where: { empresa_id: empresa.id },
+    });
+
+    // Verificar se a empresa tem vagas associadas antes de tentar excluir
+    if (vagas.length > 0) {
+      const vagaIds = vagas.map(vaga => vaga.id);
+
+      // Excluir as relações de vagas antes de excluir a empresa
+      await prisma.vaga_area.deleteMany({
+        where: { vaga_id: { in: vagaIds } },
+      });
+
+      await prisma.vaga_soft_skill.deleteMany({
+        where: { vaga_id: { in: vagaIds } },
+      });
+
+      // Excluir as vagas
+      await prisma.vaga.deleteMany({
+        where: { empresa_id: empresa.id },
+      });
+    }
+
+    // Excluir a empresa
+    await prisma.empresa.delete({
+      where: { id: empresa.id },
+    });
+
+    // Excluir o usuário associado à empresa
+    await prisma.usuario.delete({
+      where: { id: empresa.usuario_id },
+    });
+
+    // Destruir a sessão após excluir a empresa e o usuário
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Erro ao destruir a sessão:', err);
+      }
+      res.redirect('/');
+    });
+  } catch (err) {
+    console.error('Erro ao excluir conta da empresa:', err);
+    req.session.erro = 'Erro ao excluir conta. Tente novamente.';
+    res.redirect('/empresa/meu-perfil');
+  }
+};
+
+

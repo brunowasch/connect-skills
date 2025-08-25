@@ -39,5 +39,6 @@ router.get('/editar-areas', ensureCandidato, candidatoController.telaEditarAreas
 router.post('/editar-areas', candidatoController.salvarEditarAreas);
 
 router.post('/vaga/:id/avaliar', candidatoController.avaliarCompatibilidade);
+router.post('/excluir-conta', ensureCandidato, candidatoController.excluirConta);
 
 module.exports = router;

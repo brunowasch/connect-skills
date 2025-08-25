@@ -28,11 +28,8 @@
       <div class="row g-4">
         <div class="col-md-4 text-center">
           <img id="previewImagem"
-               src="<%= fotoPerfil %>" alt="Foto de perfil" class="perfil-foto rounded-circle border border-dark" width="80" height="80"
-               alt="Foto do perfil"
-               class="perfil-foto rounded-circle border border-dark"
-               width="100" height="100">
-        <div class="mt-2 text-center">
+               src="<%= fotoPerfil %>" alt="Foto de perfil" class="perfil-foto rounded-circle border border-dark" width="80" height="80">
+          <div class="mt-2 text-center">
             <button type="button" id="btnAlterarFoto" class="btn btn-primary btn-sm">
               <i class="bi bi-pencil-square fs-6"></i> Alterar foto
             </button>
@@ -51,8 +48,7 @@
             </div>
 
             <% if (temFoto) { %>
-              <button type="submit" name="removerFoto" value="true" class="btn btn-outline-danger btn-sm mt-2"
-                onclick="return confirmarRemocao()">
+              <button type="submit" name="removerFoto" value="true" class="btn btn-outline-danger btn-sm mt-2" onclick="return confirmarRemocao()">
                 <i class="bi bi-trash me-1"></i> Remover foto de perfil
               </button>
             <% } %>
@@ -108,10 +104,36 @@
           <div class="d-flex gap-3 mt-4">
             <button type="submit" class="btn btn-primary">Salvar</button>
             <a href="/candidato/meu-perfil" class="btn btn-danger">Cancelar</a>
+
+            <!-- Botão para excluir conta com modal de confirmação -->
+            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalExcluir">
+              <i class="bi bi-trash me-1"></i> Excluir conta
+            </button>
           </div>
         </div>
       </div>
     </form>
+
+    <!-- Modal de confirmação de exclusão -->
+    <div class="modal fade" id="modalExcluir" tabindex="-1" aria-labelledby="modalExcluirLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalExcluirLabel">Confirmar Exclusão</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>Tem certeza de que deseja excluir sua conta? Esta ação não pode ser desfeita.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <form action="/candidato/excluir-conta" method="POST">
+              <button type="submit" class="btn btn-danger">Excluir conta</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <%- include('../partials/footer') %>
@@ -121,6 +143,7 @@
   <script src="/js/empresas/previewImagem.js"></script>
   <script src="/js/shared/botoesFotosEditarPerfil.js"></script>
   <script>
+    // Função para formatar número de telefone
     function formatarNumero(input) {
       let num = input.value.replace(/\D/g, '');
       if (num.length > 5) {
@@ -129,10 +152,8 @@
         input.value = num;
       }
     }
-    window.addEventListener('DOMContentLoaded', () => {
-      const numeroInput = document.getElementById('numero');
-      if (numeroInput) formatarNumero(numeroInput);
-    });
+
+    // Função para exibir foto no preview
     function previewFoto(input) {
       const file = input.files[0]; if (!file) return;
       const reader = new FileReader();
