@@ -13,7 +13,6 @@
     /* Espaços extras para o bloco da IA e resultados não "apertarem" o botão */
     .bloco-ia { margin-bottom: 2rem; }
     .resultados-ia { margin-top: 1rem; padding-bottom: 1rem; }
-
     /* Cabeçalho do bloco fica visível ao rolar */
     .ia-header {
       display: flex; align-items: center; justify-content: space-between; gap: .75rem;
@@ -22,8 +21,8 @@
 
     /* Rodapé do bloco com espaçamento e divisor para o botão "Ocultar" */
     .ia-footer {
-      margin-top: 1.25rem;
-      padding-top: .75rem;
+      margin-top: 2rem;           /* mais espaço entre opções e botão */
+      padding-top: 1rem;
       border-top: 1px dashed #ddd;
       display: flex;
       justify-content: flex-end;
@@ -183,12 +182,14 @@
             </div>
 
             <div class="mt-3 resultados-ia"></div>
-
             <div class="mt-3 msg-ja-avaliada alert alert-info py-2 px-3" style="display:none;">
               Você já realizou o teste desta vaga. Apenas a última avaliação é considerada no ranking.
             </div>
-
             <div class="ia-footer">
+              <button class="btn btn-outline-secondary fechar-ia-baixo">
+                Ocultar teste
+              </button>
+            </div>
             </div>
           </div>
         </div>
@@ -227,7 +228,6 @@
         const bloco = card.querySelector('.bloco-ia');
         const showing = bloco.style.display !== 'none';
         bloco.style.display = showing ? 'none' : 'block';
-        openBtn.textContent = showing ? 'Iniciar teste com a IA' : 'Ocultar teste';
         return;
       }
 
@@ -238,7 +238,6 @@
         const bloco = card.querySelector('.bloco-ia');
         const toggle = card.querySelector('.botao-ia');
         bloco.style.display = 'none';
-        if (toggle) toggle.textContent = 'Iniciar teste com a IA';
         return;
       }
     });
