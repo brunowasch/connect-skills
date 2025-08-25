@@ -5,11 +5,11 @@ const crypto = require('crypto');
 
 const prisma = new PrismaClient();
 
-// Checa o ambiente de produção ou desenvolvimento
-const isProd = process.env.NODE_ENV === 'production';  // Corrigido para produção
+const isProd = process.env.NODE_ENV === 'production';  // Verificando o ambiente
 const BASE_URL = process.env.BASE_URL || (isProd ? 'https://connectskills.com.br' : 'http://localhost:3000');
 const CALLBACK_URL = `${BASE_URL}/auth/google/callback`;
 console.log('[OAUTH] Google callbackURL:', CALLBACK_URL);
+
 
 // Funções de criação e atualização de usuário
 async function safeCreateUsuario(data) {

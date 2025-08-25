@@ -8,9 +8,9 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 function baseUrl() {
-  const url = process.env.NODE_ENV === 'production'
-    ? process.env.BASE_URL
-    : 'http://localhost:3000';
+  // Verifica o ambiente de produção ou desenvolvimento
+  const isProd = process.env.NODE_ENV === 'production';  
+  const url = process.env.BASE_URL || (isProd ? 'https://connectskills.com.br' : 'http://localhost:3000');
   return url.endsWith('/') ? url.slice(0, -1) : url;
 }
 
@@ -41,8 +41,7 @@ async function enviarEmailVerificacao(email, usuario_id) {
             color: #ffffff !important;
             text-decoration: none;
             border-radius: 6px;
-            font-weight: bold;
-          ">
+            font-weight: bold;">
             Verificar e-mail
           </a>
         </p>
@@ -78,33 +77,28 @@ async function enviarEmailConfirmacaoAcao(email, usuario_id, tipo) {
       <p>Olá!</p>
       <p>Identificamos que você já possui um <strong>cadastro em andamento</strong> no Connect Skills (${tipo === 'candidato' ? 'Pessoa Física' : 'Pessoa Jurídica'}).</p>
       <p>Por segurança, confirme a ação que deseja realizar:</p>
-
       <div style="margin: 20px 0; flex-wrap: wrap; gap: 20px;">
         <a href="${continuarLink}" target="_blank" rel="noopener noreferrer" style="
-          display: inline-block; 
-          padding: 10px 16px; 
-          border-radius: 6px; 
-          background: #0d6efd; 
-          color: #ffffff !important; 
-          text-decoration: none; 
-          font-weight: bold;
-        ">
+          display: inline-block;
+          padding: 10px 16px;
+          border-radius: 6px;
+          background: #0d6efd;
+          color: #ffffff !important;
+          text-decoration: none;
+          font-weight: bold;">
           Continuar cadastro
         </a>
-
         <a href="${reiniciarLink}" target="_blank" rel="noopener noreferrer" style="
-          display: inline-block; 
-          padding: 10px 16px; 
-          border-radius: 6px; 
-          background: #6c757d; 
-          color: #ffffff !important; 
-          text-decoration: none; 
-          font-weight: bold;
-        ">
+          display: inline-block;
+          padding: 10px 16px;
+          border-radius: 6px;
+          background: #6c757d;
+          color: #ffffff !important;
+          text-decoration: none;
+          font-weight: bold;">
           Reiniciar cadastro
         </a>
       </div>
-
       <p style="color:#555; font-size: 14px;">Esses links expiram em 2 horas. Caso não tenha solicitado, ignore este e-mail.</p>
       <p>Equipe Connect Skills</p>
     </div>
