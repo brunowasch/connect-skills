@@ -201,8 +201,6 @@ async function redirecionarFluxoEmpresa(usuarioId, res) {
   return res.redirect('/empresa/home');
 }
 
-/* ===================== Reset “do zero” ===================== */
-// Usa os nomes exatos do seu schema.prisma
 async function resetParcialCandidato(usuarioId) {
   await prisma.$transaction(async (tx) => {
     const cand = await tx.candidato.findUnique({
@@ -391,7 +389,6 @@ exports.login = async (req, res) => {
       return res.redirect('/login');
     }
 
-    // 🚫 NOVO: impedir acesso caso o e-mail ainda não tenha sido verificado
     if (!usuario.email_verificado) {
       // Mantém experiência: leva para a tela que orienta a verificar o e-mail, com opção de reenviar
       return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(usuario.email)}`);
