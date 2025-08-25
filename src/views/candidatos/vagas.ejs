@@ -9,6 +9,26 @@
   <link rel="stylesheet" href="/css/shared/style.css">
   <link rel="stylesheet" href="/css/candidatos/vagas.css">
   <link rel="icon" href="/img/CONNECT.png">
+  <style>
+    /* Espaços extras para o bloco da IA e resultados não "apertarem" o botão */
+    .bloco-ia { margin-bottom: 2rem; }
+    .resultados-ia { margin-top: 1rem; padding-bottom: 1rem; }
+
+    /* Cabeçalho do bloco fica visível ao rolar */
+    .ia-header {
+      display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+      position: sticky; top: 0; background: #f8f9fa; padding: .25rem 0 .5rem 0; z-index: 1;
+    }
+
+    /* Rodapé do bloco com espaçamento e divisor para o botão "Ocultar" */
+    .ia-footer {
+      margin-top: 1.25rem;
+      padding-top: .75rem;
+      border-top: 1px dashed #ddd;
+      display: flex;
+      justify-content: flex-end;
+    }
+  </style>
 </head>
 <body>
   <%- include('../partials/header-candidato') %>
@@ -29,7 +49,9 @@
       <div class="alert alert-light text-center">Nenhuma vaga disponível no momento.</div>
     <% } else { %>
       <% vagas.forEach(vaga => { %>
-        <div class="card shadow-sm mb-4">
+        <div class="card shadow-sm mb-4"
+             data-vaga-id="<%= vaga.id %>"
+             data-ja-avaliada="<%= vaga.ja_avaliada ? '1' : '0' %>">
           <div class="card-body">
             <div class="row g-3 align-items-start">
               <div class="col-12 col-md-auto text-center">
@@ -115,36 +137,30 @@
           </div>
 
           <!-- Botão para abrir/fechar o bloco da IA -->
-          <div class="text-center pb-4">
-            <button class="btn btn-outline-primary fw-bold botao-ia">Iniciar teste com a IA</button>
+          <div class="text-center mb-4 mt-4">
+            <button class="btn btn-outline-primary fw-bold botao-ia">
+              Iniciar teste com a IA
+            </button>
           </div>
 
           <!-- Bloco da IA (colapsado por padrão) -->
-          <div class="mt-3 border rounded p-3 bg-light bloco-ia" style="display:none;">
-            <%
-              // Perguntas: 1 por linha no campo "pergunta" da vaga
-              const perguntas = (vaga.pergunta || '')
-                .split('\n')
-                .map(s => s.trim())
-                .filter(Boolean);
-
-              const opcoes = (vaga.opcao || '')
-                .split('|')
-                .map(s => s.trim())
-                .filter(Boolean);
-            %>
-
-            <!-- Cabeçalho -->
-            <div class="alert alert-secondary small mb-3">
-              <strong>Questionário da vaga:</strong>
-              <% if (!perguntas.length) { %>
-                <span> — (esta vaga não possui perguntas configuradas)</span>
-              <% } %>
+          <div class="mt-1 border rounded p-3 bg-light bloco-ia" style="display:none;">
+            <div class="ia-header">
+              <div class="alert alert-secondary small mb-0 py-1 px-2">
+                <strong>Questionário da vaga</strong>
+              </div>
             </div>
+
+            <%
+              const perguntas = (vaga.pergunta || '')
+                .split('\n').map(s => s.trim()).filter(Boolean);
+              const opcoes = (vaga.opcao || '')
+                .split('|').map(s => s.trim()).filter(Boolean);
+            %>
 
             <!-- Lista de perguntas + inputs de resposta -->
             <% if (perguntas.length) { %>
-              <div class="mb-3">
+              <div class="mb-3 mt-2">
                 <% perguntas.forEach((q, idx) => { %>
                   <div class="mb-2">
                     <label class="form-label"><%= (idx + 1) + '. ' + q %></label>
@@ -153,22 +169,11 @@
                 <% }) %>
               </div>
             <% } else { %>
-              <!-- Fallback: se a empresa cadastrou zero perguntas, uso um único campo livre -->
-              <label class="form-label fw-semibold">Sua resposta:</label>
+              <label class="form-label fw-semibold mt-2">Sua resposta:</label>
               <textarea class="form-control resposta-ia" rows="3" placeholder="Ex.: Sim, configuração de switches e roteadores."></textarea>
             <% } %>
 
-            <!-- Opções (itens) apenas como referência visual
-            <% if (opcoes.length) { %>
-              <p class="mb-1"><small class="text-muted">Áreas da vaga (itens usados pela IA):</small></p>
-              <div class="d-flex flex-wrap gap-1 mb-2">
-                <% opcoes.forEach(o => { %>
-                  <span class="badge text-bg-light border"><%= o %></span>
-                <% }) %>
-              </div>
-            <% } %> -->
-
-            <div class="d-flex gap-2 mt-2">
+            <div class="d-flex gap-2 mt-3">
               <button class="btn btn-primary btn-avaliar" data-vaga-id="<%= vaga.id %>">
                 Analisar compatibilidade
               </button>
@@ -178,6 +183,13 @@
             </div>
 
             <div class="mt-3 resultados-ia"></div>
+
+            <div class="mt-3 msg-ja-avaliada alert alert-info py-2 px-3" style="display:none;">
+              Você já realizou o teste desta vaga. Apenas a última avaliação é considerada no ranking.
+            </div>
+
+            <div class="ia-footer">
+            </div>
           </div>
         </div>
       <% }) %>
@@ -185,36 +197,75 @@
   </main>
 
   <script>
-    // Toggle do bloco da IA (delegation)
-    document.addEventListener('click', (e) => {
-      const btn = e.target.closest('.botao-ia');
-      if (!btn) return;
-      const card = btn.closest('.card');
-      const bloco = card.querySelector('.bloco-ia');
-      if (!bloco) return;
-      const showing = bloco.style.display !== 'none';
-      bloco.style.display = showing ? 'none' : 'block';
-      btn.textContent = showing ? 'Iniciar teste com a IA' : 'Ocultar teste';
+    function keyVagaAvaliada(id) { return 'connectskills_vaga_avaliada_' + id; }
+
+    // Aplica bloqueio se já avaliou (server flag OU localStorage)
+    document.querySelectorAll('.card[data-vaga-id]').forEach(card => {
+      const vagaId = card.getAttribute('data-vaga-id');
+      const btnToggle = card.querySelector('.botao-ia');
+      const btnAvaliar = card.querySelector('.btn-avaliar');
+      const msgJa = card.querySelector('.msg-ja-avaliada');
+
+      const jaFlag = card.getAttribute('data-ja-avaliada') === '1';
+      const jaLocal = localStorage.getItem(keyVagaAvaliada(vagaId)) === '1';
+      const jaAvaliou = jaFlag || jaLocal;
+
+      if (jaAvaliou) {
+        btnAvaliar?.setAttribute('disabled', 'disabled');
+        btnAvaliar?.classList.add('disabled');
+        btnAvaliar?.classList.replace('btn-primary', 'btn-outline-secondary');
+        if (msgJa) msgJa.style.display = 'block';
+        if (btnToggle) btnToggle.textContent = 'Ver teste da IA';
+      }
     });
 
-    // Avaliar compatibilidade (delegation)
+    // Toggle do bloco da IA (topo e rodapé)
+    document.addEventListener('click', (e) => {
+      const openBtn = e.target.closest('.botao-ia');
+      if (openBtn) {
+        const card = openBtn.closest('.card');
+        const bloco = card.querySelector('.bloco-ia');
+        const showing = bloco.style.display !== 'none';
+        bloco.style.display = showing ? 'none' : 'block';
+        openBtn.textContent = showing ? 'Iniciar teste com a IA' : 'Ocultar teste';
+        return;
+      }
+
+      const closeTop = e.target.closest('.fechar-ia');
+      const closeBottom = e.target.closest('.fechar-ia-baixo');
+      if (closeTop || closeBottom) {
+        const card = (closeTop || closeBottom).closest('.card');
+        const bloco = card.querySelector('.bloco-ia');
+        const toggle = card.querySelector('.botao-ia');
+        bloco.style.display = 'none';
+        if (toggle) toggle.textContent = 'Iniciar teste com a IA';
+        return;
+      }
+    });
+
+    // Avaliar compatibilidade (bloqueia reenvio após sucesso)
     document.addEventListener('click', async (e) => {
       const btn = e.target.closest('.btn-avaliar');
       if (!btn) return;
 
-      const container = btn.closest('.mt-3.border');
+      const card = btn.closest('.card[data-vaga-id]');
+      const vagaId = card.getAttribute('data-vaga-id');
+
+      if (localStorage.getItem(keyVagaAvaliada(vagaId)) === '1') {
+        const msg = card.querySelector('.msg-ja-avaliada');
+        if (msg) msg.style.display = 'block';
+        return;
+      }
+
+      const container = btn.closest('.bloco-ia');
       const status    = container.querySelector('.status-ia');
       const output    = container.querySelector('.resultados-ia');
 
-      // Inputs por pergunta
-      const inputs = container.querySelectorAll('.resposta-ia-item');
-      // Fallback: single textarea
+      const inputs   = container.querySelectorAll('.resposta-ia-item');
       const textarea = container.querySelector('.resposta-ia');
 
-      const vagaId = btn.getAttribute('data-vaga-id');
       output.innerHTML = '';
 
-      // Monta payload
       let payload = {};
       if (inputs && inputs.length) {
         const respostas = Array.from(inputs).map(i => (i.value || '').trim());
@@ -223,20 +274,19 @@
           output.innerHTML = '<div class="text-danger">Preencha ao menos uma resposta.</div>';
           return;
         }
-        payload = { respostas }; // array alinhado com as perguntas
+        payload = { respostas };
       } else if (textarea) {
         const resposta = (textarea.value || '').trim();
         if (!resposta) {
           output.innerHTML = '<div class="text-danger">Digite sua resposta antes de analisar.</div>';
           return;
         }
-        payload = { resposta }; // fallback
+        payload = { resposta };
       } else {
         output.innerHTML = '<div class="text-danger">Não foi possível ler suas respostas.</div>';
         return;
       }
 
-      // Loading
       btn.disabled = true;
       status.style.display = 'inline';
 
@@ -248,21 +298,28 @@
         });
 
         const data = await resp.json();
+        status.style.display = 'none';
+
+        if (resp.status === 409) {
+          output.innerHTML = `<div class="alert alert-info">Você já realizou o teste desta vaga.</div>`;
+          localStorage.setItem(keyVagaAvaliada(vagaId), '1');
+          return;
+        }
 
         if (!data.ok) {
+          btn.disabled = false;
           output.innerHTML = `<div class="text-danger">${data.error || 'Erro desconhecido.'}</div>`;
           return;
         }
 
-        // Nota geral
         if (typeof data.score === 'number') {
           output.insertAdjacentHTML('afterbegin',
             `<div class="alert alert-info py-2 mb-3">
-               <strong>Sua compatibilidade geral:</strong> ${data.score}%
+               <strong>Sua compatibilidade geral:</strong> ${data.score}%<br>
+               <small class="text-muted">Sua participação foi registrada para o ranking.</small>
              </div>`);
         }
 
-        // Itens
         if (Array.isArray(data.results) && data.results.length) {
           const lista = data.results.map(r => {
             const item = String(r.Item || '').replace(/^Item\s*\d+:\s*/i, '');
@@ -281,11 +338,17 @@
         } else {
           output.innerHTML += '<div class="text-muted">A IA não retornou itens para avaliar.</div>';
         }
+
+        localStorage.setItem(keyVagaAvaliada(vagaId), '1');
+        btn.classList.replace('btn-primary', 'btn-outline-secondary');
+        btn.textContent = 'Teste já realizado';
+        const msgJa = card.querySelector('.msg-ja-avaliada');
+        if (msgJa) msgJa.style.display = 'block';
+
       } catch (err) {
-        output.innerHTML = '<div class="text-danger">Falha ao contatar o serviço de análise. Tente novamente.</div>';
-      } finally {
         status.style.display = 'none';
         btn.disabled = false;
+        output.innerHTML = '<div class="text-danger">Falha ao contatar o serviço de análise. Tente novamente.</div>';
       }
     });
   </script>

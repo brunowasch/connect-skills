@@ -35,36 +35,53 @@
         <span>Nenhum candidato aplicou para esta vaga.</span>
       </div>
     <% } else { %>
-      <div class="bg-white rounded shadow-sm">
-        <% rows.forEach(r => { %>
-          <div class="p-3 border-bottom">
-            <div class="d-flex align-items-center justify-content-between">
-              <div class="d-flex align-items-center gap-3">
-                <div class="fs-5 fw-bold" style="width:2.5rem; text-align:right;"><%= r.pos %>º</div>
-                <div class="d-flex align-items-center gap-2">
-                  <div class="rounded-circle bg-light d-flex align-items-center justify-content-center"
-                       style="width: 36px; height: 36px;">
-                    <i class="bi bi-person fs-5"></i>
-                  </div>
-                  <div>
-                    <div class="fw-semibold"><%= r.nome %></div>
-                    <div class="text-muted small"><%= r.local %></div>
-                    <div class="text-muted small"><i class="bi bi-telephone"></i> <%= r.telefone %></div>
-                  </div>
-                </div>
-              </div>
-              <div class="text-end" style="min-width: 190px;">
-                <div class="fw-semibold"><%= r.score %>%</div>
-                <div class="progress" style="height: 8px; width: 180px;">
-                  <div class="progress-bar" role="progressbar"
-                       style="width: <%= r.score + '%' %>;" aria-valuenow="<%= r.score %>"
-                       aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        <% }) %>
+    <div class="bg-white rounded shadow-sm">
+  <% rows.forEach(r => { %>
+    <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
+      
+      <!-- Posição -->
+      <div class="fs-5 fw-bold" style="width: 2.5rem; text-align: right;">
+        <%= r.pos %>º
       </div>
+
+      <!-- Foto + dados -->
+      <div class="d-flex align-items-center gap-3 flex-grow-1">
+        <img src="<%= r.foto_perfil || '/img/avatar.png' %>"
+             alt="Foto do candidato"
+             class="rounded-circle"
+             style="width: 48px; height: 48px; object-fit: cover;">
+        <div>
+          <div class="fw-semibold"><%= r.nome %></div>
+          <div class="text-muted small"><%= r.local %></div>
+          <div class="d-flex gap-3 small">
+            <% if (r.telefone) { %>
+              <a href="tel:<%= r.telefone.replace(/\D/g,'') %>" class="text-decoration-none">
+                <i class="bi bi-telephone"></i> <%= r.telefone %>
+              </a>
+            <% } %>
+            <% if (r.email) { %>
+              <a href="mailto:<%= r.email %>" class="text-decoration-none">
+                <i class="bi bi-envelope"></i> <%= r.email %>
+              </a>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compatibilidade -->
+      <div class="text-end" style="min-width: 190px;">
+        <div class="fw-semibold"><%= r.score %>%</div>
+        <div class="progress" style="height: 8px; width: 180px;">
+          <div class="progress-bar" role="progressbar"
+               style="width: <%= r.score %>%;" aria-valuenow="<%= r.score %>"
+               aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+
     <% } %>
   </main>
 

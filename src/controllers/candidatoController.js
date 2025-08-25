@@ -3,6 +3,8 @@ const prisma = new PrismaClient();
 const axios = require('axios');
 const candidatoModel = require('../models/candidatoModel');
 const vagaModel = require('../models/vagaModel');
+const { sugerirCompatibilidade } = require('../services/iaClient');
+const vagaAvaliacaoModel = require('../models/vagaAvaliacaoModel');
 const { cloudinary } = require('../config/cloudinary');
 
 exports.telaNomeCandidato = (req, res) => {
@@ -646,6 +648,16 @@ exports.restaurarFotoGoogle = async (req, res) => {
 
 
 exports.avaliarCompatibilidade = async (req, res) => {
+  const existe = await prisma.vaga_avaliacao.findFirst({
+  where: { vaga_id: vagaId, candidato_id: candidatoId },
+  select: { id: true }
+  });
+  if (existe) {
+    return res.status(409).json({
+      ok: false,
+      error: 'Você já realizou o teste desta vaga.'
+    });
+  }
   try {
     if (!req.session.candidato) {
       return res.status(401).json({ ok: false, error: 'Não autenticado' });
@@ -736,7 +748,6 @@ exports.avaliarCompatibilidade = async (req, res) => {
         breakdown: data.results
       }
     });
-
     return res.json({ ok: true, score, results: data.results });
   } catch (err) {
     console.error('Erro ao avaliar compatibilidade:', err?.message || err);
@@ -747,29 +758,37 @@ exports.avaliarCompatibilidade = async (req, res) => {
   }
 };
 
+
 exports.avaliarCompatibilidade = async (req, res) => {
   try {
-    if (!req.session.candidato) {
+    const sess = req.session.candidato;
+    if (!sess) {
       return res.status(401).json({ ok: false, error: 'Não autenticado' });
     }
 
-    const candidatoId = Number(req.session.candidato.id);
-    const vagaId = Number(req.params.id);
+    const candidato_id = Number(sess.id);
+    const vaga_id = Number(req.params.id);
 
-    // Carrega pergunta/opção da vaga
-    const vaga = await prisma.vaga.findUnique({
-      where: { id: vagaId },
-      select: { pergunta: true, opcao: true }
+    // Se quiser BLOQUEAR reenvio no back:
+    const existente = await prisma.vaga_avaliacao.findFirst({
+      where: { vaga_id, candidato_id },
+      select: { id: true }
     });
-    if (!vaga) {
-      return res.status(404).json({ ok: false, error: 'Vaga não encontrada.' });
+    if (existente) {
+      return res.status(409).json({ ok: false, error: 'Você já realizou o teste desta vaga.' });
     }
 
-    // Normaliza perguntas (1 por linha)
-    const perguntas = (vaga.pergunta || '')
-      .split('\n').map(s => s.trim()).filter(Boolean);
+    // Carrega pergunta/opção
+    const vaga = await prisma.vaga.findUnique({
+      where: { id: vaga_id },
+      select: { pergunta: true, opcao: true }
+    });
+    if (!vaga) return res.status(404).json({ ok: false, error: 'Vaga não encontrada.' });
 
-    // Lê respostas do body (array ou única)
+    // Perguntas por linha
+    const perguntas = (vaga.pergunta || '').split('\n').map(s => s.trim()).filter(Boolean);
+
+    // Body (array de respostas ou única)
     const respostasArray = Array.isArray(req.body.respostas)
       ? req.body.respostas.map(r => String(r || '').trim())
       : null;
@@ -777,20 +796,19 @@ exports.avaliarCompatibilidade = async (req, res) => {
       ? req.body.resposta.trim() : '';
 
     const temArrayValido = Array.isArray(respostasArray) && respostasArray.some(v => v.length > 0);
-    const temRespostaUnica = !!respostaUnica;
-    if (!temArrayValido && !temRespostaUnica) {
+    const temUnica = !!respostaUnica;
+    if (!temArrayValido && !temUnica) {
       return res.status(400).json({ ok: false, error: 'Resposta é obrigatória.' });
     }
 
-    // Monta questions no formato exigido pela IA
+    // Monta `questions`
     let questions = '';
     if (temArrayValido) {
       if (perguntas.length) {
-        const linhas = perguntas.map((q, i) => {
+        questions = perguntas.map((q, i) => {
           const r = (respostasArray[i] || '').trim();
           return (q + (r ? ' ' + r : '')).trim();
-        });
-        questions = linhas.filter(Boolean).join('\n');
+        }).filter(Boolean).join('\n');
       } else {
         questions = respostasArray.filter(Boolean).join('\n');
       }
@@ -802,97 +820,80 @@ exports.avaliarCompatibilidade = async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Nenhuma resposta informada.' });
     }
 
-    // Monta items a partir das opções (separadas por |)
+    // Monta `items` a partir de `opcao` (| separado)
     const opcoes = (vaga.opcao || '').split('|').map(s => s.trim()).filter(Boolean);
     if (!opcoes.length) {
       return res.status(400).json({ ok: false, error: 'Vaga sem opções configuradas.' });
     }
     const items = opcoes.map((t, i) => `Item ${i + 1}: ${t}`).join('\n');
 
-    // ---------- CHAMADA ROBUSTA À IA + PARSING DEFENSIVO ----------
+    // Chamada à IA
     const resp = await axios.post(
       'http://159.203.185.226:4000/suggest',
       { questions, items },
-      {
-        timeout: 45000,
-        headers: { 'Content-Type': 'application/json' },
-        validateStatus: (s) => s >= 200 && s < 300
-      }
+      { timeout: 45000, headers: { 'Content-Type': 'application/json' } }
     );
 
     let raw = resp.data;
-    // Se veio string, tenta parsear
     if (typeof raw === 'string') {
-      try { raw = JSON.parse(raw); } catch (_) { /* deixa como string */ }
+      try { raw = JSON.parse(raw); } catch (_) {}
     }
 
-    // Alguns serviços respondem {result: [...]}, {results: [...]}, {data:{results: [...]}} ou até array direto
+    // Aceita {results}, {result}, {items}, array, ou {data:{results|items}}
     let results =
-  (raw && raw.results) ||
-  (raw && raw.result) ||
-  (raw && raw.items)  ||                    // <--- NOVO
-  (raw && raw.data && (raw.data.results || raw.data.items)) ||  // <--- NOVO
-  (Array.isArray(raw) ? raw : null);
+      (raw && raw.results) ||
+      (raw && raw.result)  ||
+      (raw && raw.items)   ||
+      (raw && raw.data && (raw.data.results || raw.data.items)) ||
+      (Array.isArray(raw) ? raw : null);
 
-// Se results vier como string, tenta parsear
-if (typeof results === 'string') {
-  try { results = JSON.parse(results); } catch (_) { /* segue */ }
-}
+    if (typeof results === 'string') {
+      try { results = JSON.parse(results); } catch (_) {}
+    }
+    if (!Array.isArray(results)) {
+      console.warn('[IA] Formato inesperado:', JSON.stringify(raw).slice(0, 400));
+      return res.status(502).json({ ok: false, error: 'Resposta inesperada da IA.' });
+    }
 
-// results precisa ser um array de itens
-if (!Array.isArray(results)) {
-  console.warn('[IA] Formato inesperado (pos-extracao):', JSON.stringify(raw).slice(0, 400));
-  return res.status(502).json({ ok: false, error: 'Resposta inesperada da IA.' });
-}
-
-    // Normaliza itens: garante { Item: string, rating: number }
+    // Normaliza itens e rating
     const normalized = results
       .map((r) => {
         const Item = r?.Item ?? r?.item ?? r?.titulo ?? '';
         let rating = r?.rating ?? r?.score ?? r?.nota;
-        // rating pode vir string -> número
         if (typeof rating === 'string') {
           const m = rating.match(/-?\d+(\.\d+)?/);
           rating = m ? Number(m[0]) : null;
         }
         if (typeof rating === 'number') {
           if (!Number.isFinite(rating)) rating = null;
-          else rating = Math.round(rating); // 0..100 inteiro
+          else rating = Math.round(rating);
         }
         return { Item: String(Item), rating };
       })
       .filter(x => x.Item);
 
-    // Nota final
-    const ratings = normalized.map(x => (typeof x.rating === 'number' ? x.rating : null)).filter(v => v !== null);
+    // Score final = média dos ratings válidos
+    const ratings = normalized
+      .map(x => (typeof x.rating === 'number' ? x.rating : null))
+      .filter(v => v !== null);
     const score = ratings.length
       ? Math.max(0, Math.min(100, Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length)))
       : 0;
 
-    // Persistência
+    // Persiste (se quiser sempre sobrescrever, use upsert; se quiser bloquear, já retornamos 409 antes)
     await prisma.vaga_avaliacao.upsert({
-      where: { vaga_candidato_unique: { vaga_id: vagaId, candidato_id: candidatoId } },
-      create: {
-        vaga_id: vagaId,
-        candidato_id: candidatoId,
-        score,
-        resposta: questions,                 // guarda "Pergunta + Resposta"
-        breakdown: normalized                // se a coluna for LONGTEXT, use JSON.stringify(normalized)
-      },
-      update: {
-        score,
-        resposta: questions,
-        breakdown: normalized
-      }
+      where: { vaga_candidato_unique: { vaga_id, candidato_id } },
+      create: { vaga_id, candidato_id, score, resposta: questions, breakdown: normalized },
+      update: { score, resposta: questions, breakdown: normalized }
     });
 
     return res.json({ ok: true, score, results: normalized });
-    // ---------- FIM CHAMADA ROBUSTA ----------
   } catch (err) {
     console.error('Erro ao avaliar compatibilidade:', err?.message || err);
-    const reason = err?.code === 'ECONNABORTED'
-      ? 'Tempo limite excedido. Tente novamente.'
-      : 'Falha ao contatar o serviço de análise.';
+    const reason =
+      err?.code === 'ECONNABORTED'
+        ? 'Tempo limite excedido. Tente novamente.'
+        : 'Falha ao contatar o serviço de análise.';
     return res.status(500).json({ ok: false, error: reason });
   }
 };

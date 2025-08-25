@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 const empresaModel = require('../models/empresaModel');
 const vagaModel = require('../models/vagaModel');
+const vagaAvaliacaoModel = require('../models/vagaAvaliacaoModel');
 const { cloudinary } = require('../config/cloudinary');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
@@ -773,8 +775,6 @@ async function getEmpresaIdDaSessao(req) {
   if (req.session?.empresa?.id) return Number(req.session.empresa.id);
 
   if (req.session?.usuario?.id && req.session?.usuario?.tipo === 'empresa') {
-    if (req.session.usuario.empresa_id) return Number(req.session.usuario.empresa_id);
-
     const emp = await prisma.empresa.findUnique({
       where: { usuario_id: Number(req.session.usuario.id) },
       select: { id: true }
@@ -789,57 +789,67 @@ async function getEmpresaIdDaSessao(req) {
 
 exports.rankingCandidatos = async (req, res) => {
   try {
-    const vagaId = Number(req.params.vagaId);
-    const empresaId = await getEmpresaIdDaSessao(req);
-    if (!empresaId) {
+    const params = {
+      vaga_id: Number(req.params.vagaId),
+      empresa_id: await getEmpresaIdDaSessao(req)
+    };
+    if (!params.empresa_id) {
       req.session.erro = 'Faça login como empresa para ver o ranking.';
       return res.redirect('/login');
     }
 
-    // Garante que a vaga é desta empresa
+    // valida a vaga/empresa
     const vaga = await prisma.vaga.findFirst({
-      where: { id: vagaId, empresa_id: empresaId },
+      where: { id: params.vaga_id, empresa_id: params.empresa_id },
       include: { empresa: true }
     });
     if (!vaga) {
       req.session.erro = 'Vaga não encontrada ou não pertence a esta empresa.';
-      return res.redirect('/empresas/home');
+      return res.redirect('/empresa/vagas');
     }
 
-    // Busca avaliações (pode vir vazio)
-    let avaliacoes = [];
-    try {
-      avaliacoes = await prisma.vaga_avaliacao.findMany({
-        where: { vaga_id: vagaId },
-        orderBy: { score: 'desc' },
-        include: {
-          candidato: { include: { usuario: true } }
-        }
-      });
-    } catch (err) {
-      // Se por algum motivo a tabela ainda não estiver no DB, mostra vazio (sem quebrar a página)
-      if (err?.code === 'P2021') {
-        avaliacoes = [];
-      } else {
-        throw err;
-      }
-    }
+    // busca avaliações
+    const avaliacoes = await vagaAvaliacaoModel.listarPorVaga({ vaga_id: params.vaga_id });
 
+    // monta linhas para a view
     const rows = avaliacoes.map((a, idx) => {
-      const c = a.candidato || {};
-      const nome =
-        [c.nome, c.sobrenome].filter(Boolean).join(' ') ||
-        c.usuario?.nome ||
-        `Candidato #${c.id}`;
-      const local = [c.cidade, c.estado, c.pais].filter(Boolean).join(', ') || '—';
-      const telefone = c.telefone || '—';
-      return { pos: idx + 1, nome, local, telefone, score: a.score };
-    });
+  const c = a.candidato || {};
+  const u = c.usuario || {};
 
-    return res.render('empresas/ranking-candidatos', { vaga, rows });
+  const nome =
+    [c.nome, c.sobrenome].filter(Boolean).join(' ').trim() ||
+    u.nome ||                                  // se você popular nome no usuário
+    u.email ||                                 // senão usa email
+    `Candidato #${c.id || ''}`.trim();         // último fallback
+
+  const local = [c.cidade, c.estado, c.pais].filter(Boolean).join(', ') || '—';
+
+  // mantém formatação original; o EJS já sanitiza para tel: com regex
+  const telefone = c.telefone || '—';
+
+  // novos campos que sua view usa
+  const foto_perfil = c.foto_perfil || '/img/avatar.png';
+  const email = u.email || '';
+
+  return {
+    pos: idx + 1,
+    nome,
+    local,
+    telefone,
+    email,
+    foto_perfil,
+    score: Number(a.score) || 0
+  };
+});
+
+
+    return res.render('empresas/ranking-candidatos', {
+      vaga,
+      rows
+    });
   } catch (err) {
-    console.error('Erro ao carregar ranking:', err);
-    req.session.erro = 'Não foi possível carregar o ranking.';
-    return res.redirect('/empresas/home');
+    console.error('Erro ao carregar ranking:', err?.message || err);
+    req.session.erro = 'Erro ao carregar ranking.';
+    return res.redirect('/empresa/vagas');
   }
 };
