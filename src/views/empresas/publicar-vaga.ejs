@@ -106,14 +106,21 @@
       <!-- Pergunta para IA -->
       <div class="mb-4">
         <label for="pergunta" class="form-label mt-3">Pergunta para IA</label>
-        <textarea name="pergunta" id="pergunta" class="form-control" rows="4" placeholder="Ex: Por que você se interessou por essa vaga?" required></textarea>
+        <small class="d-block text-muted">
+          Crie perguntas que avaliem o conhecimento, as experiências e as competências do candidato em relação à sua empresa e ao cargo oferecido.
+        </small>
+        <textarea name="pergunta" id="pergunta" class="form-control mt-2" rows="4" placeholder="Digite as perguntas que deseja fazer ao candidato" required></textarea>
       </div>
 
       <!-- Opções para IA -->
       <div class="mb-4">
-        <label for="opcao" class="form-label mt-3">Opções de resposta para IA</label>
-        <textarea name="opcao" id="opcao" class="form-control" rows="4" placeholder="Ex: Porque tenho experiência | Porque me identifico com a empresa | Porque quero aprender" required></textarea>
+        <label for="opcao" class="form-label mt-3">Perfil de candidato ideal</label>
+        <small class="d-block text-muted">
+          Descreva como seria o candidato ideal para esta vaga. A IA usará essa descrição, junto das respostas do candidato, para calcular o nível de compatibilidade.
+        </small>
+        <textarea name="opcao" id="opcao" class="form-control mt-2" rows="4" placeholder="Exemplo: O candidato ideal deve ser comunicativo, com facilidade para trabalho em equipe e domínio em ferramentas de análise de dados" required></textarea>
       </div>
+
 
       <!-- Áreas de atuação -->
       <div class="mb-4">

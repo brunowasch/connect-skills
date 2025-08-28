@@ -670,17 +670,80 @@ exports.restaurarFotoGoogle = async (req, res) => {
   }
 };
 
+const ensureQmark = (q) => {
+  const t = (q || '').trim();
+  if (!t) return '';
+  return t.endsWith('?') ? t : t + '?';
+};
+
+const safeParse = (x) => {
+  if (x == null) return x;
+  if (typeof x !== 'string') return x;
+  const s = x.replace(/^\uFEFF/, '').trim();
+  if (!s) return s;
+  try { return JSON.parse(s); } catch { return x; }
+};
+
+const toRating = (val) => {
+  if (val == null) return null;
+  if (typeof val === 'number' && Number.isFinite(val)) return Math.round(val);
+  const m = String(val).match(/-?\d+(\.\d+)?/);
+  return m ? Math.round(Number(m[0])) : null;
+};
+
+const cleanItem = (t) => String(t ?? '').replace(/^Item\s*\d+\s*:\s*/i, '').trim();
+
+const mapPair = (obj) => {
+  if (!obj || typeof obj !== 'object') return null;
+  const item = obj.Item ?? obj.item ?? obj.titulo ?? obj.title;
+  const rating = toRating(obj.rating ?? obj.Rating ?? obj.score ?? obj.nota);
+  const txt = cleanItem(item);
+  if (!txt) return null;
+  return { Item: String(txt), rating: rating ?? null };
+};
+
+const normalizeResults = (raw) => {
+  // tenta results/result/items/Items (array) ou o próprio array
+  let results =
+    (raw && typeof raw === 'object' && (raw.results || raw.result || raw.Items || raw.items)) ??
+    (Array.isArray(raw) ? raw : null);
+
+  if (typeof results === 'string') {
+    results = safeParse(results);
+  }
+
+  // Objeto único {Item, rating}
+  if (!Array.isArray(results)) {
+    const single = mapPair(raw);
+    results = single ? [single] : [];
+  } else {
+    results = results.map(mapPair).filter(Boolean);
+  }
+
+  return Array.isArray(results) ? results : [];
+};
+
+const avgScore0to100 = (results) => {
+  const ratings = results
+    .map(x => (typeof x.rating === 'number' ? x.rating : null))
+    .filter(v => v !== null);
+
+  return ratings.length
+    ? Math.max(0, Math.min(100, Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length)))
+    : 0;
+};
+
 exports.avaliarCompatibilidade = async (req, res) => {
   try {
     // 1) Sessão e ids
-    const sess = req.session.candidato;
+    const sess = req.session?.candidato;
     if (!sess) {
       return res.status(401).json({ ok: false, error: 'Não autenticado' });
     }
     const candidato_id = Number(sess.id);
     const vaga_id = Number(req.params.id);
 
-    // 2) (Opcional) Bloquear reenvio
+    // 2) (Opcional) Bloquear reenvio 
     const existente = await prisma.vaga_avaliacao.findFirst({
       where: { vaga_id, candidato_id },
       select: { id: true }
@@ -689,144 +752,107 @@ exports.avaliarCompatibilidade = async (req, res) => {
       return res.status(409).json({ ok: false, error: 'Você já realizou o teste desta vaga.' });
     }
 
-    // 3) Buscar dados da vaga (pergunta/opcao)
-    const vaga = await prisma.vaga.findUnique({
-      where: { id: vaga_id },
-      select: { pergunta: true, opcao: true }
+    // 3) array {question, answer}), items (descrição do candidato ideal), skills (soft skills)
+    const qaRaw = Array.isArray(req.body.qa) ? req.body.qa : [];
+    const itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
+    const skillsRaw = Array.isArray(req.body.skills) ? req.body.skills : [];
+
+    console.log('[DEBUG][avaliarCompatibilidade] Leitura do body:');
+    console.log('QA recebido:', qaRaw);
+    console.log('Items (descrição do candidato ideal):', itemsStr);
+    console.log('Skills selecionadas:', skillsRaw);
+
+    // 3.1) Validações mínimas
+    const qa = qaRaw
+      .map(x => ({
+        question: typeof x?.question === 'string' ? x.question.trim() : '',
+        answer: typeof x?.answer === 'string' ? x.answer.trim() : ''
+      }))
+      .filter(x => x.question || x.answer);
+
+    if (!qa.length) {
+      return res.status(400).json({ ok: false, error: 'É obrigatório enviar ao menos uma pergunta/resposta em qa.' });
+    }
+    if (!itemsStr) {
+      return res.status(400).json({ ok: false, error: 'Campo "items" (descrição do candidato ideal) é obrigatório.' });
+    }
+
+    const skills = skillsRaw
+      .map(s => (typeof s === 'string' ? s.trim() : ''))
+      .filter(Boolean);
+
+    // 4) Flatten para salvar em "resposta"
+    const lines = qa
+      .map(({ question, answer }) => {
+        const q = ensureQmark(question);
+        const a = (answer || '').trim();
+        return [q, a].filter(Boolean).join(' ');
+      })
+      .filter(Boolean);
+
+    const respostaFlatten = lines.join('\n');
+    if (!respostaFlatten) {
+      return res.status(400).json({ ok: false, error: 'Nenhuma resposta válida encontrada em qa.' });
+    }
+
+    // 5) Chamada à IA com novo payload
+    const payload = { qa, items: itemsStr, skills };
+    console.log('[DEBUG][avaliarCompatibilidade] Enviando para IA_SUGGEST_URL:', JSON.stringify(payload, null, 2));
+
+    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest';
+    const axiosResp = await axios.post(url, payload, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 30000
     });
-    if (!vaga) return res.status(404).json({ ok: false, error: 'Vaga não encontrada.' });
 
-    // 4) Montar QUESTIONS = "Pergunta? Resposta"
-    const perguntas = (vaga.pergunta || '')
-      .split(/\r?\n/)
-      .map(s => s.trim())
-      .filter(Boolean); // :contentReference[oaicite:1]{index=1}
-
-    const respostasArray = Array.isArray(req.body.respostas)
-      ? req.body.respostas.map(r => String(r || '').trim())
-      : null;
-    const respostaUnica = typeof req.body.resposta === 'string'
-      ? req.body.resposta.trim() : '';
-
-    const temArrayValido = Array.isArray(respostasArray) && respostasArray.some(v => v.length > 0);
-    const temUnica = !!respostaUnica;
-    if (!temArrayValido && !temUnica) {
-      return res.status(400).json({ ok: false, error: 'Resposta é obrigatória.' });
-    }
-
-    const ensureQmark = (q) => {
-      const t = (q || '').trim();
-      return t.endsWith('?') ? t : t + '?';
-    };
-
-    let questions = '';
-    if (temArrayValido) {
-      const linhas = [];
-      const max = Math.max(perguntas.length, respostasArray.length);
-      for (let i = 0; i < max; i++) {
-        const q = perguntas[i] ? ensureQmark(perguntas[i]) : 'Pergunta?';
-        const r = (respostasArray[i] || '').trim();
-        if (r) linhas.push(`${q} ${r}`);
-      }
-      questions = linhas.join('\n');
-    } else {
-      const q0 = perguntas[0] ? ensureQmark(perguntas[0]) : 'Pergunta?';
-      questions = `${q0} ${respostaUnica}`.trim();
-    }
-    if (!questions) {
-      return res.status(400).json({ ok: false, error: 'Nenhuma resposta informada.' });
-    }
-
-    // 5) ITEMS = "Item 1: ...\nItem 2: ..." (da vaga)
-    const items = (vaga.opcao || '').trim();
-
-    // 6) Chamar tua API de sugestão
-    // Se você já usa services/iaClient, pode substituir por ele.
-    // Aqui faço a chamada direta com parse robusto + normalização local.
-    const axiosResp = await axios.post(
-      process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest',
-      { questions, items },
-      { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
-    );
-
-    // 7) SAFE PARSE (se vier string)
-    const safeParse = (x) => {
-      if (x == null) return x;
-      if (typeof x !== 'string') return x;
-      const s = x.replace(/^\uFEFF/, '').trim();
-      if (!s) return s;
-      try { return JSON.parse(s); } catch { return x; }
-    };
-
+    // 6) Parse + normalização
     const raw = safeParse(axiosResp.data);
+    const results = normalizeResults(raw);
 
-    // 8) NORMALIZA result em array [{ Item, rating }]
-    const toRating = (val) => {
-      if (val == null) return null;
-      if (typeof val === 'number' && Number.isFinite(val)) return Math.round(val);
-      const m = String(val).match(/-?\d+(\.\d+)?/);
-      return m ? Math.round(Number(m[0])) : null;
-    };
-    const cleanItem = (t) => String(t ?? '').replace(/^Item\s*\d+\s*:\s*/i, '').trim();
-
-    const mapPair = (obj) => {
-      if (!obj || typeof obj !== 'object') return null;
-      const item = obj.Item ?? obj.item ?? obj.titulo ?? obj.title;
-      const rating = toRating(obj.rating ?? obj.Rating ?? obj.score ?? obj.nota);
-      const txt = cleanItem(item);
-      if (!txt) return null;
-      return { Item: String(txt), rating: rating ?? null };
-    };
-
-    // tenta results/result/items/data/output (array)
-    let results =
-      (raw && typeof raw === 'object' && (raw.results || raw.result || raw.Items || raw.items)) ??
-      (Array.isArray(raw) ? raw : null);
-    if (typeof results === 'string') {
-      results = safeParse(results);
-    }
-
-    // Caso 8.1: Objeto único {Item, rating}
-    if (!Array.isArray(results)) {
-      const single = mapPair(raw);
-      if (single) {
-        results = [single];
-      }
-    } else {
-      // Mapear array
-      results = results.map(mapPair).filter(Boolean);
-    }
-
-    if (!Array.isArray(results) || results.length === 0) {
-      // Persistir para debug (mantém padrão do teu controller) :contentReference[oaicite:2]{index=2}
+    if (!results.length) {
+      // Persistir para debug
       await prisma.vaga_avaliacao.upsert({
         where: { vaga_candidato_unique: { vaga_id, candidato_id } },
-        create: { vaga_id, candidato_id, score: 0, resposta: questions, breakdown: { erro: '[IA] Formato inesperado', raw } },
-        update: { score: 0, resposta: questions, breakdown: { erro: '[IA] Formato inesperado', raw } }
+        create: {
+          vaga_id,
+          candidato_id,
+          score: 0,
+          resposta: respostaFlatten,
+          breakdown: { erro: '[IA] Formato inesperado', raw, payload }
+        },
+        update: {
+          score: 0,
+          resposta: respostaFlatten,
+          breakdown: { erro: '[IA] Formato inesperado', raw, payload }
+        }
       });
 
-      console.warn('[IA] Formato inesperado:', JSON.stringify(raw).slice(0, 400));
+      console.warn('[IA] Formato inesperado:', JSON.stringify(raw).slice(0, 800));
       return res.status(422).json({ ok: false, error: '[IA] Formato inesperado', raw });
     }
 
-    // 9) Score final = média dos ratings válidos (0..100)
-    const ratings = results
-      .map(x => (typeof x.rating === 'number' ? x.rating : null))
-      .filter(v => v !== null);
-    const score = ratings.length
-      ? Math.max(0, Math.min(100, Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length)))
-      : 0;
+    // 7) Score final = média dos ratings válidos (0..100)
+    const score = avgScore0to100(results);
 
-    // 10) Persistir (mesmo contrato que você já usa) :contentReference[oaicite:3]{index=3}
+    // 8) Persistir
     await prisma.vaga_avaliacao.upsert({
       where: { vaga_candidato_unique: { vaga_id, candidato_id } },
-      create: { vaga_id, candidato_id, score, resposta: questions, breakdown: results },
-      update: { score, resposta: questions, breakdown: results }
+      create: {
+        vaga_id,
+        candidato_id,
+        score,
+        resposta: respostaFlatten,
+        breakdown: { skills, results }
+      },
+      update: {
+        score,
+        resposta: respostaFlatten,
+        breakdown: { skills, results }
+      }
     });
 
-    // 11) Resposta
-    return res.json({ ok: true, score, results });
-
+    // 9) Resposta
+    return res.json({ ok: true, score, results, skills });
   } catch (err) {
     console.error('Erro ao avaliar compatibilidade:', err?.message || err);
     const reason =
@@ -837,46 +863,86 @@ exports.avaliarCompatibilidade = async (req, res) => {
   }
 };
 
-
 exports.avaliarVagaIa = async (req, res) => {
   try {
-    if (!req.session?.candidato) return res.status(401).json({ ok: false, erro: 'Não autenticado' });
+    if (!req.session?.candidato) {
+      return res.status(401).json({ ok: false, erro: 'Não autenticado' });
+    }
 
     const candidato_id = Number(req.session.candidato.id);
     const vaga_id = Number(req.params.vagaId);
-    const { respostaTexto, itemsTexto } = req.body;
 
-    // Busca pergunta/opção cadastradas na vaga para compor "questions"
-    const vaga = await prisma.vaga.findUnique({
-      where: { id: vaga_id },
-      select: { pergunta: true, opcao: true }
+    // qa/items/skills
+    const qaRaw = Array.isArray(req.body.qa) ? req.body.qa : [];
+    const itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
+    const skillsRaw = Array.isArray(req.body.skills) ? req.body.skills : [];
+
+    console.log('[DEBUG][avaliarVagaIa] Leitura do body:');
+    console.log('QA recebido:', qaRaw);
+    console.log('Items (descrição do candidato ideal):', itemsStr);
+    console.log('Skills selecionadas:', skillsRaw);
+
+    const qa = qaRaw
+      .map(x => ({
+        question: typeof x?.question === 'string' ? x.question.trim() : '',
+        answer: typeof x?.answer === 'string' ? x.answer.trim() : ''
+      }))
+      .filter(x => x.question || x.answer);
+
+    if (!qa.length) {
+      return res.status(400).json({ ok: false, erro: 'É obrigatório enviar ao menos uma pergunta/resposta em qa.' });
+    }
+    if (!itemsStr) {
+      return res.status(400).json({ ok: false, erro: 'Campo "items" (descrição do candidato ideal) é obrigatório.' });
+    }
+
+    const skills = skillsRaw
+      .map(s => (typeof s === 'string' ? s.trim() : ''))
+      .filter(Boolean);
+
+    // Flatten para salvar/exibir
+    const lines = qa
+      .map(({ question, answer }) => {
+        const q = ensureQmark(question);
+        const a = (answer || '').trim();
+        return [q, a].filter(Boolean).join(' ');
+      })
+      .filter(Boolean);
+
+    const respostaFlatten = lines.join('\n');
+    if (!respostaFlatten) {
+      return res.status(400).json({ ok: false, erro: 'Nenhuma resposta válida encontrada em qa.' });
+    }
+
+    const payload = { qa, items: itemsStr, skills };
+    console.log('[DEBUG][avaliarVagaIa] Enviando para IA_SUGGEST_URL:', JSON.stringify(payload, null, 2));
+
+    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest';
+    const axiosResp = await axios.post(url, payload, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 30000
     });
 
-    // Monta "questions": perguntas da empresa + respostas do candidato
-    // Se vierem várias linhas do front, mantemos o \n
-    const questionsStr = vaga?.pergunta
-      ? `${vaga.pergunta.trim()} ${respostaTexto ? String(respostaTexto).trim() : ''}`.trim()
-      : String(respostaTexto || '').trim();
-
-    // Items: opções da vaga (texto livre: "Item 1: ...\nItem 2: ...")
-    const itemsStr = itemsTexto ? String(itemsTexto).trim() : (vaga?.opcao || '').trim();
-
-    // Chama IA e normaliza
-    const { results, raw } = await sugerirCompatibilidade({
-      apiUrl: process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest',
-      questionsStr,
-      itemsStr
-    });
+    const raw = safeParse(axiosResp.data);
+    const results = normalizeResults(raw);
 
     if (!results.length) {
-      // Guarda mesmo assim o "bruto" para debug
-      await vagaAvaliacaoModel.upsertAvaliacao({
-        vaga_id,
-        candidato_id,
-        score: 0,
-        resposta: questionsStr,         // mantém o que foi avaliado
-        breakdown: { erro: '[IA] Formato inesperado', raw }
+      await prisma.vaga_avaliacao.upsert({
+        where: { vaga_candidato_unique: { vaga_id, candidato_id } },
+        create: {
+          vaga_id,
+          candidato_id,
+          score: 0,
+          resposta: respostaFlatten,
+          breakdown: { erro: '[IA] Formato inesperado', raw, payload }
+        },
+        update: {
+          score: 0,
+          resposta: respostaFlatten,
+          breakdown: { erro: '[IA] Formato inesperado', raw, payload }
+        }
       });
+
       return res.status(422).json({
         ok: false,
         erro: '[IA] Formato inesperado',
@@ -884,22 +950,27 @@ exports.avaliarVagaIa = async (req, res) => {
       });
     }
 
-    // Define um score geral (média dos ratings válidos)
-    const valid = results.filter(r => Number.isFinite(r.rating));
-    const media = valid.length ? Math.round(valid.reduce((s, r) => s + r.rating, 0) / valid.length) : 0;
+    const media = avgScore0to100(results);
 
-    // Salva/atualiza avaliação (o model já faz upsert e salva breakdown como string JSON)
-    await vagaAvaliacaoModel.upsertAvaliacao({
-      vaga_id,
-      candidato_id,
-      score: media,
-      resposta: questionsStr,
-      breakdown: results
+    await prisma.vaga_avaliacao.upsert({
+      where: { vaga_candidato_unique: { vaga_id, candidato_id } },
+      create: {
+        vaga_id,
+        candidato_id,
+        score: media,
+        resposta: respostaFlatten,
+        breakdown: { skills, results }
+      },
+      update: {
+        score: media,
+        resposta: respostaFlatten,
+        breakdown: { skills, results }
+      }
     });
 
-    return res.json({ ok: true, score: media, results });
+    return res.json({ ok: true, score: media, results, skills });
   } catch (err) {
-    console.error('[avaliarVagaIa] erro:', err);
+    console.error('[avaliarVagaIa] erro:', err?.message || err);
     return res.status(500).json({ ok: false, erro: 'Erro interno ao avaliar a vaga.' });
   }
 };
@@ -954,5 +1025,3 @@ exports.excluirConta = async (req, res) => {
     return res.redirect('/candidato/meu-perfil');
   }
 };
-
-
