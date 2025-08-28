@@ -5,7 +5,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "delete-user": "ts-node scripts/deleteUsuario.ts",
-    "start": "npx prisma --version && nodemon app.js",
+    "start": "npx prisma --version && nodemon src/app.js",
     "postinstall": "npx prisma generate"
   },
   "keywords": [],
@@ -31,7 +31,7 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0"
   },
-  "description": "Connect Skills 🌐💼\r Conectando recém-formados ao mercado de trabalho com base em suas habilidades!",
+  "description": "Connect Skills \r Conectando recém-formados ao mercado de trabalho com base em suas habilidades!",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/brunowasch/connect-skills.git"

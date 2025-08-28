@@ -1,4 +1,4 @@
-// passportGoogle.js (revisado para impedir duplicidade global de e-mail)
+// src/config/passportGoogle.js (revisado p/ callback dinâmico por ambiente)
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { PrismaClient } = require('@prisma/client');
@@ -6,11 +6,22 @@ const crypto = require('crypto');
 
 const prisma = new PrismaClient();
 
+const APP_URL =
+  process.env.APP_URL ||
+  (process.env.NODE_ENV === 'production'
+    ? 'https://connectskills.com.br'
+    : `http://localhost:${process.env.PORT || 3000}`);
+
+// Se ainda quiser permitir override direto, pode manter GOOGLE_CALLBACK_URL,
+// mas priorizando APP_URL (evita confusão).
+const CALLBACK_URL =
+  `${APP_URL.replace(/\/+$/, '')}/auth/google/callback`;
+
 passport.use(new GoogleStrategy(
   {
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback',
+    callbackURL: CALLBACK_URL,        // <- chave da correção
     passReqToCallback: true
   },
   async (req, accessToken, refreshToken, profile, done) => {
@@ -41,21 +52,21 @@ passport.use(new GoogleStrategy(
 
       // FLUXO CADASTRO
       if (isCadastro) {
-        // 1) Se já existe QUALQUER usuário com esse e-mail, bloqueia criar outro (independente do tipo).
+        // 1) E-mail já existe? Bloqueia duplicidade.
         if (usuarioPorEmail) {
           req.session.erro = 'Já existe uma conta com este e-mail. <a href="/login">Clique aqui para fazer login</a>.';
           await new Promise(resolve => req.session.save(resolve));
           return done(null, false);
         }
 
-        // 2) Se já existe alguém com esse googleId (mesmo que e-mail difira), bloqueia duplicidade também.
+        // 2) googleId já usado? Bloqueia duplicidade.
         if (usuarioPorGoogleId) {
           req.session.erro = 'Esta conta do Google já está vinculada a um usuário.';
           await new Promise(resolve => req.session.save(resolve));
           return done(null, false);
         }
 
-        // 3) Criar novo usuário (sem duplicidade)
+        // 3) Cria usuário
         const senhaGerada = crypto.randomBytes(16).toString('hex');
         const novoUsuario = await prisma.usuario.create({
           data: {
@@ -69,10 +80,11 @@ passport.use(new GoogleStrategy(
           }
         });
 
-        // Cria perfil “mínimo” do tipo, quando aplicável
+        // Perfil mínimo
         if (tipoSolicitado === 'candidato') {
           await prisma.candidato.create({ data: { usuario_id: novoUsuario.id } });
         } else if (tipoSolicitado === 'empresa') {
+          // se quiser criar registro mínimo de empresa, faça aqui
         }
 
         req.session.usuario = {
@@ -84,20 +96,19 @@ passport.use(new GoogleStrategy(
           email: novoUsuario.email
         };
 
+        await new Promise(resolve => req.session.save(resolve));
         return done(null, novoUsuario);
       }
 
       // FLUXO LOGIN
-      // Nem cadastro nem linkagem — usuário deve existir por e-mail ou por googleId
       if (!usuarioPorGoogleId && !usuarioPorEmail) {
         req.session.erro = 'Não identificamos nenhuma conta Google cadastrada. <a href="/cadastro">Clique aqui para se cadastrar</a>.';
         await new Promise(resolve => req.session.save(resolve));
         return done(null, false);
       }
 
-      // Se achou por e-mail mas ainda não tem googleId, vincula
+      // Vincula googleId se achou por e-mail
       let usuario = usuarioPorGoogleId || usuarioPorEmail;
-
       if (usuario && !usuario.googleId && googleId) {
         usuario = await prisma.usuario.update({
           where: { id: usuario.id },
@@ -115,6 +126,7 @@ passport.use(new GoogleStrategy(
         email: usuario.email
       };
 
+      await new Promise(resolve => req.session.save(resolve));
       return done(null, usuario);
     } catch (err) {
       console.error('Erro no login/cadastro com Google:', err);
