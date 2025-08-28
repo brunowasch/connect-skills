@@ -215,5 +215,5 @@ server.keepAliveTimeout = 65_000;
 server.headersTimeout = 66_000;
 
 server.listen(port, () => {
-  console.log(`Servidor rodando na porta ${port}`);
+  console.log(`Servidor rodando em http://localhost:${port}`);
 });
