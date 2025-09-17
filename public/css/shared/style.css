@@ -124,3 +124,9 @@ footer {
   width: 140px;
   border-radius: 0.5rem;
 }
+
+.perfil-foto {
+  width: 250px;
+  height: 250px;
+  object-fit: cover; 
+}

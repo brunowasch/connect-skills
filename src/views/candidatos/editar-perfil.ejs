@@ -13,7 +13,6 @@
   <%- include('../partials/header-candidato') %>
   <%- include('../partials/flash-messages') %>
   <main class="container py-5">
-    <h2 class="mb-4 mt-5">Editar perfil</h2>
     <form action="/candidato/editar-perfil" method="POST" enctype="multipart/form-data">
       <input type="hidden" name="dataNascimento" value="<%= dataNascimento %>">
 
@@ -25,10 +24,15 @@
         const temFoto = fotoSrc !== avatarPadrao;
       %>
 
-      <div class="row g-4">
+      <div class="row g-4 mt-2">
         <div class="col-md-4 text-center">
           <img id="previewImagem"
-               src="<%= fotoPerfil %>" alt="Foto de perfil" class="perfil-foto rounded-circle border border-dark" width="80" height="80">
+          src="<%= fotoPerfil %>"
+          alt="Foto de perfil"
+          class="perfil-foto rounded-circle border border-dark"
+          width="250" height="250"
+          style="object-fit: cover;">
+
           <div class="mt-2 text-center">
             <button type="button" id="btnAlterarFoto" class="btn btn-primary btn-sm">
               <i class="bi bi-pencil-square fs-6"></i> Alterar foto
@@ -63,7 +67,7 @@
         </div>
 
         <div class="col-md-8">
-          <!-- Campos de texto -->
+              <h3 class="mb-4 mt-4">Editar perfil</h3>
           <div class="mb-3">
             <label for="nome" class="form-label">Nome</label>
             <input type="text" class="form-control" id="nome" name="nome" value="<%= nome %>" required>
@@ -101,11 +105,37 @@
             </div>
           </div>
 
+          <div class="mb-4">
+            <div class="d-flex align-items-center justify-content-between">
+              <label class="form-label m-0">Links do perfil</label>
+            </div>
+
+            <div id="linksContainer" class="mt-2">
+              <% const _links = Array.isArray(links) && links.length ? links : [{label:'LinkedIn', url:''}]; %>
+              <% _links.forEach((link, idx) => { %>
+                <div class="row g-2 align-items-end mb-2 link-row">
+                  <div class="col-md-7">
+                    <label class="form-label small">URL</label>
+                    <input name="link_url[]" type="url" class="form-control" maxlength="255" value="<%= link.url || '' %>" placeholder="Link para outros perfis">
+                  </div>
+                  <div class="col-md-1 d-flex align-items-end">
+                    <span onclick="removerLinhaLink(this)" title="Remover" style="cursor: pointer; color: #dc3545;">
+                      <i class="bi bi-trash"></i>
+                    </span>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+
+            <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="adicionarLinhaLink()" id="btnAddLink">
+              <i class="bi bi-plus-circle me-1"></i> Adicionar link
+            </button>
+          </div>
+
           <div class="d-flex gap-3 mt-4">
             <button type="submit" class="btn btn-primary">Salvar</button>
             <a href="/candidato/meu-perfil" class="btn btn-danger">Cancelar</a>
 
-            <!-- Botão para excluir conta com modal de confirmação -->
             <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalExcluir">
               <i class="bi bi-trash me-1"></i> Excluir conta
             </button>
@@ -138,12 +168,13 @@
 
   <%- include('../partials/footer') %>
 
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/js/shared/confirmarLocalizacaoEditar-perfil-empresa.js"></script>
   <script src="/js/numeroTelefone.js"></script>
   <script src="/js/empresas/previewImagem.js"></script>
   <script src="/js/shared/botoesFotosEditarPerfil.js"></script>
   <script>
-    // Função para formatar número de telefone
+    // telefone
     function formatarNumero(input) {
       let num = input.value.replace(/\D/g, '');
       if (num.length > 5) {
@@ -153,7 +184,6 @@
       }
     }
 
-    // Função para exibir foto no preview
     function previewFoto(input) {
       const file = input.files[0]; if (!file) return;
       const reader = new FileReader();
@@ -163,6 +193,41 @@
         document.getElementById('previewImagem').src = base64;
       };
       reader.readAsDataURL(file);
+    }
+
+    function addRowHtml() {
+      return `
+        <div class="row g-2 align-items-end mb-2 link-row">
+          <div class="col-md-7">
+            <label class="form-label small">URL</label>
+            <input name="link_url[]" type="url" class="form-control" maxlength="255" placeholder="Link para outros perfis">
+          </div>
+          <div class="col-md-1 d-flex align-items-end">
+            <span onclick="removerLinhaLink(this)" title="Remover" style="cursor: pointer; color: #dc3545;">
+              <i class="bi bi-trash"></i>
+            </span>
+          </div>
+        </div>`;
+    }
+
+    function adicionarLinhaLink() {
+      const container = document.getElementById('linksContainer');
+      const linhas = container.querySelectorAll('.link-row');
+      if (linhas.length >= 5) {
+        alert('Você pode adicionar no máximo 5 links.');
+        return;
+      }
+      container.insertAdjacentHTML('beforeend', addRowHtml());
+    }
+
+    function removerLinhaLink(btn) {
+      const container = document.getElementById('linksContainer');
+      const linhas = container.querySelectorAll('.link-row');
+      if (linhas.length <= 1) {
+        btn.closest('.link-row').querySelectorAll('input').forEach(i => i.value = '');
+        return;
+      }
+      btn.closest('.link-row').remove();
     }
   </script>
 </body>

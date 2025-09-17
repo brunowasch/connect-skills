@@ -29,8 +29,20 @@ model candidato {
   usuario         usuario          @relation(fields: [usuario_id], references: [id])
   candidato_area  candidato_area[]
 
-  // <<< back-relation para as avaliações >>>
   avaliacoes vaga_avaliacao[] @relation("CandidatoAvaliacoes")
+  candidato_link  candidato_link[]
+}
+
+model candidato_link {
+  id           Int        @id @default(autoincrement())
+  candidato_id Int
+  label        String     @db.VarChar(50)
+  url          String     @db.VarChar(255)
+  ordem        Int        @default(0)
+
+  candidato    candidato  @relation(fields: [candidato_id], references: [id], onDelete: Cascade)
+
+  @@index([candidato_id])
 }
 
 model candidato_area {

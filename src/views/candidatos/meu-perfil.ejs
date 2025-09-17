@@ -4,11 +4,66 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Connect Skills</title>
+
+  <!-- Bootstrap / Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+
+  <!-- Seus estilos -->
   <link rel="stylesheet" href="/css/shared/meu-perfil.css">
   <link rel="stylesheet" href="/css/shared/style.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
+
+  <style>
+    /* Foto moderada e responsiva */
+    .perfil-foto {
+      width: 160px;
+      height: 160px;
+      object-fit: cover;
+    }
+    @media (max-width: 576px) {
+      .perfil-foto { width: 120px; height: 120px; }
+    }
+
+    /* Card centralizado e com ótimo respiro */
+    .perfil-card {
+      max-width: 1000px;
+      margin: 0 auto;
+      border-radius: 1rem;
+    }
+
+    h2 { font-size: 1.75rem; font-weight: 700; }
+    .nome-perfil { font-size: 1.25rem; font-weight: 600; }
+    .meta-perfil { color: #6c757d; }
+
+    /* Links do perfil: pretos e hover azul */
+    .perfil-link {
+      color: #000;
+      text-decoration: none;
+      transition: color 0.2s;
+      word-break: break-word;
+    }
+    .perfil-link:hover { color: #0d6efd; text-decoration: underline; }
+
+    /* Ícones discretos e alinhados */
+    .icon-sm { font-size: 1rem; vertical-align: -2px; }
+
+    /* Listas mais elegantes */
+    .list-group-item { padding-top: .6rem; padding-bottom: .6rem; }
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      margin-bottom: .5rem;
+    }
+
+    /* Header do perfil: grid bonito e responsivo */
+    .perfil-header {
+      row-gap: 1rem;
+    }
+  </style>
 </head>
 <body>
 
@@ -28,55 +83,117 @@
         ? numero.slice(0, 5) + '-' + numero.slice(5)
         : numero;
     }
-    
   %>
   <%- include('../partials/flash-messages') %>
-  <div class="perfil-card bg-white p-4 rounded shadow-sm">
-    <h2 class="mb-4">Meu perfil</h2>
-    <div class="d-flex align-items-center perfil-header mb-4">
-    <% if (fotoPerfil) { %>
-     <img src="<%= fotoPerfil %>" alt="Foto de perfil" class="perfil-foto rounded-circle border border-dark" width="80" height="80">
-    <% } else { %>
-  <img src="/img/avatar.png" alt="Avatar padrão" class="perfil-foto rounded-circle border border-dark" width="80" height="80">
-    <% } %>
-      <div>
-        <h4 class="mb-1"><%= candidato.nome || 'Usuário' %> <%= candidato.sobrenome || '' %></h4>
-        <p class="mb-1"><%= localidade %></p>
-        <% if (ddi && ddd && numeroFormatado) { %>
-          <small class="d-block"><%= ddi %> (<%= ddd %>) <%= numeroFormatado %></small>
-        <% } else if (candidato.telefone) { %>
-          <small class="d-block"><%= candidato.telefone %></small>
+
+  <div class="perfil-card bg-white p-4 p-md-5 shadow-sm mt-4">
+    <h3 class="mb-4">Meu perfil</h3>
+    <!-- Header do perfil -->
+    <div class="row align-items-center perfil-header">
+      <div class="col-12 col-md-auto text-center">
+        <% if (fotoPerfil) { %>
+          <img src="<%= fotoPerfil %>" alt="Foto de perfil" class="perfil-foto rounded-circle border border-dark">
         <% } else { %>
-          <small class="d-block text-muted">Telefone não informado</small>
+          <img src="/img/avatar.png" alt="Avatar padrão" class="perfil-foto rounded-circle border border-dark">
         <% } %>
-        <p>
-          Data de nascimento:
-          <% if (candidato.data_nascimento) { %>
-            <%= new Date(candidato.data_nascimento).toLocaleDateString('pt-BR') %>
-          <% } else { %>
-            não informada
-          <% } %>
-        </p>
       </div>
-      <a href="/candidato/editar-perfil" class="btn btn-primary btn-sm ms-auto">Editar perfil</a>
+
+      <div class="col-12 col-md">
+        <div class="d-flex flex-column flex-md-row align-items-center align-items-md-start justify-content-between gap-2">
+          <div class="text-center text-md-start">
+            <div class="nome-perfil"><%= candidato.nome || 'Usuário' %> <%= candidato.sobrenome || '' %></div>
+            <div class="meta-perfil mt-1">
+              <i class="bi bi-geo-alt-fill icon-sm me-1"></i>
+              <span><%= localidade %></span>
+            </div>
+
+            <% if (ddi && ddd && numeroFormatado) { %>
+              <div class="meta-perfil">
+                <i class="bi bi-telephone icon-sm me-1"></i>
+                <span><%= ddi %> (<%= ddd %>) <%= numeroFormatado %></span>
+              </div>
+            <% } else if (candidato.telefone) { %>
+              <div class="meta-perfil">
+                <i class="bi bi-telephone icon-sm me-1"></i>
+                <span><%= candidato.telefone %></span>
+              </div>
+            <% } else { %>
+              <div class="meta-perfil">
+                <i class="bi bi-telephone icon-sm me-1"></i>
+                <span>Telefone não informado</span>
+              </div>
+            <% } %>
+
+            <div class="meta-perfil">
+              <i class="bi bi-calendar-event icon-sm me-1"></i>
+              <span>
+                Data de nascimento:
+                <% if (candidato.data_nascimento) { %>
+                  <%= new Date(candidato.data_nascimento).toLocaleDateString('pt-BR') %>
+                <% } else { %>
+                  não informada
+                <% } %>
+              </span>
+            </div>
+          </div>
+
+          <a href="/candidato/editar-perfil" class="btn btn-primary btn-sm">
+            <i class="bi bi-pencil-square me-1"></i> Editar perfil
+          </a>
+        </div>
+      </div>
     </div>
 
-    <div class="row gy-4">
+    <!-- Seções -->
+    <div class="row gy-4 mt-3">
+      <!-- Áreas de interesse -->
       <div class="col-md-6 col-12">
-        <h5 class="d-flex justify-content-between align-items-center">
-          Áreas de interesse
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="section-title">
+            <i class="bi bi-star-fill text-warning icon-sm"></i>
+            Áreas de interesse
+          </div>
           <a href="/candidato/editar-areas" class="text-decoration-none" title="Editar áreas">
-            <i class="bi bi-pencil-square fs-6"></i>
+            <i class="bi bi-pencil-square"></i>
           </a>
-        </h5>
-        <ul class="list-group">
-        <% if (areas.length) { %>
-          <% areas.forEach(area => { %>
-            <li class="list-group-item"><%= area %></li>
-          <% }) %>
-        <% } else { %>
-          <li class="list-group-item">Nenhuma área selecionada</li>
-        <% } %>
+        </div>
+        <ul class="list-group list-group-flush">
+          <% if (areas.length) { %>
+            <% areas.forEach(area => { %>
+              <li class="list-group-item"><%= area %></li>
+            <% }) %>
+          <% } else { %>
+            <li class="list-group-item text-muted">Nenhuma área selecionada</li>
+          <% } %>
+        </ul>
+      </div>
+      <!-- Links do perfil -->
+      <div class="col-md-6 col-12">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="section-title">
+            <i class="bi bi-link-45deg text-primary icon-sm"></i>
+            Links do perfil
+          </div>
+          <a href="/candidato/editar-perfil" class="text-decoration-none" title="Editar links">
+            <i class="bi bi-pencil-square"></i>
+          </a>
+        </div>
+        <ul class="list-group list-group-flush">
+          <% if (links && links.length) { %>
+            <% links.forEach(link => { %>
+              <li class="list-group-item d-flex align-items-center gap-4">
+                <i class="bi bi-box-arrow-up-right icon-sm"></i>
+                <a href="<%= link.url %>"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="perfil-link">
+                  <%= link.url %>
+                </a>
+              </li>
+            <% }) %>
+          <% } else { %>
+            <li class="list-group-item text-muted">Nenhum link adicionado</li>
+          <% } %>
         </ul>
       </div>
     </div>
