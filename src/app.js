@@ -22,6 +22,7 @@ const usuarioRoutes = require('./routes/usuarioRoutes');
 const candidatoRoutes = require('./routes/candidatoRoutes');
 const empresaRoutes = require('./routes/empresaRoutes');
 const mainRoutes = require('./routes/index');
+const candidatoArquivosRoutes = require('./routes/candidatoArquivosRoutes');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -119,6 +120,7 @@ app.use((req, res, next) => {
 app.use('/', mainRoutes);
 app.use('/', authRoutes);
 app.use('/', aliasRoutes);
+app.use(candidatoArquivosRoutes);
 
 /* ---------- Rotas autenticadas ---------- */
 app.use('/usuarios', usuarioRoutes);

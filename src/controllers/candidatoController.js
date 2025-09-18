@@ -81,6 +81,17 @@ const normUrl = (u) => {
   return s;
 };
 
+// util tamanho legível
+function humanFileSize(bytes) {
+  if (!bytes || bytes <= 0) return '0 B';
+  const thresh = 1024;
+  if (Math.abs(bytes) < thresh) return bytes + ' B';
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let u = -1;
+  do { bytes /= thresh; ++u; } while (Math.abs(bytes) >= thresh && u < units.length - 1);
+  return bytes.toFixed(1) + ' ' + units[u];
+}
+
 /* =========================
  * Fluxo de cadastro: nome
  * ========================= */
@@ -345,9 +356,6 @@ exports.renderMeuPerfil = async (req, res) => {
           select: {
             id: true,
             email: true,
-            senha: true,
-            tipo: true,
-            email_verificado: true,
             nome: true,
             sobrenome: true
           }
@@ -356,25 +364,23 @@ exports.renderMeuPerfil = async (req, res) => {
         candidato_link: {
           orderBy: { ordem: 'asc' },
           select: { id: true, label: true, url: true, ordem: true }
+        },
+        // *** AQUI: anexos (nome do relacionamento correto) ***
+        anexos: {
+          orderBy: { criadoEm: 'desc' }
         }
       }
     });
 
     if (!candidato) return res.redirect('/login');
 
-    // formatar telefone
+    // formatar telefone (opcional, mantive simples pois já vem pronto na sessão/banco)
     let ddi = '', ddd = '', numero = '';
     if (candidato.telefone) {
-      if (candidato.telefone.includes('(')) {
-        const match = candidato.telefone.match(/(\+\d+)\s+\((\d+)\)\s+(.*)/);
-        if (match) {
-          ddi = match[1];
-          ddd = match[2];
-          numero = match[3].replace(/\D/g, '');
-        }
-      } else {
-        [ddi, ddd, numero] = candidato.telefone.split('-');
-      }
+      const partes = candidato.telefone.split('-');
+      ddi = partes[0] || '';
+      ddd = partes[1] || '';
+      numero = partes[2] || '';
     }
 
     const numeroFormatado = numero
@@ -400,7 +406,9 @@ exports.renderMeuPerfil = async (req, res) => {
       numeroFormatado,
       dataNascimento,
       activePage: 'perfil',
-      links: candidato.candidato_link || []
+      links: candidato.candidato_link || [],
+      anexos: candidato.anexos || [],
+      humanFileSize
     });
   } catch (error) {
     console.error('Erro ao carregar perfil do candidato:', error);
@@ -451,7 +459,7 @@ exports.mostrarVagas = async (req, res) => {
 };
 
 /* =========================
- * Editar Perfil (inclui links)
+ * Editar Perfil (inclui links) + anexos no render
  * ========================= */
 exports.telaEditarPerfil = async (req, res) => {
   const sess = req.session.candidato;
@@ -460,7 +468,12 @@ exports.telaEditarPerfil = async (req, res) => {
   try {
     const cand = await prisma.candidato.findUnique({
       where: { id: Number(sess.id) },
-      include: { usuario: { select: { nome: true, sobrenome: true } } }
+      include: {
+        usuario: { select: { nome: true, sobrenome: true } },
+        candidato_link: { orderBy: { ordem: 'asc' } },
+        // *** AQUI: anexos (nome do relacionamento correto) ***
+        anexos: { orderBy: { criadoEm: 'desc' } }
+      }
     });
     if (!cand) return res.redirect('/login');
 
@@ -469,11 +482,11 @@ exports.telaEditarPerfil = async (req, res) => {
 
     // telefone
     let ddi = '', ddd = '', numero = '';
-    if (cand.telefone?.includes('(')) {
-      const match = cand.telefone.match(/(\+\d+)\s+\((\d+)\)\s+(.*)/);
-      if (match) { ddi = match[1]; ddd = match[2]; numero = match[3].replace(/\D/g, ''); }
-    } else if (cand.telefone) {
-      [ddi, ddd, numero] = cand.telefone.split('-');
+    if (cand.telefone) {
+      const partes = cand.telefone.split('-');
+      ddi = partes[0] || '';
+      ddd = partes[1] || '';
+      numero = partes[2] || '';
     }
 
     const numeroFormatado = numero
@@ -486,23 +499,21 @@ exports.telaEditarPerfil = async (req, res) => {
       : '';
     const fotoPerfil = cand.foto_perfil || sess.foto_perfil || '';
 
-    // links atuais para preencher a UI, se necessário
-    const links = await prisma.candidato_link.findMany({
-      where: { candidato_id: Number(cand.id) },
-      orderBy: { ordem: 'asc' },
-      select: { id: true, label: true, url: true, ordem: true }
-    });
+    // links atuais
+    const links = cand.candidato_link || [];
 
     res.render('candidatos/editar-perfil', {
       nome,
       sobrenome,
       localidade,
-      ddi,
+      ddi: ddi || '+55',
       ddd,
       numero: numeroFormatado,
       dataNascimento,
       fotoPerfil,
-      links
+      links,
+      anexos: cand.anexos || [],
+      humanFileSize
     });
 
   } catch (erro) {
