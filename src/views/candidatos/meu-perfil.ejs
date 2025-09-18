@@ -52,10 +52,10 @@
               <span><%= localidade %></span>
             </div>
 
-            <% if (ddi && ddd && numeroFormatado) { %>
+            <% if (ddd && numeroFormatado) { %>
               <div class="meta-perfil">
                 <i class="bi bi-telephone icon-sm me-1"></i>
-                <span><%= ddi %> (<%= ddd %>) <%= numeroFormatado %></span>
+                <span><%= ddi ? ddi + ' ' : '' %>(<%= ddd %>) <%= numeroFormatado %></span>
               </div>
             <% } else if (candidato.telefone) { %>
               <div class="meta-perfil">

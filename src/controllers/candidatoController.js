@@ -377,14 +377,15 @@ exports.renderMeuPerfil = async (req, res) => {
     // formatar telefone (opcional, mantive simples pois já vem pronto na sessão/banco)
     let ddi = '', ddd = '', numero = '';
     if (candidato.telefone) {
-      const partes = candidato.telefone.split('-');
-      ddi = partes[0] || '';
-      ddd = partes[1] || '';
-      numero = partes[2] || '';
+      const [ddiRaw, dddRaw, numRaw] = String(candidato.telefone).split('-');
+      const clean = v => (v && v !== 'undefined' && v !== 'null') ? String(v).trim() : '';
+      ddi = clean(ddiRaw);                // vira '' se vier 'undefined'
+      ddd = clean(dddRaw);
+      numero = clean(numRaw).replace(/\D/g, '');  // só dígitos
     }
 
     const numeroFormatado = numero
-      ? (numero.length === 9 ? `${numero.slice(0,5)}-${numero.slice(5)}` : `${numero.slice(0,4)}-${numero.slice(4)}`)
+      ? (numero.length >= 9 ? `${numero.slice(0,5)}-${numero.slice(5,9)}` : numero)
       : '';
 
     const localidade = [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ');
