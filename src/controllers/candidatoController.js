@@ -345,78 +345,70 @@ exports.renderMeuPerfil = async (req, res) => {
 
   try {
     const candidato = await prisma.candidato.findUnique({
-      where: { id: Number(req.session.candidato.id) },
+      where: { id: req.session.candidato.id },
       include: {
         candidato_area: {
-          select: {
-            area_interesse: { select: { nome: true } }
-          }
+          select: { area_interesse: { select: { nome: true } } }
         },
         usuario: {
-          select: {
-            id: true,
-            email: true,
-            nome: true,
-            sobrenome: true
-          }
+          select: { id: true, email: true, nome: true, sobrenome: true }
         },
-        // links do perfil
         candidato_link: {
           orderBy: { ordem: 'asc' },
           select: { id: true, label: true, url: true, ordem: true }
         },
-        // *** AQUI: anexos (nome do relacionamento correto) ***
-        anexos: {
-          orderBy: { criadoEm: 'desc' }
-        }
+        anexos: { orderBy: { criadoEm: 'desc' } }
       }
     });
 
     if (!candidato) return res.redirect('/login');
 
-    // formatar telefone (opcional, mantive simples pois já vem pronto na sessão/banco)
-    let ddi = '', ddd = '', numero = '';
+    // Anexos: **URL pura** (sem fl_inline / fl_attachment)
+    const anexos = candidato.anexos || [];
+
+    // Foto de perfil com fallback
+    const fotoPerfil =
+      candidato.foto_perfil && candidato.foto_perfil.trim() !== ''
+        ? candidato.foto_perfil.trim()
+        : '/img/avatar.png';
+
+    // Localidade (usa cidade/estado/pais; se vazio, usa o que veio da sessão)
+    const localidade =
+      [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ')
+      || (req.session?.candidato?.localidade || '');
+
+    // Telefone: sanitiza 'undefined' e formata
+    let ddi = '', ddd = '', numero = '', numeroFormatado = '';
     if (candidato.telefone) {
       const [ddiRaw, dddRaw, numRaw] = String(candidato.telefone).split('-');
       const clean = v => (v && v !== 'undefined' && v !== 'null') ? String(v).trim() : '';
-      ddi = clean(ddiRaw);                // vira '' se vier 'undefined'
+      ddi = clean(ddiRaw);
       ddd = clean(dddRaw);
-      numero = clean(numRaw).replace(/\D/g, '');  // só dígitos
+      numero = clean(numRaw).replace(/\D/g, '');
+      numeroFormatado = numero
+        ? (numero.length >= 9 ? `${numero.slice(0,5)}-${numero.slice(5,9)}` : numero)
+        : '';
     }
-
-    const numeroFormatado = numero
-      ? (numero.length >= 9 ? `${numero.slice(0,5)}-${numero.slice(5,9)}` : numero)
-      : '';
-
-    const localidade = [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ');
-    const areas = candidato.candidato_area.map(r => r.area_interesse.nome);
-    const dataNascimento = candidato.data_nascimento
-      ? new Date(candidato.data_nascimento).toISOString().slice(0, 10)
-      : '';
-    const fotoPerfil = (candidato.foto_perfil && candidato.foto_perfil.trim() !== '')
-      ? candidato.foto_perfil.trim()
-      : '/img/avatar.png';
 
     res.render('candidatos/meu-perfil', {
       candidato,
+      areas: candidato.candidato_area.map(ca => ca.area_interesse.nome),
+      links: candidato.candidato_link,
+      anexos,
+      humanFileSize,
       fotoPerfil,
       localidade,
-      areas,
       ddi,
       ddd,
       numeroFormatado,
-      dataNascimento,
-      activePage: 'perfil',
-      links: candidato.candidato_link || [],
-      anexos: candidato.anexos || [],
-      humanFileSize
     });
-  } catch (error) {
-    console.error('Erro ao carregar perfil do candidato:', error);
-    req.session.erro = 'Erro ao carregar seu perfil.';
-    return res.redirect('/candidatos/home');
+  } catch (err) {
+    console.error('Erro ao carregar perfil do candidato:', err);
+    res.status(500).send('Erro interno do servidor');
   }
 };
+
+
 
 /* =========================
  * Vagas
@@ -463,64 +455,34 @@ exports.mostrarVagas = async (req, res) => {
  * Editar Perfil (inclui links) + anexos no render
  * ========================= */
 exports.telaEditarPerfil = async (req, res) => {
-  const sess = req.session.candidato;
-  if (!sess) return res.redirect('/login');
+  if (!req.session.candidato) return res.redirect('/login');
 
   try {
     const cand = await prisma.candidato.findUnique({
-      where: { id: Number(sess.id) },
-      include: {
-        usuario: { select: { nome: true, sobrenome: true } },
-        candidato_link: { orderBy: { ordem: 'asc' } },
-        // *** AQUI: anexos (nome do relacionamento correto) ***
-        anexos: { orderBy: { criadoEm: 'desc' } }
-      }
+      where: { id: req.session.candidato.id },
+      include: { candidato_link: true, anexos: { orderBy: { criadoEm: 'desc' } } }
     });
+
     if (!cand) return res.redirect('/login');
 
-    const nome = cand.nome || cand.usuario?.nome || '';
-    const sobrenome = cand.sobrenome || cand.usuario?.sobrenome || '';
-
-    // telefone
-    let ddi = '', ddd = '', numero = '';
-    if (cand.telefone) {
-      const partes = cand.telefone.split('-');
-      ddi = partes[0] || '';
-      ddd = partes[1] || '';
-      numero = partes[2] || '';
-    }
-
-    const numeroFormatado = numero
-      ? (numero.length >= 9 ? `${numero.slice(0,5)}-${numero.slice(5)}` : numero)
-      : '';
-
-    const localidade = [cand.cidade, cand.estado, cand.pais].filter(Boolean).join(', ');
-    const dataNascimento = cand.data_nascimento
-      ? new Date(cand.data_nascimento).toISOString().slice(0, 10)
-      : '';
-    const fotoPerfil = cand.foto_perfil || sess.foto_perfil || '';
-
-    // links atuais
-    const links = cand.candidato_link || [];
+    // Anexos: **URL pura**
+    const anexos = cand.anexos || [];
 
     res.render('candidatos/editar-perfil', {
-      nome,
-      sobrenome,
-      localidade,
-      ddi: ddi || '+55',
-      ddd,
-      numero: numeroFormatado,
-      dataNascimento,
-      fotoPerfil,
-      links,
-      anexos: cand.anexos || [],
+      nome: cand.nome,
+      sobrenome: cand.sobrenome,
+      localidade: cand.cidade ? `${cand.cidade}, ${cand.estado}, ${cand.pais}` : '',
+      ddd: cand.telefone ? cand.telefone.split('-')[1] : '',
+      numero: cand.telefone ? cand.telefone.split('-')[2] : '',
+      dataNascimento: cand.data_nascimento ? cand.data_nascimento.toISOString().split('T')[0] : '',
+      fotoPerfil: cand.foto_perfil,
+      links: cand.candidato_link,
+      anexos,
       humanFileSize
     });
-
-  } catch (erro) {
-    console.error('Erro ao carregar tela de edição de perfil:', erro);
-    req.session.erro = 'Erro ao carregar dados do perfil.';
-    res.redirect('/candidatos/meu-perfil');
+  } catch (err) {
+    console.error('Erro ao carregar tela editar perfil:', err);
+    res.status(500).send('Erro interno do servidor');
   }
 };
 
@@ -1005,12 +967,12 @@ exports.avaliarVagaIa = async (req, res) => {
           candidato_id,
           score: 0,
           resposta: respostaFlatten,
-          breakdown: { erro: '[IA] Formato inesperado', raw, payload }
+          breakdown: { skills, results }
         },
         update: {
           score: 0,
           resposta: respostaFlatten,
-          breakdown: { erro: '[IA] Formato inesperado', raw, payload }
+          breakdown: { skills, results }
         }
       });
 

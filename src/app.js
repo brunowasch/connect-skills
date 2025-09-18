@@ -30,8 +30,18 @@ const isProd = process.env.NODE_ENV === 'production';
 
 /* ---------- Segurança, compressão e proxy ---------- */
 app.set('trust proxy', 1);
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(compression());
+app.use(helmet({
+   contentSecurityPolicy: false,
+   contentTypeOptions: false,   
+}));
+app.use(compression({
+  filter: (req, res) => {
+    if (req.path.startsWith('/candidato/anexos/') && req.path.endsWith('/abrir')) {
+      return false; // não comprime PDFs
+    }
+    return compression.filter(req, res);
+  }
+}));
 
 /* ---------- Parsers (limites enxutos) ---------- */
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));

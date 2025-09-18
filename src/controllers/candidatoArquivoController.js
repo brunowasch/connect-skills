@@ -1,8 +1,8 @@
-// controllers/candidatoArquivoController.js
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { cloudinary } = require('../config/cloudinary');
 const path = require('path');
+const axios = require('axios');
 
 /* =========================
  * Helpers
@@ -44,7 +44,6 @@ function humanFileSize(bytes) {
 // tenta corrigir nomes com mojibake ("CurrÃ­culo" -> "Currículo")
 function fixMojibake(str) {
   if (!str) return str;
-  // heurística simples: se aparecer 'Ã' ou '�', redecodifica como latin1->utf8
   if (/[Ã�]/.test(str)) {
     try { return Buffer.from(str, 'latin1').toString('utf8'); } catch { return str; }
   }
@@ -66,8 +65,17 @@ function tryExtractPublicIdFromCloudinaryUrl(url) {
   }
 }
 
+// slug simples para usar no public_id
+function slugify(s) {
+  return String(s)
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '') 
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')                 
+    .replace(/-+/g, '-').replace(/^-|-$/g, '')         
+    .toLowerCase();
+}
+
 /* =========================
- * Tela (não usada mais): redireciona para editar-perfil
+ * Tela (não usada mais)
  * ========================= */
 exports.telaAnexos = async (req, res) => {
   return res.redirect('/candidato/editar-perfil');
@@ -90,20 +98,31 @@ exports.uploadAnexos = async (req, res) => {
     let count = 0;
     for (const file of files) {
       const originalNameRaw = file.originalname || 'arquivo';
-      // corrige nomes bugados e mantém a extensão
       const parsed = path.parse(originalNameRaw);
       const fixedBase = fixMojibake(parsed.name);
       const finalName = fixedBase + (parsed.ext || '');
 
       const folder = `connect-skills/candidatos/${candidato.id}/anexos`;
 
+      // decide o tipo
+      const isImage = /^image\//i.test(file.mimetype);
+      const isPDF = file.mimetype === 'application/pdf';
+      const resourceType = isPDF ? 'raw' : (isImage ? 'image' : 'auto');
+      // PDF tratado como "image" → abre inline
+
+      const publicId = `${slugify(fixedBase)}-${Date.now()}`;
+
       const uploadResult = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           {
             folder,
-            resource_type: 'auto',
-            // não seto public_id => evita overwrite involuntário quando o usuário sobe 2 "Currículo.pdf"
+            resource_type: resourceType,
+            public_id: publicId,
             overwrite: false,
+            use_filename: true,
+            unique_filename: false,
+            // para PDF em raw, NÃO force 'format', deixe o Cloudinary manter o arquivo original
+            // format: undefined
           },
           (error, result) => (error ? reject(error) : resolve(result))
         );
@@ -113,7 +132,7 @@ exports.uploadAnexos = async (req, res) => {
       await prisma.candidato_arquivo.create({
         data: {
           candidato_id: candidato.id,
-          nome: finalName,                   // <<< nome “bonito”
+          nome: finalName,
           url: uploadResult.secure_url,
           mime: file.mimetype,
           tamanho: file.size,
@@ -186,7 +205,6 @@ exports.deletarAnexo = async (req, res) => {
     const publicId = tryExtractPublicIdFromCloudinaryUrl(anexo.url);
     if (publicId) {
       try {
-        // tenta nas 3 categorias possíveis
         await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
         await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
         await cloudinary.uploader.destroy(publicId, { resource_type: 'video' });
@@ -203,5 +221,72 @@ exports.deletarAnexo = async (req, res) => {
     console.error('Erro ao deletar anexo:', err);
     req.flash?.('erro', 'Não foi possível excluir o anexo.');
     res.redirect(back);
+  }
+};
+
+exports.abrirAnexo = async (req, res) => {
+  try {
+    const candidato = await getCandidatoBySession(req);
+    const { id } = req.params;
+
+    const anexo = await prisma.candidato_arquivo.findUnique({
+      where: { id: Number(id) },
+    });
+    if (!anexo || anexo.candidato_id !== candidato.id) {
+      return res.status(404).send('Anexo não encontrado.');
+    }
+
+    const url  = anexo.url;                         // URL do Cloudinary (raw)
+    const nome = (anexo.nome || 'arquivo.pdf').replace(/"/g, '');
+    const mime = (anexo.mime || '').toLowerCase();  // usamos o MIME salvo no upload
+
+    // SEM redirecionar. Sempre stream.
+    const upstream = await axios.get(url, {
+      responseType: 'stream',
+      headers: {
+        ...(req.headers.range ? { Range: req.headers.range } : {}),
+        Accept: 'application/pdf,*/*',
+      },
+      maxRedirects: 5,
+      decompress: false,
+      validateStatus: () => true,
+    });
+
+    // status 206 quando Range; senão 200
+    res.status(upstream.status === 206 ? 206 : 200);
+
+    // não deixe o helmet bloquear detecção do tipo
+    res.removeHeader('X-Content-Type-Options');
+
+    // Content-Type: se o banco diz que é PDF, fixamos como PDF (Cloudinary raw pode vir como octet-stream)
+    if (mime === 'application/pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+    } else if (upstream.headers['content-type']) {
+      res.setHeader('Content-Type', upstream.headers['content-type']);
+    } else {
+      res.setHeader('Content-Type', 'application/pdf');
+    }
+
+    // repassa cabeçalhos importantes para o viewer
+    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+    if (upstream.headers['content-range'])  res.setHeader('Content-Range',  upstream.headers['content-range']);
+    if (upstream.headers['accept-ranges'])  res.setHeader('Accept-Ranges',  upstream.headers['accept-ranges']);
+    if (upstream.headers['last-modified'])  res.setHeader('Last-Modified',  upstream.headers['last-modified']);
+    if (upstream.headers['etag'])           res.setHeader('ETag',           upstream.headers['etag']);
+    if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
+
+    // abrir inline (sem attachment)
+    res.setHeader('Content-Disposition', `inline; filename="${nome}"`);
+
+    upstream.data.on('error', (e) => {
+      console.error('Stream upstream error:', e?.message || e);
+      if (!res.headersSent) res.status(502);
+      res.end();
+    });
+
+    upstream.data.pipe(res);
+  } catch (err) {
+    console.error('abrirAnexo erro:', err?.message || err);
+    if (!res.headersSent) res.status(500).send('Falha ao abrir o anexo.');
   }
 };

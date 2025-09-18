@@ -15,8 +15,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB/arquivo
 });
 
-// (opcional) redireciona a página antiga de anexos
-router.get('/candidato/anexos', authCandidato, candidatoArquivoController.telaAnexos);
+router.get('/candidato/anexos/:id/abrir', candidatoArquivoController.abrirAnexo);
 
 // upload/link/delete -> sempre voltam para /candidato/editar-perfil
 router.post('/candidato/anexos/upload', authCandidato, upload.array('arquivos', 5), candidatoArquivoController.uploadAnexos);
