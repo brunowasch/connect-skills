@@ -92,6 +92,34 @@ model empresa {
   foto_perfil  String?
   usuario      usuario @relation(fields: [usuario_id], references: [id])
   vagas        vaga[]
+  empresa_arquivo empresa_arquivo[]
+  empresa_link    empresa_link[]
+}
+
+model empresa_arquivo {
+  id         Int       @id @default(autoincrement())
+  empresa_id Int
+  nome       String
+  url        String
+  mime       String?
+  tamanho    Int?
+  criadoEm   DateTime  @default(now())
+
+  empresa empresa @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+
+  @@index([empresa_id])
+}
+
+model empresa_link {
+  id         Int      @id @default(autoincrement())
+  empresa_id Int
+  label      String   @db.VarChar(100)
+  url        String   @db.VarChar(255)
+  ordem      Int      @default(0)
+
+  empresa empresa @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+
+  @@index([empresa_id])
 }
 
 model soft_skill {

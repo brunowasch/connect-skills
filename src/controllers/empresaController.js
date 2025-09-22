@@ -254,10 +254,18 @@ exports.homeEmpresa = async (req, res) => {
 };
 
 exports.telaPerfilEmpresa = async (req, res) => {
-  const empresa = req.session.empresa;
-  if (!empresa) return res.redirect('/login');
+  const sess = req.session.empresa;
+  if (!sess) return res.redirect('/login');
 
   try {
+    const empresa = await prisma.empresa.findUnique({
+      where: { id: Number(sess.id) },
+      include: {
+        empresa_link: { orderBy: { ordem: 'asc' } },
+        empresa_arquivo: { orderBy: { criadoEm: 'desc' } },
+      },
+    });
+
     const vagasDaEmpresa = await prisma.vaga.findMany({
       where: { empresa_id: empresa.id },
       include: {
@@ -266,10 +274,15 @@ exports.telaPerfilEmpresa = async (req, res) => {
       },
     });
 
-    res.render('empresas/meu-perfil', { empresa, vagasPublicadas: vagasDaEmpresa });
+    res.render('empresas/meu-perfil', {
+      empresa,
+      vagasPublicadas: vagasDaEmpresa,
+      links: empresa.empresa_link,
+      anexos: empresa.empresa_arquivo
+    });
   } catch (error) {
-    console.error('Erro ao buscar vagas da empresa:', error);
-    req.session.erro = 'Erro ao carregar vagas.';
+    console.error('Erro ao buscar vagas/empresa:', error);
+    req.session.erro = 'Erro ao carregar perfil.';
     res.redirect('/empresa/home');
   }
 };
@@ -494,7 +507,6 @@ exports.salvarEditarVaga = async (req, res) => {
       moeda,
       descricao,
 
-      // ✅ agora lendo os campos da IA
       pergunta,
       opcao,
 
@@ -551,7 +563,6 @@ exports.salvarEditarVaga = async (req, res) => {
     await prisma.vaga_area.deleteMany({ where: { vaga_id: vagaId } });
     await prisma.vaga_soft_skill.deleteMany({ where: { vaga_id: vagaId } });
 
-    // ✅ Atualiza também pergunta/opcao/beneficio
     await prisma.vaga.update({
       where: { id: vagaId, empresa_id: empresaId },
       data: {
@@ -723,101 +734,118 @@ exports.salvarComplementarGoogle = async (req, res) => {
 
 exports.telaEditarPerfil = async (req, res) => {
   const sess = req.session.empresa;
+    const humanFileSize = (bytes) => {
+    if (!bytes || bytes <= 0) return '0 B';
+    const thresh = 1024;
+    if (Math.abs(bytes) < thresh) return bytes + ' B';
+    const units = ['KB','MB','GB','TB'];
+    let u = -1;
+    do { bytes /= thresh; ++u; } while (Math.abs(bytes) >= thresh && u < units.length - 1);
+    return bytes.toFixed(1) + ' ' + units[u];
+  };
   if (!sess) return res.redirect('/login');
 
   try {
     const empresa = await prisma.empresa.findUnique({
-      where: { id: sess.id }
+      where: { id: Number(sess.id) },
+      include: {
+        empresa_link: { orderBy: { ordem: 'asc' } },
+        empresa_arquivo: { orderBy: { criadoEm: 'desc' } },
+      }
     });
-    if (!empresa) return res.redirect('/login');
 
     const localidade = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', ');
 
-    return res.render('empresas/editar-empresa', {
-      nome_empresa: empresa.nome_empresa || '',
+    res.render('empresas/editar-empresa', {
+      empresa,
       descricao: empresa.descricao || '',
+      humanFileSize,
       localidade,
-      telefone: empresa.telefone || '',
-      foto_perfil: empresa.foto_perfil || '',
-      erro: null
+      links: empresa.empresa_link,
+      anexos: empresa.empresa_arquivo
     });
   } catch (err) {
-    console.error('Erro ao carregar tela de edição da empresa:', err);
-    req.session.erro = 'Erro ao carregar dados da empresa.';
-    return res.redirect('/empresa/meu-perfil');
+    console.error('Erro ao abrir edição de empresa:', err);
+    req.session.erro = 'Erro ao carregar dados.';
+    res.redirect('/empresa/meu-perfil');
   }
 };
 
 exports.salvarEdicaoPerfil = async (req, res) => {
-  const sess = req.session.empresa;
-  if (!sess) return res.redirect('/login');
-
-  const { nome_empresa, descricao, localidade, ddi, ddd, telefone, removerFoto } = req.body;
-
-  const [cidade = '', estado = '', pais = ''] = (localidade || '').split(',').map(s => s.trim());
-
-  const telefoneFormatado = (ddi && ddd && telefone) ? `${ddi} (${ddd}) ${telefone}` : null;
-
   try {
-    let novaFotoUrl = null;
+    const sess = req.session.empresa;
+    if (!sess) return res.redirect('/login');
 
-    if (removerFoto) {
-      novaFotoUrl = null;
+    const { nome, descricao, localidade, ddd, numero } = req.body;
+
+    // Localidade
+    let cidade = '', estado = '', pais = '';
+    if (localidade) {
+      const partes = String(localidade).split(',').map(p => p.trim());
+      [cidade, estado = '', pais = ''] = partes;
     }
 
-    if (!removerFoto && req.file?.path) {
-      const resultadoCloudinary = await cloudinary.uploader.upload(req.file.path, {
-        folder: 'connect-skills/empresas',
-        public_id: `empresa_${sess.id}_foto_perfil`,
-        use_filename: true,
-        unique_filename: false,
-      });
-      novaFotoUrl = resultadoCloudinary.secure_url;
+    // Telefone -> SEMPRE salvar como "+55 (DD) 9XXXX-XXXX" (ou 8 dígitos se fixo)
+    let telefone = req.body.telefone || '';
+    const dddDigits = (ddd || '').replace(/\D/g, '');
+    const numDigits = (numero || '').replace(/\D/g, '');
+    if (dddDigits && numDigits) {
+      let numeroFmt;
+      if (numDigits.length >= 9) {
+        // celular (9 dígitos)
+        numeroFmt = `${numDigits.slice(0, 5)}-${numDigits.slice(5, 9)}`;
+      } else if (numDigits.length >= 8) {
+        // fixo (8 dígitos)
+        numeroFmt = `${numDigits.slice(0, 4)}-${numDigits.slice(4, 8)}`;
+      } else {
+        numeroFmt = numDigits; // fallback
+      }
+      telefone = `+55 (${dddDigits}) ${numeroFmt}`;
     }
 
-    const dataUpdate = {
-      nome_empresa: nome_empresa ?? undefined,
-      descricao: descricao ?? undefined,
-      cidade,
-      estado,
-      pais,
-      telefone: telefoneFormatado ?? undefined,
-    };
-
-    if (removerFoto) dataUpdate.foto_perfil = null;
-    if (novaFotoUrl) dataUpdate.foto_perfil = novaFotoUrl;
-
-    const empresaAtualizada = await prisma.empresa.update({
-      where: { id: sess.id },
-      data: dataUpdate
+    await prisma.empresa.update({
+      where: { id: Number(sess.id) },
+      data: {
+        nome_empresa: nome,
+        descricao,
+        cidade, estado, pais,
+        telefone
+      }
     });
 
-    req.session.empresa = {
-      ...req.session.empresa,
-      nome_empresa: empresaAtualizada.nome_empresa,
-      descricao: empresaAtualizada.descricao,
-      cidade: empresaAtualizada.cidade,
-      estado: empresaAtualizada.estado,
-      pais: empresaAtualizada.pais,
-      telefone: empresaAtualizada.telefone,
-      foto_perfil: empresaAtualizada.foto_perfil || ''
-    };
+    // Links do perfil (igual estava)
+    const urls = Array.isArray(req.body['link_url[]']) ? req.body['link_url[]'] :
+                 Array.isArray(req.body.link_url) ? req.body.link_url :
+                 (req.body.link_url ? [req.body.link_url] : []);
+    const labels = Array.isArray(req.body['link_label[]']) ? req.body['link_label[]'] :
+                   Array.isArray(req.body.link_label) ? req.body.link_label :
+                   (req.body.link_label ? [req.body.link_label] : []);
 
-    req.session.sucesso = 'Perfil atualizado com sucesso!';
-    return res.redirect('/empresa/meu-perfil');
+    await prisma.empresa_link.deleteMany({ where: { empresa_id: Number(sess.id) } });
+
+    const creates = [];
+    let ordem = 1;
+    for (let i = 0; i < urls.length; i++) {
+      const url = (urls[i] || '').trim();
+      if (!url) continue;
+      const label = (labels[i] || 'Link').toString().trim();
+      if (!/^https?:\/\//i.test(url)) continue;
+      creates.push({ empresa_id: Number(sess.id), label, url, ordem });
+      ordem++;
+    }
+    if (creates.length) {
+      await prisma.empresa_link.createMany({ data: creates });
+    }
+
+    req.session.sucessoCadastro = 'Perfil atualizado com sucesso.';
+    res.redirect('/empresa/meu-perfil');
   } catch (err) {
-    console.error('Erro ao salvar edição de perfil da empresa:', err);
-    return res.status(500).render('empresas/editar-empresa', {
-      nome_empresa,
-      descricao,
-      localidade,
-      telefone,
-      foto_perfil: req.session.empresa?.foto_perfil || '',
-      erro: 'Não foi possível salvar as alterações. Tente novamente.'
-    });
+    console.error('Erro ao salvar edição da empresa:', err);
+    req.session.erro = 'Erro ao salvar o perfil. Tente novamente.';
+    res.redirect('/empresa/editar-empresa');
   }
 };
-
+  
 exports.mostrarVagas = async (req, res) => {
   const sess = req.session.empresa;
   if (!sess) return res.redirect('/login');
@@ -1012,4 +1040,23 @@ exports.excluirConta = async (req, res) => {
   }
 };
 
+exports.telaAnexosEmpresa = async (req, res) => {
+  const sess = req.session?.empresa;
+  if (!sess?.id) return res.redirect('/login');
 
+  try {
+    const anexos = await prisma.empresa_arquivo.findMany({
+      where: { empresa_id: Number(sess.id) },
+      orderBy: { criadoEm: 'desc' },
+    });
+
+    const erro = req.flash ? req.flash('erro') : [];
+    const msg  = req.flash ? req.flash('msg')  : [];
+
+    res.render('empresas/anexos', { anexos, erro, msg });
+  } catch (e) {
+    console.error('Erro ao carregar anexos da empresa:', e);
+    if (req.flash) req.flash('erro', 'Não foi possível carregar anexos.');
+    res.redirect('/empresa/meu-perfil');
+  }
+};

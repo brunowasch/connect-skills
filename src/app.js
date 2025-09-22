@@ -23,6 +23,7 @@ const candidatoRoutes = require('./routes/candidatoRoutes');
 const empresaRoutes = require('./routes/empresaRoutes');
 const mainRoutes = require('./routes/index');
 const candidatoArquivosRoutes = require('./routes/candidatoArquivosRoutes');
+const empresaArquivoRoutes = require('./routes/empresaArquivoRoutes');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -131,6 +132,7 @@ app.use('/', mainRoutes);
 app.use('/', authRoutes);
 app.use('/', aliasRoutes);
 app.use(candidatoArquivosRoutes);
+app.use(empresaArquivoRoutes);
 
 /* ---------- Rotas autenticadas ---------- */
 app.use('/usuarios', usuarioRoutes);
