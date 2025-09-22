@@ -1,0 +1,28 @@
+<div id="fixed-top-spacer"></div>
+<script>
+  (function () {
+    const spacer = document.getElementById('fixed-top-spacer');
+    const fixed  = document.querySelector('.fixed-top, .navbar.fixed-top'); // pega seu header atual
+    const root   = document.documentElement;
+
+    function updateSpacer() {
+      if (!spacer) return;
+      let h = 0;
+      if (fixed) {
+        const r = fixed.getBoundingClientRect();
+        h = Math.max(0, Math.ceil(r.height));
+      }
+      spacer.style.height = h + 'px';
+      // 🔑 exporta a altura para CSS: --header-h
+      root.style.setProperty('--header-h', h + 'px');
+    }
+
+    // inicial e responsivo
+    window.addEventListener('load',   updateSpacer);
+    window.addEventListener('resize', updateSpacer);
+
+    // se o header tiver collapse do Bootstrap
+    document.addEventListener('shown.bs.collapse',  updateSpacer);
+    document.addEventListener('hidden.bs.collapse', updateSpacer);
+  })();
+</script>

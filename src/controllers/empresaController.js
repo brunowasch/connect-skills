@@ -8,6 +8,22 @@ const { cloudinary } = require('../config/cloudinary');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+function getEmpresaFromSession(req) {
+  const s = req.session || {};
+  const e = s.empresa || s.usuario || {};
+  return e && (e.tipo ? String(e.tipo) === 'empresa' : true) ? e : null;
+}
+
+function vagaIncludeFull() {
+  return {
+    empresa: true,
+    vaga_area: { include: { area_interesse: true } },
+    vaga_soft_skill: { include: { soft_skill: true } },
+    vaga_hard_skill: { include: { hard_skill: true } },
+  };
+}
+
+
 exports.telaCadastro = (req, res) => {
   res.render('empresas/cadastro-pessoa-juridica');
 };
@@ -1058,5 +1074,158 @@ exports.telaAnexosEmpresa = async (req, res) => {
     console.error('Erro ao carregar anexos da empresa:', e);
     if (req.flash) req.flash('erro', 'Não foi possível carregar anexos.');
     res.redirect('/empresa/meu-perfil');
+  }
+};
+
+exports.telaVagaDetalhe = async (req, res) => {
+  const empresaSess = getEmpresaFromSession(req);
+  const id = Number(req.params.id);
+
+  if (!Number.isFinite(id)) {
+    return res.status(404).render('shared/404', { url: req.originalUrl });
+  }
+
+  try {
+    const vaga = await prisma.vaga.findFirst({
+      where: {
+        id,
+        ...(empresaSess?.id ? { empresa_id: Number(empresaSess.id) } : {}),
+      },
+      include: {
+        empresa: true,
+        vaga_area:      { include: { area_interesse: true } },
+        vaga_soft_skill:{ include: { soft_skill: true } },
+      },
+    });
+
+    if (!vaga) {
+      return res.status(404).render('shared/404', { url: req.originalUrl });
+    }
+
+    // >>> pega o último status no histórico
+    const statusAtual = await obterStatusDaVaga(id); // 'aberta' | 'fechada'
+
+    return res.render('empresas/vaga-detalhe', { vaga, statusAtual });
+  } catch (err) {
+    console.error('Erro telaVagaDetalhe', err);
+    return res.status(500).render('shared/500', { erro: 'Falha ao carregar a vaga.' });
+  }
+};
+
+async function obterStatusDaVaga(vagaId) {
+  const ultimo = await prisma.vaga_status.findFirst({
+    where: { vaga_id: vagaId },
+    orderBy: { criado_em: 'desc' },
+    select: { situacao: true }
+  });
+  return ultimo?.situacao || 'aberta';
+}
+
+exports.fecharVaga = async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const empresaId = await getEmpresaIdDaSessao(req);
+
+    // Confere se a vaga existe e pertence à empresa logada
+    const vaga = await prisma.vaga.findFirst({
+      where: { id, ...(empresaId ? { empresa_id: empresaId } : {}) },
+      select: { id: true }
+    });
+    if (!vaga) {
+      req.session.erro = 'Vaga não encontrada ou não pertence a esta empresa.';
+      return res.redirect('/empresa/meu-perfil');
+    }
+
+    // Se já está fechada, só redireciona
+    const statusAtual = await obterStatusDaVaga(id);
+    if (statusAtual === 'fechada') {
+      return res.redirect(`/empresa/vaga/${id}`);
+    }
+
+    // Grava evento "fechada"
+    await prisma.vaga_status.create({
+      data: { vaga_id: id, situacao: 'fechada' }
+    });
+
+    return res.redirect(`/empresa/vaga/${id}`);
+  } catch (err) {
+    console.error('Erro fecharVaga:', err?.message || err);
+    req.session.erro = 'Não foi possível fechar a vaga.';
+    return res.redirect(`/empresa/vaga/${id}`);
+  }
+};
+
+exports.reabrirVaga = async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const empresaId = await getEmpresaIdDaSessao(req);
+
+    const vaga = await prisma.vaga.findFirst({
+      where: { id, ...(empresaId ? { empresa_id: empresaId } : {}) },
+      select: { id: true }
+    });
+    if (!vaga) {
+      req.session.erro = 'Vaga não encontrada ou não pertence a esta empresa.';
+      return res.redirect('/empresa/meu-perfil');
+    }
+
+    const statusAtual = await obterStatusDaVaga(id);
+    if (statusAtual === 'aberta') {
+      return res.redirect(`/empresa/vaga/${id}`);
+    }
+
+    await prisma.vaga_status.create({
+      data: { vaga_id: id, situacao: 'aberta' }
+    });
+
+    return res.redirect(`/empresa/vaga/${id}`);
+  } catch (err) {
+    console.error('Erro reabrirVaga:', err?.message || err);
+    req.session.erro = 'Não foi possível reabrir a vaga.';
+    return res.redirect(`/empresa/vaga/${id}`);
+  }
+};
+
+exports.excluirVaga = async (req, res) => {
+  const empresaSess = getEmpresaFromSession(req);
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    return res.redirect('/empresa/meu-perfil?erro=vaga_invalida');
+  }
+
+  try {
+    // Confere se a vaga existe e pertence à empresa logada (quando houver)
+    const vaga = await prisma.vaga.findFirst({
+      where: { id, ...(empresaSess?.id ? { empresa_id: Number(empresaSess.id) } : {}) },
+      select: { id: true },
+    });
+    if (!vaga) return res.redirect('/empresa/meu-perfil?erro=vaga_nao_encontrada');
+
+    // Monta a transação dinamicamente, só com modelos que existem no Prisma Client
+    const tx = [
+      prisma.vaga_area.deleteMany({ where: { vaga_id: id } }),
+      prisma.vaga_soft_skill.deleteMany({ where: { vaga_id: id } }),
+    ];
+
+    if (prisma.vaga_hard_skill?.deleteMany) {
+      tx.push(prisma.vaga_hard_skill.deleteMany({ where: { vaga_id: id } }));
+    }
+    if (prisma.vaga_status?.deleteMany) {
+      tx.push(prisma.vaga_status.deleteMany({ where: { vaga_id: id } }));
+    }
+    if (prisma.vaga_avaliacao?.deleteMany) {
+      tx.push(prisma.vaga_avaliacao.deleteMany({ where: { vaga_id: id } }));
+    }
+
+    // Por último, a própria vaga
+    tx.push(prisma.vaga.delete({ where: { id } }));
+
+    await prisma.$transaction(tx);
+
+    req.session.sucessoVaga = 'Vaga excluída com sucesso!';
+    return res.redirect('/empresa/meu-perfil');
+  } catch (err) {
+    console.error('Erro excluirVaga', err);
+    return res.redirect('/empresa/meu-perfil?erro=nao_foi_possivel_excluir');
   }
 };

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= vaga?.cargo ? vaga.cargo + ' — ' : '' %>Connect Skills</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
+
+  <style>
+    :root { --header-h: 72px; }
+    .page-actions{position:sticky;top:0;z-index:1020;background:#fff;}
+    .badge-status{font-weight:600;}
+    .card-section h6{font-weight:700;margin-bottom:.5rem;}
+    .list-inline.gap-2>li{margin-right:.5rem;margin-bottom:.5rem;}
+    .copy-toast{position:fixed;right:1rem;bottom:1rem;display:none;z-index:1080;}
+    @media (max-width:576px){
+      .btn-group-actions{flex-direction:column;align-items:stretch;}
+      .btn-group-actions .btn{width:100%;}
+    }
+  </style>
+</head>
+<body>
+  <%- include('../partials/header-empresa-vaga') %>
+
+  <main id="content-main" class="container pb-5">
+    <div class="page-actions border-bottom py-2 mb-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <a href="/empresa/meu-perfil" class="btn btn-link text-decoration-none px-0">
+            <i class="bi bi-chevron-left"></i> Meu perfil
+          </a>
+          <span class="text-muted">/</span>
+          <span class="fw-semibold"><%= vaga?.cargo || 'Vaga' %></span>
+        </div>
+        <div class="d-flex gap-2">
+          <button id="btnCopiarLink" class="btn btn-outline-secondary btn-sm" title="Copiar link da vaga">
+            <i class="bi bi-link-45deg me-1"></i> Copiar link
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <section class="card border-0 shadow-sm p-3 p-md-4 mb-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+        <div>
+          <h3 class="mb-1"><%= vaga?.cargo || 'Vaga sem título' %></h3>
+          <div class="text-muted">
+            <% const cidade = vaga?.cidade || vaga?.empresa?.cidade; %>
+            <% const estado = vaga?.estado || vaga?.empresa?.estado; %>
+            <% const pais   = vaga?.pais   || vaga?.empresa?.pais; %>
+            <i class="bi bi-geo-alt me-1"></i>
+            <%= [cidade, estado, pais].filter(Boolean).join(', ') || 'Localidade não informada' %>
+          </div>
+        </div>
+        <div class="d-flex flex-column align-items-end">
+          <% const _statusAtual = (statusAtual || 'aberta').toLowerCase(); %>
+          <% const aberta = _statusAtual !== 'fechada'; %>
+          <span class="badge <%= aberta ? 'text-bg-success' : 'text-bg-secondary' %> badge-status">
+            <i class="bi <%= aberta ? 'bi-unlock' : 'bi-lock' %> me-1"></i>
+            <%= aberta ? 'Aberta' : 'Fechada' %>
+          </span>
+          <% if (vaga?.criadoEm) { %>
+            <small class="text-muted mt-2">Publicada em <%= new Date(vaga.criadoEm).toLocaleDateString('pt-BR') %></small>
+          <% } %>
+        </div>
+      </div>
+    </section>
+
+    <section class="card border-0 shadow-sm p-3 p-md-4 mb-4 card-section">
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <h6>Tipo de local de trabalho</h6>
+          <p class="mb-0">
+            <%
+              // Valor bruto vindo do banco
+              const rawTipo = (vaga?.tipo_local_trabalho || '').toString();
+
+              // Para exibir
+              const prettyBase = rawTipo.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+
+              // Normalização forte
+              const normKey = prettyBase
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/\p{Diacritic}/gu, '')
+                .replace(/[^a-z]/g, '');
+
+              // Flags
+              const isHibrido = /^(hibrido|hbrido)$/.test(normKey);
+              const isPres    = normKey === 'presencial';
+              const isRemoto  = (normKey === 'homeoffice' || normKey === 'remoto');
+
+              // Rótulo bonito
+              const prettyTipo = isHibrido ? 'Híbrido'
+                              : isPres   ? 'Presencial'
+                              : isRemoto ? 'Home Office'
+                              : (prettyBase || 'Não informado');
+
+              // Dias
+              const diasPres = vaga?.dias_presenciais;
+              const diasHome = (vaga?.dias_homeoffice ?? vaga?.dias_home_office);
+            %>
+
+            <%= prettyTipo %>
+
+            <% if (diasPres && (isPres || isHibrido)) { %>
+              <br><small class="text-muted">Dias presenciais: <%= diasPres %></small>
+            <% } %>
+
+            <% if (diasHome && (isRemoto || isHibrido)) { %>
+              <br><small class="text-muted">Dias home office: <%= diasHome %></small>
+            <% } %>
+          </p>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <h6>Escala</h6>
+          <p class="mb-0"><%= vaga?.escala || vaga?.escala_trabalho || 'Não informado' %></p>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <h6>Salário</h6>
+          <p class="mb-0">
+            <% if (typeof vaga?.salario === 'number') { %>
+              R$ <%= vaga.salario.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %>
+            <% } else { %>
+              <%= vaga?.salario || 'A combinar' %>
+            <% } %>
+          </p>
+        </div>
+
+        <div class="col-12">
+          <h6>Descrição</h6>
+          <p class="mb-0"><%= vaga?.descricao || 'Sem descrição' %></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Áreas, soft e hard skills -->
+    <section class="card border-0 shadow-sm p-3 p-md-4 mb-4 card-section">
+      <div class="row g-4">
+        <div class="col-12 col-lg-4">
+          <h6>Áreas de atuação</h6>
+          <ul class="list-inline gap-2">
+            <% const areas = (vaga?.vaga_area || []).map(a => a?.area_interesse?.nome).filter(Boolean); %>
+            <% if (!areas.length) { %>
+              <li class="text-muted">Não informado</li>
+            <% } else { areas.forEach(n => { %>
+              <li class="list-inline-item badge text-bg-primary"><%= n %></li>
+            <% }) } %>
+          </ul>
+        </div>
+
+        <div class="col-12 col-lg-4">
+          <h6>Soft skills</h6>
+          <ul class="list-inline gap-2">
+            <% const softs = (vaga?.vaga_soft_skill || []).map(s => s?.soft_skill?.nome).filter(Boolean); %>
+            <% if (!softs.length) { %>
+              <li class="text-muted">Não informado</li>
+            <% } else { softs.forEach(n => { %>
+              <li class="list-inline-item badge text-bg-success"><%= n %></li>
+            <% }) } %>
+          </ul>
+        </div>
+
+        <div class="col-12 col-lg-4">
+          <h6>Hard skills</h6>
+          <ul class="list-inline gap-2">
+            <% const hards = (vaga?.vaga_hard_skill || []).map(h => h?.hard_skill?.nome).filter(Boolean); %>
+            <% if (!hards.length) { %>
+              <li class="text-muted">Não informado</li>
+            <% } else { hards.forEach(n => { %>
+              <li class="list-inline-item badge text-bg-warning"><%= n %></li>
+            <% }) } %>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <% const beneficios = (vaga?.beneficio || '').split('|').map(b => b && b.trim()).filter(Boolean); %>
+    <% if (beneficios.length) { %>
+      <section class="card border-0 shadow-sm p-3 p-md-4 mb-4 card-section">
+        <h6>Benefícios</h6>
+        <ul class="mb-0">
+          <% beneficios.forEach(b => { %>
+            <li><%= b %></li>
+          <% }) %>
+        </ul>
+      </section>
+    <% } %>
+
+    <% if (vaga?.pergunta || vaga?.opcao) { %>
+      <section class="card border-0 shadow-sm p-3 p-md-4 mb-4 card-section">
+        <div class="row g-3">
+          <% if (vaga?.pergunta) { %>
+            <div class="col-12 col-md-6">
+              <h6>Pergunta para IA</h6>
+              <p class="mb-0"><%= vaga.pergunta %></p>
+            </div>
+          <% } %>
+          <% if (vaga?.opcao) { %>
+            <div class="col-12 col-md-6">
+              <h6>Opções de resposta para IA</h6>
+              <p class="mb-0"><%= vaga.opcao %></p>
+            </div>
+          <% } %>
+        </div>
+      </section>
+    <% } %>
+
+    <section class="card border-0 shadow-sm p-3 p-md-4 mb-5">
+      <div class="d-flex flex-wrap gap-2">
+        <a href="/empresa/vaga/<%= vaga?.id %>/editar" class="btn btn-primary">
+          <i class="bi bi-pencil-square me-1"></i> Editar vaga
+        </a>
+
+        <% if (aberta) { %>
+          <form action="/empresa/vaga/<%= vaga?.id %>/fechar" method="POST" class="d-inline">
+            <button type="submit" class="btn btn-outline-secondary">
+              <i class="bi bi-slash-circle me-1"></i> Fechar vaga
+            </button>
+          </form>
+        <% } else { %>
+          <form action="/empresa/vaga/<%= vaga?.id %>/reabrir" method="POST" class="d-inline">
+            <button type="submit" class="btn btn-success">
+              <i class="bi bi-arrow-counterclockwise me-1"></i> Reabrir vaga
+            </button>
+          </form>
+        <% } %>
+
+        <!-- Formulário de exclusão (sem confirm inline) -->
+        <form id="formExcluir" action="/empresa/vaga/<%= vaga?.id %>/excluir" method="POST" class="d-inline"></form>
+
+        <!-- Botão que abre o modal -->
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalExcluir">
+          <i class="bi bi-trash3 me-1"></i> Excluir vaga
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal de confirmação de exclusão -->
+  <div class="modal fade" id="modalExcluir" tabindex="-1" aria-labelledby="modalExcluirLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalExcluirLabel">Excluir vaga</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          Tem certeza que deseja excluir esta vaga? Essa ação <strong>não</strong> pode ser desfeita.
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button id="btnConfirmExcluir" type="button" class="btn btn-danger">
+            <i class="bi bi-trash3 me-1"></i> Excluir definitivamente
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast de cópia -->
+  <div id="toastCopy" class="toast align-items-center text-bg-success border-0 copy-toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body">Link copiado!</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Offset do header
+    (function () {
+      const root = document.documentElement;
+      const main = document.getElementById('content-main');
+      const nav  = document.querySelector('.navbar.fixed-top, .fixed-top');
+
+      function setHeaderOffset() {
+        let h = 72;
+        if (nav) {
+          const rect = nav.getBoundingClientRect();
+          h = Math.max(56, Math.ceil(rect.height));
+        }
+        root.style.setProperty('--header-h', h + 'px');
+        if (main) main.style.marginTop = h + 'px';
+      }
+      window.addEventListener('load', setHeaderOffset);
+      window.addEventListener('resize', setHeaderOffset);
+      document.addEventListener('shown.bs.collapse', setHeaderOffset);
+      document.addEventListener('hidden.bs.collapse', setHeaderOffset);
+    })();
+
+    // Copiar link
+    (function(){
+      const btn = document.getElementById('btnCopiarLink');
+      const toastEl = document.getElementById('toastCopy');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(window.location.href);
+          if (toastEl) {
+            const t = new bootstrap.Toast(toastEl);
+            toastEl.style.display = 'block';
+            t.show();
+          }
+        } catch {
+          alert('Não foi possível copiar automaticamente. Copie: ' + window.location.href);
+        }
+      });
+    })();
+
+    // Confirmar exclusão via modal
+    (function(){
+      const btnConfirm = document.getElementById('btnConfirmExcluir');
+      const form = document.getElementById('formExcluir');
+      if (btnConfirm && form) {
+        btnConfirm.addEventListener('click', () => {
+          form.submit();
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
