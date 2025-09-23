@@ -341,78 +341,130 @@ exports.telaHomeCandidato = (req, res) => {
 };
 
 exports.renderMeuPerfil = async (req, res) => {
-  if (!req.session.candidato) return res.redirect('/login');
+  const candidatoSessao = req.session.candidato || (req.session.usuario?.tipo === 'candidato' ? req.session.usuario : null);
+  if (!candidatoSessao) return res.redirect('/login');
 
   try {
     const candidato = await prisma.candidato.findUnique({
-      where: { id: req.session.candidato.id },
+      where: {
+        id: Number(candidatoSessao.id),
+      },
       include: {
+        // Áreas de interesse do candidato
         candidato_area: {
-          select: { area_interesse: { select: { nome: true } } }
+          include: {
+            area_interesse: { select: { id: true, nome: true } }
+          }
         },
         usuario: {
-          select: { id: true, email: true, nome: true, sobrenome: true }
+          select: {
+            id: true,
+            email: true,
+            nome: true,
+            sobrenome: true,
+          }
         },
         candidato_link: {
           orderBy: { ordem: 'asc' },
           select: { id: true, label: true, url: true, ordem: true }
         },
-        anexos: { orderBy: { criadoEm: 'desc' } }
+
+        // relacionamento correto para anexos
+        candidato_arquivo: {
+          orderBy: { criadoEm: 'desc' },
+          select: {
+            id: true,
+            nome: true,
+            mime: true,
+            tamanho: true,
+            url: true,
+            criadoEm: true
+          }
+        },
+        vaga_avaliacao: true
       }
     });
 
-    if (!candidato) return res.redirect('/login');
+    if (!candidato) {
+      return res.status(404).render('shared/404', { mensagem: 'Candidato não encontrado.' });
+    }
 
-    // Anexos: **URL pura** (sem fl_inline / fl_attachment)
-    const anexos = candidato.anexos || [];
+    const areas = (candidato.candidato_area || [])
+      .map((ca) => ca.area_interesse?.nome)
+      .filter(Boolean);
 
-    // Foto de perfil com fallback
     const fotoPerfil =
-      candidato.foto_perfil && candidato.foto_perfil.trim() !== ''
-        ? candidato.foto_perfil.trim()
+      (candidato.foto_perfil && String(candidato.foto_perfil).trim() !== '')
+        ? String(candidato.foto_perfil).trim()
         : '/img/avatar.png';
 
-    // Localidade (usa cidade/estado/pais; se vazio, usa o que veio da sessão)
     const localidade =
       [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ')
       || (req.session?.candidato?.localidade || '');
 
-    // Telefone: sanitiza 'undefined' e formata
-    let ddi = '', ddd = '', numero = '', numeroFormatado = '';
-    if (candidato.telefone) {
-      const [ddiRaw, dddRaw, numRaw] = String(candidato.telefone).split('-');
-      const clean = v => (v && v !== 'undefined' && v !== 'null') ? String(v).trim() : '';
-      ddi = clean(ddiRaw);
-      ddd = clean(dddRaw);
-      numero = clean(numRaw).replace(/\D/g, '');
-      numeroFormatado = numero
-        ? (numero.length >= 9 ? `${numero.slice(0,5)}-${numero.slice(5,9)}` : numero)
-        : '';
+    const arquivos = candidato.candidato_arquivo || [];
+    const anexos = arquivos;
+
+    let ddi = '', ddd = '', numeroFormatado = '';
+    try {
+      const tel = (candidato.telefone || '').trim();
+
+      if (tel.includes('-')) {
+        // Formato: DDI-DDD-NUMERO
+        const [ddiRaw, dddRaw, numRaw] = tel.split('-');
+        const clean = v => (v && v !== 'undefined' && v !== 'null') ? String(v).trim() : '';
+        ddi = clean(ddiRaw);
+        ddd = clean(dddRaw);
+
+        let numero = clean(numRaw).replace(/\D/g, '');
+        if (numero.length >= 9) {
+          numeroFormatado = `${numero.slice(0,5)}-${numero.slice(5,9)}`;
+        } else if (numero.length === 8) {
+          numeroFormatado = `${numero.slice(0,4)}-${numero.slice(4,8)}`;
+        } else {
+          numeroFormatado = numero;
+        }
+      } else {
+        // Possível formato: "+55 (51) 99999-9999"
+        const m = tel.match(/^(\+\d+)?\s*\((\d{2,3})\)\s*([\d\- ]{8,})$/);
+        if (m) {
+          ddi = (m[1] || '+55').trim();
+          ddd = m[2].trim();
+          let numero = (m[3] || '').replace(/\D/g, '');
+          if (numero.length >= 9) {
+            numeroFormatado = `${numero.slice(0,5)}-${numero.slice(5,9)}`;
+          } else if (numero.length === 8) {
+            numeroFormatado = `${numero.slice(0,4)}-${numero.slice(4,8)}`;
+          } else {
+            numeroFormatado = numero;
+          }
+        }
+      }
+    } catch {
     }
 
     res.render('candidatos/meu-perfil', {
       candidato,
-      areas: candidato.candidato_area.map(ca => ca.area_interesse.nome),
-      links: candidato.candidato_link,
+      usuario: candidato.usuario,
+      areas,
+      links: candidato.candidato_link || [],
+      arquivos,
       anexos,
-      humanFileSize,
       fotoPerfil,
       localidade,
+      humanFileSize,
+      // adicionados para a view
       ddi,
       ddd,
       numeroFormatado,
     });
   } catch (err) {
-    console.error('Erro ao carregar perfil do candidato:', err);
-    res.status(500).send('Erro interno do servidor');
+    console.error('Erro em renderMeuPerfil:', err);
+    return res.status(500).render('shared/500', { erro: err?.message || 'Erro interno' });
   }
 };
 
 
-
-/* =========================
- * Vagas
- * ========================= */
 exports.mostrarVagas = async (req, res) => {
   const usuario = req.session.candidato;
   if (!usuario) return res.redirect('/login');
@@ -460,13 +512,18 @@ exports.telaEditarPerfil = async (req, res) => {
   try {
     const cand = await prisma.candidato.findUnique({
       where: { id: req.session.candidato.id },
-      include: { candidato_link: true, anexos: { orderBy: { criadoEm: 'desc' } } }
+      include: {
+        candidato_link: true,
+        // <<< relacionamento correto (antes estava "anexos")
+        candidato_arquivo: { orderBy: { criadoEm: 'desc' } }
+      }
     });
 
     if (!cand) return res.redirect('/login');
 
-    // Anexos: **URL pura**
-    const anexos = cand.anexos || [];
+    // Disponibiliza anexos com os dois nomes (compatibilidade)
+    const arquivos = cand.candidato_arquivo || [];
+    const anexos = arquivos;
 
     res.render('candidatos/editar-perfil', {
       nome: cand.nome,
@@ -478,6 +535,7 @@ exports.telaEditarPerfil = async (req, res) => {
       fotoPerfil: cand.foto_perfil,
       links: cand.candidato_link,
       anexos,
+      arquivos,
       humanFileSize
     });
   } catch (err) {

@@ -143,11 +143,6 @@
         </div>
       </div>
     </form>
-    <!-- FIM DO FORM PRINCIPAL -->
-
-    <!-- ====================== -->
-    <!-- ANEXOS (fora do form)  -->
-    <!-- ====================== -->
     <section class="mt-5">
       <h4 class="m-0 mb-3">Anexos</h4>
 
@@ -213,9 +208,6 @@
       </div>
     </section>
 
-    <!-- ========================== -->
-    <!-- MODAL: Excluir Anexo       -->
-    <!-- ========================== -->
     <div class="modal fade" id="modalDeleteAnexo" tabindex="-1" aria-labelledby="modalDeleteAnexoLabel" aria-hidden="true">
       <div class="modal-dialog">
         <form id="deleteAnexoForm" method="post" class="modal-content">
@@ -235,9 +227,6 @@
       </div>
     </div>
 
-    <!-- ========================== -->
-    <!-- MODAL: Excluir Conta (já tinha) -->
-    <!-- ========================== -->
     <div class="modal fade" id="modalExcluir" tabindex="-1" aria-labelledby="modalExcluirLabel" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -257,12 +246,7 @@
         </div>
       </div>
     </div>
-
-    <!-- ========================== -->
-    <!-- BOTÕES FINAIS (RODAPÉ)     -->
-    <!-- ========================== -->
     <div class="d-flex gap-3 mt-4">
-      <!-- Usa o atributo form= para submeter o formulário principal -->
       <button type="submit" form="formEditarPerfil" class="btn btn-primary">Salvar</button>
       <a href="/candidato/meu-perfil" class="btn btn-danger">Cancelar</a>
       <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalExcluir">
@@ -330,7 +314,6 @@
       row.remove();
     }
 
-    // Modal excluir anexo: preenche form/action dinamicamente
     const modalDelete = document.getElementById('modalDeleteAnexo');
     if (modalDelete) {
       modalDelete.addEventListener('show.bs.modal', function (event) {
