@@ -93,6 +93,13 @@
                 </small>
 
                 <p class="fw-semibold mb-1"><%= vaga.cargo %></p>
+                 <small class="text-muted d-block mb-2">
+                      <%
+                        const dataCriacao = new Date(vaga.created_at);
+                        const dataValida = !isNaN(dataCriacao.getTime());
+                      %>
+                      <%= dataValida ? `Publicado em: ${dataCriacao.toLocaleDateString('pt-BR')}` : 'Data não disponível' %>
+                  </small>
                 <p class="mb-2"><%= vaga.descricao %></p>
 
                 <small class="text-muted d-block mb-2"><%= tipoMap[vaga.tipo_local_trabalho] %></small>
