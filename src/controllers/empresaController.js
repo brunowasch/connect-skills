@@ -23,6 +23,27 @@ function vagaIncludeFull() {
   };
 }
 
+async function obterStatusDaVaga(vagaId) {
+  const ultimo = await prisma.vaga_status.findFirst({
+    where: { vaga_id: vagaId },
+    orderBy: { criado_em: 'desc' },
+    select: { situacao: true }
+  });
+  return ultimo?.situacao || 'aberta';
+}
+
+async function getEmpresaIdDaSessao(req) {
+  if (req.session?.empresa?.id) return Number(req.session.empresa.id);
+  // fallback: quando só temos usuario na sessão
+  if (req.session?.usuario?.tipo === 'empresa') {
+    const emp = await prisma.empresa.findFirst({
+      where: { usuario_id: Number(req.session.usuario.id) },
+      select: { id: true }
+    });
+    return emp?.id || null;
+  }
+  return null;
+}
 
 exports.telaCadastro = (req, res) => {
   res.render('empresas/cadastro-pessoa-juridica');
@@ -506,13 +527,11 @@ exports.telaEditarVaga = async (req, res) => {
   }
 };
 
-// empresaController.js
 exports.salvarEditarVaga = async (req, res) => {
   try {
     const vagaId = Number(req.params.id);
     const empresaId = req.session.empresa.id;
 
-    // Campos vindos do form de edição
     const {
       cargo,
       tipo,
@@ -526,16 +545,13 @@ exports.salvarEditarVaga = async (req, res) => {
       pergunta,
       opcao,
 
-      // benefícios (checkboxes + outro)
       beneficio,
       beneficioOutro,
 
-      // seleção dinâmica
       areasSelecionadas,
       habilidadesSelecionadas
     } = req.body;
 
-    // === ÁREAS: suporta "nova:" e limita a 3 ===
     const areaIds = [];
     try {
       const areasBrutas = JSON.parse(areasSelecionadas || '[]');
@@ -559,23 +575,19 @@ exports.salvarEditarVaga = async (req, res) => {
       return res.redirect(`/empresa/vagas/${vagaId}/editar`);
     }
 
-    // === SKILLS ===
     const skillIds = (() => {
       try { return JSON.parse(habilidadesSelecionadas || '[]').map(Number); }
       catch { return []; }
     })();
 
-    // === BENEFÍCIOS: mesma lógica da criação ===
     let beneficiosArr = Array.isArray(beneficio) ? beneficio : (beneficio ? [beneficio] : []);
     if (beneficioOutro?.trim()) beneficiosArr.push(beneficioOutro.trim());
     const beneficiosTexto = beneficiosArr.join(', ');
 
-    // === Salário: normaliza número ===
     const salarioNum = salario
       ? parseFloat(String(salario).replace(/\./g, '').replace(',', '.'))
       : null;
 
-    // Limpa relações antigas
     await prisma.vaga_area.deleteMany({ where: { vaga_id: vagaId } });
     await prisma.vaga_soft_skill.deleteMany({ where: { vaga_id: vagaId } });
 
@@ -619,288 +631,7 @@ exports.salvarEditarVaga = async (req, res) => {
 };
 
 
-// empresaController.js
-exports.perfilPublico = async (req, res) => {
-  const empresaId = parseInt(req.params.id, 10);
-  if (Number.isNaN(empresaId)) {
-    req.session.erro = 'ID de empresa inválido.';
-    return res.redirect('/');
-  }
-
-  try {
-    const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
-    if (!empresa) {
-      req.session.erro = 'Empresa não encontrada.';
-      return res.redirect('/');
-    }
-
-    // Vagas publicadas (mantém os includes que você já tinha)
-    const vagasPublicadas = await prisma.vaga.findMany({
-      where: { empresa_id: empresaId },
-      include: {
-        vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } }
-      }
-    });
-
-    // ✅ Só candidato pode usar o teste da IA nesta tela
-    const podeTestar = !!req.session?.candidato; // << chave da correção
-    const somentePreview = !podeTestar;
-
-    // ✅ (Opcional) Preencher respostas anteriores do candidato, por vaga
-    if (podeTestar && vagasPublicadas.length) {
-      const candidatoId = Number(req.session.candidato.id);
-      const ids = vagasPublicadas.map(v => v.id);
-
-      const avals = await prisma.vaga_avaliacao.findMany({
-        where: { candidato_id: candidatoId, vaga_id: { in: ids } },
-        select: { vaga_id: true, resposta: true } // "resposta" = "Pergunta? Resposta" por linha
-      });
-      const mapResp = new Map(avals.map(a => [a.vaga_id, a.resposta || '']));
-
-      for (const vaga of vagasPublicadas) {
-        const texto = mapResp.get(vaga.id) || '';
-        if (!texto) continue;
-        const linhas = texto.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        const apenasRespostas = linhas.map(L => {
-          const m = L.match(/\?\s*(.*)$/);
-          return m ? m[1].trim() : '';
-        }).filter(Boolean);
-
-        // manda para a view (mesma convenção do vagas.ejs do candidato)
-        vaga.respostas_previas = apenasRespostas;
-        vaga.resposta_unica   = apenasRespostas[0] || '';
-        // dica: Se quiser, você pode também renderizar um aviso "já testou"
-      }
-    }
-
-    return res.render('empresas/perfil-publico', {
-      empresa,
-      vagasPublicadas,
-      somentePreview,
-      podeTestar
-    });
-  } catch (error) {
-    console.error('Erro ao carregar perfil público:', error);
-    req.session.erro = 'Erro ao carregar perfil.';
-    return res.redirect('/');
-  }
-};
-
-exports.telaComplementarGoogle = (req, res) => {
-  if (!req.session.usuario || req.session.usuario.tipo !== 'empresa') {
-    return res.redirect('/');
-  }
-  const nome = req.session.usuario.nome || '';
-  res.render('empresas/cadastro-complementar-empresa', { nome, erro: null });
-};
-
-exports.salvarComplementarGoogle = async (req, res) => {
-  const { nome, descricao, ddi, ddd, numero, localidade } = req.body;
-  const usuario_id = req.session.usuario?.id;
-
-  if (!usuario_id || !nome || !descricao || !localidade || !ddd || !numero) {
-    return res.render('empresas/cadastro-complementar-empresa', {
-      nome,
-      erro: 'Preencha todos os campos obrigatórios.'
-    });
-  }
-
-  try {
-    const usuarioDB = await prisma.usuario.findUnique({ where: { id: usuario_id } });
-
-    await empresaModel.criarEmpresa({
-      usuario_id,
-      nome_empresa: nome,
-      descricao,
-      foto_perfil: usuarioDB.avatarUrl || ''
-    });
-
-    const partes = localidade.split(',').map(p => p.trim());
-    const [cidade, estado = '', pais = ''] = partes;
-    await empresaModel.atualizarLocalizacao({ usuario_id, cidade, estado, pais });
-
-    const telefone = `${ddi} (${ddd}) ${numero}`;
-    await empresaModel.atualizarTelefone({ usuario_id, telefone });
-
-    const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario_id);
-    req.session.empresa = {
-      id: empresa.id,
-      usuario_id,
-      nome_empresa: empresa.nome_empresa,
-      descricao: empresa.descricao,
-      cidade: empresa.cidade,
-      estado: empresa.estado,
-      pais: empresa.pais,
-      telefone: empresa.telefone,
-      foto_perfil: empresa.foto_perfil || '',
-      email: usuarioDB.email
-    };
-
-    req.session.sucesso = 'Cadastro complementar concluído!';
-    res.redirect('/empresa/home');
-  } catch (err) {
-    console.error('Erro no cadastro complementar da empresa:', err);
-    res.render('empresas/cadastro-complementar-empresa', {
-      nome,
-      erro: 'Erro interno ao salvar os dados. Tente novamente.'
-    });
-  }
-};
-
-exports.telaEditarPerfil = async (req, res) => {
-  const sess = req.session.empresa;
-    const humanFileSize = (bytes) => {
-    if (!bytes || bytes <= 0) return '0 B';
-    const thresh = 1024;
-    if (Math.abs(bytes) < thresh) return bytes + ' B';
-    const units = ['KB','MB','GB','TB'];
-    let u = -1;
-    do { bytes /= thresh; ++u; } while (Math.abs(bytes) >= thresh && u < units.length - 1);
-    return bytes.toFixed(1) + ' ' + units[u];
-  };
-  if (!sess) return res.redirect('/login');
-
-  try {
-    const empresa = await prisma.empresa.findUnique({
-      where: { id: Number(sess.id) },
-      include: {
-        empresa_link: { orderBy: { ordem: 'asc' } },
-        empresa_arquivo: { orderBy: { criadoEm: 'desc' } },
-      }
-    });
-
-    const localidade = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', ');
-
-    res.render('empresas/editar-empresa', {
-      empresa,
-      descricao: empresa.descricao || '',
-      humanFileSize,
-      localidade,
-      links: empresa.empresa_link,
-      anexos: empresa.empresa_arquivo
-    });
-  } catch (err) {
-    console.error('Erro ao abrir edição de empresa:', err);
-    req.session.erro = 'Erro ao carregar dados.';
-    res.redirect('/empresa/meu-perfil');
-  }
-};
-
-exports.salvarEdicaoPerfil = async (req, res) => {
-  try {
-    const sess = req.session.empresa;
-    if (!sess) return res.redirect('/login');
-
-    const { nome, descricao, localidade, ddd, numero } = req.body;
-
-    // Localidade
-    let cidade = '', estado = '', pais = '';
-    if (localidade) {
-      const partes = String(localidade).split(',').map(p => p.trim());
-      [cidade, estado = '', pais = ''] = partes;
-    }
-
-    // Telefone -> SEMPRE salvar como "+55 (DD) 9XXXX-XXXX" (ou 8 dígitos se fixo)
-    let telefone = req.body.telefone || '';
-    const dddDigits = (ddd || '').replace(/\D/g, '');
-    const numDigits = (numero || '').replace(/\D/g, '');
-    if (dddDigits && numDigits) {
-      let numeroFmt;
-      if (numDigits.length >= 9) {
-        // celular (9 dígitos)
-        numeroFmt = `${numDigits.slice(0, 5)}-${numDigits.slice(5, 9)}`;
-      } else if (numDigits.length >= 8) {
-        // fixo (8 dígitos)
-        numeroFmt = `${numDigits.slice(0, 4)}-${numDigits.slice(4, 8)}`;
-      } else {
-        numeroFmt = numDigits; // fallback
-      }
-      telefone = `+55 (${dddDigits}) ${numeroFmt}`;
-    }
-
-    await prisma.empresa.update({
-      where: { id: Number(sess.id) },
-      data: {
-        nome_empresa: nome,
-        descricao,
-        cidade, estado, pais,
-        telefone
-      }
-    });
-
-    // Links do perfil (igual estava)
-    const urls = Array.isArray(req.body['link_url[]']) ? req.body['link_url[]'] :
-                 Array.isArray(req.body.link_url) ? req.body.link_url :
-                 (req.body.link_url ? [req.body.link_url] : []);
-    const labels = Array.isArray(req.body['link_label[]']) ? req.body['link_label[]'] :
-                   Array.isArray(req.body.link_label) ? req.body.link_label :
-                   (req.body.link_label ? [req.body.link_label] : []);
-
-    await prisma.empresa_link.deleteMany({ where: { empresa_id: Number(sess.id) } });
-
-    const creates = [];
-    let ordem = 1;
-    for (let i = 0; i < urls.length; i++) {
-      const url = (urls[i] || '').trim();
-      if (!url) continue;
-      const label = (labels[i] || 'Link').toString().trim();
-      if (!/^https?:\/\//i.test(url)) continue;
-      creates.push({ empresa_id: Number(sess.id), label, url, ordem });
-      ordem++;
-    }
-    if (creates.length) {
-      await prisma.empresa_link.createMany({ data: creates });
-    }
-
-    req.session.sucessoCadastro = 'Perfil atualizado com sucesso.';
-    res.redirect('/empresa/meu-perfil');
-  } catch (err) {
-    console.error('Erro ao salvar edição da empresa:', err);
-    req.session.erro = 'Erro ao salvar o perfil. Tente novamente.';
-    res.redirect('/empresa/editar-empresa');
-  }
-};
-  
-exports.mostrarVagas = async (req, res) => {
-  const sess = req.session.empresa;
-  if (!sess) return res.redirect('/login');
-
-  try {
-    const vagas = await prisma.vaga.findMany({
-      where: { empresa_id: sess.id },
-      include: {
-        vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } }
-      },
-      orderBy: { id: 'desc' }
-    });
-
-    return res.render('empresas/vagas', {
-      vagas,
-      empresa: req.session.empresa, 
-      activePage: 'vagas'
-    });
-  } catch (err) {
-    console.error('Erro ao listar vagas da empresa:', err);
-    req.session.erro = 'Erro ao listar vagas.';
-    return res.redirect('/empresa/home');
-  }
-};
-
-async function getEmpresaIdDaSessao(req) {
-  if (req.session?.empresa?.id) return Number(req.session.empresa.id);
-  // fallback: quando só temos usuario na sessão
-  if (req.session?.usuario?.tipo === 'empresa') {
-    const emp = await prisma.empresa.findFirst({
-      where: { usuario_id: Number(req.session.usuario.id) },
-      select: { id: true }
-    });
-    return emp?.id || null;
-  }
-  return null;
-}
-
+// Ranking
 exports.rankingCandidatos = async (req, res) => {
   try {
     const params = {
@@ -976,9 +707,8 @@ exports.rankingCandidatos = async (req, res) => {
         local,
         telefone,
         email,
-        foto_perfil,
         score: Number(a.score) || 0,
-        // >>> passa para o EJS:
+        foto_perfil,
         questions
       };
     });
@@ -1102,24 +832,16 @@ exports.telaVagaDetalhe = async (req, res) => {
       return res.status(404).render('shared/404', { url: req.originalUrl });
     }
 
-    // >>> pega o último status no histórico
+    // último status no histórico
     const statusAtual = await obterStatusDaVaga(id); // 'aberta' | 'fechada'
+    const shareUrl = `${req.protocol}://${req.get('host')}/vagas/${id}`; // link público para candidatos
 
-    return res.render('empresas/vaga-detalhe', { vaga, statusAtual });
+    return res.render('empresas/vaga-detalhe', { vaga, statusAtual, shareUrl });
   } catch (err) {
     console.error('Erro telaVagaDetalhe', err);
     return res.status(500).render('shared/500', { erro: 'Falha ao carregar a vaga.' });
   }
 };
-
-async function obterStatusDaVaga(vagaId) {
-  const ultimo = await prisma.vaga_status.findFirst({
-    where: { vaga_id: vagaId },
-    orderBy: { criado_em: 'desc' },
-    select: { situacao: true }
-  });
-  return ultimo?.situacao || 'aberta';
-}
 
 exports.fecharVaga = async (req, res) => {
   const id = Number(req.params.id);
@@ -1228,4 +950,307 @@ exports.excluirVaga = async (req, res) => {
     console.error('Erro excluirVaga', err);
     return res.redirect('/empresa/meu-perfil?erro=nao_foi_possivel_excluir');
   }
+};
+
+exports.perfilPublico = async (req, res) => {
+  const empresaId = parseInt(req.params.id, 10);
+  if (Number.isNaN(empresaId)) {
+    req.session.erro = 'ID de empresa inválido.';
+    return res.redirect('/');
+  }
+
+  try {
+    const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
+    if (!empresa) {
+      req.session.erro = 'Empresa não encontrada.';
+      return res.redirect('/');
+    }
+
+    const vagasPublicadasAll = await prisma.vaga.findMany({
+      where: { empresa_id: empresaId },
+      include: {
+        vaga_area: { include: { area_interesse: true } },
+        vaga_soft_skill: { include: { soft_skill: true } }
+      }
+    });
+
+    // Filtra fechadas pelo histórico
+    const ids = vagasPublicadasAll.map(v => v.id);
+    let vagasPublicadas = vagasPublicadasAll;
+    if (ids.length) {
+      const statusList = await prisma.vaga_status.findMany({
+        where: { vaga_id: { in: ids } },
+        orderBy: { criado_em: 'desc' },
+        select: { vaga_id: true, situacao: true, criado_em: true }
+      });
+      const latest = new Map(); // vaga_id -> situacao
+      for (const s of statusList) {
+        if (!latest.has(s.vaga_id)) latest.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
+      }
+      vagasPublicadas = vagasPublicadasAll.filter(v => (latest.get(v.id) || 'aberta') !== 'fechada');
+    }
+
+    const podeTestar = !!req.session?.candidato;
+    const somentePreview = !podeTestar;
+
+    if (podeTestar && vagasPublicadas.length) {
+      const candidatoId = Number(req.session.candidato.id);
+      const idsAbertas = vagasPublicadas.map(v => v.id);
+
+      const avals = await prisma.vaga_avaliacao.findMany({
+        where: { candidato_id: candidatoId, vaga_id: { in: idsAbertas } },
+        select: { vaga_id: true, resposta: true }
+      });
+      const mapResp = new Map(avals.map(a => [a.vaga_id, a.resposta || '']));
+
+      for (const vaga of vagasPublicadas) {
+        const texto = mapResp.get(vaga.id) || '';
+        if (!texto) continue;
+        const linhas = texto.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        const apenasRespostas = linhas.map(L => {
+          const m = L.match(/\?\s*(.*)$/);
+          return m ? m[1].trim() : '';
+        }).filter(Boolean);
+
+        vaga.respostas_previas = apenasRespostas;
+        vaga.resposta_unica   = apenasRespostas[0] || '';
+      }
+    }
+
+    return res.render('empresas/perfil-publico', {
+      empresa,
+      vagasPublicadas,
+      somentePreview,
+      podeTestar
+    });
+  } catch (error) {
+    console.error('Erro ao carregar perfil público:', error);
+    req.session.erro = 'Erro ao carregar perfil.';
+    return res.redirect('/');
+  }
+};
+
+exports.telaEditarPerfil = async (req, res) => {
+  const sess = req.session.empresa;
+    const humanFileSize = (bytes) => {
+    if (!bytes || bytes <= 0) return '0 B';
+    const thresh = 1024;
+    if (Math.abs(bytes) < thresh) return bytes + ' B';
+    const units = ['KB','MB','GB','TB'];
+    let u = -1;
+    do { bytes /= thresh; ++u; } while (Math.abs(bytes) >= thresh && u < units.length - 1);
+    return bytes.toFixed(1) + ' ' + units[u];
+  };
+  if (!sess) return res.redirect('/login');
+
+  try {
+    const empresa = await prisma.empresa.findUnique({
+      where: { id: Number(sess.id) },
+      include: {
+        empresa_link: { orderBy: { ordem: 'asc' } },
+        empresa_arquivo: { orderBy: { criadoEm: 'desc' } },
+      }
+    });
+
+    const localidade = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', ');
+
+    res.render('empresas/editar-empresa', {
+      empresa,
+      descricao: empresa.descricao || '',
+      humanFileSize,
+      localidade,
+      links: empresa.empresa_link,
+      anexos: empresa.empresa_arquivo
+    });
+  } catch (err) {
+    console.error('Erro ao abrir edição de empresa:', err);
+    req.session.erro = 'Erro ao carregar dados.';
+    res.redirect('/empresa/meu-perfil');
+  }
+};
+
+exports.salvarEdicaoPerfil = async (req, res) => {
+  try {
+    const sess = req.session.empresa;
+    if (!sess) return res.redirect('/login');
+
+    const { nome, descricao, localidade, ddd, numero } = req.body;
+
+    // Localidade
+    let cidade = '', estado = '', pais = '';
+    if (localidade) {
+      const partes = String(localidade).split(',').map(p => p.trim());
+      [cidade, estado = '', pais = ''] = partes;
+    }
+
+    let telefone = req.body.telefone || '';
+    const dddDigits = (ddd || '').replace(/\D/g, '');
+    const numDigits = (numero || '').replace(/\D/g, '');
+    if (dddDigits && numDigits) {
+      let numeroFmt;
+      if (numDigits.length >= 9) {
+        // celular (9 dígitos)
+        numeroFmt = `${numDigits.slice(0, 5)}-${numDigits.slice(5, 9)}`;
+      } else if (numDigits.length >= 8) {
+        // fixo (8 dígitos)
+        numeroFmt = `${numDigits.slice(0, 4)}-${numDigits.slice(4, 8)}`;
+      } else {
+        numeroFmt = numDigits; // fallback
+      }
+      telefone = `+55 (${dddDigits}) ${numeroFmt}`;
+    }
+
+    await prisma.empresa.update({
+      where: { id: Number(sess.id) },
+      data: {
+        nome_empresa: nome,
+        descricao,
+        cidade, estado, pais,
+        telefone
+      }
+    });
+
+    // Links do perfil (igual estava)
+    const urls = Array.isArray(req.body['link_url[]']) ? req.body['link_url[]'] :
+                 Array.isArray(req.body.link_url) ? req.body.link_url :
+                 (req.body.link_url ? [req.body.link_url] : []);
+    const labels = Array.isArray(req.body['link_label[]']) ? req.body['link_label[]'] :
+                   Array.isArray(req.body.link_label) ? req.body.link_label :
+                   (req.body.link_label ? [req.body.link_label] : []);
+
+    await prisma.empresa_link.deleteMany({ where: { empresa_id: Number(sess.id) } });
+
+    const creates = [];
+    let ordem = 1;
+    for (let i = 0; i < urls.length; i++) {
+      const url = (urls[i] || '').trim();
+      if (!url) continue;
+      const label = (labels[i] || 'Link').toString().trim();
+      if (!/^https?:\/\//i.test(url)) continue;
+      creates.push({ empresa_id: Number(sess.id), label, url, ordem });
+      ordem++;
+    }
+    if (creates.length) {
+      await prisma.empresa_link.createMany({ data: creates });
+    }
+
+    req.session.sucessoCadastro = 'Perfil atualizado com sucesso.';
+    res.redirect('/empresa/meu-perfil');
+  } catch (err) {
+    console.error('Erro ao salvar edição da empresa:', err);
+    req.session.erro = 'Erro ao salvar o perfil. Tente novamente.';
+    res.redirect('/empresa/editar-empresa');
+  }
+};
+
+exports.mostrarVagas = async (req, res) => {
+  if (!req.session?.empresa) return res.redirect('/login');
+  const empresaId = Number(req.session.empresa.id);
+
+  const q = (req.query.q || '').trim();
+  const ordenar = (req.query.ordenar || 'recentes').trim();
+
+  const tipo = (req.query.tipo || '').trim();          
+  const escala = (req.query.escala || '').trim();
+  const salMin = req.query.sal_min ? Number(req.query.sal_min) : null;
+  const salMax = req.query.sal_max ? Number(req.query.sal_max) : null;
+  let areaIds = req.query.area_ids || [];
+  if (!Array.isArray(areaIds)) areaIds = [areaIds];
+  areaIds = areaIds.filter(Boolean).map(x => Number(x)).filter(Number.isFinite);
+
+  const where = { empresa_id: empresaId };
+
+  if (q) {
+    where.OR = [
+      { cargo:     { contains: q } },
+      { descricao: { contains: q } },
+      { vaga_area: { some: { area_interesse: { nome: { contains: q } } } } },
+    ];
+  }
+
+  if (tipo)   where.tipo_local_trabalho = tipo;
+  if (escala) where.escala_trabalho = { contains: escala };
+  if (areaIds.length > 0) {
+    where.vaga_area = { some: { area_interesse_id: { in: areaIds } } };
+  }
+  if (salMin != null || salMax != null) {
+    where.salario = {};
+    if (salMin != null) where.salario.gte = salMin;
+    if (salMax != null) where.salario.lte = salMax;
+  }
+
+  try {
+    let orderBy = { created_at: 'desc' };
+    if (ordenar === 'antigos') orderBy = { created_at: 'asc' };
+
+    const vagas = await prisma.vaga.findMany({
+      where,
+      include: {
+        vaga_area: { include: { area_interesse: true } },
+        empresa: { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } }
+      },
+      orderBy
+    });
+
+    const vagaIds = vagas.map(v => v.id);
+    let countsMap = new Map();
+    if (vagaIds.length) {
+      const grouped = await prisma.vaga_avaliacao.groupBy({
+        by: ['vaga_id'],
+        where: { vaga_id: { in: vagaIds } },
+        _count: { vaga_id: true }
+      });
+      countsMap = new Map(grouped.map(g => [g.vaga_id, g._count.vaga_id]));
+    }
+
+    let vagasComTotal = vagas.map(v => ({
+      ...v,
+      total_candidatos: countsMap.get(v.id) || 0
+    }));
+
+    switch (ordenar) {
+      case 'mais_candidatos':
+        vagasComTotal.sort((a, b) => (b.total_candidatos - a.total_candidatos) || (b.created_at - a.created_at));
+        break;
+      case 'menos_candidatos':
+        vagasComTotal.sort((a, b) => (a.total_candidatos - b.total_candidatos) || (b.created_at - a.created_at));
+        break;
+      case 'maior_salario':
+        vagasComTotal.sort((a, b) => (Number(b.salario || 0) - Number(a.salario || 0)) || (b.created_at - a.created_at));
+        break;
+      case 'menor_salario':
+        vagasComTotal.sort((a, b) => (Number(a.salario || 0) - Number(b.salario || 0)) || (b.created_at - a.created_at));
+        break;
+    }
+
+    res.render('empresas/vagas', {
+      vagas: vagasComTotal,
+      empresa: vagas[0]?.empresa || req.session.empresa || {},
+      filtros: { q, ordenar },
+      tipos: [
+        { value: 'Presencial',  label: 'Presencial' },
+        { value: 'Home_Office', label: 'Home Office' },
+        { value: 'H_brido',     label: 'Híbrido' }
+      ],
+      escalas: [],
+      areas:   []
+    });
+  } catch (err) {
+    console.error('Erro ao listar vagas com filtros:', err);
+    req.session.erro = 'Erro ao carregar suas vagas.';
+    res.redirect('/empresa/home');
+  }
+};
+
+
+exports.telaComplementarGoogle = (req, res) => {
+  const usuarioId = req.session?.usuario?.id;
+  if (!usuarioId) return res.redirect('/login');
+  return res.redirect(`/empresas/nome-empresa?usuario_id=${usuarioId}`);
+};
+
+exports.salvarComplementarGoogle = (req, res) => {
+  const usuarioId = req.session?.usuario?.id;
+  if (!usuarioId) return res.redirect('/login');
+  return res.redirect(`/empresas/nome-empresa?usuario_id=${usuarioId}`);
 };

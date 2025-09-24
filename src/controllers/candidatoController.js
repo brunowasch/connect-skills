@@ -7,9 +7,6 @@ const { sugerirCompatibilidade } = require('../services/iaClient');
 const vagaAvaliacaoModel = require('../models/vagaAvaliacaoModel');
 const { cloudinary } = require('../config/cloudinary');
 
-/* =========================
- * Helpers (API de compatibilidade + utilitários)
- * ========================= */
 const ensureQmark = (q) => {
   const t = (q || '').trim();
   if (!t) return '';
@@ -92,9 +89,15 @@ function humanFileSize(bytes) {
   return bytes.toFixed(1) + ' ' + units[u];
 }
 
-/* =========================
- * Fluxo de cadastro: nome
- * ========================= */
+async function isVagaFechada(vaga_id) {
+  const ultimo = await prisma.vaga_status.findFirst({
+    where: { vaga_id: Number(vaga_id) },
+    orderBy: { criado_em: 'desc' },
+    select: { situacao: true }
+  });
+  return (ultimo?.situacao || 'aberta').toLowerCase() === 'fechada';
+}
+
 exports.telaNomeCandidato = (req, res) => {
   const { usuario_id } = req.query;
   res.render('candidatos/cadastro-de-nome-e-sobrenome-candidatos', { usuario_id });
@@ -117,9 +120,6 @@ exports.salvarNomeCandidato = async (req, res) => {
   }
 };
 
-/* =========================
- * Fluxo de cadastro: localização
- * ========================= */
 exports.telaLocalizacao = (req, res) => {
   const { usuario_id } = req.query;
   res.render('candidatos/localizacao-login-candidato', { usuario_id });
@@ -157,9 +157,6 @@ exports.salvarLocalizacao = async (req, res) => {
   }
 };
 
-/* =========================
- * Fluxo de cadastro: telefone
- * ========================= */
 exports.telaTelefone = (req, res) => {
   const usuarioId = req.query.usuario_id || req.body.usuario_id;
   res.render('candidatos/telefone', { usuarioId, error: null, telefoneData: {} });
@@ -193,9 +190,6 @@ exports.salvarTelefone = async (req, res) => {
   }
 };
 
-/* =========================
- * Fluxo de cadastro: foto de perfil
- * ========================= */
 exports.telaFotoPerfil = (req, res) => {
   const usuarioId = req.query.usuario_id || req.body.usuario_id;
   return res.render('candidatos/foto-perfil', { usuarioId, error: null });
@@ -242,9 +236,6 @@ exports.salvarFotoPerfil = async (req, res) => {
   }
 };
 
-/* =========================
- * Fluxo de cadastro: áreas
- * ========================= */
 exports.telaSelecionarAreas = async (req, res) => {
   try {
     const usuario_id = req.query.usuario_id;
@@ -324,9 +315,6 @@ exports.salvarAreas = async (req, res) => {
   }
 };
 
-/* =========================
- * Home e Perfil
- * ========================= */
 exports.telaHomeCandidato = (req, res) => {
   const usuario = req.session.candidato;
   if (!usuario) return res.redirect('/login');
@@ -350,7 +338,6 @@ exports.renderMeuPerfil = async (req, res) => {
         id: Number(candidatoSessao.id),
       },
       include: {
-        // Áreas de interesse do candidato
         candidato_area: {
           include: {
             area_interesse: { select: { id: true, nome: true } }
@@ -369,7 +356,6 @@ exports.renderMeuPerfil = async (req, res) => {
           select: { id: true, label: true, url: true, ordem: true }
         },
 
-        // relacionamento correto para anexos
         candidato_arquivo: {
           orderBy: { criadoEm: 'desc' },
           select: {
@@ -453,7 +439,6 @@ exports.renderMeuPerfil = async (req, res) => {
       fotoPerfil,
       localidade,
       humanFileSize,
-      // adicionados para a view
       ddi,
       ddd,
       numeroFormatado,
@@ -468,34 +453,82 @@ exports.renderMeuPerfil = async (req, res) => {
 exports.mostrarVagas = async (req, res) => {
   const usuario = req.session.candidato;
   if (!usuario) return res.redirect('/login');
+
+  const q = (req.query.q || '').trim();
+  const ordenar = (req.query.ordenar || 'recentes').trim();
+
   try {
-    const vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
+    let vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
 
-    // ids de vagas na página
+    // filtra somente vagas abertas
     const vagaIds = vagas.map(v => v.id);
-    // pega avaliações existentes do usuário nessas vagas
-    const avaliacoes = await prisma.vaga_avaliacao.findMany({
-      where: { candidato_id: Number(usuario.id), vaga_id: { in: vagaIds } },
-      select: { vaga_id: true, resposta: true }
-    });
-    const mapAval = new Map(avaliacoes.map(a => [a.vaga_id, a.resposta || '']));
+    let abertasSet = new Set(vagaIds);
+    if (vagaIds.length) {
+      const statusList = await prisma.vaga_status.findMany({
+        where: { vaga_id: { in: vagaIds } },
+        orderBy: { criado_em: 'desc' },
+        select: { vaga_id: true, situacao: true }
+      });
+      const latest = new Map();
+      for (const s of statusList) {
+        if (!latest.has(s.vaga_id)) latest.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
+      }
+      abertasSet = new Set(
+        vagaIds.filter(id => (latest.get(id) || 'aberta') !== 'fechada')
+      );
+    }
+    vagas = vagas.filter(v => abertasSet.has(v.id));
 
-    // ajusta respostas prévias (para inputs e textarea única)
+    // filtro por busca (cargo, descrição, empresa ou áreas)
+    if (q) {
+      const termo = q.toLowerCase();
+      vagas = vagas.filter(v =>
+        v.cargo?.toLowerCase().includes(termo) ||
+        v.descricao?.toLowerCase().includes(termo) ||
+        v.empresa?.nome_empresa?.toLowerCase().includes(termo) ||
+        v.vaga_area?.some(rel => rel.area_interesse?.nome?.toLowerCase().includes(termo))
+      );
+    }
+
+    switch (ordenar) {
+      case 'antigos':
+        vagas.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        break;
+      case 'mais_salario':
+        vagas.sort((a, b) => (b.salario || 0) - (a.salario || 0));
+        break;
+      case 'menos_salario':
+        vagas.sort((a, b) => (a.salario || 0) - (b.salario || 0));
+        break;
+      default:
+        vagas.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+
+    const vagaIdsAbertas = vagas.map(v => v.id);
+    const avaliacoes = vagaIdsAbertas.length
+      ? await prisma.vaga_avaliacao.findMany({
+          where: { candidato_id: Number(usuario.id), vaga_id: { in: vagaIdsAbertas } },
+          select: { vaga_id: true, resposta: true }
+        })
+      : [];
+    const mapAval = new Map(avaliacoes.map(a => [a.vaga_id, a.resposta || '']));
     for (const vaga of vagas) {
       const texto = mapAval.get(vaga.id) || '';
       if (!texto) continue;
-
       const linhas = texto.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
       const apenasRespostas = linhas.map(l => {
         const m = l.match(/\?\s*(.*)$/);
         return m ? m[1].trim() : '';
-      }).filter(x => x.length > 0);
-
+      }).filter(Boolean);
       vaga.respostas_previas = apenasRespostas;
       vaga.resposta_unica = apenasRespostas[0] || '';
     }
 
-    res.render('candidatos/vagas', { vagas, activePage: 'vagas' });
+    res.render('candidatos/vagas', {
+      vagas,
+      filtros: { q, ordenar },
+      activePage: 'vagas'
+    });
   } catch (err) {
     console.error('Erro ao buscar vagas para candidato:', err);
     req.session.erro = 'Erro ao buscar vagas. Tente novamente.';
@@ -503,9 +536,6 @@ exports.mostrarVagas = async (req, res) => {
   }
 };
 
-/* =========================
- * Editar Perfil (inclui links) + anexos no render
- * ========================= */
 exports.telaEditarPerfil = async (req, res) => {
   if (!req.session.candidato) return res.redirect('/login');
 
@@ -514,14 +544,12 @@ exports.telaEditarPerfil = async (req, res) => {
       where: { id: req.session.candidato.id },
       include: {
         candidato_link: true,
-        // <<< relacionamento correto (antes estava "anexos")
         candidato_arquivo: { orderBy: { criadoEm: 'desc' } }
       }
     });
 
     if (!cand) return res.redirect('/login');
 
-    // Disponibiliza anexos com os dois nomes (compatibilidade)
     const arquivos = cand.candidato_arquivo || [];
     const anexos = arquivos;
 
@@ -554,7 +582,6 @@ exports.salvarEditarPerfil = async (req, res) => {
   const [cidade = '', estado = '', pais = ''] = (localidade || '').split(',').map(s => s.trim());
 
   try {
-    // foto
     if (removerFoto) {
       await candidatoModel.atualizarFotoPerfil({ candidato_id, foto_perfil: null });
       sess.foto_perfil = '/img/avatar.png';
@@ -591,7 +618,6 @@ exports.salvarEditarPerfil = async (req, res) => {
     sess.telefone = telefone;
     sess.data_nascimento = dataNascimento;
 
-    /* ===== LINKS ===== */
     const labels = Array.isArray(req.body.link_label)
       ? req.body.link_label
       : (req.body.link_label ? [req.body.link_label] : []);
@@ -603,11 +629,11 @@ exports.salvarEditarPerfil = async (req, res) => {
     for (let i = 0; i < Math.max(labels.length, urls.length); i++) {
       const label = String(labels[i] || '').trim();
       const url = normUrl(urls[i] || '');
-      if (!label && !url) continue;    // ignorar linha vazia
-      if (!url) continue;              // precisa ter URL válida
+      if (!label && !url) continue;
+      if (!url) continue;
       links.push({ label: label || 'Link', url, ordem: i });
     }
-    if (links.length > 5) links.length = 5; // limitar a 5 links
+    if (links.length > 5) links.length = 5;
 
     await candidatoModel.substituirLinksDoCandidato(candidato_id, links);
 
@@ -623,9 +649,6 @@ exports.salvarEditarPerfil = async (req, res) => {
   }
 };
 
-/* =========================
- * Editar Áreas
- * ========================= */
 exports.telaEditarAreas = async (req, res) => {
   const sess = req.session.candidato;
   if (!sess) return res.redirect('/login');
@@ -709,9 +732,6 @@ exports.salvarEditarAreas = async (req, res) => {
   }
 };
 
-/* =========================
- * Complementar Google
- * ========================= */
 exports.exibirComplementarGoogle = async (req, res) => {
   if (!req.session.usuario || req.session.usuario.tipo !== 'candidato') {
     return res.redirect('/login');
@@ -837,9 +857,6 @@ exports.restaurarFotoGoogle = async (req, res) => {
   }
 };
 
-/* =========================
- * Compatibilidade com IA (API formatada robusta)
- * ========================= */
 exports.avaliarCompatibilidade = async (req, res) => {
   try {
     // 1) Sessão e ids
@@ -849,6 +866,11 @@ exports.avaliarCompatibilidade = async (req, res) => {
     }
     const candidato_id = Number(sess.id);
     const vaga_id = Number(req.params.id);
+
+    // Bloqueia vaga fechada
+    if (await isVagaFechada(vaga_id)) {
+      return res.status(403).json({ ok: false, error: 'Esta vaga está fechada no momento.' });
+    }
 
     // 2) Bloquear reenvio
     const existente = await prisma.vaga_avaliacao.findFirst({
@@ -971,8 +993,10 @@ exports.avaliarVagaIa = async (req, res) => {
     const candidato_id = Number(req.session.candidato.id);
     const vaga_id = Number(req.params.vagaId);
 
-    // Espera o mesmo contrato do avaliarCompatibilidade “robusto”:
-    // req.body.qa (array {question, answer}), req.body.items (string), req.body.skills (array)
+    if (await isVagaFechada(vaga_id)) {
+      return res.status(403).json({ ok: false, erro: 'Esta vaga está fechada no momento.' });
+    }
+
     const qaRaw = Array.isArray(req.body.qa) ? req.body.qa : [];
     const itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
     const skillsRaw = Array.isArray(req.body.skills) ? req.body.skills : [];
@@ -1066,9 +1090,6 @@ exports.avaliarVagaIa = async (req, res) => {
   }
 };
 
-/* =========================
- * Exclusão de Conta
- * ========================= */
 exports.excluirConta = async (req, res) => {
   try {
     const candidato = await prisma.candidato.findUnique({

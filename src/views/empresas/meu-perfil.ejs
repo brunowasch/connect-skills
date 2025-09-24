@@ -50,19 +50,27 @@
         <div class="flex-grow-1">
           <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
             <div>
-              <h3 class="mb-1"><%= empresa?.nome_empresa || 'Minha empresa' %></h3>
+              <h3 class="mb-1"><%= empresa?.nome_empresa || 'Minha empresa' %></h3> 
               <div class="text-muted">
                 <i class="bi bi-geo-alt me-1"></i>
                 <%= [empresa?.cidade, empresa?.estado, empresa?.pais].filter(Boolean).join(', ') || 'Localidade não informada' %>
               </div>
             </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex align-items-center gap-2">
               <a class="btn btn-outline-primary btn-sm" href="/empresa/publicar-vaga">
                 <i class="bi bi-plus-square me-1"></i> Publicar vaga
               </a>
               <a class="btn btn-outline-secondary btn-sm" href="/empresa/editar-empresa">
                 <i class="bi bi-pencil-square me-1"></i> Editar perfil
               </a>
+              <button
+                class="btn btn-sm"
+                data-empresa-id="<%= empresa?.id %>"
+                title="Copiar link público do perfil da empresa"
+                onclick="copiarLinkPerfilPublico(this)">
+                <i class="bi bi-link-45deg me-1"></i>
+              </button>
+              <small id="msgCopiado" class="text-success ms-1" style="display:none;">Copiado!</small>
             </div>
           </div>
 
@@ -148,7 +156,8 @@
            if(!bytes||bytes<=0) return '0 B';
            const thresh=1024, units=['KB','MB','GB','TB'];
            let b=bytes, u=-1;
-           while(Math.abs(b)>=thresh && u<units.length-1){ b/=thresh; u++; }
+           while(Math.abs(b)>=thresh && u<units.length-1){ b/=thresh; u++;
+           }
            return (u<0? bytes+' B' : b.toFixed(1)+' '+units[u]);
          } %>
 
@@ -198,5 +207,40 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    function copiarLinkPerfilPublico(btn) {
+      const empresaId = btn.getAttribute('data-empresa-id');
+      const url = `${window.location.origin}/empresa/perfil/${empresaId}`;
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url)
+          .then(() => mostrarMsgCopiado())
+          .catch(() => fallbackCopy(url));
+      } else {
+        fallbackCopy(url);
+      }
+    }
+
+    function fallbackCopy(texto) {
+      try {
+        const input = document.createElement('input');
+        input.value = texto;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        mostrarMsgCopiado();
+      } catch (_) {
+        alert('Copie o link: ' + texto);
+      }
+    }
+
+    function mostrarMsgCopiado() {
+      const msg = document.getElementById('msgCopiado');
+      if (!msg) return;
+      msg.style.display = 'inline';
+      setTimeout(() => (msg.style.display = 'none'), 1500);
+    }
+  </script>
 </body>
 </html>
