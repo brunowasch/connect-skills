@@ -1142,3 +1142,61 @@ exports.excluirConta = async (req, res) => {
     return res.redirect('/candidato/meu-perfil');
   }
 };
+
+exports.vagaDetalhes = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id || Number.isNaN(id)) return res.status(400).send('ID inválido');
+
+    const vaga = await prisma.vaga.findUnique({
+      where: { id },
+      include: {
+        empresa: {
+          include: {
+            usuario: {
+              select: { id: true, nome: true, sobrenome: true, email: true }
+            }
+          }
+        },
+        vaga_area: {
+          include: { area_interesse: { select: { id: true, nome: true } } }
+        },
+        vaga_soft_skill: {
+          include: { soft_skill: { select: { id: true, nome: true } } }
+        }
+      }
+    });
+
+    if (!vaga) return res.status(404).send('Vaga não encontrada');
+
+    const publicadoEm = vaga.created_at ? new Date(vaga.created_at) : null;
+    const publicadoEmBR = publicadoEm
+      ? publicadoEm.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : '-';
+
+    const beneficios = Array.isArray(vaga.beneficio)
+      ? vaga.beneficio
+      : (vaga.beneficio ? String(vaga.beneficio).split('|').map(s => s.trim()).filter(Boolean) : []);
+
+    const areas = (vaga.vaga_area || []).map(va => va.area_interesse?.nome).filter(Boolean);
+    const skills = (vaga.vaga_soft_skill || []).map(vs => vs.soft_skill?.nome).filter(Boolean);
+
+    const diasPresenciais = vaga.dias_presenciais || '';
+    const diasHomeOffice = vaga.dias_home_office || '';
+
+    return res.render('candidatos/vaga-detalhes', {
+      tituloPagina: `Detalhes da vaga`,
+      vaga,
+      publicadoEmBR,
+      beneficios,
+      areas,
+      skills,
+      diasPresenciais,
+      diasHomeOffice,
+      usuarioSessao: req.session?.usuario || null
+    });
+  } catch (err) {
+    console.error('Erro ao carregar detalhes da vaga:', err);
+    return res.status(500).send('Erro interno ao carregar a vaga');
+  }
+};

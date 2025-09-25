@@ -1,5 +1,3 @@
-// fotoPerfil.js
-
 // Elementos do DOM
 const tirarFotoBtn  = document.getElementById('tirarFotoBtn');
 const outraFotoBtn  = document.getElementById('outraFoto');
@@ -19,13 +17,11 @@ function resetPreview() {
   preview.src = '/img/avatar.png';
   preview.style.display = 'block';
   uploadInput.value = '';
-  // Esconde ações e mostra opções de novo
   acoesFoto.style.display = 'none';
   opcoesFoto.style.display = 'flex';
   erroFoto.style.display = 'none';
 }
 
-// Quando clicar em “Fazer upload”
 uploadInput?.addEventListener('change', () => {
   const file = uploadInput.files[0];
   if (!file) return resetPreview();
@@ -40,7 +36,6 @@ uploadInput?.addEventListener('change', () => {
   reader.readAsDataURL(file);
 });
 
-// Quando clicar em “Capturar agora”
 tirarFotoBtn?.addEventListener('click', () => {
   if (!cameraAtiva) {
     navigator.mediaDevices.getUserMedia({ video: true })
@@ -52,7 +47,6 @@ tirarFotoBtn?.addEventListener('click', () => {
       })
       .catch(err => alert('Erro ao acessar a câmera: ' + err));
   } else {
-    // Tira a foto
     canvas.width  = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0);
@@ -63,7 +57,6 @@ tirarFotoBtn?.addEventListener('click', () => {
       dt.items.add(file);
       uploadInput.files = dt.files;
 
-      // Atualiza preview
       const reader = new FileReader();
       reader.onload = e => {
         preview.src = e.target.result;
@@ -73,17 +66,14 @@ tirarFotoBtn?.addEventListener('click', () => {
       reader.readAsDataURL(file);
     }, 'image/png');
 
-    // Para a câmera
     video.srcObject.getTracks().forEach(t => t.stop());
     video.style.display = 'none';
     cameraAtiva = false;
   }
 });
 
-// “Tirar outra”
 outraFotoBtn?.addEventListener('click', resetPreview);
 
-// Valida antes de enviar
 form?.addEventListener('submit', e => {
   if (!uploadInput.files.length) {
     e.preventDefault();
@@ -91,7 +81,6 @@ form?.addEventListener('submit', e => {
   }
 });
 
-// Ao carregar a página, garante que o avatar apareça
 window.addEventListener('DOMContentLoaded', () => {
   resetPreview();
 });

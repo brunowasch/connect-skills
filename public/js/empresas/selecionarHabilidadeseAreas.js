@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const areasSelecionadas = new Set();
   const habilidadesSelecionadas = new Set();
 
-  // Botões de áreas pré-existentes
   areaBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-id');
@@ -28,14 +27,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Inputs de novas áreas
   novaAreaInputs.forEach(input => {
     input.addEventListener('input', () => {
       atualizarInputAreas();
     });
   });
 
-  // Botões de soft skills
   skillBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-id');
@@ -56,7 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function atualizarInputAreas() {
-    // Pega todas as áreas selecionadas manualmente
     const novasAreas = Array.from(novaAreaInputs)
       .map(input => input.value.trim())
       .filter(texto => texto !== '')

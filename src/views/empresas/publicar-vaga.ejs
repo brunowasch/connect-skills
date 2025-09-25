@@ -20,13 +20,11 @@
 
     <form id="formPublicarVaga" action="/empresa/publicar-vaga" method="POST">
       <div class="row mb-4">
-        <!-- Cargo -->
         <div class="col-md-6">
           <label for="cargo" class="form-label">Cargo</label>
           <input type="text" id="cargo" name="cargo" class="form-control" placeholder="Ex: Gerente de produtos" required>
         </div>
 
-        <!-- Tipo -->
         <div class="col-md-6">
           <label for="tipo" class="form-label">Tipo de local de trabalho</label>
           <select id="tipo" name="tipo" class="form-select" required>
@@ -37,14 +35,12 @@
           </select>
         </div>
 
-        <!-- Escala -->
         <div class="col-md-6 mt-3">
           <label for="escala" class="form-label">Escala de trabalho</label>
           <input type="text" id="escala" name="escala" class="form-control"
                  placeholder="Ex: Segunda a sexta, 8h às 17h" required>
         </div>
 
-        <!-- Dias presenciais / home office -->
         <div class="col-md-6 mt-3 d-flex align-items-end" id="campo-presencial-hibrido">
           <div class="me-3" id="campoPresencial" style="display:none;">
             <label class="form-label small">Dias presenciais</label>
@@ -59,7 +55,6 @@
           <div id="erroDias" class="text-danger small ms-3"></div>
         </div>
 
-        <!-- Salário -->
         <div class="col-md-6 mt-3">
           <label class="form-label">Salário (opcional)</label>
           <div class="input-group">
@@ -74,7 +69,6 @@
           </div>
         </div>
 
-        <!-- Descrição -->
         <div class="col-12 mt-4 mb-4">
           <label for="descricao" class="form-label">Descrição da vaga</label>
           <textarea id="descricao" name="descricao" class="form-control"
@@ -82,7 +76,6 @@
         </div>
       </div>
 
-      <!-- Benefícios -->
       <div class="mb-4">
         <h5 class="fw-bold text-center">Benefícios oferecidos:</h5>
         <div class="form-check form-check-inline">
@@ -103,7 +96,6 @@
         </div>
       </div>
 
-      <!-- Pergunta para IA -->
       <div class="mb-4">
         <label for="pergunta" class="form-label mt-3">Pergunta para IA</label>
         <small class="d-block text-muted">
@@ -112,7 +104,6 @@
         <textarea name="pergunta" id="pergunta" class="form-control mt-2" rows="4" placeholder="Digite as perguntas que deseja fazer ao candidato" required></textarea>
       </div>
 
-      <!-- Opções para IA -->
       <div class="mb-4">
         <label for="opcao" class="form-label mt-3">Perfil de candidato ideal</label>
         <small class="d-block text-muted">
@@ -121,8 +112,6 @@
         <textarea name="opcao" id="opcao" class="form-control mt-2" rows="4" placeholder="Exemplo: O candidato ideal deve ser comunicativo, com facilidade para trabalho em equipe e domínio em ferramentas de análise de dados" required></textarea>
       </div>
 
-
-      <!-- Áreas de atuação -->
       <div class="mb-4">
         <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
         <div id="area-buttons" class="d-flex flex-wrap gap-2 justify-content-center">
@@ -131,7 +120,6 @@
           <% }) %>
         </div>
 
-        <!-- Inputs para novas áreas -->
         <div class="mt-3">
           <label class="form-label">Área de interesse não está na lista? (Opcional)</label>
           <input type="text" class="form-control mb-2 nova-area" placeholder="Digite outra área de interesse...">
@@ -140,7 +128,6 @@
         <input type="hidden" id="areasSelecionadas" name="areasSelecionadas">
         <div id="erroAreas" class="text-danger small mt-1"></div>
       </div>
-      <!-- Soft Skills -->
       <div class="mb-4">
         <h5 class="fw-bold text-center">Habilidades comportamentais que mais se encaixam à vaga (máx. 3):</h5>
         <div class="d-flex flex-wrap gap-2 justify-content-center">
@@ -152,7 +139,6 @@
         <div id="erroHabilidades" class="text-danger small mt-1"></div>
       </div>
 
-      <!-- Ações -->
       <div class="text-center mt-4">
         <a href="/empresa/meu-perfil" class="btn btn-outline-danger px-5 me-2">Cancelar</a>
         <button type="submit" class="btn btn-outline-primary px-5">Continuar</button>

@@ -14,7 +14,7 @@ html, body {
 
 main {
   flex: 1 0 auto;
-  padding-top: 80px; 
+  padding-top: 100px;      
 }
 
 footer {
@@ -35,18 +35,18 @@ footer {
 }
 
 body {
-  padding-top: 80px; 
+  padding-top: 0;
   background-color: white;
 }
 
 @media (max-width: 992px) {
-  body {
-    padding-top: 100px; 
+  main {
+    padding-top: 110px; 
   }
 }
 
 @media (max-width: 768px) {
-  body {
+  main {
     padding-top: 120px; 
   }
 }

@@ -44,7 +44,6 @@
 
     <form id="formLocalizacao" action="/empresa/editar-empresa" method="POST" enctype="multipart/form-data">
       <div class="row justify-content-center g-4">
-        <!-- FOTO / CÂMERA -->
         <div class="col-md-4 text-center">
           <%
             const avatarPadrao = '/img/placeholder-empresa.png';
@@ -94,7 +93,6 @@
           <input type="hidden" name="fotoBase64" id="fotoBase64">
         </div>
 
-        <!-- DADOS -->
         <div class="col-md-8">
           <div class="mb-3">
             <label for="nome" class="form-label">Nome da empresa</label>
@@ -106,7 +104,6 @@
             <textarea class="form-control" id="descricao" name="descricao" rows="3" required><%= descricao %></textarea>
           </div>
 
-          <!-- LOCALIDADE -->
           <div class="mb-3 position-relative">
             <label for="localidade" class="form-label">Localidade</label>
             <%
@@ -149,17 +146,14 @@
             </button>
           </div>
 
-          <!-- TELEFONE -->
           <div class="mb-3">
             <div class="row mb-2 g-2">
-              <!-- DDI -->
               <div class="col-auto d-flex flex-column align-items-start">
                 <label for="ddi" class="form-label">DDI</label>
                 <input type="text" class="form-control text-center bg-light" id="ddi" name="ddi"
                 value="+55" readonly style="width: 60px;">
               </div>
 
-              <!-- DDD -->
               <div class="col-auto d-flex flex-column align-items-start">
                 <label for="ddd" class="form-label">DDD</label>
                 <input type="text" class="form-control text-center" name="ddd" id="ddd" maxlength="2"
@@ -167,7 +161,6 @@
                   oninput="this.value = this.value.replace(/[^0-9]/g, '')" required>
               </div>
 
-              <!-- Número -->
               <div class="col-auto d-flex flex-column align-items-start">
                 <label for="numero" class="form-label">Número</label>
                 <input type="text" class="form-control text-center" name="numero" id="numero" maxlength="11"
@@ -269,7 +262,6 @@
       </div>
     </section>
 
-    <!-- MODAL: Excluir Anexo -->
     <div class="modal fade" id="modalDeleteAnexo" tabindex="-1" aria-labelledby="modalDeleteAnexoLabel" aria-hidden="true">
       <div class="modal-dialog">
         <form id="deleteAnexoForm" method="post" class="modal-content">
@@ -289,7 +281,6 @@
       </div>
     </div>
 
-    <!-- MODAL: Excluir Conta -->
     <div class="modal fade" id="modalExcluir" tabindex="-1" aria-labelledby="modalExcluirLabel" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -340,7 +331,6 @@
       }
     }
 
-    // Preview foto (arquivo)
     function previewFoto(input) {
       const file = input.files[0]; if (!file) return;
       const reader = new FileReader();
@@ -352,7 +342,6 @@
       reader.readAsDataURL(file);
     }
 
-    // Links dinâmicos (idêntico ao candidato)
     function addRowHtml() {
       return `
         <div class="row g-2 align-items-end mb-2 link-row">
@@ -382,7 +371,6 @@
       row.remove();
     }
 
-    // Modal excluir anexo: preenche form/action dinamicamente
     const modalDelete = document.getElementById('modalDeleteAnexo');
     if (modalDelete) {
       modalDelete.addEventListener('show.bs.modal', function (event) {

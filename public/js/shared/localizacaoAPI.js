@@ -29,10 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
     localidadeValida = false;
     clearTimeout(debounce);
     const valor = inputLocalidade.value.trim();
-    // if (valor.length < 3) {
-    //   sugestoes.classList.add('d-none');
-    //   return;
-    // }
 
     debounce = setTimeout(async () => {
       try {

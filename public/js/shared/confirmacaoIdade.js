@@ -11,13 +11,12 @@
     const dia = hoje.getDate() - dataNascimento.getDate();
     const idadeFinal = (mes < 0 || (mes === 0 && dia < 0)) ? idade - 1 : idade;
 
-    // Reset
     dataNascimentoInput.classList.remove('is-invalid');
     erroIdade.classList.add('d-none');
     erroIdade.textContent = '';
 
     if (isNaN(idadeFinal)) {
-      e.preventDefault(); // data inválida
+      e.preventDefault();
     } else if (idadeFinal < 16) {
       e.preventDefault();
       dataNascimentoInput.classList.add('is-invalid');

@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnEditarLocal) {
     btnEditarLocal.addEventListener('click', () => {
         inputLocalidade.readOnly = false;
-        inputLocalidade.value = ''; // limpa o valor antigo!
+        inputLocalidade.value = '';
         localidadeValida = false;
         inputLocalidade.classList.remove('is-invalid');
         erroLocalidade.classList.add('d-none');

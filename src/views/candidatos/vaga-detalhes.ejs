@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= tituloPagina %> — Connect Skills</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
+  <link rel="stylesheet" href="/css/shared/style.css"> 
+
+  <style>
+    .badge-chip { font-weight: 500; }
+    .pill { display:inline-block; padding:.25rem .6rem; border-radius: 999px; background:#f1f3f5; font-size:.85rem; margin:.15rem .25rem .15rem 0; }
+    .section-title { font-size:1.05rem; font-weight:600; margin-bottom:.5rem; }
+    .meta { color:#6c757d; font-size:.95rem; }
+    .card-shadow { box-shadow: 0 4px 16px rgba(0,0,0,.06); border: 1px solid #eee; }
+    .salary { font-size:1.15rem; font-weight:700; }
+    .sticky-actions { position: sticky; bottom: 0; background: #fff; padding: 12px; border-top: 1px solid #e9ecef; display: flex; gap: 8px; justify-content: flex-end; }
+    @media (max-width: 576px) { .sticky-actions { position: static; } }
+    .bloco-ia { display: none; }
+  </style>
+</head>
+<body class="bg-light">
+<%- include('../partials/header-candidato') %>
+  <main class="container my-4 main-ajustado-header">
+    <div class="mb-2">
+      <a href="javascript:history.back()" class="text-decoration-none">
+        <i class="bi bi-arrow-left"></i> Voltar
+      </a>
+    </div>
+
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/candidatos/vagas">Vagas</a></li>
+        <li class="breadcrumb-item active" aria-current="page"><%= vaga.cargo || 'Vaga' %></li>
+      </ol>
+    </nav>
+
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="card card-shadow p-3 p-md-4">
+          <div class="d-flex align-items-start justify-content-between gap-3">
+            <div>
+              <h1 class="h4 mb-1"><%= vaga.cargo %></h1>
+              <div class="meta">
+                <i class="bi bi-building"></i>
+                <%= vaga.empresa?.nome || vaga.empresa?.usuario?.nome || 'Empresa' %>
+                <span class="mx-2">•</span>
+                <i class="bi bi-calendar3"></i> Publicado em <%= publicadoEmBR %>
+              </div>
+            </div>
+            <span class="badge text-bg-secondary badge-chip"><%= vaga.tipo_local_trabalho || '—' %></span>
+          </div>
+
+          <hr/>
+
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <div class="section-title"><i class="bi bi-cash-coin"></i> Salário</div>
+              <div class="salary"><%= vaga.salario ? `R$ ${Number(vaga.salario).toLocaleString('pt-BR', { minimumFractionDigits:2 })}` : 'A combinar' %></div>
+            </div>
+            <div class="col-12 col-md-6">
+              <div class="section-title"><i class="bi bi-clock-history"></i> Escala</div>
+              <div><%= vaga.escala_trabalho || '—' %></div>
+            </div>
+            <% if (diasPresenciais) { %>
+            <div class="col-12 col-md-6">
+              <div class="section-title"><i class="bi bi-building-check"></i> Dias presenciais</div>
+              <div><%= diasPresenciais %></div>
+            </div>
+            <% } %>
+            <% if (diasHomeOffice) { %>
+            <div class="col-12 col-md-6">
+              <div class="section-title"><i class="bi bi-house"></i> Dias Home Office</div>
+              <div><%= diasHomeOffice %></div>
+            </div>
+            <% } %>
+          </div>
+
+          <hr/>
+
+          <div class="mb-3">
+            <div class="section-title"><i class="bi bi-card-text"></i> Descrição</div>
+            <p class="mb-0" style="white-space:pre-wrap"><%= vaga.descricao || 'Sem descrição informada.' %></p>
+          </div>
+
+          <% if (beneficios && beneficios.length) { %>
+          <div class="mb-3">
+            <div class="section-title"><i class="bi bi-gift"></i> Benefícios</div>
+            <div>
+              <% beneficios.forEach(b => { %>
+                <span class="pill"><%= b %></span>
+              <% }) %>
+            </div>
+          </div>
+          <% } %>
+
+          <% if (areas && areas.length) { %>
+          <div class="mb-3">
+            <div class="section-title"><i class="bi bi-diagram-3"></i> Áreas de atuação</div>
+            <div>
+              <% areas.forEach(a => { %>
+                <span class="pill"><%= a %></span>
+              <% }) %>
+            </div>
+          </div>
+          <% } %>
+
+          <% if (skills && skills.length) { %>
+          <div class="mb-3">
+            <div class="section-title"><i class="bi bi-stars"></i> Soft skills</div>
+            <div>
+              <% skills.forEach(s => { %>
+                <span class="pill"><%= s %></span>
+              <% }) %>
+            </div>
+          </div>
+          <% } %>
+
+          <div id="bloco-ia" class="bloco-ia border rounded p-3 bg-light mt-2">
+            <h6 class="fw-semibold mb-3">Questionário da vaga</h6>
+            <%
+              const perguntas = (vaga.pergunta || '').split('\n').map(s => s.trim()).filter(Boolean);
+            %>
+            <% if (perguntas.length) { %>
+              <% perguntas.forEach((q, idx) => { %>
+                <div class="mb-2">
+                  <label class="form-label"><%= (idx+1) + '. ' + q %></label>
+                  <input type="text" class="form-control resposta-ia-item" placeholder="Sua resposta...">
+                </div>
+              <% }) %>
+            <% } else { %>
+              <textarea class="form-control resposta-ia" rows="3" placeholder="Digite sua resposta..."></textarea>
+            <% } %>
+            <div class="d-flex gap-2 mt-3">
+              <button id="btn-analisar" class="btn btn-success" type="button">
+                <i class="bi bi-clipboard2-check"></i> Analisar compatibilidade
+              </button>
+              <button id="btn-fechar-ia" class="btn btn-outline-secondary" type="button">Ocultar</button>
+            </div>
+            <div id="resultados-ia" class="mt-3"></div>
+          </div>
+
+          <div class="sticky-actions">
+            <button id="btn-abrir-ia" class="btn btn-primary" type="button">
+              <i class="bi bi-chat-dots"></i> Iniciar entrevista com IA
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="card card-shadow p-3 p-md-4">
+          <div class="d-flex align-items-center gap-3">
+            <img
+              src="<%= vaga.empresa?.foto_perfil || '/img/empresa-padrao.png' %>"
+              alt="Foto da Empresa"
+              class="rounded-circle border"
+              style="width:56px;height:56px;object-fit:cover;">
+            <div>
+              <div class="fw-semibold mb-1"><%= vaga.empresa?.nome_empresa || vaga.empresa?.nome || 'Empresa' %></div>
+              <%
+                const partes = [vaga.empresa?.cidade, vaga.empresa?.estado, vaga.empresa?.pais].filter(Boolean);
+                const loc = partes.join(', ');
+              %>
+              <div class="meta"><%= loc || 'Localidade não informada' %></div>
+              <% if (vaga.empresa?.descricao) { %>
+                <div class="small text-muted mt-1"><%= vaga.empresa.descricao.length > 120 ? vaga.empresa.descricao.slice(0,120) + '…' : vaga.empresa.descricao %></div>
+              <% } %>
+            </div>
+          </div>
+
+          <hr/>
+
+          <div class="d-grid gap-2">
+            <a href="/empresa/perfil/<%= vaga.empresa?.id %>" class="btn btn-outline-primary">
+              <i class="bi bi-box-arrow-up-right"></i> Ver perfil público
+            </a>
+            <% if (vaga.empresa?.usuario?.email) { %>
+              <div class="small text-muted text-center">
+                Contato: <%= vaga.empresa.usuario.email %>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="vaga-dados"
+         data-vaga-id="<%= vaga.id %>"
+         data-items="<%- encodeURIComponent(vaga.descricao || '') %>"
+         data-skills="<%- encodeURIComponent(JSON.stringify(skills || [])) %>"></div>
+  </main>
+
+  <%- include('../partials/footer') %>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    (function(){
+      const bloco = document.getElementById('bloco-ia');
+      const btnAbrir = document.getElementById('btn-abrir-ia');
+      const btnFechar = document.getElementById('btn-fechar-ia');
+      const btnAnalisar = document.getElementById('btn-analisar');
+      const resultados = document.getElementById('resultados-ia');
+
+      const dadosEl = document.getElementById('vaga-dados');
+      const vagaId = Number(dadosEl?.dataset.vagaId || 0);
+      const items = decodeURIComponent(dadosEl?.dataset.items || '');
+      const skills = JSON.parse(decodeURIComponent(dadosEl?.dataset.skills || '[]'));
+
+      function openIA() {
+        if (bloco) {
+          bloco.style.display = 'block';
+          bloco.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+      function closeIA() {
+        if (bloco) bloco.style.display = 'none';
+      }
+
+      btnAbrir && btnAbrir.addEventListener('click', openIA);
+      btnFechar && btnFechar.addEventListener('click', closeIA);
+
+      btnAnalisar && btnAnalisar.addEventListener('click', async () => {
+        if (!resultados) return;
+        resultados.innerHTML = '<div class="text-muted">Analisando...</div>';
+
+        const qa = [];
+        document.querySelectorAll('.resposta-ia-item').forEach((input) => {
+          const labelEl = input.closest('.mb-2')?.querySelector('.form-label');
+          const label = labelEl ? labelEl.textContent : '';
+          qa.push({ question: label.replace(/^\d+\.\s*/, ''), answer: input.value });
+        });
+        if (!qa.length) {
+          const unica = document.querySelector('.resposta-ia')?.value || '';
+          if (unica.trim()) qa.push({ question: 'Resposta', answer: unica.trim() });
+        }
+
+        try {
+          const resp = await fetch(`/candidatos/vaga/${vagaId}/avaliar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ qa, items, skills })
+          });
+
+          let data;
+          try { data = await resp.json(); }
+          catch { data = { ok: false, error: `Resposta inesperada (${resp.status})` }; }
+
+          if (!resp.ok || !data.ok) {
+            const msg = (data && (data.error || data.erro)) || `Erro ${resp.status}`;
+            throw new Error(msg);
+          }
+
+          const linhas = (data.results || []).map(r => {
+            const item = r.Item || r.item || r.titulo || 'Critério';
+            const nota = (typeof r.rating === 'number') ? r.rating : (r.score ?? '');
+            return `<li><strong>${item}:</strong> ${nota}</li>`;
+          }).join('');
+
+          resultados.innerHTML = `
+            <div class="alert alert-success">
+              <div><strong>Compatibilidade:</strong> ${data.score}%</div>
+              <ul class="mb-0">${linhas}</ul>
+            </div>`;
+        } catch (err) {
+          resultados.innerHTML = `<div class="alert alert-warning">Não foi possível analisar agora. ${err.message || ''}</div>`;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -61,12 +61,10 @@
       %>
         <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
 
-          <!-- Posição -->
           <div class="fs-5 fw-bold" style="width: 2.5rem; text-align: right;">
             <%= r.pos %>º
           </div>
 
-          <!-- Foto + dados -->
           <div class="d-flex align-items-center gap-3 flex-grow-1">
             <img src="<%= r.foto_perfil || '/img/avatar.png' %>"
                  alt="Foto do candidato"
@@ -97,7 +95,6 @@
             </div>
           </div>
 
-          <!-- Compatibilidade -->
           <div class="text-end" style="min-width: 190px;">
             <div class="fw-semibold"><%= r.score %>%</div>
             <div class="progress" style="height: 8px; width: 180px;">
@@ -108,8 +105,7 @@
             </div>
           </div>
         </div>
-
-        <!-- MODAL com Perguntas & Respostas do candidato -->
+        
         <div class="modal fade" id="<%= modalId %>" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">

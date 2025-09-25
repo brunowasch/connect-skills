@@ -30,6 +30,7 @@ router.post('/cadastro/areas', candidatoController.salvarAreas);
 router.get('/home', ensureCandidato, candidatoController.telaHomeCandidato);
 router.get('/meu-perfil', ensureCandidato, candidatoController.renderMeuPerfil);
 router.get('/vagas', ensureCandidato, candidatoController.mostrarVagas);
+router.get('/vagas/:id', candidatoController.vagaDetalhes);
 
 // Edição de perfil
 router.get('/editar-perfil', ensureCandidato, candidatoController.telaEditarPerfil);

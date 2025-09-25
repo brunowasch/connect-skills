@@ -13,15 +13,12 @@
         h = Math.max(0, Math.ceil(r.height));
       }
       spacer.style.height = h + 'px';
-      // 🔑 exporta a altura para CSS: --header-h
       root.style.setProperty('--header-h', h + 'px');
     }
 
-    // inicial e responsivo
     window.addEventListener('load',   updateSpacer);
     window.addEventListener('resize', updateSpacer);
 
-    // se o header tiver collapse do Bootstrap
     document.addEventListener('shown.bs.collapse',  updateSpacer);
     document.addEventListener('hidden.bs.collapse', updateSpacer);
   })();

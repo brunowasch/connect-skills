@@ -45,7 +45,6 @@ function previewFoto(input) {
     reader.onload = function (e) {
       preview.src = e.target.result;
 
-      // ✅ Exibir novamente os botões após escolher nova imagem
       if (botoesFoto) {
         botoesFoto.classList.remove('d-none');
         botoesFoto.classList.add('d-flex');
