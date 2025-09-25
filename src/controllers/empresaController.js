@@ -597,14 +597,14 @@ exports.salvarEditarVaga = async (req, res) => {
         cargo,
         tipo_local_trabalho: tipo,
         escala_trabalho: escala,
-        dias_presenciais: diasPresenciais ? Number(diasPresenciais) : null,
-        dias_home_office: diasHomeOffice ? Number(diasHomeOffice) : null,
+        dias_presenciais: diasPresenciais && !isNaN(diasPresenciais) ? parseInt(diasPresenciais, 10) : null,
+        dias_home_office: diasHomeOffice && !isNaN(diasHomeOffice) ? parseInt(diasHomeOffice, 10) : null,
         salario: salarioNum,
         moeda,
         descricao,
         beneficio: beneficiosTexto,
-        pergunta,        
-        opcao             
+        pergunta,
+        opcao
       }
     });
 
