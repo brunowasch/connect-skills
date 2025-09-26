@@ -68,12 +68,12 @@
 
         <div class="col-12 col-md-auto">
           <select name="ordenar" class="form-select" id="select-ordenar" aria-label="Ordenar">
-            <option value="recentes"        <%= filtros.ordenar==='recentes'?'selected':'' %>>Mais recentes</option>
-            <option value="antigos"         <%= filtros.ordenar==='antigos'?'selected':'' %>>Mais antigos</option>
+            <option value="recentes" <%= filtros.ordenar==='recentes'?'selected':'' %>>Mais recentes</option>
+            <option value="antigos" <%= filtros.ordenar==='antigos'?'selected':'' %>>Mais antigos</option>
             <option value="mais_candidatos" <%= filtros.ordenar==='mais_candidatos'?'selected':'' %>>Mais candidatos</option>
-            <option value="menos_candidatos"<%= filtros.ordenar==='menos_candidatos'?'selected':'' %>>Menos candidatos</option>
-            <option value="maior_salario"   <%= filtros.ordenar==='maior_salario'?'selected':'' %>>Maior salário</option>
-            <option value="menor_salario"   <%= filtros.ordenar==='menor_salario'?'selected':'' %>>Menor salário</option>
+            <option value="menos_candidatos" <%= filtros.ordenar==='menos_candidatos'?'selected':'' %>>Menos candidatos</option>
+            <option value="maior_salario" <%= filtros.ordenar==='maior_salario'?'selected':'' %>>Maior salário</option>
+            <option value="menor_salario" <%= filtros.ordenar==='menor_salario'?'selected':'' %>>Menor salário</option>
           </select>
         </div>
 
@@ -157,7 +157,7 @@
                 </div>
 
                 <div>
-                  <small class="text-muted">Áreas de atuação:</small><br>
+                  <small class="text-muted mb-2">Áreas de atuação:</small><br>
                   <% vaga.vaga_area.forEach(va => { %>
                     <span class="badge bg-outline-primary text-primary border border-primary me-1 mb-1">
                       <%= va.area_interesse.nome %>

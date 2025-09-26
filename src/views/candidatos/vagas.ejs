@@ -132,7 +132,7 @@
               <p class="mt-3"><%= vaga.descricao %></p>
               <% if (vaga.vaga_area?.length) { %>
                 <small class="text-muted">Áreas de atuação:</small>
-                <div class="d-flex flex-wrap gap-1">
+                <div class="d-flex flex-wrap gap-1 mt-2">
                   <% vaga.vaga_area.forEach(rel => { %>
                     <span class="badge rounded-pill text-primary border border-primary bg-white"><%= rel.area_interesse.nome %></span>
                   <% }) %>
