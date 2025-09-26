@@ -276,8 +276,8 @@
 
       btn.addEventListener('click', async () => {
         const id = body.getAttribute('data-vaga-id') || '';
-        const provided = body.getAttribute('data-share-url') || '';
-        const publicUrl = provided || (window.location.origin + '/vagas/' + id);
+        const provided = (window.location.origin + '/candidatos/vagas/' + id) || '';
+        const publicUrl = provided || (window.location.origin + '/candidatos/vagas/' + id);
 
         try {
           await navigator.clipboard.writeText(publicUrl);

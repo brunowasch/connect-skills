@@ -7,13 +7,6 @@ body {
   padding-top: 100px;
 }
 
-html,body { 
-  background-color: #EDEDED;
-  height: 100%;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-}
 
 .perfil-card {
   max-width: 1000px;
