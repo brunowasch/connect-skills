@@ -1,5 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@100..900&display=swap');
 
+[data-reveal] { opacity: 0; }
+.is-revealed { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] { transition: none !important; transform: none !important; }
+}
+
 * {
     font-family: 'Montserrat', sans-serif;
     font-size: 16px;
