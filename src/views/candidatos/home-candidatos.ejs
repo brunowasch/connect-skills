@@ -1,88 +1,342 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Connect Skills</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="/css/shared/style.css">
-    <link rel="stylesheet" href="/css/shared/home.css">
-    <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
-  </head>
-  <body id="home">
-    <main style="margin-top: 0; padding-top: 0;">
-      <%- include ('../partials/header-candidato') %>
-      <div id="carouselExampleSlidesOnly" class="carousel slide mt-0" data-bs-ride="carousel">
-        <div class="carousel-inner">
-          <div class="carousel-item active">
-            <img src="/img/Banner.png" class="d-block w-100" alt="...">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connect Skills</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/css/shared/style.css">
+  <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
+
+  <style>
+    :root { --header-h: 72px; }
+    body { background:#f8f9fb; }
+    main#content-main { margin-top: var(--header-h); }
+    .card-ghost { border:1px dashed rgba(0,0,0,.15); background:#fff; }
+    .rounded-2xl { border-radius: 1rem; }
+    .shadow-soft { box-shadow: 0 6px 24px rgba(0,0,0,.06); }
+    .pill { display:inline-block; padding:.25rem .6rem; border-radius:999px; background:#f1f3f5; font-size:.85rem; margin:.15rem .25rem .15rem 0; }
+    .perfil-logo { width: 64px; height: 64px; object-fit: cover; }
+    .card-vaga { border:1px solid rgba(0,0,0,.06); }
+    .section-title { font-weight:700; font-size:1rem; letter-spacing:.2px; }
+    .muted { color:#6c757d; }
+    .grid-areas { display:flex; flex-wrap:wrap; gap:.4rem; }
+    .kpi .num { font-weight:800; font-size:1.25rem; }
+  </style>
+</head>
+<body>
+  <%- include('../partials/header-candidato') %>
+  <%- include('../partials/flash-messages') %>
+
+  <main id="content-main" class="container py-4 py-md-5">
+    <%
+      const user = (typeof usuario !== 'undefined' && usuario) ? usuario : {};
+      const cand = (typeof candidato !== 'undefined' && candidato) ? candidato : {};
+
+      const nomeUser  = user?.nome || cand?.nome || 'Candidato';
+      const sobrenome = user?.sobrenome || cand?.sobrenome || '';
+
+      const localidadeResolved =
+        (typeof candLocalidade !== 'undefined' && candLocalidade)
+          ? candLocalidade
+          : (
+              (typeof localidade !== 'undefined' && localidade)
+                ? localidade
+                : 'Localidade não informada'
+            );
+
+      const fotoPerfilResolved =
+        (typeof candFotoPerfil !== 'undefined' && candFotoPerfil)
+          ? candFotoPerfil
+          : (
+              (typeof fotoPerfil !== 'undefined' && fotoPerfil)
+                ? fotoPerfil
+                : ''
+            );
+
+      const fotoUrlCandidates = [
+        cand?.foto_perfil,
+        user?.foto_perfil,
+        cand?.fotoPerfil,
+        user?.fotoPerfil,
+        fotoPerfilResolved || null
+      ].filter(v => typeof v === 'string' && v.trim() !== '');
+
+      const fotoUrl = (fotoUrlCandidates.length ? fotoUrlCandidates[0] : '/img/avatar.png');
+
+      const _areas  = (typeof areas  !== 'undefined' && Array.isArray(areas))  ? areas  : (Array.isArray(cand?.areas) ? cand.areas : []);
+      const _links  = (typeof links  !== 'undefined' && Array.isArray(links))  ? links  : [];
+      const _anexos = (typeof anexos !== 'undefined' && Array.isArray(anexos)) ? anexos : [];
+
+      const _historico =
+        (typeof historico !== 'undefined' && Array.isArray(historico))
+          ? historico
+          : (
+              (typeof historicoAplicado !== 'undefined' && Array.isArray(historicoAplicado))
+                ? historicoAplicado
+                : []
+            );
+
+      const _vagas = (typeof vagas !== 'undefined' && Array.isArray(vagas)) ? vagas : [];
+
+      const areasSel          = _areas;
+      const linksPerf         = _links;
+      const anexosList        = _anexos;
+      const historicoAplicacoes = _historico; // aplicações (vaga_avaliacao)
+      const vagasRecomendadas   = _vagas;     // vagas recomendadas
+
+      // Telefone
+      const hasDDD = (typeof ddd !== 'undefined') && String(ddd || '').trim() !== '';
+      const hasNum = (typeof numeroFormatado !== 'undefined') && String(numeroFormatado || '').trim() !== '';
+      const hasTel = (hasDDD && hasNum) || !!cand?.telefone;
+
+      const hasNasc  = !!cand?.data_nascimento;
+      const hasFoto  = (fotoUrl && fotoUrl !== '/img/avatar.png');
+      const hasLocal = !!(localidadeResolved && localidadeResolved !== 'Localidade não informada');
+      const hasAreas = !!(areasSel && areasSel.length > 0);
+      const hasLinks = !!(linksPerf && linksPerf.length > 0);
+      const hasAnexo = !!(anexosList && anexosList.length > 0);
+
+      const checklist    = [hasFoto, hasLocal, hasTel, hasNasc, hasAreas, hasLinks, hasAnexo];
+      const totalSteps   = checklist.length;
+      const doneSteps    = checklist.filter(Boolean).length;
+      const profileCompletion = Math.max(0, Math.min(100, Math.round((doneSteps / totalSteps) * 100)));
+
+      // Contagem segura de "vagas aplicadas"
+      const aplicadasCount =
+        (typeof candidaturasAplicadasCount !== 'undefined' && Number.isFinite(candidaturasAplicadasCount))
+          ? Number(candidaturasAplicadasCount)
+          : (Array.isArray(historicoAplicacoes) ? historicoAplicacoes.length : 0);
+
+      function formatStatus(s) {
+        if (!s) return '—';
+        const map = {
+          recebido: 'Recebido',
+          visualizado: 'Visualizado',
+          entrevista: 'Convidado para entrevista',
+          recusado: 'Recusado',
+          aprovado: 'Aprovado',
+          em_analise: 'Em análise'
+        };
+        return map[s] || s;
+      }
+    %>
+
+    <!-- HERO -->
+    <div class="bg-white rounded-2xl shadow-soft p-4 p-md-5 mb-4">
+      <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+        <div class="d-flex align-items-center gap-3">
+          <img
+            src="<%= fotoUrl %>"
+            class="rounded-circle border perfil-logo"
+            alt="Foto do perfil"
+          >
+          <div>
+            <div class="h4 m-0">Olá, <%= nomeUser %> <%= sobrenome %> 👋</div>
+            <div class="small muted">
+              <i class="bi bi-geo-alt me-1"></i> <%= localidadeResolved %>
+            </div>
+            <div class="muted">Bem-vindo ao seu painel do Connect Skills</div>
           </div>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-md-end gap-3 mt-3 mt-md-0">
+          <a href="/candidato/editar-perfil" class="btn btn-outline-primary">
+            <i class="bi bi-pencil-square me-1"></i>
+            Editar perfil
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row g-4 mb-4">
+      <div class="col-12 col-lg-4">
+        <div class="bg-white rounded-2xl shadow-soft p-4 text-center h-100 dashboard-kpi">
+          <i class="bi bi-search fs-3"></i>
+          <div class="fw-bold fs-5"><%= vagasRecomendadas.length %></div>
+          <div class="muted small">Vagas encontradas</div>
         </div>
       </div>
 
-      <% if (typeof usuario !== 'undefined' && usuario?.nome) { %>
-        <div class="container mt-5">
-          <h5 class="text-primary fw-bold">Olá, <%= usuario?.nome || candidato?.nome || 'Usuário' %>!</h5>
+      <div class="col-12 col-lg-4">
+        <div class="bg-white rounded-2xl shadow-soft p-4 text-center h-100 dashboard-kpi">
+          <i class="bi bi-send-check fs-3"></i>
+          <div class="fw-bold fs-5"><%= aplicadasCount %></div>
+          <div class="muted small">Vagas aplicadas</div>
         </div>
-      <% } %>
+      </div>
 
-      <section class="container my-5">
-        <h3>
-          Encontre-se no mercado de trabalho, 
-          <span class="text-primary" style="font-size: inherit; font-weight: inherit;">
-            de forma rápida e eficiente!
-          </span>
-        </h3>
-
-        <p><strong>Como Funciona?</strong></p>
-        <p> Nós conectamos você às oportunidades certas! Com base no nosso chatbot, analisamos as vagas disponíveis em nossa plataforma e indicamos aquelas que mais combinam com suas habilidades e interesses. No Connect Skills, encontrar o emprego ideal fica mais fácil e eficiente!</p>
-
-        <div class="row g-4 mt-4">
-          <div class="col-md-3 col-sm-6">
-            <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
-              <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
-                   style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-                1
-              </div>
-              <p class="flex-grow-1">Crie seu perfil e adicione informações sobre você.</p>
+      <div class="col-12 col-lg-4">
+        <div class="bg-white rounded-2xl shadow-soft p-4 h-100 dashboard-kpi">
+          <div class="d-flex justify-content-between align-items-center mb-2 w-100">
+            <div class="section-title">
+              <i class="bi bi-diagram-3 me-1"></i>
+              Áreas de interesse
             </div>
+
+            <a href="/candidato/editar-areas" class="text-decoration-none" title="Editar áreas">
+              <i class="bi bi-pencil-square"></i>
+            </a>
           </div>
 
-          <div class="col-md-3 col-sm-6">
-            <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
-              <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
-                   style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-                2
-              </div>
-              <p class="flex-grow-1">Nosso sistema identifica as melhores empresas para você aplicar de acordo com sua área de interesse.</p>
+          <% if (!areasSel || !areasSel.length) { %>
+            <div class="card-ghost p-4 rounded-2xl text-center w-100">
+              <div class="muted">Você ainda não selecionou áreas.</div>
+              <a class="btn btn-primary btn-sm mt-2" href="/candidato/editar-areas">
+                Selecionar áreas
+              </a>
             </div>
-          </div>
-
-          <div class="col-md-3 col-sm-6">
-            <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
-              <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
-                   style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-                3
-              </div>
-              <p class="flex-grow-1">Ao se interessar por uma vaga, faça seu teste com nossa inteligência artificial.</p>
+          <% } else { %>
+            <div class="grid-areas justify-content-center w-100">
+              <% areasSel.slice(0, 6).forEach(function (a) { %>
+                <span class="pill"><%= a %></span>
+              <% }) %>
             </div>
-          </div>
-
-          <div class="col-md-3 col-sm-6">
-            <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
-              <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
-                   style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-                4
-              </div>
-              <p class="flex-grow-1">Depois de responder às perguntas, sua solicitação será enviada e será retornada em breve.</p>
-            </div>
-          </div>
+          <% } %>
         </div>
-      </section>
-    </main>
-<%- include('../partials/contato', { sucesso: sucessoContato, erro: erroContato, candidato, empresa: null }) %>
-    <%- include('../partials/footer') %>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  </body>
+      </div>
+    </div>
+
+    <div class="row g-4 mt-4">
+      <!-- VAGAS RECOMENDADAS -->
+      <div class="col-12 col-lg-7">
+        <div class="bg-white rounded-2xl shadow-soft p-4 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="section-title">
+              <i class="bi bi-stars me-1"></i>
+              Vagas recomendadas
+            </div>
+
+            <a href="/candidatos/vagas" class="btn btn-sm btn-outline-primary">
+              Ver todas
+            </a>
+          </div>
+
+          <% if (!vagasRecomendadas.length) { %>
+            <div class="card-ghost p-4 rounded-2xl text-center">
+              <div class="muted">
+                Ainda não temos recomendações. Complete seu perfil e selecione áreas para melhorar as sugestões.
+              </div>
+              <a class="btn btn-primary btn-sm mt-2" href="/candidato/editar-areas">
+                Selecionar áreas
+              </a>
+            </div>
+          <% } else { %>
+            <% const tipoMap = { Presencial: 'Presencial', Home_Office: 'Home Office', H_brido: 'Híbrido' }; %>
+
+            <% vagasRecomendadas.slice(0, 3).forEach(function (vaga) { %>
+              <div class="card-vaga bg-white rounded-2xl p-3 p-md-4 mb-3">
+                <div class="d-flex gap-3 align-items-start flex-wrap">
+                  <a href="/empresa/perfil/<%= vaga.empresa?.id %>">
+                    <img
+                      src="<%= vaga.empresa?.foto_perfil || '/img/empresa-padrao.png' %>"
+                      alt="Logo da empresa"
+                      class="rounded-circle border perfil-logo"
+                    >
+                  </a>
+
+                  <div class="flex-grow-1">
+                    <h5 class="mb-0 fw-bold">
+                      <%= vaga.empresa?.nome_empresa || vaga.empresa?.nome || 'Empresa' %>
+                    </h5>
+
+                    <div class="muted">
+                      <%= [vaga.empresa?.cidade, vaga.empresa?.estado, vaga.empresa?.pais].filter(Boolean).join(', ') || 'Localidade não informada' %>
+                    </div>
+
+                    <div class="fw-semibold mt-2"><%= vaga.cargo %></div>
+
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                      <span class="badge rounded-pill text-bg-light border">
+                        <i class="bi bi-geo-alt me-1"></i>
+                        <%= tipoMap[vaga.tipo_local_trabalho] %>
+                      </span>
+
+                      <% if (vaga.salario) { %>
+                        <span class="badge rounded-pill text-bg-light border">
+                          <i class="bi bi-cash-coin me-1"></i>
+                          <%= Number(vaga.salario).toLocaleString('pt-BR', { style: 'currency', currency: vaga.moeda || 'BRL' }) %>
+                        </span>
+                      <% } %>
+                    </div>
+
+                    <% if (Array.isArray(vaga.vaga_area) && vaga.vaga_area.length) { %>
+                      <div class="mt-2 d-flex flex-wrap gap-1">
+                        <% vaga.vaga_area.forEach(function (rel) { %>
+                          <span class="pill">
+                            <%= (rel && rel.area_interesse && rel.area_interesse.nome)
+                                  ? rel.area_interesse.nome
+                                  : (rel?.nome || '') %>
+                          </span>
+                        <% }) %>
+                      </div>
+                    <% } %>
+                  </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                  <a href="/candidatos/vagas/<%= vaga.id %>" class="btn btn-outline-primary">
+                    <i class="bi bi-eye me-1"></i>
+                    Ver detalhes
+                  </a>
+                </div>
+              </div>
+            <% }) %>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- HISTÓRICO RESUMIDO -->
+      <div class="col-12 col-lg-5">
+        <div class="bg-white rounded-2xl shadow-soft p-4 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="section-title">
+              <i class="bi bi-clock-history me-1"></i>
+              Histórico de candidaturas
+            </div>
+
+            <a href="/candidatos/vagas/historico" class="btn btn-sm btn-outline-secondary">
+              Ver completo
+            </a>
+          </div>
+
+          <% if (!historicoAplicacoes.length) { %>
+            <div class="card-ghost p-4 rounded-2xl text-center">
+              <div class="muted">Você ainda não se candidatou a nenhuma vaga.</div>
+            </div>
+          <% } else { %>
+            <div class="list-group list-group-flush">
+              <% historicoAplicacoes.slice(0, 5).forEach(function (item) { %>
+                <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
+                  <div>
+                    <div class="fw-semibold">
+                      <%= item?.vaga?.cargo || 'Vaga' %> —
+                      <span class="muted">
+                        <%= (item?.empresa?.nome || item?.empresa?.nome_empresa || 'Empresa') %>
+                      </span>
+                    </div>
+
+                    <div class="small muted">
+                      <%= new Date(item?.aplicadoEm || item?.created_at || Date.now()).toLocaleString('pt-BR') %>
+                    </div>
+                  </div>
+
+                  <span class="badge rounded-pill text-bg-light border">
+                    <%= formatStatus(item?.status) %>
+                  </span>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <%- include('../partials/footer') %>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
 </html>

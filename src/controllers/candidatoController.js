@@ -97,7 +97,6 @@ async function isVagaFechada(vaga_id) {
   });
   return (ultimo?.situacao || 'aberta').toLowerCase() === 'fechada';
 }
-
 exports.telaNomeCandidato = (req, res) => {
   const { usuario_id } = req.query;
   res.render('candidatos/cadastro-de-nome-e-sobrenome-candidatos', { usuario_id });
@@ -315,18 +314,77 @@ exports.salvarAreas = async (req, res) => {
   }
 };
 
-exports.telaHomeCandidato = (req, res) => {
+exports.telaHomeCandidato = async (req, res) => {
   const usuario = req.session.candidato;
   if (!usuario) return res.redirect('/login');
-  res.render('candidatos/home-candidatos', {
-    nome: usuario.nome,
-    sobrenome: usuario.sobrenome,
-    localidade: usuario.localidade,
-    activePage: 'home',
-    usuario,
-    candidato: usuario
-  });
+
+  try {
+    // Vagas recomendadas
+    let vagas = [];
+    try {
+      vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
+    } catch (e) {
+      console.warn('[home] falha ao buscar vagas recomendadas:', e.message);
+      vagas = [];
+    }
+
+    // Histórico (aplicações do candidato)
+    const avaliacoes = await prisma.vaga_avaliacao.findMany({
+      where: { candidato_id: Number(usuario.id) },
+      orderBy: { id: 'desc' },
+      include: {
+        vaga: {
+          include: {
+            empresa: {
+              select: { id: true, nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true }
+            }
+          }
+        }
+      }
+    });
+
+    // Simplifica para o widget da home (usa os campos que a view espera)
+    const historico = (avaliacoes || [])
+      .filter(a => a.vaga) // evita órfãos
+      .map(a => {
+        const v = a.vaga;
+        const emp = v.empresa || {};
+        return {
+          // a view usa item?.vaga?.cargo, item?.empresa?.nome / nome_empresa,
+          vaga: {
+            id: v.id,
+            cargo: v.cargo
+          },
+          empresa: {
+            id: emp.id,
+            nome: emp.nome_empresa,
+            nome_empresa: emp.nome_empresa
+          },
+          // a view tenta ler item.aplicadoEm || item.created_at
+          created_at: a.created_at || a.criado_em || new Date().toISOString(),
+          // a view chama formatStatus(item.status); se não houver, manda "em_analise"
+          status: a.status || 'em_analise'
+        };
+      });
+
+    res.render('candidatos/home-candidatos', {
+      nome: usuario.nome,
+      sobrenome: usuario.sobrenome,
+      localidade: usuario.localidade,
+      activePage: 'home',
+      usuario,
+      candidato: usuario,
+      vagas,
+      historico,
+      candidaturasAplicadasCount: historico.length
+    });
+  } catch (err) {
+    console.error('[telaHomeCandidato] erro:', err?.message || err);
+    req.session.erro = 'Não foi possível carregar sua home.';
+    return res.redirect('/login');
+  }
 };
+
 
 exports.renderMeuPerfil = async (req, res) => {
   const candidatoSessao = req.session.candidato || (req.session.usuario?.tipo === 'candidato' ? req.session.usuario : null);
@@ -541,6 +599,10 @@ exports.historicoAplicacoes = async (req, res) => {
     if (!sess) return res.redirect('/login');
     const candidato_id = Number(sess.id);
 
+    // --- filtros (iguais aos de /candidatos/vagas) ---
+    const q = (req.query.q || '').trim();
+    const ordenar = (req.query.ordenar || 'recentes').trim();
+
     // Busca todas as avaliações (aplicações) do candidato
     const avaliacoes = await prisma.vaga_avaliacao.findMany({
       where: { candidato_id },
@@ -551,22 +613,23 @@ exports.historicoAplicacoes = async (req, res) => {
             empresa: {
               select: { id: true, nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true }
             },
-            vaga_area:      { include: { area_interesse: { select: { id: true, nome: true } } } },
-            vaga_soft_skill:{ include: { soft_skill:     { select: { id: true, nome: true } } } },
+            vaga_area:       { include: { area_interesse: { select: { id: true, nome: true } } } },
+            vaga_soft_skill: { include: { soft_skill:     { select: { id: true, nome: true } } } },
           }
         }
       }
     });
 
-    // Nada aplicado ainda
+    // Nada aplicado ainda (ou antes de filtrar)
     if (!avaliacoes.length) {
       return res.render('candidatos/historico-aplicacoes', {
         items: [],
+        filtros: { q, ordenar },
         activePage: 'vagas',
       });
     }
 
-    // Monta mapa de status atual por vaga (aberta/fechada)
+    // Status atual por vaga
     const vagaIds = [...new Set(avaliacoes.map(a => a.vaga?.id).filter(Boolean))];
     let statusMap = new Map();
     if (vagaIds.length) {
@@ -576,14 +639,13 @@ exports.historicoAplicacoes = async (req, res) => {
         select: { vaga_id: true, situacao: true }
       });
       for (const s of statusList) {
-        // mantém o primeiro (mais recente) visto na ordenação desc
         if (!statusMap.has(s.vaga_id)) statusMap.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
       }
     }
 
     // Normaliza dados para a view
-    const items = avaliacoes
-      .filter(a => a.vaga) // evita registros órfãos
+    let items = avaliacoes
+      .filter(a => a.vaga) // evita órfãos
       .map(a => {
         const v = a.vaga;
         const empresa = v.empresa || {};
@@ -592,16 +654,13 @@ exports.historicoAplicacoes = async (req, res) => {
           ? publicadoEm.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
           : '-';
 
-        // Áreas e skills
         const areas  = (v.vaga_area || []).map(x => x.area_interesse?.nome).filter(Boolean);
         const skills = (v.vaga_soft_skill || []).map(x => x.soft_skill?.nome).filter(Boolean);
 
-        // Benefícios: pode vir como string "A, B, C" ou array; vamos normalizar para array
         let beneficios = [];
         if (Array.isArray(v.beneficio)) beneficios = v.beneficio;
         else if (v.beneficio) beneficios = String(v.beneficio).split(/[|,]/).map(s => s.trim()).filter(Boolean);
 
-        // Parser das respostas (formato "Pergunta? Resposta" por linha)
         const respostasTexto = String(a.resposta || '').trim();
         const respostas = respostasTexto
           ? respostasTexto.split(/\r?\n/).map(l => {
@@ -615,6 +674,7 @@ exports.historicoAplicacoes = async (req, res) => {
         return {
           idAvaliacao: a.id,
           score: a.score ?? 0,
+          created_at: v.created_at || a.created_at || a.criado_em || null, // usado para ordenar
           vaga: {
             id: v.id,
             cargo: v.cargo,
@@ -641,14 +701,39 @@ exports.historicoAplicacoes = async (req, res) => {
         };
       });
 
+    if (q) {
+      const termo = q.toLowerCase();
+      items = items.filter(it =>
+        it.vaga.cargo?.toLowerCase().includes(termo) ||
+        it.vaga.descricao?.toLowerCase().includes(termo) ||
+        it.empresa?.nome?.toLowerCase().includes(termo) ||
+        (it.vaga.areas || []).some(nome => nome?.toLowerCase().includes(termo))
+      );
+    }
+
+    switch (ordenar) {
+      case 'antigos':
+        items.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+        break;
+      case 'mais_salario':
+        items.sort((a, b) => (b.vaga.salario || 0) - (a.vaga.salario || 0));
+        break;
+      case 'menos_salario':
+        items.sort((a, b) => (a.vaga.salario || 0) - (b.vaga.salario || 0));
+        break;
+      default: 
+        items.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    }
+
     return res.render('candidatos/historico-aplicacoes', {
       items,
+      filtros: { q, ordenar },
       activePage: 'vagas',
     });
   } catch (err) {
     console.error('[historicoAplicacoes] erro:', err?.message || err);
     req.session.erro = 'Não foi possível carregar seu histórico.';
-    return res.redirect('/candidatos/vagas');
+    return res.redirect('/candidatos/vagas/historico');
   }
 };
 

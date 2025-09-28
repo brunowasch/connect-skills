@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Histórico de vagas aplicadas — Connect Skills</title>
+  <title>Connect Skills</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
@@ -11,20 +11,81 @@
   <link rel="stylesheet" href="/css/shared/style.css">
 
   <style>
-    .page-actions{position:sticky;top:0;z-index:1020;background:var(--bs-body-bg);border-bottom:1px solid rgba(0,0,0,.05)}
+    .page-actions{position:sticky; top:0; z-index:1020; border-bottom:1px solid rgba(0,0,0,.05)}
     .badge-status{text-transform:capitalize;}
     .card-job{border-radius:1rem;}
     .pill{display:inline-block;padding:.35rem .6rem;border-radius:999px;background:rgba(0,0,0,.05);margin:.125rem .25rem 0 0;font-size:.85rem}
     .resposta-item{background:rgba(0,0,0,.03);border-radius:.5rem;padding:.5rem .75rem}
-    .empresa-foto{width:64px;height:64px;object-fit:cover;border-radius:50%;border:1px solid rgba(0,0,0,.08)}
+    .empresa-foto{width:64px;height:64px;object-fit:cover;border:1px solid rgba(0,0,0,.08)}
     @media (max-width: 576px){ .empresa-foto{width:56px;height:56px} }
+
+    .btn-link-muted {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: #6c757d;
+      text-decoration: none;
+    }
+    .btn-link-muted:hover { color: #495057; text-decoration: underline; }
+    .input-clear-btn {
+      border: 0;
+      background: transparent;
+      padding: 0 .5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .input-clear-btn:hover { opacity: .8; }
   </style>
 </head>
-<body>
+<body class="bg-light">
   <%- include('../partials/header-candidato'); %>
 
   <main class="container py-3" style="margin-top:72px;">
-    <!-- Ações topo -->
+    <div class="d-flex align-items-center justify-content-between mt-1 mb-3">
+      <h2 class="mb-0 mt-4">Histórico de vagas aplicadas</h2>
+    </div>
+    <form class="bg-white rounded-4 p-3 shadow-sm border mb-4" method="GET" action="/candidatos/vagas/historico" id="form-filtros">
+      <div class="row g-2 align-items-center">
+        <div class="col-12 col-md">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input
+              type="text"
+              name="q"
+              class="form-control"
+              placeholder="Buscar por cargo, descrição, empresa ou área..."
+              value="<%= (typeof filtros !== 'undefined' && filtros.q) ? filtros.q : '' %>"
+              autocomplete="off"
+              id="campo-busca"
+            >
+            <button
+              type="button"
+              id="clear-busca"
+              class="input-clear-btn <%= (typeof filtros !== 'undefined' && filtros.q && filtros.q.trim() ? '' : 'd-none') %>"
+              aria-label="Limpar busca"
+              title="Limpar busca"
+            >
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+        <div class="col-12 col-md-auto">
+          <select name="ordenar" class="form-select" id="select-ordenar">
+            <option value="recentes" <%= filtros?.ordenar==='recentes'?'selected':'' %>>Mais recentes</option>
+            <option value="antigos" <%= filtros?.ordenar==='antigos'?'selected':'' %>>Mais antigos</option>
+            <option value="mais_salario" <%= filtros?.ordenar==='mais_salario'?'selected':'' %>>Maior salário</option>
+            <option value="menos_salario" <%= filtros?.ordenar==='menos_salario'?'selected':'' %>>Menor salário</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-auto d-flex justify-content-end">
+          <a href="/candidatos/vagas/historico" class="btn-link-muted d-inline-flex align-items-center gap-1">
+            <i class="bi bi-x-circle"></i> Limpar tudo
+          </a>
+        </div>
+      </div>
+    </form>
+
     <div class="page-actions py-2 mb-3">
       <div class="container px-0 d-flex gap-2">
         <a href="/candidatos/vagas" class="btn btn-outline-secondary">
@@ -36,11 +97,9 @@
       </div>
     </div>
 
-    <h1 class="h4 fw-bold mb-3">Histórico de vagas aplicadas</h1>
-
     <% if (!items || !items.length) { %>
       <div class="alert alert-light border">
-        Você ainda não aplicou para nenhuma vaga. Veja <a href="/candidatos/vagas">vagas recomendadas</a>.
+        Você ainda não aplicou para nenhuma vaga (ou nada corresponde ao filtro). Veja <a href="/candidatos/vagas">vagas recomendadas</a>.
       </div>
     <% } %>
 
@@ -52,7 +111,7 @@
             <div class="d-flex align-items-start justify-content-between gap-3">
               <div class="d-flex align-items-start gap-3">
                 <a href="/empresa/perfil/<%= it.empresa.id %>">
-                  <img src="<%= it.empresa.foto || '/img/empresa-padrao.png' %>" alt="Logo da empresa" class="empresa-foto">
+                  <img src="<%= it.empresa.foto || '/img/empresa-padrao.png' %>" alt="Logo da empresa" class="empresa-foto rounded-circle">
                 </a>
                 <div>
                   <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -105,7 +164,7 @@
               </div>
             </div>
 
-            <!-- Áreas e benefícios (soft skills removidas) -->
+            <!-- Áreas e benefícios -->
             <div class="mt-3">
               <% if (it.vaga.areas?.length) { %>
                 <div class="small text-muted mb-1">Áreas de atuação</div>
@@ -161,5 +220,22 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    (function(){
+      const form = document.getElementById('form-filtros');
+      const input = document.getElementById('campo-busca');
+      const clearBtn = document.getElementById('clear-busca');
+      const ordenar = document.getElementById('select-ordenar');
+
+      input.addEventListener('keydown', e => { if (e.key==='Enter') e.preventDefault(); });
+      let t;
+      input.addEventListener('input', () => {
+        clearBtn.classList.toggle('d-none', !(input.value && input.value.trim()));
+        clearTimeout(t); t = setTimeout(()=>form.requestSubmit(),400);
+      });
+      clearBtn.addEventListener('click', ()=>{ input.value=''; clearBtn.classList.add('d-none'); form.requestSubmit(); });
+      ordenar.addEventListener('change', ()=>form.requestSubmit());
+    })();
+  </script>
 </body>
 </html>
