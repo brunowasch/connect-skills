@@ -191,33 +191,42 @@
     <% } %>
 
     <section class="card border-0 shadow-sm p-3 p-md-4 mb-5">
-      <div class="d-flex flex-wrap gap-2">
-        <a href="/empresa/vaga/<%= vaga?.id %>/editar" class="btn btn-primary">
-          <i class="bi bi-pencil-square me-1"></i> Editar vaga
-        </a>
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <!-- RANQUEAMENTO (esquerda) -->
+        <div>
+          <a href="/empresas/ranking-candidatos/<%= vaga.id %>" class="btn btn-outline-primary">
+            <i class="bi bi-bar-chart-line me-1"></i> Ver ranqueamento
+          </a>
+        </div>
 
-        <% if (aberta) { %>
-          <form action="/empresa/vaga/<%= vaga?.id %>/fechar" method="POST" class="d-inline">
-            <button type="submit" class="btn btn-outline-secondary">
-              <i class="bi bi-slash-circle me-1"></i> Fechar vaga
-            </button>
-          </form>
-        <% } else { %>
-          <form action="/empresa/vaga/<%= vaga?.id %>/reabrir" method="POST" class="d-inline">
-            <button type="submit" class="btn btn-success">
-              <i class="bi bi-arrow-counterclockwise me-1"></i> Reabrir vaga
-            </button>
-          </form>
-        <% } %>
+        <!-- AÇÕES PRINCIPAIS (direita) -->
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+          <a href="/empresa/vaga/<%= vaga?.id %>/editar" class="btn btn-primary">
+            <i class="bi bi-pencil-square me-1"></i> Editar vaga
+          </a>
 
-        <form id="formExcluir" action="/empresa/vaga/<%= vaga?.id %>/excluir" method="POST" class="d-inline"></form>
+          <% if (aberta) { %>
+            <form action="/empresa/vaga/<%= vaga?.id %>/fechar" method="POST" class="d-inline">
+              <button type="submit" class="btn btn-outline-secondary">
+                <i class="bi bi-slash-circle me-1"></i> Fechar vaga
+              </button>
+            </form>
+          <% } else { %>
+            <form action="/empresa/vaga/<%= vaga?.id %>/reabrir" method="POST" class="d-inline">
+              <button type="submit" class="btn btn-success">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Reabrir vaga
+              </button>
+            </form>
+          <% } %>
 
-        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalExcluir">
-          <i class="bi bi-trash3 me-1"></i> Excluir vaga
-        </button>
+          <form id="formExcluir" action="/empresa/vaga/<%= vaga?.id %>/excluir" method="POST" class="d-inline"></form>
+          <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalExcluir">
+            <i class="bi bi-trash3 me-1"></i> Excluir vaga
+          </button>
+        </div>
       </div>
     </section>
-  </main>
+</main>
 
   <div class="modal fade" id="modalExcluir" tabindex="-1" aria-labelledby="modalExcluirLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

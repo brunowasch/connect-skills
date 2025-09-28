@@ -273,6 +273,51 @@ exports.homeEmpresa = async (req, res) => {
     const localidade = [req.session.empresa.cidade, req.session.empresa.estado, req.session.empresa.pais]
       .filter(Boolean).join(', ');
 
+    const empresaId = Number(req.session.empresa.id);
+
+    const vagasAll = await prisma.vaga.findMany({
+      where: { empresa_id: empresaId },
+      include: {
+        vaga_area:      { include: { area_interesse: true } },
+        vaga_soft_skill:{ include: { soft_skill: true } },
+        empresa:        { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } }
+      },
+      orderBy: { created_at: 'desc' }
+    });
+
+    const vagaIds = vagasAll.map(v => v.id);
+
+    let countsMap = new Map();
+    if (vagaIds.length) {
+      const grouped = await prisma.vaga_avaliacao.groupBy({
+        by: ['vaga_id'],
+        where: { vaga_id: { in: vagaIds } },
+        _count: { vaga_id: true }
+      });
+      countsMap = new Map(grouped.map(g => [g.vaga_id, g._count.vaga_id]));
+    }
+
+    let statusMap = new Map();
+    if (vagaIds.length) {
+      const statusList = await prisma.vaga_status.findMany({
+        where: { vaga_id: { in: vagaIds } },
+        orderBy: { criado_em: 'desc' },
+        select: { vaga_id: true, situacao: true }
+      });
+      for (const s of statusList) {
+        if (!statusMap.has(s.vaga_id)) statusMap.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
+      }
+    }
+
+    const vagasDecoradas = vagasAll.map(v => ({
+      ...v,
+      total_candidatos: countsMap.get(v.id) || 0,
+      status: statusMap.get(v.id) || 'aberta'
+    }));
+
+    const totalVagas = vagasDecoradas.length;
+    const totalCandidatos = vagasDecoradas.reduce((acc, v) => acc + (v.total_candidatos || 0), 0);
+
     res.render('empresas/home-empresas', {
       nome: req.session.empresa.nome_empresa,
       descricao: req.session.empresa.descricao,
@@ -281,6 +326,9 @@ exports.homeEmpresa = async (req, res) => {
       fotoPerfil: req.session.empresa.foto_perfil || '/img/avatar.png',
       usuario: req.session.usuario,
       empresa: req.session.empresa,
+
+      vagasRecentes: vagasDecoradas,                
+      totais: { totalVagas, totalCandidatos },      
       activePage: 'home'
     });
   } catch (err) {
@@ -289,6 +337,7 @@ exports.homeEmpresa = async (req, res) => {
     res.redirect('/login');
   }
 };
+
 
 exports.telaPerfilEmpresa = async (req, res) => {
   const sess = req.session.empresa;

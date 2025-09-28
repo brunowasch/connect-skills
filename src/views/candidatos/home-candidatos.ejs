@@ -29,7 +29,7 @@
   <%- include('../partials/header-candidato') %>
   <%- include('../partials/flash-messages') %>
 
-  <main id="content-main" class="container py-4 py-md-5">
+  <main id="content-main" class="container">
     <%
       const user = (typeof usuario !== 'undefined' && usuario) ? usuario : {};
       const cand = (typeof candidato !== 'undefined' && candidato) ? candidato : {};
@@ -86,7 +86,6 @@
       const historicoAplicacoes = _historico; // aplicações (vaga_avaliacao)
       const vagasRecomendadas   = _vagas;     // vagas recomendadas
 
-      // Telefone
       const hasDDD = (typeof ddd !== 'undefined') && String(ddd || '').trim() !== '';
       const hasNum = (typeof numeroFormatado !== 'undefined') && String(numeroFormatado || '').trim() !== '';
       const hasTel = (hasDDD && hasNum) || !!cand?.telefone;
@@ -103,7 +102,6 @@
       const doneSteps    = checklist.filter(Boolean).length;
       const profileCompletion = Math.max(0, Math.min(100, Math.round((doneSteps / totalSteps) * 100)));
 
-      // Contagem segura de "vagas aplicadas"
       const aplicadasCount =
         (typeof candidaturasAplicadasCount !== 'undefined' && Number.isFinite(candidaturasAplicadasCount))
           ? Number(candidaturasAplicadasCount)
@@ -123,7 +121,7 @@
       }
     %>
 
-    <!-- HERO -->
+    <h2 class="mb-4">Dashboard pessoal</h2>
     <div class="bg-white rounded-2xl shadow-soft p-4 p-md-5 mb-4">
       <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
         <div class="d-flex align-items-center gap-3">
@@ -142,6 +140,10 @@
         </div>
 
         <div class="d-flex flex-wrap justify-content-md-end gap-3 mt-3 mt-md-0">
+          <a href="/candidato/meu-perfil" class="btn btn-primary">
+            <i class="bi bi-person me-1"></i>
+            Meu perfil
+          </a>
           <a href="/candidato/editar-perfil" class="btn btn-outline-primary">
             <i class="bi bi-pencil-square me-1"></i>
             Editar perfil
