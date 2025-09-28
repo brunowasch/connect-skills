@@ -449,7 +449,6 @@ exports.renderMeuPerfil = async (req, res) => {
   }
 };
 
-
 exports.mostrarVagas = async (req, res) => {
   const usuario = req.session.candidato;
   if (!usuario) return res.redirect('/login');
@@ -533,6 +532,123 @@ exports.mostrarVagas = async (req, res) => {
     console.error('Erro ao buscar vagas para candidato:', err);
     req.session.erro = 'Erro ao buscar vagas. Tente novamente.';
     res.redirect('/candidatos/home');
+  }
+};
+
+exports.historicoAplicacoes = async (req, res) => {
+  try {
+    const sess = req.session?.candidato;
+    if (!sess) return res.redirect('/login');
+    const candidato_id = Number(sess.id);
+
+    // Busca todas as avaliações (aplicações) do candidato
+    const avaliacoes = await prisma.vaga_avaliacao.findMany({
+      where: { candidato_id },
+      orderBy: { id: 'desc' },
+      include: {
+        vaga: {
+          include: {
+            empresa: {
+              select: { id: true, nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true }
+            },
+            vaga_area:      { include: { area_interesse: { select: { id: true, nome: true } } } },
+            vaga_soft_skill:{ include: { soft_skill:     { select: { id: true, nome: true } } } },
+          }
+        }
+      }
+    });
+
+    // Nada aplicado ainda
+    if (!avaliacoes.length) {
+      return res.render('candidatos/historico-aplicacoes', {
+        items: [],
+        activePage: 'vagas',
+      });
+    }
+
+    // Monta mapa de status atual por vaga (aberta/fechada)
+    const vagaIds = [...new Set(avaliacoes.map(a => a.vaga?.id).filter(Boolean))];
+    let statusMap = new Map();
+    if (vagaIds.length) {
+      const statusList = await prisma.vaga_status.findMany({
+        where: { vaga_id: { in: vagaIds } },
+        orderBy: { criado_em: 'desc' },
+        select: { vaga_id: true, situacao: true }
+      });
+      for (const s of statusList) {
+        // mantém o primeiro (mais recente) visto na ordenação desc
+        if (!statusMap.has(s.vaga_id)) statusMap.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
+      }
+    }
+
+    // Normaliza dados para a view
+    const items = avaliacoes
+      .filter(a => a.vaga) // evita registros órfãos
+      .map(a => {
+        const v = a.vaga;
+        const empresa = v.empresa || {};
+        const publicadoEm = v.created_at ? new Date(v.created_at) : null;
+        const publicadoEmBR = publicadoEm
+          ? publicadoEm.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          : '-';
+
+        // Áreas e skills
+        const areas  = (v.vaga_area || []).map(x => x.area_interesse?.nome).filter(Boolean);
+        const skills = (v.vaga_soft_skill || []).map(x => x.soft_skill?.nome).filter(Boolean);
+
+        // Benefícios: pode vir como string "A, B, C" ou array; vamos normalizar para array
+        let beneficios = [];
+        if (Array.isArray(v.beneficio)) beneficios = v.beneficio;
+        else if (v.beneficio) beneficios = String(v.beneficio).split(/[|,]/).map(s => s.trim()).filter(Boolean);
+
+        // Parser das respostas (formato "Pergunta? Resposta" por linha)
+        const respostasTexto = String(a.resposta || '').trim();
+        const respostas = respostasTexto
+          ? respostasTexto.split(/\r?\n/).map(l => {
+              const m = l.match(/^(.*?\?)\s*(.*)$/);
+              return { pergunta: m ? m[1].trim() : '', resposta: m ? m[2].trim() : l.trim() };
+            }).filter(r => r.pergunta || r.resposta)
+          : [];
+
+        const statusAtual = statusMap.get(v.id) || 'aberta';
+
+        return {
+          idAvaliacao: a.id,
+          score: a.score ?? 0,
+          vaga: {
+            id: v.id,
+            cargo: v.cargo,
+            descricao: v.descricao,
+            tipo: v.tipo_local_trabalho,
+            escala: v.escala_trabalho,
+            diasPresenciais: v.dias_presenciais ?? null,
+            diasHomeOffice: v.dias_home_office ?? null,
+            salario: v.salario ?? null,
+            moeda: v.moeda || '',
+            publicadoEmBR,
+            beneficios,
+            areas,
+            skills,
+            statusAtual,
+          },
+          empresa: {
+            id: empresa.id,
+            nome: empresa.nome_empresa,
+            foto: empresa.foto_perfil || '/img/avatar.png',
+            localidade: [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', '),
+          },
+          respostas
+        };
+      });
+
+    return res.render('candidatos/historico-aplicacoes', {
+      items,
+      activePage: 'vagas',
+    });
+  } catch (err) {
+    console.error('[historicoAplicacoes] erro:', err?.message || err);
+    req.session.erro = 'Não foi possível carregar seu histórico.';
+    return res.redirect('/candidatos/vagas');
   }
 };
 
