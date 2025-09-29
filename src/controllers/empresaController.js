@@ -474,8 +474,8 @@ exports.salvarVaga = async (req, res) => {
         cargo,
         tipo_local_trabalho: tipo,
         escala_trabalho: escala,
-        dias_presenciais: diasPresenciais ? parseInt(diasPresenciais,10) : null,
-        dias_home_office: diasHomeOffice ? parseInt(diasHomeOffice,10) : null,
+        dias_presenciais: (diasPresenciais ?? '') === '' ? null : parseInt(diasPresenciais, 10),
+        dias_home_office: (diasHomeOffice ?? '') === '' ? null : parseInt(diasHomeOffice, 10),
         salario: salarioFormatado,
         moeda,
         descricao,
@@ -555,6 +555,19 @@ exports.telaEditarVaga = async (req, res) => {
       req.session.erro = 'Acesso negado.';
       return res.redirect('/empresa/meu-perfil');
     }
+
+    const normalizaTipo = (t) => {
+      switch (String(t || '').trim()) {
+        case 'Presencial': return 'Presencial';
+        case 'Home Office':
+        case 'Home_Office': return 'Home_Office';
+        case 'Híbrido':
+        case 'Hibrido':
+        case 'H_brido':     return 'H_brido';
+        default:            return 'Presencial';
+      }
+    };
+    vaga.tipo_local_trabalho = normalizaTipo(vaga.tipo_local_trabalho);
 
     const areaIdsSelecionadas = vaga.vaga_area.map(v => v.area_interesse_id);
 
@@ -646,8 +659,8 @@ exports.salvarEditarVaga = async (req, res) => {
         cargo,
         tipo_local_trabalho: tipo,
         escala_trabalho: escala,
-        dias_presenciais: diasPresenciais && !isNaN(diasPresenciais) ? parseInt(diasPresenciais, 10) : null,
-        dias_home_office: diasHomeOffice && !isNaN(diasHomeOffice) ? parseInt(diasHomeOffice, 10) : null,
+        dias_presenciais: (diasPresenciais ?? '') === '' ? null : parseInt(diasPresenciais, 10),
+        dias_home_office: (diasHomeOffice ?? '') === '' ? null : parseInt(diasHomeOffice, 10),
         salario: salarioNum,
         moeda,
         descricao,

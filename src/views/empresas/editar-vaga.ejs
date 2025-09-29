@@ -120,6 +120,40 @@
   </main>
 
   <%- include('../partials/footer') %>
+  <div id="serverVals"
+     data-pres="<%= vaga.dias_presenciais ?? '' %>"
+     data-home="<%= vaga.dias_home_office ?? '' %>"
+     data-tipo="<%= vaga.tipo_local_trabalho %>"></div>
   <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const tipo      = document.getElementById('tipo');
+  const campoPres = document.getElementById('campoPresencial');
+  const campoHome = document.getElementById('campoHomeOffice');
+  const ipPres    = document.getElementById('diasPresenciais');
+  const ipHome    = document.getElementById('diasHomeOffice');
+
+  const holder = document.getElementById('serverVals');
+  const initialTipo  = holder?.dataset.tipo  || 'Presencial';     // 'Presencial' | 'Home_Office' | 'H_brido'
+  const initialPres  = holder?.dataset.pres  || '';                // "5", "", etc.
+  const initialHome  = holder?.dataset.home  || '';
+
+  // garante que o select tenha o valor normalizado vindo do servidor
+  if (tipo && !tipo.value) tipo.value = initialTipo;
+
+  function toggle() {
+    const v = tipo?.value || 'Presencial';
+    if (campoPres) campoPres.style.display = (v === 'Presencial' || v === 'H_brido')  ? '' : 'none';
+    if (campoHome) campoHome.style.display = (v === 'Home_Office' || v === 'H_brido') ? '' : 'none';
+  }
+
+  // reatribui valores vindos do servidor se estiverem vazios
+  if (ipPres && ipPres.value === '' && initialPres !== '') ipPres.value = initialPres;
+  if (ipHome && ipHome.value === '' && initialHome !== '') ipHome.value = initialHome;
+
+  toggle();
+  if (tipo) tipo.addEventListener('change', toggle);
+});
+</script>
 </body>
 </html>
