@@ -136,3 +136,9 @@ footer {
   height: 250px;
   object-fit: cover; 
 }
+
+.navbar.fixed-top {
+  min-height: 70px;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
