@@ -1,29 +1,22 @@
-<nav class="navbar navbar-expand-lg fixed-top bg-white shadow-sm">
+<nav class="navbar navbar-expand-lg fixed-top bg-white shadow-sm cs-header">
   <div class="container-fluid">
-    <a class="navbar-brand" href="/candidato/home">
-      <img src="/img/logo.png" class="logo-header" alt="Logo Connect Skills">
-      <img src="/img/titulo-connect-skills.png" alt="Logo Connect Skills" style="width: 180px; height: 20px;">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="/candidato/home" aria-label="Connect Skills - Início">
+      <img src="/img/logo.png" class="logo-header" alt="Logo Connect Skills" width="36" height="36">
+      <img src="/img/titulo-connect-skills.png" alt="Connect Skills" width="180" height="20">
     </a>
+
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
-      aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Abrir navegação">
       <span class="navbar-toggler-icon"></span>
     </button>
 
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
       <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+        <li class="nav-item"><a class="nav-link" href="/candidato/home">Início</a></li>
+        <li class="nav-item"><a class="nav-link" href="/candidato/vagas">Vagas</a></li>
+        <li class="nav-item"><a class="nav-link" href="/candidato/meu-perfil">Meu perfil</a></li>
         <li class="nav-item">
-          <a class="nav-link" href="/candidato/home">Início</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/candidato/vagas">Vagas</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="/candidato/meu-perfil">Meu perfil</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modalLogout">
-            Sair
-          </a>
+          <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modalLogout">Sair</a>
         </li>
       </ul>
     </div>
@@ -37,9 +30,7 @@
         <h5 class="modal-title" id="modalLogoutLabel">Confirmar logout</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
       </div>
-      <div class="modal-body">
-        Tem certeza que deseja sair da sua conta?
-      </div>
+      <div class="modal-body">Tem certeza que deseja sair da sua conta?</div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-primary" data-bs-dismiss="modal">Cancelar</button>
         <form action="/logout" method="GET">
@@ -50,17 +41,28 @@
   </div>
 </div>
 
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const path = window.location.pathname;
-      document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
-        const href = link.getAttribute('href');
-        if (href === path || (href !== '/' && path.startsWith(href))) {
-          link.classList.add('active');
-        }
-      });
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const path = window.location.pathname;
+    document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
+      const href = link.getAttribute('href');
+      if (href === path || (href !== '/' && path.startsWith(href))) {
+        link.classList.add('active');
+      }
     });
-  </script>
+  });
+
+  (function () {
+    const header = document.querySelector('.cs-header');
+    function applyHeaderSpace() {
+      if (!header) return;
+      const h = header.offsetHeight || 72;
+      document.body.style.paddingTop = h + 'px';
+    }
+    window.addEventListener('load', applyHeaderSpace);
+    window.addEventListener('resize', applyHeaderSpace);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(applyHeaderSpace);
+  })();
+</script>
