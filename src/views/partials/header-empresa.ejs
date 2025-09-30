@@ -41,16 +41,36 @@
 </div>
 
 <script>
-(function(){
+(function () {
   const header = document.querySelector('.navbar.fixed-top');
-  if(!header) return;
-  function apply(){
-    const h = header.offsetHeight || 72;
+  if (!header) return;
+
+  function apply() {
+    const h = Math.ceil(header.getBoundingClientRect().height) || 72;
     document.documentElement.style.setProperty('--nav-h', h + 'px');
     document.body.style.paddingTop = h + 'px';
   }
-  window.addEventListener('load', apply);
-  window.addEventListener('resize', apply);
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', apply);
+  } else {
+    apply();
+  }
+
+  window.addEventListener('resize', apply, { passive: true });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(apply);
+  setTimeout(apply, 250);
 })();
 </script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const path = window.location.pathname;
+      document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
+        const href = link.getAttribute('href');
+        if (href === path || (href !== '/' && path.startsWith(href))) {
+          link.classList.add('active');
+        }
+      });
+    });
+  </script>
