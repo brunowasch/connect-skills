@@ -11,6 +11,16 @@
     font-size: 16px;
 }
 
+:root { --cs-header-h: 72px; }
+
+.cs-header { position: sticky; top: 0; z-index: 1030; }
+
+body.has-fixed-header { padding-top: var(--cs-header-h); }
+
+.sticky-under-header { top: var(--cs-header-h); z-index: 1020; }
+
+.dropdown-menu, .tooltip, .popover { z-index: 1050; }
+
 html, body {
   height: 100%;
   margin: 0;
