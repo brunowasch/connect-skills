@@ -7,30 +7,35 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <link rel="stylesheet" href="/css/shared/style.css">
-  <link rel="stylesheet" href="/css/candidatos/vagas.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
   <style>
-    /* Espaços extras para o bloco da IA e resultados não "apertarem" o botão */
-    .bloco-ia { margin-bottom: 2rem; }
-    .resultados-ia { margin-top: 1rem; padding-bottom: 1rem; }
-
-    /* Cabeçalho do bloco fica visível ao rolar */
-    .ia-header {
-      display: flex; align-items: center; justify-content: space-between; gap: .75rem;
-      position: sticky; top: 0; background: #f8f9fa; padding: .25rem 0 .5rem 0; z-index: 1;
+    .btn-link-muted {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: #6c757d;
+      text-decoration: none;
     }
-
-    /* Rodapé do bloco com espaçamento e divisor para o botão "Ocultar" */
-    .ia-footer {
-      margin-top: 2rem;
-      padding-top: 1rem;
-      border-top: 1px dashed #ddd;
+    .btn-link-muted:hover { color: #495057; text-decoration: underline; }
+    .input-clear-btn {
+      border: 0;
+      background: transparent;
+      padding: 0 .5rem;
       display: flex;
-      justify-content: flex-end;
+      align-items: center;
+      justify-content: center;
     }
+    .input-clear-btn:hover { opacity: .8; }
+    .perfil-logo { width: 80px; height: 80px; object-fit: cover; }
+    .card-vaga { border: 1px solid rgba(0,0,0,.06); }
+    .badge-outline { background: #fff; border: 1px solid rgba(0,0,0,.1); }
+    @media (max-width: 576px) {
+      .perfil-logo { width: 64px; height: 64px; }
+    }
+    .bloco-ia { margin-top: 1rem; display: none; }
   </style>
 </head>
-<body>
+<body class="bg-light">
   <%- include('../partials/header-candidato') %>
   <%- include('../partials/flash-messages') %>
 
@@ -43,328 +48,174 @@
   %>
 
   <main class="container py-5">
-    <h2 class="mb-4 mt-5">Vagas disponíveis</h2>
+    <div class="d-flex align-items-center justify-content-between mt-1 mb-3">
+      <h2 class="mb-0 mt-4">Vagas recomendadas</h2>
+    </div>
 
-    <% if (vagas.length === 0) { %>
-      <div class="alert alert-light text-center">Nenhuma vaga disponível no momento.</div>
+    <form class="bg-white rounded-4 p-3 shadow-sm border mb-4" method="GET" action="/candidatos/vagas" id="form-filtros">
+      <div class="row g-2 align-items-center">
+        <div class="col-12 col-md">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input
+              type="text"
+              name="q"
+              class="form-control"
+              placeholder="Buscar por cargo, descrição, empresa ou área..."
+              value="<%= (typeof filtros !== 'undefined' && filtros.q) ? filtros.q : '' %>"
+              autocomplete="off"
+              id="campo-busca"
+            >
+            <button
+              type="button"
+              id="clear-busca"
+              class="input-clear-btn <%= (typeof filtros !== 'undefined' && filtros.q && filtros.q.trim() ? '' : 'd-none') %>"
+              aria-label="Limpar busca"
+              title="Limpar busca"
+            >
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+        <div class="col-12 col-md-auto">
+          <select name="ordenar" class="form-select" id="select-ordenar">
+            <option value="recentes" <%= filtros?.ordenar==='recentes'?'selected':'' %>>Mais recentes</option>
+            <option value="antigos" <%= filtros?.ordenar==='antigos'?'selected':'' %>>Mais antigos</option>
+            <option value="mais_salario" <%= filtros?.ordenar==='mais_salario'?'selected':'' %>>Maior salário</option>
+            <option value="menos_salario" <%= filtros?.ordenar==='menos_salario'?'selected':'' %>>Menor salário</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-auto d-flex justify-content-end">
+          <a href="/candidatos/vagas" class="btn-link-muted d-inline-flex align-items-center gap-1">
+            <i class="bi bi-x-circle"></i> Limpar tudo
+          </a>
+        </div>
+      </div>
+    </form>
+    <div class="page-actions py-2 mb-3" style="position:sticky; top:0; z-index:1020; border-bottom:1px solid rgba(0,0,0,.05)">
+      <div class="container px-0 d-flex gap-2">
+        <a href="/candidatos/vagas" class="btn btn-primary">
+          <i class="bi bi-stars me-1"></i> Vagas recomendadas
+        </a>
+        <a href="/candidatos/vagas/historico" class="btn btn-outline-secondary">
+          <i class="bi bi-clock-history me-1"></i> Histórico de vagas aplicadas
+        </a>
+      </div>
+    </div>
+
+    <% if (!vagas || vagas.length === 0) { %>
+      <div class="alert alert-light text-center">Nenhuma vaga encontrada com a busca/ordem atual.</div>
     <% } else { %>
       <% vagas.forEach(vaga => { %>
-        <div class="card shadow-sm mb-4"
-             data-vaga-id="<%= vaga.id %>"
-             data-ja-avaliada="<%= vaga.ja_avaliada ? '1' : '0' %>">
-          <div class="card-body">
-            <div class="row g-3 align-items-start">
-              <div class="col-12 col-md-auto text-center">
-                <a href="/empresa/perfil/<%= vaga.empresa.id %>">
-                  <img
-                    src="<%= vaga.empresa.foto_perfil || '/img/empresa-padrao.png' %>"
-                    alt="Logo da empresa"
-                    class="rounded-circle"
-                    width="80"
-                    height="80"
-                    style="object-fit: cover;"
-                  >
-                </a>
-              </div>
-
-              <div class="col">
-                <h5 class="mb-1 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>
-
+        <div class="bg-white rounded-4 p-4 mb-4 shadow-sm position-relative card-vaga border" data-vaga-id="<%= vaga.id %>">
+          <div class="d-flex gap-4 align-items-start flex-wrap">
+            <a href="/empresa/perfil/<%= vaga.empresa?.id %>">
+              <img src="<%= vaga.empresa?.foto_perfil || '/img/empresa-padrao.png' %>"
+                   alt="Logo da empresa"
+                   class="rounded-circle border perfil-logo">
+            </a>
+            <div class="flex-grow-1">
+              <h5 class="mb-0 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>
+              <p class="mb-1 text-muted">
+                <%= [vaga.empresa?.cidade, vaga.empresa?.estado, vaga.empresa?.pais].filter(Boolean).join(', ') || 'Localidade não informada' %>
+              </p>
+              <p class="mb-1 mt-2 fw-semibold"><%= vaga.cargo %></p>
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                <span class="badge rounded-pill text-bg-light border">
+                  <i class="bi bi-geo-alt me-1"></i><%= tipoMap[vaga.tipo_local_trabalho] %>
+                </span>
                 <%
-                  const normalizar = str => str?.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-                  const partesOriginais = [vaga.empresa?.cidade, vaga.empresa?.estado, vaga.empresa?.pais]
-                    .filter(p => p && p.toLowerCase() !== 'undefined' && p.toLowerCase() !== 'null');
-                  const partesUnicas = [];
-                  const vistos = new Set();
-
-                  for (const parte of partesOriginais) {
-                    const normalizada = normalizar(parte);
-                    if (!vistos.has(normalizada)) {
-                      vistos.add(normalizada);
-                      partesUnicas.push(parte.trim());
-                    }
-                  }
-
-                  const localidade = partesUnicas.join(', ');
+                  const dataCriacao = new Date(vaga.created_at);
+                  const dataValida = !isNaN(dataCriacao.getTime());
                 %>
-
-                <small class="text-muted d-block mb-2">
-                  <%= localidade || 'Localidade não informada' %>
-                </small>
-
-                <p class="fw-semibold mb-1"><%= vaga.cargo %></p>
-                <p class="mb-2"><%= vaga.descricao %></p>
-
-                <small class="text-muted d-block mb-2"><%= tipoMap[vaga.tipo_local_trabalho] %></small>
-
-                <div class="mb-2">
-                  <strong>Escala:</strong> <%= vaga.escala_trabalho %><br>
-
-                  <% if (vaga.salario) { %>
-                    <strong>Salário:</strong>
-                    <%= Number(vaga.salario).toLocaleString('pt-BR', { style: 'currency', currency: vaga.moeda || 'BRL' }) %><br>
-                  <% } %>
-
-                  <% if (vaga.dias_presenciais) { %>
-                    <strong>Dias presenciais:</strong> <%= vaga.dias_presenciais %><br>
-                  <% } %>
-                  <% if (vaga.dias_home_office) { %>
-                    <strong>Dias home office:</strong> <%= vaga.dias_home_office %><br>
-                  <% } %>
-
-                  <% if (vaga.beneficio && typeof vaga.beneficio === 'string' && vaga.beneficio.trim() !== '') { %>
-                    <strong>Benefícios:</strong>
-                    <%= vaga.beneficio.split(',').map(b => b.trim()).filter(b => b.length > 0).join(', ') %><br>
-                  <% } %>
-
-                  <% if (vaga.beneficio_outro) { %>
-                    <strong>Outro benefício:</strong> <%= vaga.beneficio_outro %><br>
-                  <% } %>
-                </div>
-
-                <% if (vaga.vaga_area.length > 0) { %>
-                  <p class="mb-1"><small class="text-muted">Áreas de atuação:</small></p>
-                  <div class="d-flex flex-wrap gap-1">
-                    <% vaga.vaga_area.forEach(rel => { %>
-                      <span class="badge rounded-pill border border-primary text-primary">
-                        <%= rel.area_interesse.nome %>
-                      </span>
-                    <% }) %>
-                  </div>
+                <span class="badge rounded-pill text-bg-light border">
+                  <i class="bi bi-calendar-event me-1"></i>
+                  <%= dataValida ? `Publicado em ${dataCriacao.toLocaleDateString('pt-BR')}` : 'Data não disponível' %>
+                </span>
+                <% if (vaga.salario) { %>
+                  <span class="badge rounded-pill text-bg-light border">
+                    <i class="bi bi-cash-coin me-1"></i>
+                    <%= Number(vaga.salario).toLocaleString('pt-BR', { style: 'currency', currency: vaga.moeda || 'BRL' }) %>
+                  </span>
                 <% } %>
               </div>
+              <p class="mt-3"><%= vaga.descricao %></p>
+              <% if (vaga.vaga_area?.length) { %>
+                <small class="text-muted">Áreas de atuação:</small>
+                <div class="d-flex flex-wrap gap-1 mt-2">
+                  <% vaga.vaga_area.forEach(rel => { %>
+                    <span class="badge rounded-pill text-primary border border-primary bg-white"><%= rel.area_interesse.nome %></span>
+                  <% }) %>
+                </div>
+              <% } %>
             </div>
           </div>
 
-          <!-- Botão (TOGGLE) para abrir o bloco da IA.
-               Envolvido por .ia-toggle para podermos esconder quando aberto -->
-          <div class="text-center mb-4 mt-2 ia-toggle">
-            <button class="btn btn-outline-primary fw-bold botao-ia" type="button" aria-expanded="false">
-              Iniciar teste com a IA
+          <hr class="mt-4 mb-3">
+
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <a href="/candidatos/vagas/<%= vaga.id %>" class="btn btn-outline-primary">
+              <i class="bi bi-eye me-1"></i> Ver detalhes
+            </a>
+            <button class="btn btn-primary btn-entrevista" type="button">
+              <i class="bi bi-send me-1"></i> Iniciar entrevista com IA
             </button>
           </div>
 
-          <!-- Bloco da IA (colapsado por padrão) -->
-          <div class="mt-1 border rounded p-3 bg-light bloco-ia" style="display:none;">
-            <div class="ia-header">
-              <div class="alert alert-secondary small mb-0 py-1 px-2">
-                <strong>Questionário da vaga</strong>
-              </div>
-            </div>
-
+          <div class="bloco-ia border rounded p-3 bg-light mt-3">
+            <h6 class="fw-semibold mb-3">Questionário da vaga</h6>
             <%
-              const perguntas = (vaga.pergunta || '')
-                .split('\n').map(s => s.trim()).filter(Boolean);
-              const opcoes = (vaga.opcao || '')
-                .split('|').map(s => s.trim()).filter(Boolean);
+              const perguntas = (vaga.pergunta || '').split('\n').map(s => s.trim()).filter(Boolean);
             %>
-
-            <!-- Lista de perguntas + inputs de resposta -->
             <% if (perguntas.length) { %>
-            <div class="mb-3 mt-2">
               <% perguntas.forEach((q, idx) => { %>
                 <div class="mb-2">
-                  <label class="form-label"><%= (idx + 1) + '. ' + q %></label>
-                  <input
-                    type="text"
-                    class="form-control resposta-ia-item"
-                    placeholder="Sua resposta..."
-                    value="<%= (vaga.respostas_previas && vaga.respostas_previas[idx]) ? vaga.respostas_previas[idx] : '' %>"
-                  >
+                  <label class="form-label"><%= (idx+1) + '. ' + q %></label>
+                  <input type="text" class="form-control resposta-ia-item" placeholder="Sua resposta...">
                 </div>
               <% }) %>
-            </div>
-          <% } else { %>
-            <label class="form-label fw-semibold mt-2">Sua resposta:</label>
-            <textarea class="form-control resposta-ia" rows="3" placeholder="Ex.: Sim, configuração de switches e roteadores."><%= vaga.resposta_unica || '' %></textarea>
-          <% } %>
+            <% } else { %>
+              <textarea class="form-control resposta-ia" rows="3" placeholder="Digite sua resposta..."></textarea>
+            <% } %>
             <div class="d-flex gap-2 mt-3">
-              <button class="btn btn-primary btn-avaliar" data-vaga-id="<%= vaga.id %>">
-                Analisar compatibilidade
-              </button>
-              <span class="text-muted small status-ia" style="display:none;">
-                Espere alguns segundos, a análise está sendo feita...
-              </span>
+              <button class="btn btn-success btn-avaliar" data-vaga-id="<%= vaga.id %>"> <i class="bi bi-clipboard2-check"></i> Analisar compatibilidade</button>
+              <button class="btn btn-outline-secondary fechar-ia">Ocultar</button>
             </div>
-
             <div class="mt-3 resultados-ia"></div>
-            <div class="mt-3 msg-ja-avaliada alert alert-info py-2 px-3" style="display:none;">
-              Você já realizou o teste desta vaga. Apenas a última avaliação é considerada no ranking.
-            </div>
-
-            <div class="ia-footer">
-              <button class="btn btn-outline-secondary fechar-ia-baixo" type="button">
-                Ocultar teste
-              </button>
-            </div>
           </div>
         </div>
       <% }) %>
     <% } %>
   </main>
 
-  <script>
-    function keyVagaAvaliada(id) { return 'connectskills_vaga_avaliada_' + id; }
-
-    // Aplica bloqueio se já avaliou (server flag OU localStorage)
-    document.querySelectorAll('.card[data-vaga-id]').forEach(card => {
-      const vagaId = card.getAttribute('data-vaga-id');
-      const btnToggle = card.querySelector('.botao-ia');
-      const msgJa = card.querySelector('.msg-ja-avaliada');
-
-      const jaFlag = card.getAttribute('data-ja-avaliada') === '1';
-      const jaLocal = localStorage.getItem(keyVagaAvaliada(vagaId)) === '1';
-      const jaAvaliou = jaFlag || jaLocal;
-
-      if (jaAvaliou) {
-        const btnAvaliar = card.querySelector('.btn-avaliar');
-        btnAvaliar?.setAttribute('disabled', 'disabled');
-        btnAvaliar?.classList.add('disabled');
-        btnAvaliar?.classList.replace('btn-primary', 'btn-outline-secondary');
-        if (msgJa) msgJa.style.display = 'block';
-        if (btnToggle) btnToggle.textContent = 'Ver teste da IA';
-      }
-    });
-
-    // Toggle do bloco da IA
-    document.addEventListener('click', (e) => {
-      // Abrir pelo botão de cima
-      const openBtn = e.target.closest('.botao-ia');
-      if (openBtn) {
-        const card = openBtn.closest('.card');
-        const bloco = card.querySelector('.bloco-ia');
-        const toggleWrap = card.querySelector('.ia-toggle');
-
-        // Mostrar bloco e esconder botão superior
-        bloco.style.display = 'block';
-        toggleWrap?.classList.add('d-none');
-        openBtn.setAttribute('aria-expanded', 'true');
-        return;
-      }
-
-      // Fechar pelo botão do rodapé
-      const closeBottom = e.target.closest('.fechar-ia-baixo');
-      if (closeBottom) {
-        const card = closeBottom.closest('.card');
-        const bloco = card.querySelector('.bloco-ia');
-        const toggleWrap = card.querySelector('.ia-toggle');
-        const toggleBtn = card.querySelector('.botao-ia');
-
-        bloco.style.display = 'none';
-        toggleWrap?.classList.remove('d-none');
-        // Mantém o texto padrão no botão superior
-        if (toggleBtn) {
-          const ja = card.getAttribute('data-ja-avaliada') === '1' ||
-                     localStorage.getItem(keyVagaAvaliada(card.getAttribute('data-vaga-id'))) === '1';
-          toggleBtn.textContent = ja ? 'Ver teste da IA' : 'Iniciar teste com a IA';
-          toggleBtn.setAttribute('aria-expanded', 'false');
-        }
-        return;
-      }
-    });
-
-    // Avaliar compatibilidade (bloqueia reenvio após sucesso)
-    document.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.btn-avaliar');
-      if (!btn) return;
-
-      const card = btn.closest('.card[data-vaga-id]');
-      const vagaId = card.getAttribute('data-vaga-id');
-
-      if (localStorage.getItem(keyVagaAvaliada(vagaId)) === '1') {
-        const msg = card.querySelector('.msg-ja-avaliada');
-        if (msg) msg.style.display = 'block';
-        return;
-      }
-
-      const container = btn.closest('.bloco-ia');
-      const status    = container.querySelector('.status-ia');
-      const output    = container.querySelector('.resultados-ia');
-
-      const inputs   = container.querySelectorAll('.resposta-ia-item');
-      const textarea = container.querySelector('.resposta-ia');
-
-      output.innerHTML = '';
-
-      let payload = {};
-      if (inputs && inputs.length) {
-        const respostas = Array.from(inputs).map(i => (i.value || '').trim());
-        const temAlgo = respostas.some(v => v.length > 0);
-        if (!temAlgo) {
-          output.innerHTML = '<div class="text-danger">Preencha ao menos uma resposta.</div>';
-          return;
-        }
-        payload = { respostas };
-      } else if (textarea) {
-        const resposta = (textarea.value || '').trim();
-        if (!resposta) {
-          output.innerHTML = '<div class="text-danger">Digite sua resposta antes de analisar.</div>';
-          return;
-        }
-        payload = { resposta };
-      } else {
-        output.innerHTML = '<div class="text-danger">Não foi possível ler suas respostas.</div>';
-        return;
-      }
-
-      btn.disabled = true;
-      status.style.display = 'inline';
-
-      try {
-        const resp = await fetch(`/candidato/vaga/${vagaId}/avaliar`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await resp.json();
-        status.style.display = 'none';
-
-        if (resp.status === 409) {
-          output.innerHTML = `<div class="alert alert-info">Você já realizou o teste desta vaga.</div>`;
-          localStorage.setItem(keyVagaAvaliada(vagaId), '1');
-          return;
-        }
-
-        if (!data.ok) {
-          btn.disabled = false;
-          output.innerHTML = `<div class="text-danger">${data.error || 'Erro desconhecido.'}</div>`;
-          return;
-        }
-
-        if (Array.isArray(data.results) && data.results.length) {
-          const lista = data.results.map(r => {
-            const item = String(r.Item || '').replace(/^Item\s*\d+:\s*/i, '');
-            const rating = (typeof r.rating === 'number') ? `${r.rating}%` : '-';
-            return `<li class="list-group-item d-flex justify-content-between align-items-center">
-              <span>${item}</span>
-              <span class="badge bg-secondary rounded-pill">${rating}</span>
-            </li>`;
-          }).join('');
-
-          output.innerHTML += `
-            <div class="mt-2">
-              <div class="fw-semibold mb-1">Compatibilidade por opção</div>
-              <ul class="list-group">${lista}</ul>
-            </div>`;
-        } else {
-          output.innerHTML += '<div class="text-muted">A IA não retornou itens para avaliar.</div>';
-        }
-
-        localStorage.setItem(keyVagaAvaliada(vagaId), '1');
-        btn.classList.replace('btn-primary', 'btn-outline-secondary');
-        btn.textContent = 'Teste já realizado';
-        const msgJa = card.querySelector('.msg-ja-avaliada');
-        if (msgJa) msgJa.style.display = 'block';
-
-      } catch (err) {
-        status.style.display = 'none';
-        btn.disabled = false;
-        output.innerHTML = '<div class="text-danger">Falha ao contatar o serviço de análise. Tente novamente.</div>';
-      }
-    });
-  </script>
-
   <%- include('../partials/footer') %>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    (function(){
+      const form = document.getElementById('form-filtros');
+      const input = document.getElementById('campo-busca');
+      const clearBtn = document.getElementById('clear-busca');
+      const ordenar = document.getElementById('select-ordenar');
+
+      input.addEventListener('keydown', e => { if (e.key==='Enter') e.preventDefault(); });
+      let t;
+      input.addEventListener('input', () => {
+        clearBtn.classList.toggle('d-none', !(input.value && input.value.trim()));
+        clearTimeout(t); t = setTimeout(()=>form.requestSubmit(),400);
+      });
+      clearBtn.addEventListener('click', ()=>{ input.value=''; clearBtn.classList.add('d-none'); form.requestSubmit(); });
+      ordenar.addEventListener('change', ()=>form.requestSubmit());
+      document.addEventListener('click', e=>{
+        if(e.target.closest('.btn-entrevista')){
+          const card=e.target.closest('.card-vaga');
+          card.querySelector('.bloco-ia').style.display='block';
+        }
+        if(e.target.closest('.fechar-ia')){
+          const card=e.target.closest('.card-vaga');
+          card.querySelector('.bloco-ia').style.display='none';
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

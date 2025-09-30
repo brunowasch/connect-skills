@@ -16,7 +16,6 @@ form.addEventListener('submit', function (e) {
   const confirmarValor = confirmarSenha.value.trim();
   const senhaValida = senhaValor.length >= 8 && /[^A-Za-z0-9]/.test(senhaValor);
 
-  // 👇 Adiciona classe e mostra a mensagem corretamente
   if (!senhaValida) {
     senha.classList.add('is-invalid');
     erroRequisitos.style.display = 'block';
@@ -32,7 +31,6 @@ form.addEventListener('submit', function (e) {
   if (!valido) e.preventDefault();
 });
 
-// Alternar visibilidade da senha
 const toggleSenha = document.getElementById('toggleSenha');
 const iconSenha = document.getElementById('iconSenha');
 

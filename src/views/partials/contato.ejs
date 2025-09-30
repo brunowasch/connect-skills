@@ -2,13 +2,16 @@
 <% var erro = typeof erro !== 'undefined' ? erro : false; %>
 <% var candidato = typeof candidato !== 'undefined' ? candidato : null; %>
 <% var empresa = typeof empresa !== 'undefined' ? empresa : null; %>
-<% 
-  var emailUsuario = '';
-  if (candidato && candidato.email) {
-    emailUsuario = candidato.email;
-  } else if (empresa && empresa.usuario_id && empresa.email) {
-    emailUsuario = empresa.email;
-  }
+<%
+  const u   = (typeof usuario   !== 'undefined' && usuario)   ? usuario   : null;
+  const cand= (typeof candidato !== 'undefined' && candidato) ? candidato : null;
+  const emp = (typeof empresa   !== 'undefined' && empresa)   ? empresa   : null;
+
+  let emailUsuario =
+    (u   && u.email) ||
+    (cand && (cand.email || (cand.usuario && cand.usuario.email))) ||
+    (emp  && (emp.email  || (emp.usuario  && emp.usuario.email))) ||
+    '';
 %>
 
 <section id="contact" class="contact section-padding mt-5 pt-5">
@@ -42,7 +45,7 @@
                   </div>
                   <div class="col-md-12">
                     <div class="mb-3">
-                      <input type="email" name="email" class="form-control" required placeholder="Email" value="<%= emailUsuario %>">
+                      <input type="email" name="email" class="form-control" required placeholder="E-mail" value="<%= emailUsuario %>">
                     </div>
                   </div>
                   <div class="col-md-12">

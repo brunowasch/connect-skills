@@ -1,5 +1,3 @@
-/* Estilo para os botões de áreas */
-/* Estilo para o botão de áreas */
 .area-btn {
   border: 2px solid #015EDB;
   color: #015EDB;
@@ -20,7 +18,6 @@
   cursor: pointer;
 }
 
-/* Botão X para remover área */
 .area-btn i {
   cursor: pointer;
   color: red;
@@ -30,7 +27,6 @@
   background-color: #f8f9fa;
 }
 
-/* Estilo para as áreas já selecionadas */
 #areasSelecionadas button {
   background-color: #007bff;
   color: white;

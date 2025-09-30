@@ -1,4 +1,3 @@
-// publicacaoVagasRequisitos.js
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('formPublicarVaga') || document.getElementById('formEditarVaga');
 if (!form) return;
@@ -18,7 +17,6 @@ if (!form) return;
     areaHidden.value = JSON.stringify(arr)
   }
 
-  // Delegation: clique em qualquer botão .area-btn (estático ou criado)
   areaBtnsContainer.addEventListener('click', e => {
     if (!e.target.matches('.area-btn')) return;
     const btn = e.target;
@@ -26,18 +24,15 @@ if (!form) return;
     let arr   = getAreas();
 
     if (arr.includes(id)) {
-      // desmarcar
       arr = arr.filter(x => x !== id);
       btn.classList.replace('btn-primary','btn-outline-primary');
     } else if (arr.length < 3) {
-      // marcar
       arr.push(id);
       btn.classList.replace('btn-outline-primary','btn-primary');
     }
     setAreas(arr);
   });
 
-  // Novas áreas digitadas nos inputs .nova-area + Enter
   novaAreasInputs.forEach(inp => {
     inp.addEventListener('keydown', e => {
       if (e.key !== 'Enter') return;
@@ -48,14 +43,11 @@ if (!form) return;
       let arr = getAreas();
       const id  = `nova:${valor}`;
       if (arr.includes(id) || arr.length >= 3) {
-        // não faz nada
         return;
       }
-      // adiciona
       arr.push(id);
       setAreas(arr);
 
-      // cria botão novo
       const btn = document.createElement('button');
       btn.type        = 'button';
       btn.className   = 'btn btn-primary area-btn';

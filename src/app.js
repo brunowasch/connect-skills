@@ -22,27 +22,34 @@ const usuarioRoutes = require('./routes/usuarioRoutes');
 const candidatoRoutes = require('./routes/candidatoRoutes');
 const empresaRoutes = require('./routes/empresaRoutes');
 const mainRoutes = require('./routes/index');
+const candidatoArquivosRoutes = require('./routes/candidatoArquivosRoutes');
+const empresaArquivoRoutes = require('./routes/empresaArquivoRoutes');
 
 const app = express();
 const port = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 
-/* ---------- Segurança, compressão e proxy ---------- */
 app.set('trust proxy', 1);
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(compression());
+app.use(helmet({
+   contentSecurityPolicy: false,
+   contentTypeOptions: false,   
+}));
+app.use(compression({
+  filter: (req, res) => {
+    if (req.path.startsWith('/candidato/anexos/') && req.path.endsWith('/abrir')) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
 
-/* ---------- Parsers (limites enxutos) ---------- */
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(express.json({ limit: '1mb' }));
 
-/* ---------- Views e estáticos ---------- */
-// Como app.js está em src/, as views ficam em src/views
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.set('view cache', isProd);
 
-// Se sua pasta public/ está em src/public, mantenha assim:
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   maxAge: '7d', 
   etag: true,
@@ -54,10 +61,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads'), {
   immutable: true,
 }));
 
-// (Se a sua public estiver na raiz do projeto em vez de src/public,
-// troque para path.join(__dirname, '..', 'public') nos dois trechos acima)
-
-/* ---------- Sessão (MySQL) ---------- */
 const sessionStore = new MySQLStore({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT || 3306),
@@ -73,7 +76,6 @@ const sessionStore = new MySQLStore({
   waitForConnections: true,
   queueLimit: 0,
 
-  // evita UPDATE na sessão a cada request
   disableTouch: true,
 });
 
@@ -85,24 +87,20 @@ app.use(session({
   store: sessionStore,
   cookie: {
     httpOnly: true,
-    secure: false,      // em Render Starter mantenha false; com TLS e proxy confiável pode ser true
+    secure: false,     
     sameSite: 'lax',
     maxAge: 1000 * 60 * 60 * 24 * 7,
   },
 }));
 
-/* ---------- Passport ---------- */
 app.use(passport.initialize());
 app.use(passport.session());
 
-// serialize leve (evita query por request)
 passport.serializeUser((user, done) => done(null, { id: user.id, tipo: user.tipo }));
 passport.deserializeUser((payload, done) => done(null, payload));
 
-/* ---------- Flash e locals ---------- */
 app.use(flashMessage);
 
-// mensagens de contato (sucesso/erro) e usuário atual nas views
 app.use((req, res, next) => {
   res.locals.sucessoContato = req.session.sucessoContato || null;
   res.locals.erroContato     = req.session.erroContato || null;
@@ -115,22 +113,20 @@ app.use((req, res, next) => {
   next();
 });
 
-/* ---------- Rotas públicas ---------- */
 app.use('/', mainRoutes);
 app.use('/', authRoutes);
 app.use('/', aliasRoutes);
+app.use(candidatoArquivosRoutes);
+app.use(empresaArquivoRoutes);
 
-/* ---------- Rotas autenticadas ---------- */
 app.use('/usuarios', usuarioRoutes);
 app.use('/candidatos', candidatoRoutes);
 app.use('/empresas', empresaRoutes);
 
-/* ---------- Healthcheck ---------- */
 app.get('/healthz', (_req, res) => {
   res.status(200).json({ status: 'ok', time: new Date().toISOString() });
 });
 
-/* ---------- Páginas estáticas ---------- */
 app.get('/termos', (req, res) => {
   res.render('shared/termos');
 });
@@ -138,7 +134,6 @@ app.get('/politica-privacidade', (req, res) => {
   res.render('shared/politica-privacidade');
 });
 
-/* ---------- Logout ---------- */
 app.get('/logout', (req, res) => {
   req.session.destroy(err => {
     if (err) console.error(err);
@@ -146,7 +141,6 @@ app.get('/logout', (req, res) => {
   });
 });
 
-/* ---------- Contato (envio async; não trava request) ---------- */
 app.get('/contato', (req, res) => {
   res.render('shared/contato');
 });
@@ -190,7 +184,6 @@ app.post('/enviar-contato', async (req, res) => {
   });
 });
 
-/* ---------- 404 ---------- */
 app.use((req, res) => {
   try {
     res.status(404).render('shared/404', { url: req.originalUrl });
@@ -199,7 +192,6 @@ app.use((req, res) => {
   }
 });
 
-/* ---------- 500 ---------- */
 app.use((err, req, res, _next) => {
   console.error('Erro não tratado:', err);
   try {
@@ -209,7 +201,6 @@ app.use((err, req, res, _next) => {
   }
 });
 
-/* ---------- Server com keep-alive (estável no Render) ---------- */
 const server = http.createServer(app);
 server.keepAliveTimeout = 65_000;
 server.headersTimeout = 66_000;
