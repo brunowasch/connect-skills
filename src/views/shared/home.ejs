@@ -11,12 +11,17 @@
   </head>
   <style>
   body { background: #fff; }
-  .banner-wrap {
-    margin-top: -72px !important;   /* sobe o banner o tamanho do header */
+   .banner-wrap{
+    margin-top: calc(var(--nav-h) * -1);
     line-height: 0;
     padding: 0 !important;
   }
-  .banner-wrap img { display: block; width: 100%; height: auto; }
+
+  header, .navbar, .site-header{
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    border-bottom: 0 !important;
+  }
 
   .hero {
     background: #fff;

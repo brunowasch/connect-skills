@@ -15,14 +15,13 @@
         <li class="nav-item"><a class="nav-link" href="/candidato/home">Início</a></li>
         <li class="nav-item"><a class="nav-link" href="/candidato/vagas">Vagas</a></li>
         <li class="nav-item"><a class="nav-link" href="/candidato/meu-perfil">Meu perfil</a></li>
-        <li class="nav-item">
-          <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modalLogout">Sair</a>
-        </li>
+        <li class="nav-item"><a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modalLogout">Sair</a></li>
       </ul>
     </div>
   </div>
 </nav>
 
+<!-- Modal -->
 <div class="modal fade" id="modalLogout" tabindex="-1" aria-labelledby="modalLogoutLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -41,7 +40,6 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 (function(){
   const header = document.querySelector('.navbar.fixed-top');
@@ -49,6 +47,7 @@
   function apply(){
     const h = header.offsetHeight || 72;
     document.documentElement.style.setProperty('--nav-h', h + 'px');
+    document.body.style.paddingTop = h + 'px';
   }
   window.addEventListener('load', apply);
   window.addEventListener('resize', apply);
