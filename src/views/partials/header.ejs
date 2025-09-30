@@ -6,18 +6,3 @@
     </a>
   </div>
 </nav>
-
-<script>
-(function(){
-  const header = document.querySelector('.navbar.fixed-top');
-  if(!header) return;
-  function apply(){
-    const h = header.offsetHeight || 72;
-    document.documentElement.style.setProperty('--nav-h', h + 'px');
-    document.body.style.paddingTop = h + 'px';
-  }
-  window.addEventListener('load', apply);
-  window.addEventListener('resize', apply);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(apply);
-})();
-</script>
