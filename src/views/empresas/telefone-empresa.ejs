@@ -17,14 +17,11 @@
     <h3 class="text-center mb-4">Digite seu número de telefone:</h3>
 
     <form action="/empresa/telefone" method="POST" id="formTelefone" novalidate>
-      <!-- Campo oculto com o ID do usuário -->
       <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
 
       <div class="form-card">
         <div class="mb-4">
           <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
-
-            <!-- DDI fixo -->
             <div class="d-flex flex-column align-items-start">
               <input type="text" class="form-control text-center" name="ddi" id="ddi" value="+55" readonly style="width: 60px;">
             </div>

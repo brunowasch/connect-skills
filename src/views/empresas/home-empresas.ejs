@@ -1,96 +1,276 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Connect Skills</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="/css/shared/style.css">
-    <link rel="stylesheet" href="/css/shared/home.css">
-    <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
-  </head>
-  <body id="home">
-    <main style="margin-top: 0; padding-top: 0;">
-      <% var sucesso = typeof sucesso !== 'undefined' ? sucesso : false; %>
-      <% var erro = typeof erro !== 'undefined' ? erro : false; %>
-      
-      <%- include('../partials/header-empresa') %>
-      <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
-        <div class="carousel-inner">
-          <div class="carousel-item active">
-            <img src="/img/Banner.png" class="d-block w-100" alt="...">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connect Skills</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/css/shared/style.css">
+  <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
+
+  <style>
+    :root { --header-h: 72px; }
+    body { background:#f8f9fb; }
+    main#content-main { margin-top: var(--header-h); }
+    .rounded-2xl { border-radius: 1rem; }
+    .shadow-soft { box-shadow: 0 6px 24px rgba(0,0,0,.06); }
+    .pill { display:inline-block; padding:.25rem .6rem; border-radius:999px; background:#f1f3f5; font-size:.85rem; margin:.15rem .25rem .15rem 0; }
+    .perfil-logo { width: 64px; height: 64px; object-fit: cover; }
+    .card-ghost { border:1px dashed rgba(0,0,0,.15); background:#fff; }
+    .card-bl { border:1px solid rgba(0,0,0,.06); }
+    .muted { color:#6c757d; }
+    .section-title { font-weight:700; font-size:1rem; letter-spacing:.2px; }
+    .kpi .num { font-weight:800; font-size:1.25rem; }
+  </style>
+</head>
+<body>
+  <%- include('../partials/header-empresa') %>
+  <%- include('../partials/flash-messages') %>
+
+  <main id="content-main" class="container py-4 py-md-5">
+    <%
+      const emp  = (typeof empresa  !== 'undefined' && empresa)  ? empresa  : {};
+      const user = (typeof usuario  !== 'undefined' && usuario)  ? usuario  : {};
+      const nomeEmpresa = (typeof nome !== 'undefined' && nome) ? nome : (emp.nome_empresa || user.nome || 'Sua empresa');
+      const descricaoResolved = (typeof descricao !== 'undefined' && descricao) ? descricao : (emp.descricao || '');
+      const localidadeResolved =
+        (typeof localidade !== 'undefined' && localidade) ? localidade :
+        [emp.cidade, emp.estado, emp.pais].filter(Boolean).join(', ') || 'Localidade não informada';
+      const fotoResolved =
+        (typeof fotoPerfil !== 'undefined' && fotoPerfil) ? fotoPerfil :
+        (emp.foto_perfil || '/img/empresa-padrao.png');
+
+      const _vagasRecentes =
+        (typeof vagasRecentes   !== 'undefined' && Array.isArray(vagasRecentes))   ? vagasRecentes   :
+        (typeof vagas           !== 'undefined' && Array.isArray(vagas))           ? vagas           :
+        (typeof vagasPublicadas !== 'undefined' && Array.isArray(vagasPublicadas)) ? vagasPublicadas :
+        [];
+
+      const totalVagasIn = (typeof totais !== 'undefined' && totais && Number.isFinite(totais.totalVagas)) ? Number(totais.totalVagas) : null;
+      const totalCandIn  = (typeof totais !== 'undefined' && totais && Number.isFinite(totais.totalCandidatos)) ? Number(totais.totalCandidatos) : null;
+
+      const totalVagas = totalVagasIn !== null ? totalVagasIn : _vagasRecentes.length;
+      const totalCandidatos = (function(){
+        if (totalCandIn !== null) return totalCandIn;
+        return _vagasRecentes.reduce((acc, v) => {
+          const tc = Number(v.total_candidatos || v.candidatos_count || 0);
+          return acc + (Number.isFinite(tc) ? tc : 0);
+        }, 0);
+      })();
+
+      const vagasAbertas = (function(){
+        const mapStatus = (s) => (String(s || '').toLowerCase());
+        let comStatus = 0, total = 0;
+        for (const v of _vagasRecentes) {
+          total++;
+          const s = v.status || v.statusAtual || v.ultimo_status || null;
+          if (s == null) continue;
+          comStatus++;
+          if (mapStatus(s) === 'aberta' || mapStatus(s) === 'abertas') { /* nada a fazer, apenas conta */ }
+        }
+        if (comStatus === 0) return _vagasRecentes.length; // fallback
+        return _vagasRecentes.filter(v => {
+          const s = mapStatus(v.status || v.statusAtual || v.ultimo_status || null);
+          return s === 'aberta' || s === 'abertas';
+        }).length;
+      })();
+
+      const vagasLista = _vagasRecentes.slice(0, 3);
+
+      const tipoMap = { Presencial: 'Presencial', Home_Office: 'Home Office', H_brido: 'Híbrido' };
+      const moedaSafe = (m) => (m || 'BRL');
+      const fmtSalario = (valor, moeda) => {
+        if (valor == null || valor === '') return null;
+        const n = Number(valor);
+        if (!Number.isFinite(n)) return null;
+        try { return n.toLocaleString('pt-BR', { style: 'currency', currency: moedaSafe(moeda) }); }
+        catch { return `R$ ${n.toFixed(2)}`; }
+      };
+    %>
+    <h2 class="mb-4">Dashboard pessoal</h2>
+    <!-- HERO -->
+    <div class="bg-white rounded-2xl shadow-soft p-4 p-md-5 mb-4">
+      <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+        <div class="d-flex align-items-center gap-3">
+          <img
+            src="<%= fotoResolved %>"
+            class="rounded-circle border perfil-logo"
+            alt="Logo da empresa"
+          >
+          <div>
+            <div class="h4 m-0">Olá, <%= nomeEmpresa %> 👋</div>
+            <div class="small muted">
+              <i class="bi bi-geo-alt me-1"></i> <%= localidadeResolved %>
+            </div>
+            <% if (descricaoResolved) { %>
+              <div class="muted"><%= descricaoResolved %></div>
+            <% } else { %>
+              <div class="muted">Bem-vinda ao seu painel do Connect Skills</div>
+            <% } %>
           </div>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-md-end gap-2 mt-3 mt-md-0">
+          <a href="/empresa/publicar-vaga" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> Publicar vaga
+          </a>
+          <a href="/empresa/meu-perfil" class="btn btn-outline-primary">
+            <i class="bi bi-person me-1"></i> Meu perfil
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- KPIs -->
+    <div class="row g-4 mb-4">
+      <div class="col-12 col-lg-4">
+        <div class="bg-white rounded-2xl shadow-soft p-4 text-center h-100 kpi">
+          <i class="bi bi-briefcase fs-3"></i>
+          <div class="num mt-1"><%= totalVagas %></div>
+          <div class="muted small">Vagas publicadas</div>
         </div>
       </div>
 
-      <!-- COMO FUNCIONA -->
-      <section class="container my-5">
-        <h3>
-          Encontre o profissional certo para sua empresa, 
-          <span class="text-primary" style="font-size: inherit; font-weight: inherit;">
-            de forma rápida e eficiente!
-          </span>
-        </h3>
-
-        <p><strong>Como Funciona?</strong></p>
-        <p>No Connect Skills, facilitamos a conexão entre empresas e talentos ideais. Utilize nossa tecnologia para encontrar candidatos que realmente fazem a diferença no seu time!</p>
-
-        <div class="row g-4 mt-4">
-          <div class="col-md-3 col-sm-6">
-            <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
-              <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
-                   style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-                1
-              </div>
-              <p class="flex-grow-1">Cadastre sua empresa gratuitamente e acesse o painel para começar a recrutar talentos.</p>
-            </div>
-          </div>
-
-          <div class="col-md-3 col-sm-6">
-            <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
-              <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
-                   style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-                2
-              </div>
-              <p class="flex-grow-1">Publique vagas com informações e áreas de interesse desejadas.</p>
-            </div>
-          </div>
-
-          <div class="col-md-3 col-sm-6">
-            <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
-              <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
-                   style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-                3
-              </div>
-              <p class="flex-grow-1">Candidatos interessados farão o teste com IA para medir a compatibilidade com a vaga.</p>
-            </div>
-          </div>
-
-          <div class="col-md-3 col-sm-6">
-            <div class="card text-center shadow-sm p-4 rounded-3 h-100 d-flex flex-column align-items-center">
-              <div class="circle bg-primary text-white rounded-circle fw-bold mb-3"
-                   style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-                4
-              </div>
-              <p class="flex-grow-1">Acompanhe o processo seletivo e contrate o profissional ideal para sua equipe!</p>
-            </div>
-          </div>
+      <div class="col-12 col-lg-4">
+        <div class="bg-white rounded-2xl shadow-soft p-4 text-center h-100 kpi">
+          <i class="bi bi-people fs-3"></i>
+          <div class="num mt-1"><%= totalCandidatos %></div>
+          <div class="muted small">Candidatos recebidos</div>
         </div>
-      </section>
-    </main>
-
-<%- include('../partials/contato', { sucesso: sucessoContato, erro: erroContato, candidato: null, empresa }) %>
-
-    <!-- FORMULARIO -->
-    <!-- <section class="py-5">
-      <div class="container text-center">
-        <a href="/empresas/publicar-vaga" class="btn btn-primary btn-lg">Publicar uma vaga</a>
       </div>
-    </section> -->
-    
-    <%- include('../partials/footer') %>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  </body>
+      <div class="col-12 col-lg-4">
+        <div class="bg-white rounded-2xl shadow-soft p-4 text-center h-100 kpi">
+          <i class="bi bi-unlock fs-3"></i>
+          <div class="num mt-1"><%= vagasAbertas %></div>
+          <div class="muted small">Vagas abertas</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+      <div class="col-12 col-lg-7">
+        <div class="bg-white rounded-2xl shadow-soft p-4 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="section-title">
+              <i class="bi bi-clock-history me-1"></i>
+              Vagas recentes
+            </div>
+            <a href="/empresa/vagas" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-list-task me-1"></i> Ver todas as vagas
+            </a>
+          </div>
+
+          <% if (!vagasLista.length) { %>
+            <div class="card-ghost p-4 rounded-2xl text-center">
+              <div class="muted">Você ainda não publicou vagas.</div>
+              <a class="btn btn-primary btn-sm mt-2" href="/empresa/publicar-vaga">
+                Publicar vaga
+              </a>
+            </div>
+          <% } else { %>
+            <% vagasLista.forEach(function (vaga) { %>
+              <div class="card-bl bg-white rounded-2xl p-3 p-md-4 mb-3">
+                <div class="d-flex gap-3 align-items-start flex-wrap">
+                  <img
+                    src="<%= (emp.foto_perfil || '/img/empresa-padrao.png') %>"
+                    alt="Logo da empresa"
+                    class="rounded-circle border perfil-logo"
+                  >
+
+                  <div class="flex-grow-1">
+                    <h5 class="mb-0 fw-bold"><%= nomeEmpresa %></h5>
+                    <div class="muted">
+                      <%= localidadeResolved %>
+                    </div>
+
+                    <div class="fw-semibold mt-2"><%= vaga.cargo %></div>
+
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                      <% if (vaga.tipo_local_trabalho) { %>
+                        <span class="badge rounded-pill text-bg-light border">
+                          <i class="bi bi-geo-alt me-1"></i>
+                          <%= tipoMap[vaga.tipo_local_trabalho] || vaga.tipo_local_trabalho %>
+                        </span>
+                      <% } %>
+
+                      <% if (vaga.salario) { %>
+                        <span class="badge rounded-pill text-bg-light border">
+                          <i class="bi bi-cash-coin me-1"></i>
+                          <%= fmtSalario(vaga.salario, vaga.moeda) %>
+                        </span>
+                      <% } %>
+
+                      <%
+                        const dataCriacao = new Date(vaga.created_at);
+                        const dataValida = !isNaN(dataCriacao.getTime());
+                      %>
+                    <span class="badge rounded-pill text-bg-light border">
+                      <i class="bi bi-calendar-event me-1"></i>
+                      <%= dataValida ? `Publicado em ${dataCriacao.toLocaleDateString('pt-BR')}` : 'Data não disponível' %>
+                    </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                  <a href="/empresa/vaga/<%= vaga.id %>" class="btn btn-outline-primary">
+                    <i class="bi bi-eye me-1"></i> Ver detalhes
+                  </a>
+                  <a href="/empresa/vaga/<%= vaga?.id %>/editar" class="btn btn-outline-secondary">
+                    <i class="bi bi-pencil-square me-1"></i> Editar
+                  </a>
+                </div>
+              </div>
+            <% }) %>
+          <% } %>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-5">
+        <div class="bg-white rounded-2xl shadow-soft p-4 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="section-title">
+              <i class="bi bi-people-fill me-1"></i>
+              Candidatos por vaga
+            </div>
+          </div>
+          <% if (!vagasLista.length) { %>
+            <div class="card-ghost p-4 rounded-2xl text-center">
+              <div class="muted">Sem dados ainda — publique uma vaga para começar a receber candidatos.</div>
+            </div>
+          <% } else { %>
+            <div class="list-group list-group-flush">
+              <% vagasLista.forEach(function (vaga) { %>
+                <a href="/empresa/vaga/<%= vaga.id %>" 
+                  class="list-group-item list-group-item-action px-0 d-flex justify-content-between align-items-start">
+                  <div>
+                    <div class="fw-semibold">
+                      <%= vaga.cargo || 'Vaga' %>
+                    </div>
+                    <div class="small muted">
+                      Publicada em:
+                      <%= new Date(vaga.created_at || vaga.createdAt || Date.now()).toLocaleDateString('pt-BR') %>
+                    </div>
+                  </div>
+                  <span class="badge rounded-pill text-bg-light border">
+                    <i class="bi bi-person-lines-fill me-1"></i>
+                    <%= Number(vaga.total_candidatos || vaga.candidatos_count || 0) %>
+                  </span>
+                </a>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <%- include('../partials/contato', { sucesso, erro, candidato: null, empresa: emp }) %>
+  </main>
+
+  <%- include('../partials/footer') %>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
 </html>

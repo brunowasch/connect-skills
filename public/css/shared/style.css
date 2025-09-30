@@ -1,5 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@100..900&display=swap');
 
+[data-reveal] { opacity: 0; }
+.is-revealed { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] { transition: none !important; transform: none !important; }
+}
+
 * {
     font-family: 'Montserrat', sans-serif;
     font-size: 16px;
@@ -14,7 +20,7 @@ html, body {
 
 main {
   flex: 1 0 auto;
-  padding-top: 80px; 
+  padding-top: 100px;      
 }
 
 footer {
@@ -35,18 +41,18 @@ footer {
 }
 
 body {
-  padding-top: 80px; 
+  padding-top: 0;
   background-color: white;
 }
 
 @media (max-width: 992px) {
-  body {
-    padding-top: 100px; 
+  main {
+    padding-top: 110px; 
   }
 }
 
 @media (max-width: 768px) {
-  body {
+  main {
     padding-top: 120px; 
   }
 }
@@ -123,4 +129,10 @@ footer {
 .fluxo-botoes .btn {
   width: 140px;
   border-radius: 0.5rem;
+}
+
+.perfil-foto {
+  width: 250px;
+  height: 250px;
+  object-fit: cover; 
 }

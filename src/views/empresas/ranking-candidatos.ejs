@@ -19,8 +19,13 @@
         <i class="bi bi-arrow-left fs-4"></i>
       </a>
       <div>
-        <h3 class="mb-1">Ranqueamento de candidatos</h3>
-        <div class="text-muted">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <h3 class="mb-0">Ranqueamento de candidatos</h3>
+          <span class="badge rounded-pill border text-primary bg-primary-subtle d-inline-flex align-items-center px-3 py-2">
+            <i class="bi bi-people me-2"></i><%= rows.length %> candidatos encontrados
+          </span>
+        </div>
+        <div class="text-muted mt-1">
           Cargo: <strong><%= vaga.cargo %></strong> · Empresa: <strong><%= vaga.empresa?.nome_empresa %></strong>
         </div>
         <div class="text-muted small">
@@ -40,23 +45,15 @@
       <% rows.forEach((r, idx) => { 
           const modalId = `modal-respostas-${r.candidato_id || idx}`;
 
-          // ===== Fonte de perguntas+respostas =====
-          // 1) Preferimos r.questions (API: "Pergunta? Resposta\n...")
-          // 2) Se não houver, usamos vaga.pergunta (apenas perguntas)
           const fonte = String(r.questions || '').trim();
           const linhasFonte = (fonte ? fonte : String(vaga.pergunta || ''))
             .split(/\r?\n/)
             .map(s => s.trim())
             .filter(Boolean);
 
-          // Se a fonte vier da API, cada linha tem "Pergunta? Resposta"
-          // Separa no primeiro "?"
           const pares = linhasFonte.map(L => {
             const m = L.match(/^(.*?\?)\s*(.*)$/);
-            return {
-              pergunta: m ? m[1].trim() : L,
-              resposta: m ? m[2].trim() : ''
-            };
+            return { pergunta: m ? m[1].trim() : L, resposta: m ? m[2].trim() : '' };
           });
 
           const perguntas = pares.map(p => p.pergunta);
@@ -64,12 +61,10 @@
       %>
         <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
 
-          <!-- Posição -->
           <div class="fs-5 fw-bold" style="width: 2.5rem; text-align: right;">
             <%= r.pos %>º
           </div>
 
-          <!-- Foto + dados -->
           <div class="d-flex align-items-center gap-3 flex-grow-1">
             <img src="<%= r.foto_perfil || '/img/avatar.png' %>"
                  alt="Foto do candidato"
@@ -100,20 +95,17 @@
             </div>
           </div>
 
-          <!-- Compatibilidade -->
           <div class="text-end" style="min-width: 190px;">
             <div class="fw-semibold"><%= r.score %>%</div>
             <div class="progress" style="height: 8px; width: 180px;">
               <div class="progress-bar" role="progressbar"
-                data-score="<%= r.score %>"
-                aria-valuenow="<%= r.score %>"
-                aria-valuemin="0" aria-valuemax="100"></div>
-
+                   data-score="<%= r.score %>"
+                   aria-valuenow="<%= r.score %>"
+                   aria-valuemin="0" aria-valuemax="100"></div>
             </div>
           </div>
         </div>
-
-        <!-- MODAL com Perguntas & Respostas do candidato -->
+        
         <div class="modal fade" id="<%= modalId %>" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
@@ -128,7 +120,6 @@
               </div>
 
               <div class="modal-body">
-                <!-- BLOCO 1: Questionário com inputs (somente leitura) -->
                 <% if (perguntas.length) { %>
                   <div class="mb-4">
                     <div class="alert alert-secondary py-1 px-2 mb-3 small">
@@ -148,7 +139,6 @@
                   </div>
                 <% } %>
 
-                <!-- BLOCO 2: Lista em texto (pergunta + resposta) -->
                 <%
                   const temAlguma = pares.some(p => p.pergunta || p.resposta);
                 %>
@@ -175,20 +165,19 @@
             </div>
           </div>
         </div>
-        <!-- /MODAL -->
       <% }) %>
     </div>
 
     <% } %>
   </main>
+
   <script>
     document.querySelectorAll('.progress-bar').forEach(el => {
       el.style.width = el.dataset.score + '%';
     });
   </script>
-  <%- include('../partials/footer') %>
 
-  <!-- Bootstrap JS (necessário para o modal funcionar) -->
+  <%- include('../partials/footer') %>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

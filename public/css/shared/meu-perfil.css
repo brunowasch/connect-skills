@@ -4,26 +4,17 @@
 }
 
 body {
-  padding-top: 100px; /* garantir que todo conteúdo respeite a navbar */
+  padding-top: 100px;
 }
 
-html,body { 
-  background-color: #EDEDED;
-  height: 100%;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-}
 
-/* Card centralizado */
 .perfil-card {
   max-width: 1000px;
   margin: 0 auto;
   padding: 30px;
-  margin-top: 120px; /* suficiente para evitar sobreposição com a navbar */
+  margin-top: 120px; 
 }
 
-/* Título e nome */
 .perfil-header h4 {
   font-weight: bold;
   margin-bottom: 5px;
@@ -35,7 +26,6 @@ html,body {
   color: #555;
 }
 
-/* Foto do perfil */
 .perfil-foto {
   width: 80px;
   height: 80px;
@@ -44,7 +34,6 @@ html,body {
   margin-right: 20px;
 }
 
-/* Lista de interesses e candidaturas */
 .list-group-item {
   border: 1px solid #e0e0e0;
 }

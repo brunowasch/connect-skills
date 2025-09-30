@@ -1,5 +1,3 @@
-// public/js/shared/botoesFotosEditar-perfil-empresa.js
-
 document.addEventListener('DOMContentLoaded', () => {
   const btnAlterar     = document.getElementById('btnAlterarFoto');
   const botoesFoto     = document.getElementById('botoesFoto');
@@ -11,13 +9,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const preview        = document.getElementById('previewImagem');
   let stream            = null;
 
-  // mostra os botões de escolha
   btnAlterar.addEventListener('click', () => {
     btnAlterar.classList.add('d-none');
     botoesFoto.classList.remove('d-none');
   });
 
-  // expõe no escopo global para poder chamar do onclick
   window.abrirCamera = () => {
     botoesFoto.classList.add('d-none');
     cameraContainer.classList.remove('d-none');
@@ -40,13 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.getContext('2d').drawImage(video, 0, 0, w, h);
 
     canvas.toBlob(blob => {
-      // 1) popula o input type=file para o multer captar
       const file = new File([blob], `camera_${Date.now()}.png`, { type: 'image/png' });
       const dt   = new DataTransfer();
       dt.items.add(file);
       fotoFileInput.files = dt.files;
 
-      // 2) atualiza o campo hidden com base64 e o preview
       const reader = new FileReader();
       reader.onload = e => {
         hiddenBase64.value = e.target.result;
@@ -54,7 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       reader.readAsDataURL(file);
 
-      // 3) para a câmera
       stream.getTracks().forEach(t => t.stop());
       video.srcObject = null;
       cameraContainer.classList.add('d-none');

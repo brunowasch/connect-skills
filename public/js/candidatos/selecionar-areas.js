@@ -63,7 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
     selecionadas.push(texto);
     campoOutroArea.classList.add('d-none');
 
-    // Cria botão dinâmico para a nova área
     const novoBtn = document.createElement('button');
     novoBtn.type = 'button';
     novoBtn.className = 'area-btn btn btn-outline-primary m-2 selected';

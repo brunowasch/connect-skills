@@ -17,15 +17,11 @@
     <h3 class="text-center mt-5 mb-4">Adicione uma foto de perfil</h3>
 
     <form action="/empresa/foto-perfil" method="POST" enctype="multipart/form-data" id="formFoto">
-
-      <!-- Campos ocultos -->
       <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
       <input type="hidden" name="fotoBase64" id="fotoBase64">
 
-      <!-- Prévia da Foto -->
       <img src="/img/avatar.png" alt="Prévia da Foto" id="previewFoto" class="foto-icon">
 
-      <!-- Opções de envio -->
       <div class="d-flex gap-4 flex-wrap justify-content-center botoes-container" id="opcoesFoto">
         <label class="upload-btn" for="novaFoto">
           <i class="bi bi-upload"></i> Fazer upload
@@ -45,7 +41,6 @@
         Por favor, selecione ou tire uma foto antes de continuar.
       </p>
 
-      <!-- Ações após captura -->
       <div id="acoesFoto" class="acoesFoto flex-wrap justify-content-center gap-3 mt-4" style="display: none;">
         <button type="button" class="btn-acao btn-cancelar" id="outraFoto">
           <i class="bi bi-arrow-clockwise me-1"></i> Tirar outra

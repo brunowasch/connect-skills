@@ -2,7 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function limparUsuariosNaoVerificados() {
-  const horasLimite = 24; // ⏱ ajuste para 1, 2, 12 etc, se quiser menos tempo
+  const horasLimite = 24;
   const dataLimite = new Date(Date.now() - horasLimite * 60 * 60 * 1000);
 
   try {

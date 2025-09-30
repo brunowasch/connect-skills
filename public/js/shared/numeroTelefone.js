@@ -3,13 +3,12 @@ document.addEventListener('DOMContentLoaded', function () {
   const dddInput = document.getElementById('ddd');
   const telInput = document.getElementById('telefone');
 
-  // Permitir apenas números
   function apenasNumeros(e) {
     const permitido = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'];
     if (permitido.includes(e.key)) return;
 
     if (!/^\d$/.test(e.key)) {
-      e.preventDefault(); // bloqueia se não for número
+      e.preventDefault();
     }
   }
 

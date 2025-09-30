@@ -8,24 +8,87 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <link rel="stylesheet" href="/css/shared/style.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
+  <style>
+    .btn-link-muted {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: #6c757d; 
+      text-decoration: none;
+    }
+    .btn-link-muted:hover { color: #495057; text-decoration: underline; }
+    .input-clear-btn {
+      border: 0;
+      background: transparent;
+      padding: 0 .5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .input-clear-btn:hover { opacity: .8; }
+  </style>
 </head>
 <body class="bg-light">
 
   <%- include('../partials/header-empresa') %>
-  <%
-    const tipoMap = {
-      Presencial:   'Presencial',
-      Home_Office:  'Home Office',
-      H_brido:      'Híbrido'
-    };
-  %>
-  <%- include('../partials/flash-messages') %>
-  <main class="container py-5">
-    <h2 class="mb-4 mt-5">Minhas Vagas</h2>
+
+  <main class="container py-5 mt-4">
+    <div class="d-flex align-items-center justify-content-between mt-1 mb-3 mt-4">
+      <h2 class="mb-4 mt-4">Minhas Vagas</h2>
+      <a href="/empresas/publicar-vaga" class="btn btn-primary mt-4">
+        <i class="bi bi-plus-lg me-1"></i> Publicar vaga
+      </a>
+    </div>
+
+    <form class="bg-white rounded-4 p-3 shadow-sm border mb-4" method="GET" action="/empresas/vagas" id="form-filtros">
+      <div class="row g-2 align-items-center">
+        <div class="col-12 col-md">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input
+              type="text"
+              name="q"
+              class="form-control"
+              placeholder="Buscar por cargo, descrição ou área..."
+              value="<%= filtros.q || '' %>"
+              autocomplete="off"
+              id="campo-busca"
+            >
+            <button
+              type="button"
+              id="clear-busca"
+              class="input-clear-btn <%= (filtros.q && filtros.q.trim() ? '' : 'd-none') %>"
+              aria-label="Limpar busca"
+              title="Limpar busca"
+            >
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-auto">
+          <select name="ordenar" class="form-select" id="select-ordenar" aria-label="Ordenar">
+            <option value="recentes" <%= filtros.ordenar==='recentes'?'selected':'' %>>Mais recentes</option>
+            <option value="antigos" <%= filtros.ordenar==='antigos'?'selected':'' %>>Mais antigos</option>
+            <option value="mais_candidatos" <%= filtros.ordenar==='mais_candidatos'?'selected':'' %>>Mais candidatos</option>
+            <option value="menos_candidatos" <%= filtros.ordenar==='menos_candidatos'?'selected':'' %>>Menos candidatos</option>
+            <option value="maior_salario" <%= filtros.ordenar==='maior_salario'?'selected':'' %>>Maior salário</option>
+            <option value="menor_salario" <%= filtros.ordenar==='menor_salario'?'selected':'' %>>Menor salário</option>
+          </select>
+        </div>
+
+        <div class="col-12 col-md-auto d-flex justify-content-end">
+          <a href="/empresas/vagas" class="btn-link-muted d-inline-flex align-items-center gap-1">
+            <i class="bi bi-x-circle"></i>
+            <span>Limpar tudo</span>
+          </a>
+        </div>
+      </div>
+    </form>
 
     <% if (vagas.length > 0) { %>
       <% vagas.forEach(vaga => { %>
-        <div class="bg-white rounded p-4 mb-4 shadow-sm position-relative">
+        <div class="bg-white rounded-4 p-4 mb-4 shadow-sm position-relative border border-1">
           <a href="/empresa/editar-vaga/<%= vaga.id %>" title="Editar vaga"
             class="position-absolute top-0 end-0 m-3 text-decoration-none">
             <i class="bi bi-pencil-square fs-5"></i>
@@ -38,11 +101,13 @@
                                   && empresa.foto_perfil !== 'null' && empresa.foto_perfil !== 'undefined')
                   ? empresa.foto_perfil
                   : '/img/logo.png';
+
+                const tipoMap = { Presencial: 'Presencial', Home_Office: 'Home Office', H_brido: 'Híbrido' };
               %>
               <img
                 src="<%= fotoVaga %>"
                 alt="Logo da empresa"
-                class="rounded-circle"
+                class="rounded-circle border"
                 height="80"
                 width="80"
                 style="object-fit: cover;"
@@ -51,21 +116,33 @@
                 referrerpolicy="no-referrer"
               >
 
-              <div>
+              <div class="flex-grow-1">
                 <h5 class="mb-0 fw-bold"><%= empresa.nome_empresa %></h5>
-                <p class="mb-1">
+                <p class="mb-1 text-muted">
                   <%
                     const partes = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean);
                   %>
                   <%= partes.length >= 2 ? partes.join(', ') : 'Localidade não informada' %>
                 </p>
-
                 <p class="mb-1 mt-2 fw-semibold"><%= vaga.cargo %></p>
-                <p class="mb-1"><%= vaga.descricao %></p>
-                <small class="text-muted"><%= tipoMap[vaga.tipo_local_trabalho] %></small>
+                <div class="d-flex align-items-center flex-wrap gap-2 mt-2">
+                  <span class="badge rounded-pill text-bg-light border">
+                    <i class="bi bi-geo-alt me-1"></i><%= tipoMap[vaga.tipo_local_trabalho] || vaga.tipo_local_trabalho %>
+                  </span>
+                  <%
+                    const dataCriacao = new Date(vaga.created_at);
+                    const dataValida = !isNaN(dataCriacao.getTime());
+                  %>
+                  <span class="badge rounded-pill text-bg-light border">
+                    <i class="bi bi-calendar-event me-1"></i>
+                    <%= dataValida ? `Publicado em ${dataCriacao.toLocaleDateString('pt-BR')}` : 'Data não disponível' %>
+                  </span>
+                </div>
 
-                <div class="mt-2 mb-2">
-                  <strong>Escala:</strong> <%= vaga.escala_trabalho %><br>
+                <p class="mb-2 mt-3"><%= vaga.descricao %></p>
+
+                <div class="mt-2 mb-2 small">
+                  <strong>Escala:</strong> <%= vaga.escala_trabalho || '—' %><br>
 
                   <% if (vaga.salario) { %>
                     <div><strong>Salário:</strong> <%= vaga.moeda === 'BRL' ? 'R$' : (vaga.moeda || '') + ' ' %><%= Number(vaga.salario).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) %></div>
@@ -77,34 +154,41 @@
                   <% if (vaga.dias_home_office) { %>
                     <strong>Dias home office:</strong> <%= vaga.dias_home_office %><br>
                   <% } %>
-
-                  <% if (vaga.beneficio && typeof vaga.beneficio === 'string' && vaga.beneficio.trim() !== '') { %>
-                    <strong>Benefícios:</strong>
-                    <%= vaga.beneficio.split(',').map(b => b.trim()).filter(b => b.length > 0).join(', ') %><br>
-                  <% } %>
-
-                  <% if (vaga.beneficio_outro) { %>
-                    <strong>Outro benefício:</strong> <%= vaga.beneficio_outro %><br>
-                  <% } %>
                 </div>
 
-                <small class="text-muted">Áreas de atuação:</small><br>
-                <% vaga.vaga_area.forEach(va => { %>
-                  <span class="badge bg-outline-primary text-primary border border-primary me-1">
-                    <%= va.area_interesse.nome %>
-                  </span>
-                <% }) %>
+                <div>
+                  <small class="text-muted mb-2">Áreas de atuação:</small><br>
+                  <% vaga.vaga_area.forEach(va => { %>
+                    <span class="badge bg-outline-primary text-primary border border-primary me-1 mb-1">
+                      <%= va.area_interesse.nome %>
+                    </span>
+                  <% }) %>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="d-flex justify-content-end mt-3">
-            <div class="text-end">
-              <p class="text-muted mb-2">Candidatos encontrados!</p>
-              <a href="/empresas/ranking-candidatos/<%= vaga.id %>" class="btn btn-outline-primary btn-sm">
-                Ver ranqueamento
-              </a>
+          <hr class="mt-4 mb-3">
 
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <%
+                const totalCands = Number(vaga.total_candidatos || 0);
+              %>
+              <span class="badge rounded-pill border text-primary d-inline-flex align-items-center px-3 py-2 bg-primary-subtle">
+                <i class="bi bi-people me-2"></i>
+                <strong class="me-1"><%= totalCands %></strong>
+                candidatos encontrados
+              </span>
+              <% if (totalCands === 0) { %>
+                <span class="text-muted small">Ainda ninguém completou o teste de ranking desta vaga.</span>
+              <% } %>
+            </div>
+
+            <div class="text-end">
+              <a href="/empresas/ranking-candidatos/<%= vaga.id %>" class="btn btn-outline-primary">
+                <i class="bi bi-bar-chart-line me-1"></i> Ver ranqueamento
+              </a>
             </div>
           </div>
         </div>
@@ -116,12 +200,49 @@
       </div>
     <% } else { %>
       <div class="d-flex flex-column justify-content-center align-items-center" style="min-height: 50vh;">
-        <p class="text-center fs-5">Parece que você não possui nenhuma vaga publicada.</p>
+        <p class="text-center fs-5">Nenhuma vaga encontrada com a busca/ordem atual.</p>
         <a href="/empresas/publicar-vaga" class="btn btn-outline-primary px-4 mt-3">Publicar vaga</a>
       </div>
     <% } %>
   </main>
 
   <%- include('../partials/footer') %>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    (function() {
+      const form = document.getElementById('form-filtros');
+      const input = document.getElementById('campo-busca');
+      const clearBtn = document.getElementById('clear-busca');
+      const ordenar = document.getElementById('select-ordenar');
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') e.preventDefault();
+      });
+
+      let t;
+      input.addEventListener('input', () => {
+        if (input.value && input.value.trim()) {
+          clearBtn.style.display = '';
+        } else {
+          clearBtn.style.display = 'none';
+        }
+        clearTimeout(t);
+        t = setTimeout(() => {
+          form.requestSubmit();
+        }, 400);
+      });
+
+      clearBtn.addEventListener('click', () => {
+        input.value = '';
+        clearBtn.style.display = 'none';
+        form.requestSubmit();
+      });
+
+      ordenar.addEventListener('change', () => {
+        form.requestSubmit();
+      });
+    })();
+  </script>
 </body>
 </html>

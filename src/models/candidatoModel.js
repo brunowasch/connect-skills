@@ -259,3 +259,26 @@ exports.complementarCadastroGoogle = async (usuario_id, dados) => {
     }
   });
 };
+
+exports.listarLinksDoCandidato = async (candidato_id) => {
+  return prisma.candidato_link.findMany({
+    where: { candidato_id: Number(candidato_id) },
+    orderBy: { ordem: 'asc' }
+  });
+};
+
+
+exports.substituirLinksDoCandidato = async (candidato_id, links) => {
+  await prisma.candidato_link.deleteMany({ where: { candidato_id: Number(candidato_id) } });
+
+  if (!Array.isArray(links) || links.length === 0) return;
+
+  await prisma.candidato_link.createMany({
+    data: links.map((l, i) => ({
+      candidato_id: Number(candidato_id),
+      label: String(l.label || '').slice(0, 50),
+      url: String(l.url || '').slice(0, 255),
+      ordem: Number.isFinite(l.ordem) ? l.ordem : i
+    }))
+  });
+};

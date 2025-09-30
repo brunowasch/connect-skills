@@ -18,8 +18,6 @@ async function deletarContaPorEmail(email) {
       // relações do candidato
       await tx.candidato_area.deleteMany({ where: { candidato_id: candidato.id } });
 
-      // Se existir tabela de candidaturas, descomente uma das opções abaixo:
-      // await tx.candidatura.deleteMany({ where: { candidato_id: candidato.id } });
 
       await tx.candidato.delete({ where: { id: candidato.id } });
       console.log('Candidato e relações removidos.');
@@ -40,9 +38,6 @@ async function deletarContaPorEmail(email) {
         await tx.vaga_area.deleteMany({ where: { vaga_id: { in: vagaIds } } });
         await tx.vaga_soft_skill.deleteMany({ where: { vaga_id: { in: vagaIds } } });
 
-        // Se existir tabela de candidaturas, descomente:
-        // await tx.candidatura.deleteMany({ where: { vaga_id: { in: vagaIds } } });
-
         await tx.vaga.deleteMany({ where: { id: { in: vagaIds } } });
       }
 
@@ -50,7 +45,6 @@ async function deletarContaPorEmail(email) {
       console.log('Empresa, vagas e relações removidas.');
     }
 
-    // --- Por fim: USUÁRIO ---
     await tx.usuario.delete({ where: { id: usuario.id } });
     console.log(`Usuário ${email} removido com sucesso.`);
   });
