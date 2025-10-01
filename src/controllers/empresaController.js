@@ -1316,3 +1316,57 @@ exports.salvarComplementarGoogle = (req, res) => {
   if (!usuarioId) return res.redirect('/login');
   return res.redirect(`/empresas/nome-empresa?usuario_id=${usuarioId}`);
 };
+
+exports.pularCadastroEmpresa = async (req, res) => {
+  try {
+    const usuarioId = Number(
+      req.query.usuario_id || req.body.usuario_id || req.session?.usuario?.id
+    );
+    if (!usuarioId) return res.redirect('/login');
+
+    let emp = await prisma.empresa.findUnique({
+      where: { usuario_id: usuarioId }
+    });
+
+    if (!emp) {
+      // Cria com dados mínimos
+      const usr = await prisma.usuario.findUnique({ where: { id: usuarioId } });
+      emp = await prisma.empresa.create({
+        data: {
+          usuario_id: usuarioId,
+          nome_empresa: usr?.nome || 'Sua empresa',
+          descricao: '',
+          telefone: '',
+          pais: '', estado: '', cidade: '',
+          foto_perfil: ''
+        }
+      });
+    }
+
+    const localidade = [emp.cidade, emp.estado, emp.pais].filter(Boolean).join(', ');
+
+    req.session.usuario = {
+      id: usuarioId,
+      tipo: 'empresa',
+      nome: emp.nome_empresa
+    };
+    req.session.empresa = {
+      id: emp.id,
+      usuario_id: usuarioId,
+      nome_empresa: emp.nome_empresa,
+      descricao: emp.descricao || '',
+      telefone: emp.telefone || '',
+      cidade: emp.cidade || '',
+      estado: emp.estado || '',
+      pais: emp.pais || '',
+      foto_perfil: emp.foto_perfil || '/img/empresa-padrao.png',
+      email: req.session?.usuario?.email || ''
+    };
+
+    return req.session.save(() => res.redirect('/empresa/home'));
+  } catch (err) {
+    console.error('[pularCadastroEmpresa] erro:', err?.message || err);
+    req.session.erro = 'Não foi possível pular o complemento agora.';
+    return res.redirect('/login');
+  }
+};

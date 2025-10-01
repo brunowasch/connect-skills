@@ -581,11 +581,21 @@ exports.mostrarVagas = async (req, res) => {
       vaga.resposta_unica = apenasRespostas[0] || '';
     }
 
-    res.render('candidatos/vagas', {
-      vagas,
-      filtros: { q, ordenar },
-      activePage: 'vagas'
-    });
+    const cand = await prisma.candidato.findUnique({
+    where: { id: Number(usuario.id) },
+    include: { candidato_area: { include: { area_interesse: true } } }
+  });
+  const areas = (cand?.candidato_area || [])
+    .map(r => r.area_interesse?.nome)
+    .filter(Boolean);
+
+  res.render('candidatos/vagas', {
+    vagas,
+    filtros: { q, ordenar },
+    activePage: 'vagas',
+    candidato: req.session.candidato,
+    areas
+  });
   } catch (err) {
     console.error('Erro ao buscar vagas para candidato:', err);
     req.session.erro = 'Erro ao buscar vagas. Tente novamente.';
@@ -599,11 +609,9 @@ exports.historicoAplicacoes = async (req, res) => {
     if (!sess) return res.redirect('/login');
     const candidato_id = Number(sess.id);
 
-    // --- filtros (iguais aos de /candidatos/vagas) ---
     const q = (req.query.q || '').trim();
     const ordenar = (req.query.ordenar || 'recentes').trim();
 
-    // Busca todas as avaliações (aplicações) do candidato
     const avaliacoes = await prisma.vaga_avaliacao.findMany({
       where: { candidato_id },
       orderBy: { id: 'desc' },
@@ -869,7 +877,7 @@ exports.telaEditarAreas = async (req, res) => {
       todasAsAreas,
       candidatoId: sess.id,
       outraArea,
-      activePage: 'editar-areas'
+      activePage: 'editar-areas',
     });
 
   } catch (err) {
@@ -1399,5 +1407,73 @@ exports.vagaDetalhes = async (req, res) => {
   } catch (err) {
     console.error('Erro ao carregar detalhes da vaga:', err);
     return res.status(500).send('Erro interno ao carregar a vaga');
+  }
+};
+
+exports.pularCadastroCandidato = async (req, res) => {
+  try {
+    const usuarioId = Number(
+      req.query.usuario_id || req.body.usuario_id || req.session?.usuario?.id
+    );
+    if (!usuarioId) return res.redirect('/login');
+
+    // Garante que exista um registro de candidato (em muitos casos já existe)
+    let cand = await prisma.candidato.findUnique({
+      where: { usuario_id: usuarioId },
+      include: {
+        usuario: { select: { email: true, nome: true, sobrenome: true } },
+        candidato_area: { include: { area_interesse: true } }
+      }
+    });
+
+    if (!cand) {
+      // Cria com dados mínimos (nome/sobrenome se já tiver no usuario)
+      const usr = await prisma.usuario.findUnique({ where: { id: usuarioId } });
+      cand = await prisma.candidato.create({
+        data: {
+          usuario_id: usuarioId,
+          nome: usr?.nome || 'Candidato',
+          sobrenome: usr?.sobrenome || '',
+          data_nascimento: null,
+          pais: '', estado: '', cidade: '',
+          telefone: '',
+          foto_perfil: ''
+        },
+        include: {
+          usuario: { select: { email: true } },
+          candidato_area: { include: { area_interesse: true } }
+        }
+      });
+    }
+
+    // Salva sessão mínima e segue pra home
+    const localidade = [cand.cidade, cand.estado, cand.pais].filter(Boolean).join(', ');
+    const areas = (cand.candidato_area || []).map(r => r.area_interesse?.nome).filter(Boolean);
+
+    req.session.usuario = {
+      id: usuarioId,
+      tipo: 'candidato',
+      nome: cand.nome,
+      sobrenome: cand.sobrenome
+    };
+    req.session.candidato = {
+      id: cand.id,
+      usuario_id: usuarioId,
+      nome: cand.nome,
+      sobrenome: cand.sobrenome,
+      email: cand.usuario?.email || '',
+      tipo: 'candidato',
+      telefone: cand.telefone || '',
+      dataNascimento: cand.data_nascimento || null,
+      foto_perfil: cand.foto_perfil || '',
+      localidade,
+      areas
+    };
+
+    return req.session.save(() => res.redirect('/candidatos/home'));
+  } catch (err) {
+    console.error('[pularCadastroCandidato] erro:', err?.message || err);
+    req.session.erro = 'Não foi possível pular o complemento agora.';
+    return res.redirect('/login');
   }
 };
