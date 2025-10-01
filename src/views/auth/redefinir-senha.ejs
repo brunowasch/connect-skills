@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Redefinir Senha - Connect Skills</title>
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <link rel="stylesheet" href="/css/shared/style.css">
-  <link rel="stylesheet" href="/css/login/login.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
 <body>
@@ -16,29 +16,99 @@
     <%- include('../partials/header') %>
 
     <main class="flex-grow-1 d-flex justify-content-center align-items-center">
-      <div class="card shadow p-4" style="max-width: 400px; width: 100%;">
+      <div class="card shadow p-4 mt-5" style="max-width: 420px; width: 100%;">
         <h3 class="mb-3 text-center">Escolher nova senha</h3>
 
-        <form action="/usuarios/redefinir-senha" method="POST">
-          <input type="hidden" name="token" value="<%= token %>">
+        <% if (erro) { %>
+          <div class="alert alert-danger text-center"><%= erro %></div>
+        <% } %>
+
+        <form id="formRedefinir" action="/usuarios/redefinir-senha" method="POST" novalidate>
+          <input type="hidden" name="token" value="<%= token %>" />
 
           <div class="mb-3">
             <label for="novaSenha" class="form-label">Nova senha</label>
-            <input type="password" class="form-control" id="novaSenha" name="novaSenha" required minlength="6">
+            <div class="input-group">
+              <input type="password" class="form-control" id="novaSenha" name="novaSenha" required minlength="8" placeholder="Digite sua nova senha">
+              <button class="btn btn-outline-primary" type="button" id="toggleSenhaNova" aria-label="Mostrar/ocultar senha">
+                <i id="iconSenhaNova" class="bi bi-eye"></i>
+              </button>
+            </div>
+            <div id="erro-senha-requisitos" class="form-text text-danger d-none">
+              A senha deve ter no mínimo 8 caracteres e pelo menos 1 caractere especial.
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="confirmarSenha" class="form-label">Confirmar nova senha</label>
+            <div class="input-group">
+              <input type="password" class="form-control" id="confirmarSenha" required placeholder="Confirme sua nova senha">
+              <button class="btn btn-outline-primary" type="button" id="toggleSenhaConfirmar" aria-label="Mostrar/ocultar confirmação">
+                <i id="iconSenhaConfirmar" class="bi bi-eye"></i>
+              </button>
+            </div>
+            <div id="erro-senhas-diferentes" class="form-text text-danger d-none">
+              As senhas não coincidem.
+            </div>
           </div>
 
           <button type="submit" class="btn btn-primary w-100">Redefinir senha</button>
         </form>
-
-        <% if (erro) { %>
-          <div class="alert alert-danger mt-3">
-            <%= erro %>
-          </div>
-        <% } %>
       </div>
     </main>
 
     <%- include('../partials/footer') %>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    document.getElementById('toggleSenhaNova').addEventListener('click', function () {
+      const input = document.getElementById('novaSenha');
+      const icon  = document.getElementById('iconSenhaNova');
+      input.type = (input.type === 'password') ? 'text' : 'password';
+      icon.classList.toggle('bi-eye');
+      icon.classList.toggle('bi-eye-slash');
+    });
+
+    document.getElementById('toggleSenhaConfirmar').addEventListener('click', function () {
+      const input = document.getElementById('confirmarSenha');
+      const icon  = document.getElementById('iconSenhaConfirmar');
+      input.type = (input.type === 'password') ? 'text' : 'password';
+      icon.classList.toggle('bi-eye');
+      icon.classList.toggle('bi-eye-slash');
+    });
+
+    document.getElementById('formRedefinir').addEventListener('submit', function (e) {
+      const nova = document.getElementById('novaSenha');
+      const conf = document.getElementById('confirmarSenha');
+      const erroRequisitos = document.getElementById('erro-senha-requisitos');
+      const erroCoincidem  = document.getElementById('erro-senhas-diferentes');
+
+      let ok = true;
+
+      const regexSenhaValida = /^(?=.*[!@#$%^&*(),.?":{}|<>_\-])[A-Za-z\d!@#$%^&*(),.?":{}|<>_\-]{8,}$/;
+
+      if (!regexSenhaValida.test(nova.value)) {
+        erroRequisitos.classList.remove('d-none');
+        nova.classList.add('is-invalid');
+        ok = false;
+      } else {
+        erroRequisitos.classList.add('d-none');
+        nova.classList.remove('is-invalid');
+      }
+
+      if (nova.value !== conf.value) {
+        erroCoincidem.classList.remove('d-none');
+        conf.classList.add('is-invalid');
+        ok = false;
+      } else {
+        erroCoincidem.classList.add('d-none');
+        conf.classList.remove('is-invalid');
+      }
+
+      if (!ok) e.preventDefault();
+    });
+  </script>
 </body>
 </html>

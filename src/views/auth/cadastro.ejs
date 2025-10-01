@@ -196,27 +196,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const serverEl = document.getElementById('server-data');
   const server = serverEl ? JSON.parse(serverEl.textContent || '{}') : {};
 
-  // --- Elementos da página ---
-  const radioFisica   = document.getElementById('fisica');
+  const radioFisica = document.getElementById('fisica');
   const radioJuridica = document.getElementById('juridica');
-  const form          = document.getElementById('formCadastro');
+  const form = document.getElementById('formCadastro');
   const formContainer = document.getElementById('formularioCadastro');
-  const tipoHidden    = document.getElementById('tipoHidden');
+  const tipoHidden = document.getElementById('tipoHidden');
 
-  // --- Flags/valores do servidor ---
-  const showResume    = !!server.showResume;
+  const showResume = !!server.showResume;
   const pendingUserId = server.pendingUserId || '';
-  const tipo          = server.tipo || '';
-  const erroMsg       = server.erroMsg || '';
+  const tipo = server.tipo || '';
+  const erroMsg = server.erroMsg || '';
   const hasTypeConflict = !!erroMsg && /perfil do tipo/i.test(erroMsg);
   const awaitEmailVerification = !!server.awaitEmailVerification;
   const emailPrefill = server.emailPrefill || '';
 
-  // Preenche o e-mail no reenvio (alerta da página)
   const inputEmailReenvio = document.getElementById('inputEmailReenvio');
   if (inputEmailReenvio) inputEmailReenvio.value = emailPrefill;
 
-  // --- Handlers de troca de tipo ---
   radioFisica.addEventListener('change', () => {
     tipoHidden.value = 'candidato';
     formContainer.classList.remove('d-none');
@@ -226,7 +222,6 @@ document.addEventListener('DOMContentLoaded', () => {
     formContainer.classList.remove('d-none');
   });
 
-  // --- Toggle de senha ---
   document.getElementById("toggleSenha").addEventListener("click", function () {
     const senhaInput = document.getElementById("senha");
     const icon = document.getElementById("iconSenha");
@@ -242,7 +237,6 @@ document.addEventListener('DOMContentLoaded', () => {
     icon.classList.toggle("bi-eye-slash");
   });
 
-  // --- Validação do formulário ---
   form.addEventListener('submit', function (e) {
     let ok = true;
 
@@ -277,7 +271,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!ok) e.preventDefault();
   });
 
-  // --- Botão Google ---
   document.getElementById('btnGoogleCadastro').addEventListener('click', function (e) {
     e.preventDefault();
     const tipo = tipoHidden.value;
@@ -288,7 +281,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = `/auth/google?tipo=${tipo}&cadastro=1`;
   });
 
-  // --- Modal / Alerta ---
   function openModal(modalEl, options = {}) {
     const modal = new bootstrap.Modal(modalEl, {
       backdrop: true,
@@ -299,12 +291,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return modal;
   }
 
-  // Se precisa verificar e-mail, mostra ALERTA na página e NÃO abre modal
   if (awaitEmailVerification) {
     const alertBox = document.getElementById('alertAguardandoVerificacao');
     if (alertBox) alertBox.classList.remove('d-none');
   } else if (showResume && pendingUserId && tipo) {
-    // Somente se e-mail já estiver verificado e houver cadastro pendente
     const modalEl = document.getElementById('modalCadastroPendente');
     openModal(modalEl);
   }
