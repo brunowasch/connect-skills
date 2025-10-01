@@ -7,6 +7,8 @@ const empresaModel = require('../models/empresaModel');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+const fromAddress = process.env.EMAIL_FROM || `Connect Skills <${process.env.EMAIL_USER || process.env.GMAIL_USER}>`;
+
 function baseUrl() {
   // Verifica o ambiente de produção ou desenvolvimento
   const isProd = process.env.NODE_ENV === 'production';  
@@ -20,11 +22,14 @@ async function enviarEmailVerificacao(email, usuario_id) {
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    auth: {
+      user: process.env.EMAIL_USER || process.env.GMAIL_USER,
+      pass: process.env.EMAIL_PASS || process.env.GMAIL_PASS,
+    },
   });
 
   await transporter.sendMail({
-    from: 'Connect Skills <no-reply@connectskills.com>',
+    from: fromAddress,
     to: email,
     subject: 'Confirmação de e-mail',
     html: `
@@ -54,8 +59,11 @@ async function enviarEmailVerificacao(email, usuario_id) {
 
 async function enviarEmailConfirmacaoAcao(email, usuario_id, tipo) {
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+  service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER || process.env.GMAIL_USER,
+      pass: process.env.EMAIL_PASS || process.env.GMAIL_PASS,
+    },
   });
 
   const continuarToken = jwt.sign(
@@ -105,7 +113,7 @@ async function enviarEmailConfirmacaoAcao(email, usuario_id, tipo) {
   `;
 
   await transporter.sendMail({
-    from: 'Connect Skills <no-reply@connectskills.com>',
+    from: fromAddress,
     to: email,
     subject: 'Confirme como deseja prosseguir com seu cadastro',
     html
@@ -538,14 +546,17 @@ exports.recuperarSenha = async (req, res) => {
     const token = jwt.sign({ id: usuario.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER || process.env.GMAIL_USER,
+        pass: process.env.EMAIL_PASS || process.env.GMAIL_PASS,
+      },
     });
 
     const resetLink = `${baseUrl()}/usuarios/redefinir-senha?token=${token}`;
 
     await transporter.sendMail({
-      from: 'Connect Skills <no-reply@connectskills.com>',
+      from: fromAddress,
       to: email,
       subject: 'Recuperação de senha',
       html: `
