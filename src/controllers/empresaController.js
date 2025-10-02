@@ -1111,7 +1111,7 @@ exports.perfilPublico = async (req, res) => {
 
 exports.telaEditarPerfil = async (req, res) => {
   const sess = req.session.empresa;
-    const humanFileSize = (bytes) => {
+  const humanFileSize = (bytes) => {
     if (!bytes || bytes <= 0) return '0 B';
     const thresh = 1024;
     if (Math.abs(bytes) < thresh) return bytes + ' B';
@@ -1153,7 +1153,7 @@ exports.salvarEdicaoPerfil = async (req, res) => {
     const sess = req.session.empresa;
     if (!sess) return res.redirect('/login');
 
-    const { nome, descricao, localidade, ddd, numero } = req.body;
+    const { nome, descricao, localidade, ddd, numero, removerFoto, fotoBase64 } = req.body;
 
     // Localidade
     let cidade = '', estado = '', pais = '';
@@ -1162,34 +1162,64 @@ exports.salvarEdicaoPerfil = async (req, res) => {
       [cidade, estado = '', pais = ''] = partes;
     }
 
+    // Telefone
     let telefone = req.body.telefone || '';
     const dddDigits = (ddd || '').replace(/\D/g, '');
     const numDigits = (numero || '').replace(/\D/g, '');
     if (dddDigits && numDigits) {
       let numeroFmt;
       if (numDigits.length >= 9) {
-        // celular (9 dígitos)
-        numeroFmt = `${numDigits.slice(0, 5)}-${numDigits.slice(5, 9)}`;
+        numeroFmt = `${numDigits.slice(0, 5)}-${numDigits.slice(5, 9)}`; // celular
       } else if (numDigits.length >= 8) {
-        // fixo (8 dígitos)
-        numeroFmt = `${numDigits.slice(0, 4)}-${numDigits.slice(4, 8)}`;
+        numeroFmt = `${numDigits.slice(0, 4)}-${numDigits.slice(4, 8)}`; // fixo
       } else {
-        numeroFmt = numDigits; // fallback
+        numeroFmt = numDigits;
       }
       telefone = `+55 (${dddDigits}) ${numeroFmt}`;
     }
 
-    await prisma.empresa.update({
-      where: { id: Number(sess.id) },
-      data: {
-        nome_empresa: nome,
-        descricao,
-        cidade, estado, pais,
-        telefone
+    let novaFotoUrl = null;
+
+    if (String(removerFoto).toLowerCase() === 'true') {
+      novaFotoUrl = '';
+    }
+
+    if (!novaFotoUrl && fotoBase64 && /^data:image\/(png|jpe?g|webp);base64,/.test(fotoBase64)) {
+      try {
+        const mod = require('../config/cloudinary');
+        const cloud = mod?.cloudinary || mod;
+        const uploader = cloud?.uploader;
+
+        if (uploader && typeof uploader.upload === 'function') {
+          const uploadRes = await uploader.upload(fotoBase64, {
+            folder: 'connect-skills/empresa',
+            overwrite: true,
+            invalidate: true,
+          });
+          novaFotoUrl = uploadRes.secure_url || uploadRes.url || '';
+        } else {
+          console.warn('[editar-empresa] Cloudinary não configurado ou sem uploader. Pulando upload.');
+        }
+      } catch (e) {
+        console.warn('[editar-empresa] Falha ao enviar foto para Cloudinary:', e.message);
       }
+    }
+
+    const dataUpdate = {
+      nome_empresa: nome,
+      descricao,
+      cidade, estado, pais,
+      telefone
+    };
+    if (novaFotoUrl !== null) {
+      dataUpdate.foto_perfil = novaFotoUrl;
+    }
+
+    const empresaAtualizada = await prisma.empresa.update({
+      where: { id: Number(sess.id) },
+      data: dataUpdate
     });
 
-    // Links do perfil (igual estava)
     const urls = Array.isArray(req.body['link_url[]']) ? req.body['link_url[]'] :
                  Array.isArray(req.body.link_url) ? req.body.link_url :
                  (req.body.link_url ? [req.body.link_url] : []);
@@ -1212,6 +1242,17 @@ exports.salvarEdicaoPerfil = async (req, res) => {
     if (creates.length) {
       await prisma.empresa_link.createMany({ data: creates });
     }
+
+    req.session.empresa = {
+      ...req.session.empresa,
+      nome_empresa: empresaAtualizada.nome_empresa,
+      descricao: empresaAtualizada.descricao,
+      cidade: empresaAtualizada.cidade,
+      estado: empresaAtualizada.estado,
+      pais: empresaAtualizada.pais,
+      telefone: empresaAtualizada.telefone,
+      foto_perfil: empresaAtualizada.foto_perfil || req.session.empresa.foto_perfil
+    };
 
     req.session.sucessoCadastro = 'Perfil atualizado com sucesso.';
     res.redirect('/empresa/meu-perfil');
