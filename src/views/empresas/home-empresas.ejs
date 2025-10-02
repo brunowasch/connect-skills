@@ -38,18 +38,20 @@
       const localidadeResolved =
         (typeof localidade !== 'undefined' && localidade) ? localidade :
         [emp.cidade, emp.estado, emp.pais].filter(Boolean).join(', ') || 'Localidade não informada';
+
+      const placeholders = ['/img/avatar.png', '/img/empresa-padrao.png', '/img/placeholder-empresa.png'];
+
       const fotoResolved =
         (typeof fotoPerfil !== 'undefined' && fotoPerfil) ? fotoPerfil :
         (emp.foto_perfil && emp.foto_perfil.trim() !== '' ? emp.foto_perfil : '/img/avatar.png');
 
-      // --- Progresso do perfil ---
       const hasNome  = !!nomeEmpresa && nomeEmpresa.trim() !== '' && nomeEmpresa !== 'Sua empresa';
       const hasLocal = localidadeResolved && localidadeResolved !== 'Localidade não informada';
       const hasTel   = !!(emp.telefone && emp.telefone.trim() !== '');
       const hasFoto  = (
         typeof fotoResolved === 'string' &&
         fotoResolved.trim() !== '' &&
-        !['/img/avatar.png', '/img/empresa-padrao.png'].includes(fotoResolved.trim())
+        !placeholders.includes(fotoResolved.trim())
       );
 
       const checklistEmp = [hasNome, hasLocal, hasTel, hasFoto];

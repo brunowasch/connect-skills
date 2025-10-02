@@ -10,10 +10,13 @@ const prisma = new PrismaClient();
 const fromAddress = process.env.EMAIL_FROM || `Connect Skills <${process.env.EMAIL_USER || process.env.GMAIL_USER}>`;
 
 function baseUrl() {
-  // Verifica o ambiente de produção ou desenvolvimento
-  const isProd = process.env.NODE_ENV === 'production';  
+  const isProd = process.env.NODE_ENV === 'production';
   const url = process.env.BASE_URL || (isProd ? 'https://connectskills.com.br' : 'http://localhost:3000');
   return url.endsWith('/') ? url.slice(0, -1) : url;
+}
+
+function skipFlagAtivo(req) {
+  return Boolean(req.session?.usuario?.skipCadastro) || req.cookies?.cs_skipCadastro === '1';
 }
 
 async function enviarEmailVerificacao(email, usuario_id) {
@@ -59,7 +62,7 @@ async function enviarEmailVerificacao(email, usuario_id) {
 
 async function enviarEmailConfirmacaoAcao(email, usuario_id, tipo) {
   const transporter = nodemailer.createTransport({
-  service: 'gmail',
+    service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER || process.env.GMAIL_USER,
       pass: process.env.EMAIL_PASS || process.env.GMAIL_PASS,
@@ -198,11 +201,12 @@ async function redirecionarFluxoEmpresa(usuarioId, res) {
   }
 
   if (!empresa.foto_perfil || empresa.foto_perfil.trim() === '') {
-    return res.redirect(`/empresas/foto-perfil?usuario_id=${usuarioId}`);
+    return res.redirect(`/empresa/foto-perfil?usuario_id=${usuarioId}`);
   }
 
   return res.redirect('/empresa/home');
 }
+
 
 async function resetParcialCandidato(usuarioId) {
   await prisma.$transaction(async (tx) => {
@@ -300,9 +304,7 @@ exports.criarUsuario = async (req, res) => {
             : isEmpresaIncompleto(emp);
 
           if (incompleto) {
-            // Envia e-mail de confirmação de ação (continuar/reiniciar)
             await enviarEmailConfirmacaoAcao(emailNormalizado, usuarioId, tipoAtual);
-
             return res.status(200).render('auth/cadastro', {
               erro: null,
               emailPrefill: emailNormalizado,
@@ -395,32 +397,54 @@ exports.login = async (req, res) => {
     if (!usuario.email_verificado) {
       return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(usuario.email)}`);
     }
+
+    // "Lembrar de mim"
     if (remember === 'on') {
-      req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
+      req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30; // 30 dias
     } else {
       req.session.cookie.expires = false;
     }
 
+    // Flag para respeitar "Pular cadastro"
+    const skipAtivo =
+      Boolean(req.session?.usuario?.skipCadastro) ||
+      req.cookies?.cs_skipCadastro === '1';
+
     if (usuario.tipo === 'empresa') {
       const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario.id);
 
-      if (!empresa || isEmpresaIncompleto(empresa)) {
+      // Se perfil está incompleto, só força complemento se NÃO houver skip
+      if ((!empresa || isEmpresaIncompleto(empresa)) && !skipAtivo) {
         return redirecionarFluxoEmpresa(usuario.id, res);
       }
 
+      // Monta sessão mesmo com dados incompletos (quando skip está ativo)
+      const fotoEmpresa =
+        (empresa?.foto_perfil && String(empresa.foto_perfil).trim() !== '')
+          ? empresa.foto_perfil
+          : '/img/placeholder-empresa.png';
+
       req.session.empresa = {
-        id: empresa.id,
+        id: empresa?.id ?? null,
         usuario_id: usuario.id,
-        nome_empresa: empresa.nome_empresa,
-        descricao: empresa.descricao,
-        telefone: empresa.telefone,
-        cidade: empresa.cidade,
-        estado: empresa.estado,
-        pais: empresa.pais,
-        foto_perfil: empresa.foto_perfil || '/img/placeholder-empresa.png',
+        nome_empresa: empresa?.nome_empresa || '',
+        descricao: empresa?.descricao || '',
+        telefone: empresa?.telefone || '',
+        cidade: empresa?.cidade || '',
+        estado: empresa?.estado || '',
+        pais: empresa?.pais || '',
+        foto_perfil: fotoEmpresa,
         email: usuario.email
       };
-      req.session.usuario = { id: usuario.id, tipo: 'empresa', nome: empresa.nome_empresa, email: usuario.email };
+
+      req.session.usuario = {
+        id: usuario.id,
+        tipo: 'empresa',
+        nome: empresa?.nome_empresa || '',
+        email: usuario.email,
+        // preserva o skip na sessão para próximas requisições do mesmo login
+        skipCadastro: skipAtivo || req.session?.usuario?.skipCadastro || false
+      };
 
       const destino = req.session.returnTo || '/empresa/home';
       delete req.session.returnTo;
@@ -430,24 +454,37 @@ exports.login = async (req, res) => {
     if (usuario.tipo === 'candidato') {
       const candidato = await candidatoModel.obterCandidatoPorUsuarioId(usuario.id);
 
-      if (!candidato || isCandidatoIncompleto(candidato)) {
+      // Se perfil está incompleto, só força complemento se NÃO houver skip
+      if ((!candidato || isCandidatoIncompleto(candidato)) && !skipAtivo) {
         return redirecionarFluxoCandidato(usuario.id, res);
       }
 
+      const localidade = [candidato?.cidade, candidato?.estado, candidato?.pais]
+        .filter(Boolean)
+        .join(', ');
+
       req.session.candidato = {
-        id: candidato.id,
+        id: candidato?.id ?? null,
         usuario_id: usuario.id,
-        nome: candidato.nome,
-        sobrenome: candidato.sobrenome,
+        nome: candidato?.nome || '',
+        sobrenome: candidato?.sobrenome || '',
         email: usuario.email,
         tipo: 'candidato',
-        telefone: candidato.telefone,
-        dataNascimento: candidato.data_nascimento,
-        foto_perfil: candidato.foto_perfil,
-        localidade: `${candidato.cidade}, ${candidato.estado}, ${candidato.pais}`,
-        areas: candidato.candidato_area?.map(r => r.area_interesse.nome) || []
+        telefone: candidato?.telefone || '',
+        dataNascimento: candidato?.data_nascimento || null,
+        foto_perfil: candidato?.foto_perfil || '',
+        localidade,
+        areas: candidato?.candidato_area?.map(r => r.area_interesse.nome) || []
       };
-      req.session.usuario = { id: usuario.id, tipo: 'candidato', nome: candidato.nome, sobrenome: candidato.sobrenome };
+
+      req.session.usuario = {
+        id: usuario.id,
+        tipo: 'candidato',
+        nome: candidato?.nome || '',
+        sobrenome: candidato?.sobrenome || '',
+        // preserva o skip na sessão para próximas requisições do mesmo login
+        skipCadastro: skipAtivo || req.session?.usuario?.skipCadastro || false
+      };
 
       const destino = req.session.returnTo || '/candidatos/home';
       delete req.session.returnTo;
@@ -461,7 +498,6 @@ exports.login = async (req, res) => {
     return res.redirect('/login');
   }
 };
-
 
 exports.verificarEmail = async (req, res) => {
   const { token } = req.query;
@@ -549,7 +585,7 @@ exports.recuperarSenha = async (req, res) => {
     const token = jwt.sign({ id: usuario.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     const transporter = nodemailer.createTransport({
-    service: 'gmail',
+      service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER || process.env.GMAIL_USER,
         pass: process.env.EMAIL_PASS || process.env.GMAIL_PASS,
@@ -626,8 +662,8 @@ exports.redefinirSenha = async (req, res) => {
 };
 
 exports.continuarCadastro = async (req, res) => {
-  const { usuario_id, tipo } = req.query;
-  if (!usuario_id || !tipo) return res.redirect('/cadastro');
+  const { usuario_id } = req.query;
+  if (!usuario_id) return res.redirect('/cadastro');
 
   try {
     const usuario = await usuarioModel.buscarPorId(Number(usuario_id));
@@ -637,8 +673,15 @@ exports.continuarCadastro = async (req, res) => {
       return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(usuario.email)}`);
     }
 
-    if (tipo === 'candidato') return redirecionarFluxoCandidato(Number(usuario_id), res);
-    if (tipo === 'empresa')   return redirecionarFluxoEmpresa(Number(usuario_id), res);
+    const tipoEfetivo = usuario.tipo || req.session?.usuario?.tipo;
+
+    if (skipFlagAtivo(req)) {
+      return res.redirect(tipoEfetivo === 'empresa' ? '/empresa/home' : '/candidatos/home');
+    }
+
+    if (tipoEfetivo === 'candidato') return redirecionarFluxoCandidato(Number(usuario_id), res);
+    if (tipoEfetivo === 'empresa')   return redirecionarFluxoEmpresa(Number(usuario_id), res);
+
     return res.redirect('/cadastro');
   } catch (err) {
     console.error('Erro ao continuar cadastro:', err);
@@ -646,6 +689,7 @@ exports.continuarCadastro = async (req, res) => {
     return res.redirect('/cadastro');
   }
 };
+
 
 exports.reiniciarCadastro = async (req, res) => {
   const { usuario_id, tipo } = req.query;
@@ -731,4 +775,27 @@ exports.confirmarAcaoCadastro = async (req, res) => {
     req.session.erro = 'Link inválido ou expirado.';
     return res.redirect('/cadastro');
   }
+};
+
+exports.pularCadastro = (req, res) => {
+  // garante objeto de sessão
+  if (!req.session.usuario) req.session.usuario = {};
+  req.session.usuario.skipCadastro = true;
+
+  // marca também na sessão específica se existir
+  if (req.session.candidato) req.session.candidato.skipCadastro = true;
+  if (req.session.empresa) req.session.empresa.skipCadastro = true;
+
+  // cookie persistente (1 ano)
+  res.cookie('cs_skipCadastro', '1', {
+    httpOnly: false, // pode ser true se preferir
+    sameSite: 'lax',
+    maxAge: 31536000000
+  });
+
+  const tipo = req.session.usuario?.tipo ||
+               (req.session.candidato && 'candidato') ||
+               (req.session.empresa && 'empresa');
+
+  return res.redirect(tipo === 'empresa' ? '/empresa/home' : '/candidatos/home');
 };

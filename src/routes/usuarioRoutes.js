@@ -24,4 +24,6 @@ router.get('/redefinir-senha', usuarioController.telaRedefinirSenha);
 router.post('/redefinir-senha', usuarioController.redefinirSenha);
 router.get('/redefinir-senha/:token', usuarioController.telaRedefinirSenha);
 
+router.post('/pular-cadastro', usuarioController.pularCadastro);
+
 module.exports = router;

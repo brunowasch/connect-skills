@@ -97,6 +97,7 @@ async function isVagaFechada(vaga_id) {
   });
   return (ultimo?.situacao || 'aberta').toLowerCase() === 'fechada';
 }
+
 exports.telaNomeCandidato = (req, res) => {
   const { usuario_id } = req.query;
   res.render('candidatos/cadastro-de-nome-e-sobrenome-candidatos', { usuario_id });
@@ -1510,6 +1511,17 @@ exports.vagaDetalhes = async (req, res) => {
 };
 
 exports.pularCadastroCandidato = async (req, res) => {
+  if (!req.session.usuario) req.session.usuario = {};
+  req.session.usuario.skipCadastro = true;
+  if (req.session.candidato) req.session.candidato.skipCadastro = true;
+
+  // cookie persistente (1 ano)
+  res.cookie('cs_skipCadastro', '1', {
+    httpOnly: false,
+    sameSite: 'lax',
+    maxAge: 31536000000
+  });
+  
   try {
     const usuarioId = Number(
       req.query.usuario_id || req.body.usuario_id || req.session?.usuario?.id

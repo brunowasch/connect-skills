@@ -1376,6 +1376,16 @@ exports.salvarComplementarGoogle = (req, res) => {
 };
 
 exports.pularCadastroEmpresa = async (req, res) => {
+  if (!req.session.usuario) req.session.usuario = {};
+  req.session.usuario.skipCadastro = true;
+  if (req.session.candidato) req.session.candidato.skipCadastro = true;
+
+  res.cookie('cs_skipCadastro', '1', {
+    httpOnly: false,
+    sameSite: 'lax',
+    maxAge: 31536000000
+  });
+
   try {
     const usuarioId = Number(
       req.query.usuario_id || req.body.usuario_id || req.session?.usuario?.id

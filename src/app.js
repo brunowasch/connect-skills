@@ -9,6 +9,7 @@ const passport = require('passport');
 const compression = require('compression');
 const helmet = require('helmet');
 const nodemailer = require('nodemailer');
+const cookieParser = require('cookie-parser');
 
 // Configs e utils
 require('./config/passportGoogle');
@@ -45,6 +46,7 @@ app.use(compression({
 
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(express.json({ limit: '1mb' }));
+app.use(cookieParser());
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -87,7 +89,7 @@ app.use(session({
   store: sessionStore,
   cookie: {
     httpOnly: true,
-    secure: false, 
+    secure: isProd,
     sameSite: 'lax',
     maxAge: 1000 * 60 * 60 * 24 * 7, 
   },
