@@ -258,13 +258,16 @@
             <% vagasRecomendadas.slice(0, 3).forEach(function (vaga) { %>
               <div class="card-vaga bg-white rounded-2xl p-3 p-md-4 mb-3">
                 <div class="d-flex gap-3 align-items-start flex-wrap">
-                  <a href="/empresa/perfil/<%= vaga.empresa?.id %>">
-                    <img
-                      src="<%= fotoResolved %>" alt="Foto da empresa" class="rounded-circle" width="80" height="80"
-                      alt="Logo da empresa"
-                      class="rounded-circle border perfil-logo"
-                    >
-                  </a>
+                    <a href="/empresa/perfil/<%= (vaga.empresa ? vaga.empresa.id : '') %>">
+                      <img
+                        src="<%= (vaga.empresa && vaga.empresa.foto_perfil && vaga.empresa.foto_perfil.trim() !== '') 
+                          ? vaga.empresa.foto_perfil 
+                          : '/img/avatar.png' %>"
+                        alt="Logo da empresa"
+                        class="rounded-circle border perfil-logo"
+                        width="80" height="80"
+                      >
+                    </a>
 
                   <div class="flex-grow-1">
                     <h5 class="mb-0 fw-bold">

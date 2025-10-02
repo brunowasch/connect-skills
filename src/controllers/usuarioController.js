@@ -372,7 +372,7 @@ exports.criarUsuario = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-  const { email, senha } = req.body;
+  const { email, senha, remember } = req.body;
   if (!email || !senha) {
     req.session.erro = 'Preencha todos os campos.';
     return res.redirect('/login');
@@ -393,8 +393,12 @@ exports.login = async (req, res) => {
     }
 
     if (!usuario.email_verificado) {
-      // Mantém experiência: leva para a tela que orienta a verificar o e-mail, com opção de reenviar
       return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(usuario.email)}`);
+    }
+    if (remember === 'on') {
+      req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
+    } else {
+      req.session.cookie.expires = false;
     }
 
     if (usuario.tipo === 'empresa') {
@@ -451,7 +455,6 @@ exports.login = async (req, res) => {
     }
 
     return res.redirect('/cadastro');
-
   } catch (err) {
     console.error('Erro ao realizar login:', err);
     req.session.erro = 'Erro ao realizar login.';
@@ -652,7 +655,6 @@ exports.reiniciarCadastro = async (req, res) => {
     const usuario = await usuarioModel.buscarPorId(Number(usuario_id));
     if (!usuario) return res.redirect('/cadastro');
 
-    // 🚫 Bloqueio: precisa verificar o e-mail antes de reiniciar
     if (!usuario.email_verificado) {
       return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(usuario.email)}`);
     }
