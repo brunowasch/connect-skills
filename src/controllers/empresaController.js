@@ -238,23 +238,27 @@ exports.homeEmpresa = async (req, res) => {
       const usuario_id = parseInt(req.query.usuario_id, 10);
       if (isNaN(usuario_id)) return res.redirect('/login');
 
-      empresa = await prisma.empresa.findUnique({ where: { usuario_id } });
-      if (!empresa) return res.redirect('/login');
+      const empDb = await prisma.empresa.findUnique({ where: { usuario_id } });
+      if (!empDb) return res.redirect('/login');
 
-      const usuario = await prisma.usuario.findUnique({ where: { id: usuario_id }, select: { email: true } });
+      const usuario = await prisma.usuario.findUnique({
+        where: { id: usuario_id },
+        select: { email: true, nome: true }
+      });
 
       req.session.empresa = {
-        id: empresa.id,
-        usuario_id: empresa.usuario_id,
-        nome_empresa: empresa.nome_empresa,
-        descricao: empresa.descricao,
-        cidade: empresa.cidade,
-        estado: empresa.estado,
-        pais: empresa.pais,
-        telefone: empresa.telefone,
-        foto_perfil: empresa.foto_perfil || '',
+        id: empDb.id,
+        usuario_id: empDb.usuario_id,
+        nome_empresa: empDb.nome_empresa,
+        descricao: empDb.descricao,
+        cidade: empDb.cidade,
+        estado: empDb.estado,
+        pais: empDb.pais,
+        telefone: empDb.telefone,
+        foto_perfil: empDb.foto_perfil || '',
         email: usuario?.email || ''
       };
+      empresa = req.session.empresa;
     }
 
     const usuario = await prisma.usuario.findUnique({
@@ -270,17 +274,16 @@ exports.homeEmpresa = async (req, res) => {
       email: usuario?.email || ''
     };
 
-    const localidade = [req.session.empresa.cidade, req.session.empresa.estado, req.session.empresa.pais]
-      .filter(Boolean).join(', ');
+    const localidade = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', ') || 'Localidade não informada';
 
-    const empresaId = Number(req.session.empresa.id);
+    const empresaId = Number(empresa.id);
 
     const vagasAll = await prisma.vaga.findMany({
       where: { empresa_id: empresaId },
       include: {
-        vaga_area:      { include: { area_interesse: true } },
-        vaga_soft_skill:{ include: { soft_skill: true } },
-        empresa:        { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } }
+        vaga_area:       { include: { area_interesse: true } },
+        vaga_soft_skill: { include: { soft_skill: true } },
+        empresa: { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } }
       },
       orderBy: { created_at: 'desc' }
     });
@@ -318,18 +321,33 @@ exports.homeEmpresa = async (req, res) => {
     const totalVagas = vagasDecoradas.length;
     const totalCandidatos = vagasDecoradas.reduce((acc, v) => acc + (v.total_candidatos || 0), 0);
 
-    res.render('empresas/home-empresas', {
-      nome: req.session.empresa.nome_empresa,
-      descricao: req.session.empresa.descricao,
-      telefone: req.session.empresa.telefone,
-      localidade,
-      fotoPerfil: req.session.empresa.foto_perfil || '/img/avatar.png',
-      usuario: req.session.usuario,
-      empresa: req.session.empresa,
+    // ===== Avatar padrão e Progress =====
+    const fotoPerfil =
+      empresa.foto_perfil && empresa.foto_perfil.trim() !== ''
+        ? empresa.foto_perfil
+        : '/img/avatar.png';
 
-      vagasRecentes: vagasDecoradas,                
-      totais: { totalVagas, totalCandidatos },      
-      activePage: 'home'
+    const checklistEmp = [
+      !!(empresa.nome_empresa && empresa.nome_empresa.trim() !== ''),
+      !!(empresa.descricao && empresa.descricao.trim() !== ''),
+      localidade !== 'Localidade não informada',
+      !!(empresa.telefone && empresa.telefone.trim() !== ''),
+      !!(empresa.foto_perfil && empresa.foto_perfil.trim() !== '')
+    ];
+    const profileCompletion = Math.round((checklistEmp.filter(Boolean).length / checklistEmp.length) * 100);
+
+    res.render('empresas/home-empresas', {
+      nome: empresa.nome_empresa,
+      descricao: empresa.descricao,
+      telefone: empresa.telefone,
+      localidade,
+      fotoPerfil,                  // <- usa avatar se vazio
+      usuario: req.session.usuario,
+      empresa,
+      vagasRecentes: vagasDecoradas,
+      totais: { totalVagas, totalCandidatos },
+      activePage: 'home',
+      profileCompletion           // <- para a view mostrar condicionalmente
     });
   } catch (err) {
     console.error('Erro ao exibir home da empresa:', err);
@@ -337,7 +355,6 @@ exports.homeEmpresa = async (req, res) => {
     res.redirect('/login');
   }
 };
-
 
 exports.telaPerfilEmpresa = async (req, res) => {
   const sess = req.session.empresa;
@@ -1324,43 +1341,51 @@ exports.pularCadastroEmpresa = async (req, res) => {
     );
     if (!usuarioId) return res.redirect('/login');
 
+    // Garante que exista um registro de empresa
     let emp = await prisma.empresa.findUnique({
-      where: { usuario_id: usuarioId }
+      where: { usuario_id: usuarioId },
+      include: {
+        usuario: { select: { email: true } }
+      }
     });
 
     if (!emp) {
-      // Cria com dados mínimos
       const usr = await prisma.usuario.findUnique({ where: { id: usuarioId } });
       emp = await prisma.empresa.create({
         data: {
           usuario_id: usuarioId,
-          nome_empresa: usr?.nome || 'Sua empresa',
+          nome_empresa: usr?.nome || 'Empresa',
           descricao: '',
-          telefone: '',
           pais: '', estado: '', cidade: '',
+          telefone: '',
           foto_perfil: ''
-        }
+        },
+        include: { usuario: { select: { email: true } } }
       });
     }
 
+    // Prepara localidade formatada
     const localidade = [emp.cidade, emp.estado, emp.pais].filter(Boolean).join(', ');
 
+    // Salva na sessão
     req.session.usuario = {
       id: usuarioId,
       tipo: 'empresa',
-      nome: emp.nome_empresa
+      nome: emp.nome_empresa,
+      email: emp.usuario?.email || ''
     };
     req.session.empresa = {
       id: emp.id,
       usuario_id: usuarioId,
       nome_empresa: emp.nome_empresa,
-      descricao: emp.descricao || '',
+      descricao: emp.descricao,
+      email: emp.usuario?.email || '',
       telefone: emp.telefone || '',
+      foto_perfil: emp.foto_perfil || '',
       cidade: emp.cidade || '',
       estado: emp.estado || '',
       pais: emp.pais || '',
-      foto_perfil: emp.foto_perfil || '/img/empresa-padrao.png',
-      email: req.session?.usuario?.email || ''
+      localidade
     };
 
     return req.session.save(() => res.redirect('/empresa/home'));
@@ -1370,3 +1395,4 @@ exports.pularCadastroEmpresa = async (req, res) => {
     return res.redirect('/login');
   }
 };
+

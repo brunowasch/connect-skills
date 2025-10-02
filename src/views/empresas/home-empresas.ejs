@@ -40,8 +40,24 @@
         [emp.cidade, emp.estado, emp.pais].filter(Boolean).join(', ') || 'Localidade não informada';
       const fotoResolved =
         (typeof fotoPerfil !== 'undefined' && fotoPerfil) ? fotoPerfil :
-        (emp.foto_perfil || '/img/empresa-padrao.png');
+        (emp.foto_perfil && emp.foto_perfil.trim() !== '' ? emp.foto_perfil : '/img/avatar.png');
 
+      // --- Progresso do perfil ---
+      const hasNome  = !!nomeEmpresa && nomeEmpresa.trim() !== '' && nomeEmpresa !== 'Sua empresa';
+      const hasLocal = localidadeResolved && localidadeResolved !== 'Localidade não informada';
+      const hasTel   = !!(emp.telefone && emp.telefone.trim() !== '');
+      const hasFoto  = (
+        typeof fotoResolved === 'string' &&
+        fotoResolved.trim() !== '' &&
+        !['/img/avatar.png', '/img/empresa-padrao.png'].includes(fotoResolved.trim())
+      );
+
+      const checklistEmp = [hasNome, hasLocal, hasTel, hasFoto];
+      const totalEmp     = checklistEmp.length;
+      const doneEmp      = checklistEmp.filter(Boolean).length;
+      const profileCompletion = Math.max(0, Math.min(100, Math.round((doneEmp / totalEmp) * 100)));
+
+      // --- Vagas e métricas ---
       const _vagasRecentes =
         (typeof vagasRecentes   !== 'undefined' && Array.isArray(vagasRecentes))   ? vagasRecentes   :
         (typeof vagas           !== 'undefined' && Array.isArray(vagas))           ? vagas           :
@@ -68,7 +84,7 @@
           const s = v.status || v.statusAtual || v.ultimo_status || null;
           if (s == null) continue;
           comStatus++;
-          if (mapStatus(s) === 'aberta' || mapStatus(s) === 'abertas') { /* nada a fazer, apenas conta */ }
+          if (mapStatus(s) === 'aberta' || mapStatus(s) === 'abertas') { /* conta em filtro abaixo */ }
         }
         if (comStatus === 0) return _vagasRecentes.length; // fallback
         return _vagasRecentes.filter(v => {
@@ -90,14 +106,15 @@
       };
     %>
     <h2 class="mb-4">Dashboard pessoal</h2>
+
     <!-- HERO -->
     <div class="bg-white rounded-2xl shadow-soft p-4 p-md-5 mb-4">
       <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
         <div class="d-flex align-items-center gap-3">
-          <img 
-            src="<%= fotoResolved || '/img/avatar.png' %>" 
-            alt="Foto de perfil" 
-            class="rounded-circle border perfil-logo object-fit-cover"
+          <img
+            src="<%= fotoResolved %>"
+            alt="Logo da Empresa"
+            class="rounded-circle border perfil-logo"
             style="width:64px; height:64px"
             onerror="this.onerror=null;this.src='/img/avatar.png';"
           />
@@ -124,6 +141,31 @@
         </div>
       </div>
     </div>
+
+    <!-- PROGRESS BAR -->
+    <% if (profileCompletion < 100) { %>
+      <div class="bg-white rounded-2xl shadow-soft p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="section-title">
+            <i class="bi bi-rocket-takeoff me-1"></i>
+            Complete o perfil da empresa
+          </div>
+          <div class="small muted"><%= profileCompletion %>%</div>
+        </div>
+
+        <div class="progress">
+          <div class="progress-bar bg-primary" data-progress="<%= profileCompletion %>"></div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3 flex-wrap">
+          <% if (!hasNome)  { %><a href="/empresa/editar-empresa" class="btn btn-sm btn-outline-primary">Definir nome</a><% } %>
+          <% if (!hasLocal) { %><a href="/empresa/editar-empresa" class="btn btn-sm btn-outline-primary">Definir localidade</a><% } %>
+          <% if (!hasTel)   { %><a href="/empresa/editar-empresa" class="btn btn-sm btn-outline-primary">Adicionar telefone</a><% } %>
+          <% if (!hasFoto)  { %><a href="/empresa/editar-empresa" class="btn btn-sm btn-outline-primary">Adicionar logo/foto</a><% } %>
+        </div>
+      </div>
+    <% } %>
+
     <!-- KPIs -->
     <div class="row g-4 mb-4">
       <div class="col-12 col-lg-4">
@@ -151,6 +193,7 @@
       </div>
     </div>
 
+    <!-- LISTAS -->
     <div class="row g-4 mt-1">
       <div class="col-12 col-lg-7">
         <div class="bg-white rounded-2xl shadow-soft p-4 h-100">
@@ -176,19 +219,14 @@
               <div class="card-bl bg-white rounded-2xl p-3 p-md-4 mb-3">
                 <div class="d-flex gap-3 align-items-start flex-wrap">
                   <img
-                    src="<%= (emp.foto_perfil || '/img/empresa-padrao.png') %>"
+                    src="<%= fotoResolved %>"
                     alt="Logo da empresa"
                     class="rounded-circle border perfil-logo"
                   >
-
                   <div class="flex-grow-1">
                     <h5 class="mb-0 fw-bold"><%= nomeEmpresa %></h5>
-                    <div class="muted">
-                      <%= localidadeResolved %>
-                    </div>
-
+                    <div class="muted"><%= localidadeResolved %></div>
                     <div class="fw-semibold mt-2"><%= vaga.cargo %></div>
-
                     <div class="d-flex flex-wrap gap-2 mt-2">
                       <% if (vaga.tipo_local_trabalho) { %>
                         <span class="badge rounded-pill text-bg-light border">
@@ -196,26 +234,23 @@
                           <%= tipoMap[vaga.tipo_local_trabalho] || vaga.tipo_local_trabalho %>
                         </span>
                       <% } %>
-
                       <% if (vaga.salario) { %>
                         <span class="badge rounded-pill text-bg-light border">
                           <i class="bi bi-cash-coin me-1"></i>
                           <%= fmtSalario(vaga.salario, vaga.moeda) %>
                         </span>
                       <% } %>
-
                       <%
                         const dataCriacao = new Date(vaga.created_at);
                         const dataValida = !isNaN(dataCriacao.getTime());
                       %>
-                    <span class="badge rounded-pill text-bg-light border">
-                      <i class="bi bi-calendar-event me-1"></i>
-                      <%= dataValida ? `Publicado em ${dataCriacao.toLocaleDateString('pt-BR')}` : 'Data não disponível' %>
-                    </span>
+                      <span class="badge rounded-pill text-bg-light border">
+                        <i class="bi bi-calendar-event me-1"></i>
+                        <%= dataValida ? `Publicado em ${dataCriacao.toLocaleDateString('pt-BR')}` : 'Data não disponível' %>
+                      </span>
                     </div>
                   </div>
                 </div>
-
                 <div class="d-flex justify-content-end gap-2 mt-3">
                   <a href="/empresa/vaga/<%= vaga.id %>" class="btn btn-outline-primary">
                     <i class="bi bi-eye me-1"></i> Ver detalhes
@@ -274,5 +309,11 @@
   <%- include('../partials/footer') %>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.querySelectorAll('.progress-bar[data-progress]').forEach(el => {
+      const v = parseFloat(el.dataset.progress);
+      if (!isNaN(v)) el.style.width = v + '%';
+    });
+  </script>
 </body>
 </html>

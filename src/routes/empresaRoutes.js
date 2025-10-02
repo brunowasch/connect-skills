@@ -4,7 +4,6 @@ const router = express.Router();
 const empresaController = require('../controllers/empresaController');
 const { uploadEmpresa } = require('../middlewares/uploadEmpresa');
 
-
 let ensureEmpresa = null;
 try {
   const maybe = require('../middlewares/auth');

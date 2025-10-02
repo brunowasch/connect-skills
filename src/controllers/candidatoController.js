@@ -319,16 +319,49 @@ exports.telaHomeCandidato = async (req, res) => {
   if (!usuario) return res.redirect('/login');
 
   try {
-    // Vagas recomendadas
+    // 1) Carrega o candidato do banco com as áreas (garante dados frescos)
+    const candDb = await prisma.candidato.findUnique({
+      where: { id: Number(usuario.id) }, // aqui é o ID do candidato (não usuario_id)
+      include: {
+        candidato_area: { include: { area_interesse: true } }
+      }
+    });
+
+    const areas = (candDb?.candidato_area || [])
+      .map(r => r?.area_interesse?.nome)
+      .filter(Boolean);
+
+    // 2) Sincroniza sessão (opcional, mas ajuda outras telas)
+    try {
+      req.session.candidato = {
+        ...req.session.candidato,
+        // mantém o que já existe…
+        nome: candDb?.nome ?? req.session.candidato.nome,
+        sobrenome: candDb?.sobrenome ?? req.session.candidato.sobrenome,
+        telefone: candDb?.telefone ?? req.session.candidato.telefone,
+        data_nascimento: candDb?.data_nascimento ?? req.session.candidato.data_nascimento,
+        foto_perfil: candDb?.foto_perfil ?? req.session.candidato.foto_perfil,
+        localidade:
+          req.session.candidato.localidade ||
+          [candDb?.cidade, candDb?.estado, candDb?.pais].filter(Boolean).join(', '),
+        areas // <- importante para a view e para outras páginas
+      };
+    } catch (e) {
+      // segue o baile mesmo se não conseguir salvar sessão agora
+      console.warn('[home] não foi possível atualizar sessão do candidato:', e?.message || e);
+    }
+
+    // 3) Vagas recomendadas
     let vagas = [];
     try {
-      vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
+      // usa o ID do candidato (não usuario_id)
+      vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(Number(usuario.id));
     } catch (e) {
       console.warn('[home] falha ao buscar vagas recomendadas:', e.message);
       vagas = [];
     }
 
-    // Histórico (aplicações do candidato)
+    // 4) Histórico (aplicações do candidato)
     const avaliacoes = await prisma.vaga_avaliacao.findMany({
       where: { candidato_id: Number(usuario.id) },
       orderBy: { id: 'desc' },
@@ -350,33 +383,31 @@ exports.telaHomeCandidato = async (req, res) => {
         const v = a.vaga;
         const emp = v.empresa || {};
         return {
-          // a view usa item?.vaga?.cargo, item?.empresa?.nome / nome_empresa,
-          vaga: {
-            id: v.id,
-            cargo: v.cargo
-          },
-          empresa: {
-            id: emp.id,
-            nome: emp.nome_empresa,
-            nome_empresa: emp.nome_empresa
-          },
-          // a view tenta ler item.aplicadoEm || item.created_at
+          vaga: { id: v.id, cargo: v.cargo },
+          empresa: { id: emp.id, nome: emp.nome_empresa, nome_empresa: emp.nome_empresa },
           created_at: a.created_at || a.criado_em || new Date().toISOString(),
-          // a view chama formatStatus(item.status); se não houver, manda "em_analise"
           status: a.status || 'em_analise'
         };
       });
 
+    // 5) Render da home — agora passando 'areas' para a view
     res.render('candidatos/home-candidatos', {
-      nome: usuario.nome,
-      sobrenome: usuario.sobrenome,
-      localidade: usuario.localidade,
+      nome: req.session.candidato.nome,
+      sobrenome: req.session.candidato.sobrenome,
+      localidade:
+        req.session.candidato.localidade ||
+        [candDb?.cidade, candDb?.estado, candDb?.pais].filter(Boolean).join(', '),
       activePage: 'home',
-      usuario,
-      candidato: usuario,
+
+      // objetos que a view já usa
+      usuario: req.session.usuario || req.session.candidato, // mantém compatibilidade com includes
+      candidato: req.session.candidato, // contém .areas atualizadas
       vagas,
       historico,
-      candidaturasAplicadasCount: historico.length
+      candidaturasAplicadasCount: historico.length,
+
+      // chave ESSENCIAL para a barra de progresso reconhecer as áreas
+      areas
     });
   } catch (err) {
     console.error('[telaHomeCandidato] erro:', err?.message || err);
@@ -385,45 +416,22 @@ exports.telaHomeCandidato = async (req, res) => {
   }
 };
 
-
 exports.renderMeuPerfil = async (req, res) => {
   const candidatoSessao = req.session.candidato || (req.session.usuario?.tipo === 'candidato' ? req.session.usuario : null);
   if (!candidatoSessao) return res.redirect('/login');
 
   try {
     const candidato = await prisma.candidato.findUnique({
-      where: {
-        id: Number(candidatoSessao.id),
-      },
+      where: { id: Number(candidatoSessao.id) },
       include: {
         candidato_area: {
-          include: {
-            area_interesse: { select: { id: true, nome: true } }
-          }
+          include: { area_interesse: { select: { id: true, nome: true } } }
         },
-        usuario: {
-          select: {
-            id: true,
-            email: true,
-            nome: true,
-            sobrenome: true,
-          }
-        },
-        candidato_link: {
-          orderBy: { ordem: 'asc' },
-          select: { id: true, label: true, url: true, ordem: true }
-        },
-
+        usuario: { select: { id: true, email: true, nome: true, sobrenome: true } },
+        candidato_link: { orderBy: { ordem: 'asc' }, select: { id: true, label: true, url: true, ordem: true } },
         candidato_arquivo: {
           orderBy: { criadoEm: 'desc' },
-          select: {
-            id: true,
-            nome: true,
-            mime: true,
-            tamanho: true,
-            url: true,
-            criadoEm: true
-          }
+          select: { id: true, nome: true, mime: true, tamanho: true, url: true, criadoEm: true }
         },
         vaga_avaliacao: true
       }
@@ -449,43 +457,61 @@ exports.renderMeuPerfil = async (req, res) => {
     const arquivos = candidato.candidato_arquivo || [];
     const anexos = arquivos;
 
-    let ddi = '', ddd = '', numeroFormatado = '';
-    try {
-      const tel = (candidato.telefone || '').trim();
+    // ---------- TELEFONE (robusto) ----------
+    function parseTelefoneBR(telRaw) {
+      const tel = (telRaw || '').trim();
+      if (!tel) return { ddi: '', ddd: '', numeroFormatado: '' };
 
+      // 1) Formato normalizado por nós: +DD-XX-<resto...> (pode ter hífens dentro do "resto")
       if (tel.includes('-')) {
-        // Formato: DDI-DDD-NUMERO
-        const [ddiRaw, dddRaw, numRaw] = tel.split('-');
-        const clean = v => (v && v !== 'undefined' && v !== 'null') ? String(v).trim() : '';
-        ddi = clean(ddiRaw);
-        ddd = clean(dddRaw);
+        const partes = tel.split('-').map(p => p.trim()).filter(Boolean);
+        let ddi = partes[0] || '';
+        let ddd = partes[1] || '';
+        // Junta tudo que vier depois do DDD
+        const resto = partes.slice(2).join('');
+        const numeros = resto.replace(/\D/g, ''); // só dígitos
 
-        let numero = clean(numRaw).replace(/\D/g, '');
-        if (numero.length >= 9) {
-          numeroFormatado = `${numero.slice(0,5)}-${numero.slice(5,9)}`;
-        } else if (numero.length === 8) {
-          numeroFormatado = `${numero.slice(0,4)}-${numero.slice(4,8)}`;
+        // Máscara: 9 dígitos => 5-4, 8 dígitos => 4-4
+        let numeroFormatado = '';
+        if (numeros.length >= 9) {
+          numeroFormatado = `${numeros.slice(0, 5)}-${numeros.slice(5, 9)}`;
+        } else if (numeros.length === 8) {
+          numeroFormatado = `${numeros.slice(0, 4)}-${numeros.slice(4, 8)}`;
         } else {
-          numeroFormatado = numero;
+          // Fallback: tenta manter como estava após o DDD
+          numeroFormatado = partes.slice(2).join('-');
         }
-      } else {
-        // Possível formato: "+55 (51) 99999-9999"
-        const m = tel.match(/^(\+\d+)?\s*\((\d{2,3})\)\s*([\d\- ]{8,})$/);
-        if (m) {
-          ddi = (m[1] || '+55').trim();
-          ddd = m[2].trim();
-          let numero = (m[3] || '').replace(/\D/g, '');
-          if (numero.length >= 9) {
-            numeroFormatado = `${numero.slice(0,5)}-${numero.slice(5,9)}`;
-          } else if (numero.length === 8) {
-            numeroFormatado = `${numero.slice(0,4)}-${numero.slice(4,8)}`;
-          } else {
-            numeroFormatado = numero;
-          }
-        }
+
+        // Normaliza ddi (garante + no começo) e ddd (só dígitos)
+        ddi = ddi.startsWith('+') ? ddi : (ddi ? `+${ddi}` : '+55');
+        ddd = ddd.replace(/\D/g, '');
+
+        return { ddi, ddd, numeroFormatado };
       }
-    } catch {
+
+      // 2) Formatos soltos, ex: "+55 (51) 99217-9330" ou " (51) 99217-9330 "
+      const m = tel.match(/^(\+\d+)?\s*\(?(\d{2,3})\)?\s*([\d\- ]{7,})$/);
+      if (m) {
+        const ddi = (m[1] || '+55').trim();
+        const ddd = (m[2] || '').trim();
+        const numeros = (m[3] || '').replace(/\D/g, '');
+
+        let numeroFormatado = '';
+        if (numeros.length >= 9) {
+          numeroFormatado = `${numeros.slice(0, 5)}-${numeros.slice(5, 9)}`;
+        } else if (numeros.length === 8) {
+          numeroFormatado = `${numeros.slice(0, 4)}-${numeros.slice(4, 8)}`;
+        } else {
+          numeroFormatado = numeros;
+        }
+        return { ddi, ddd, numeroFormatado };
+      }
+
+      // 3) Fallback genérico
+      return { ddi: '', ddd: '', numeroFormatado: '' };
     }
+
+    const { ddi, ddd, numeroFormatado } = parseTelefoneBR(candidato.telefone);
 
     res.render('candidatos/meu-perfil', {
       candidato,
@@ -506,6 +532,7 @@ exports.renderMeuPerfil = async (req, res) => {
     return res.status(500).render('shared/500', { erro: err?.message || 'Erro interno' });
   }
 };
+
 
 exports.mostrarVagas = async (req, res) => {
   const usuario = req.session.candidato;
@@ -761,20 +788,23 @@ exports.telaEditarPerfil = async (req, res) => {
 
     const arquivos = cand.candidato_arquivo || [];
     const anexos = arquivos;
+    const partes = (cand.telefone || '').split('-');
+    const ddd = partes[1] || '';
+    const numero = partes.length > 2 ? partes.slice(2).join('-') : '';
 
     res.render('candidatos/editar-perfil', {
-      nome: cand.nome,
-      sobrenome: cand.sobrenome,
+      nome: cand.nome || '',
+      sobrenome: cand.sobrenome || '',
       localidade: cand.cidade ? `${cand.cidade}, ${cand.estado}, ${cand.pais}` : '',
-      ddd: cand.telefone ? cand.telefone.split('-')[1] : '',
-      numero: cand.telefone ? cand.telefone.split('-')[2] : '',
+      ddd,
+      numero,
       dataNascimento: cand.data_nascimento ? cand.data_nascimento.toISOString().split('T')[0] : '',
-      fotoPerfil: cand.foto_perfil,
-      links: cand.candidato_link,
+      fotoPerfil: cand.foto_perfil || '',
+      links: cand.candidato_link || [],
       anexos,
       arquivos,
       humanFileSize
-    });
+    }); 
   } catch (err) {
     console.error('Erro ao carregar tela editar perfil:', err);
     res.status(500).send('Erro interno do servidor');
@@ -787,76 +817,145 @@ exports.salvarEditarPerfil = async (req, res) => {
 
   const candidato_id = Number(sess.id);
   const { nome, sobrenome, localidade, ddi, ddd, numero, dataNascimento, removerFoto } = req.body;
-  const telefone = `${ddi}-${ddd}-${(numero || '').replace(/-/g, '')}`;
-  const [cidade = '', estado = '', pais = ''] = (localidade || '').split(',').map(s => s.trim());
+
+  const nomeTrim       = (nome || '').trim();
+  const sobrenomeTrim  = (sobrenome || '').trim();
+  const localidadeTrim = (localidade || '').trim();
+  const dddTrim        = (ddd || '').replace(/\D/g, '');        // só dígitos
+  const numeroTrim     = (numero || '').replace(/\D/g, '');     // só dígitos para validação
+  const numeroVisivel  = (numero || '').trim().replace(/[^\d-]/g, ''); // mantém hífen do usuário
+
+  // Só consideramos telefone se tiver DDD (>=2) e número com >=8 dígitos
+  const hasTelefone = (dddTrim.length >= 2 && numeroTrim.length >= 8);
+
+  // Localidade (só se veio algo)
+  let cidade, estado, pais;
+  if (localidadeTrim) {
+    const partes = localidadeTrim.split(',').map(s => s.trim());
+    [cidade = '', estado = '', pais = ''] = partes;
+  }
+
+  // DateTime: converter string -> Date apenas se for válida
+  let parsedDate = null;
+  if (typeof dataNascimento === 'string' && dataNascimento.trim()) {
+    const d = new Date(dataNascimento.trim());
+    if (!isNaN(d.getTime())) parsedDate = d; // válido
+  }
 
   try {
+    // Foto
     if (removerFoto) {
       await candidatoModel.atualizarFotoPerfil({ candidato_id, foto_perfil: null });
       sess.foto_perfil = '/img/avatar.png';
     } else if (req.file && req.file.buffer) {
       const uploadResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream({
-          folder: 'connect-skills/candidatos',
-          public_id: `foto_candidato_${candidato_id}`,
-          overwrite: true,
-          resource_type: 'image'
-        }, (err, result) => err ? reject(err) : resolve(result));
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'connect-skills/candidatos',
+            public_id: `foto_candidato_${candidato_id}`,
+            overwrite: true,
+            resource_type: 'image'
+          },
+          (err, result) => (err ? reject(err) : resolve(result))
+        );
         stream.end(req.file.buffer);
       });
       sess.foto_perfil = uploadResult.secure_url;
       await candidatoModel.atualizarFotoPerfil({ candidato_id, foto_perfil: sess.foto_perfil });
     }
 
-    // básicos
-    await candidatoModel.atualizarPerfilBasico({
-      candidato_id,
-      nome,
-      sobrenome,
-      pais,
-      estado,
-      cidade,
-      telefone,
-      data_nascimento: dataNascimento
-    });
+    // Atualização parcial
+    const updateData = {};
+    if (nomeTrim) updateData.nome = nomeTrim;
+    if (sobrenomeTrim) updateData.sobrenome = sobrenomeTrim;
+    if (parsedDate) updateData.data_nascimento = parsedDate;
+    if (localidadeTrim && (cidade || estado || pais)) {
+      updateData.cidade = cidade || null;
+      updateData.estado = estado || null;
+      updateData.pais   = pais   || null;
+    }
+    if (hasTelefone) {
+      const ddiFinal = (ddi || '+55').toString().trim() || '+55';
+      // Guarda exatamente como o usuário digitou (com hífen no meio do número)
+      updateData.telefone = `${ddiFinal}-${dddTrim}-${numeroVisivel}`;
+    }
 
-    // sessão
-    sess.nome = nome;
-    sess.sobrenome = sobrenome;
-    sess.localidade = localidade;
-    sess.telefone = telefone;
-    sess.data_nascimento = dataNascimento;
+    if (Object.keys(updateData).length > 0) {
+      await prisma.candidato.update({
+        where: { id: candidato_id },
+        data: updateData
+      });
 
-    const labels = Array.isArray(req.body.link_label)
-      ? req.body.link_label
-      : (req.body.link_label ? [req.body.link_label] : []);
-    const urls = Array.isArray(req.body.link_url)
-      ? req.body.link_url
-      : (req.body.link_url ? [req.body.link_url] : []);
+      // Atualiza sessão só com o que persistiu
+      if (updateData.nome) sess.nome = updateData.nome;
+      if (updateData.sobrenome) sess.sobrenome = updateData.sobrenome;
+      if (localidadeTrim && (cidade || estado || pais)) {
+        const locPieces = [];
+        if (cidade) locPieces.push(cidade);
+        if (estado) locPieces.push(estado);
+        if (pais)   locPieces.push(pais);
+        sess.localidade = locPieces.join(', ');
+      }
+      if (updateData.telefone) sess.telefone = updateData.telefone;
+      if (updateData.data_nascimento) sess.data_nascimento = updateData.data_nascimento;
+    }
+
+    // LINKS — substitui só se houver ao menos 1 URL válida
+    const urls = Array.isArray(req.body['link_url[]'])
+      ? req.body['link_url[]']
+      : Array.isArray(req.body.link_url)
+        ? req.body.link_url
+        : (req.body.link_url ? [req.body.link_url] : []);
 
     const links = [];
-    for (let i = 0; i < Math.max(labels.length, urls.length); i++) {
-      const label = String(labels[i] || '').trim();
+    for (let i = 0; i < urls.length; i++) {
       const url = normUrl(urls[i] || '');
-      if (!label && !url) continue;
       if (!url) continue;
-      links.push({ label: label || 'Link', url, ordem: i });
+      links.push({ label: 'Link', url, ordem: i });
     }
     if (links.length > 5) links.length = 5;
-
-    await candidatoModel.substituirLinksDoCandidato(candidato_id, links);
+    if (links.length > 0) {
+      await candidatoModel.substituirLinksDoCandidato(candidato_id, links);
+    }
 
     req.session.sucessoPerfil = 'Perfil atualizado com sucesso!';
     res.redirect('/candidatos/meu-perfil');
   } catch (err) {
     console.error('Erro ao atualizar perfil básico:', err);
+
+    // Recarrega dados atuais para não quebrar a view
+    let cand = null;
+    try {
+      cand = await prisma.candidato.findUnique({
+        where: { id: candidato_id },
+        include: {
+          candidato_link: true,
+          candidato_arquivo: { orderBy: { criadoEm: 'desc' } }
+        }
+      });
+    } catch {}
+
+    const arquivos = cand?.candidato_arquivo || [];
+    const anexos   = arquivos;
+    const links    = cand?.candidato_link   || [];
+
     res.status(500).render('candidatos/editar-perfil', {
-      nome, sobrenome, localidade, ddd, numero, dataNascimento,
+      nome,
+      sobrenome,
+      localidade,
+      ddd,
+      numero, // mantém o que o usuário digitou (com hífen) em caso de erro
+      dataNascimento,
       fotoPerfil: sess.foto_perfil,
+      links,
+      anexos,
+      arquivos,
+      humanFileSize,
       errorMessage: 'Não foi possível atualizar seu perfil. Tente novamente.'
     });
   }
 };
+
 
 exports.telaEditarAreas = async (req, res) => {
   const sess = req.session.candidato;

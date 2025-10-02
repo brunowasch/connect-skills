@@ -79,26 +79,26 @@
 
       const _vagas = (typeof vagas !== 'undefined' && Array.isArray(vagas)) ? vagas : [];
 
-      const areasSel          = _areas;
-      const linksPerf         = _links;
-      const anexosList        = _anexos;
+      const areasSel            = _areas;
+      const linksPerf           = _links;
+      const anexosList          = _anexos;
       const historicoAplicacoes = _historico; // aplicações (vaga_avaliacao)
       const vagasRecomendadas   = _vagas;     // vagas recomendadas
 
+      // --- Telefone (usa DDD + número, com fallback do próprio cand.telefone) ---
       const hasDDD = (typeof ddd !== 'undefined') && String(ddd || '').trim() !== '';
       const hasNum = (typeof numeroFormatado !== 'undefined') && String(numeroFormatado || '').trim() !== '';
       const hasTel = (hasDDD && hasNum) || !!cand?.telefone;
 
+      // --- Itens da barra de progresso (ignora links e anexos) ---
       const hasNasc  = !!cand?.data_nascimento;
       const hasFoto  = (fotoUrl && fotoUrl !== '/img/avatar.png');
       const hasLocal = !!(localidadeResolved && localidadeResolved !== 'Localidade não informada');
-      const hasAreas = !!(areasSel && areasSel.length > 0);
-      const hasLinks = !!(linksPerf && linksPerf.length > 0);
-      const hasAnexo = !!(anexosList && anexosList.length > 0);
+      const hasAreas = Array.isArray(areasSel) && areasSel.length >= 1;
 
-      const checklist    = [hasFoto, hasLocal, hasTel, hasNasc, hasAreas, hasLinks, hasAnexo];
-      const totalSteps   = checklist.length;
-      const doneSteps    = checklist.filter(Boolean).length;
+      const checklist        = [hasFoto, hasLocal, hasTel, hasNasc, hasAreas];
+      const totalSteps       = checklist.length;
+      const doneSteps        = checklist.filter(Boolean).length;
       const profileCompletion = Math.max(0, Math.min(100, Math.round((doneSteps / totalSteps) * 100)));
 
       const aplicadasCount =
@@ -121,6 +121,8 @@
     %>
 
     <h2 class="mb-4">Dashboard pessoal</h2>
+
+    <!-- HERO -->
     <div class="bg-white rounded-2xl shadow-soft p-4 p-md-5 mb-4">
       <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
         <div class="d-flex align-items-center gap-3">
@@ -150,6 +152,32 @@
         </div>
       </div>
     </div>
+
+    <!-- BARRA DE PROGRESSO (só mostra se incompleto) -->
+    <% if (profileCompletion < 100) { %>
+      <div class="bg-white rounded-2xl shadow-soft p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="section-title">
+            <i class="bi bi-rocket-takeoff me-1"></i>
+            Complete seu perfil para ter melhores recomendações
+          </div>
+          <div class="small muted"><%= profileCompletion %>%</div>
+        </div>
+
+        <div class="progress">
+          <div class="progress-bar" data-progress="<%= profileCompletion %>"></div>
+        </div>
+
+
+        <div class="d-flex gap-2 mt-3 flex-wrap">
+          <% if (!hasFoto) { %><a href="/candidato/editar-perfil" class="btn btn-sm btn-outline-primary">Adicionar foto</a><% } %>
+          <% if (!hasLocal) { %><a href="/candidato/editar-perfil" class="btn btn-sm btn-outline-primary">Definir localidade</a><% } %>
+          <% if (!hasTel)   { %><a href="/candidato/editar-perfil" class="btn btn-sm btn-outline-primary">Adicionar telefone</a><% } %>
+          <% if (!hasNasc)  { %><a href="/candidato/editar-perfil" class="btn btn-sm btn-outline-primary">Informar data de nascimento</a><% } %>
+          <% if (!hasAreas) { %><a href="/candidato/editar-areas" class="btn btn-sm btn-outline-primary">Selecionar áreas</a><% } %>
+        </div>
+      </div>
+    <% } %>
 
     <!-- KPIs -->
     <div class="row g-4 mb-4">
@@ -232,7 +260,7 @@
                 <div class="d-flex gap-3 align-items-start flex-wrap">
                   <a href="/empresa/perfil/<%= vaga.empresa?.id %>">
                     <img
-                      src="<%= vaga.empresa?.foto_perfil || '/img/empresa-padrao.png' %>"
+                      src="<%= fotoResolved %>" alt="Foto da empresa" class="rounded-circle" width="80" height="80"
                       alt="Logo da empresa"
                       class="rounded-circle border perfil-logo"
                     >
@@ -334,11 +362,18 @@
         </div>
       </div>
     </div>
+
     <%- include('../partials/contato', { sucesso, erro, candidato: null, empresa: null }) %>
   </main>
 
   <%- include('../partials/footer') %>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>  
+  <script>
+    document.querySelectorAll('.progress-bar[data-progress]').forEach(el => {
+      const v = parseFloat(el.dataset.progress);
+      if (!isNaN(v)) el.style.width = v + '%';
+    });
+  </script>
 </body>
 </html>
