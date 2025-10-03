@@ -398,100 +398,98 @@ exports.login = async (req, res) => {
       return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(usuario.email)}`);
     }
 
-    // "Lembrar de mim"
-    if (remember === 'on') {
-      req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30; // 30 dias
-    } else {
-      req.session.cookie.expires = false;
-    }
-
-    // Flag para respeitar "Pular cadastro"
-    const skipAtivo =
-      Boolean(req.session?.usuario?.skipCadastro) ||
-      req.cookies?.cs_skipCadastro === '1';
-
-    if (usuario.tipo === 'empresa') {
-      const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario.id);
-
-      // Se perfil está incompleto, só força complemento se NÃO houver skip
-      if ((!empresa || isEmpresaIncompleto(empresa)) && !skipAtivo) {
-        return redirecionarFluxoEmpresa(usuario.id, res);
+    req.session.regenerate(async (err) => {
+      if (err) {
+        console.error('Erro ao regenerar sessão:', err);
+        req.session.erro = 'Erro ao iniciar sessão.';
+        return res.redirect('/login');
       }
 
-      // Monta sessão mesmo com dados incompletos (quando skip está ativo)
-      const fotoEmpresa =
-        (empresa?.foto_perfil && String(empresa.foto_perfil).trim() !== '')
-          ? empresa.foto_perfil
-          : '/img/placeholder-empresa.png';
+      const keep = remember === 'on';
+      req.session.remember = keep;
 
-      req.session.empresa = {
-        id: empresa?.id ?? null,
-        usuario_id: usuario.id,
-        nome_empresa: empresa?.nome_empresa || '',
-        descricao: empresa?.descricao || '',
-        telefone: empresa?.telefone || '',
-        cidade: empresa?.cidade || '',
-        estado: empresa?.estado || '',
-        pais: empresa?.pais || '',
-        foto_perfil: fotoEmpresa,
-        email: usuario.email
-      };
-
-      req.session.usuario = {
-        id: usuario.id,
-        tipo: 'empresa',
-        nome: empresa?.nome_empresa || '',
-        email: usuario.email,
-        // preserva o skip na sessão para próximas requisições do mesmo login
-        skipCadastro: skipAtivo || req.session?.usuario?.skipCadastro || false
-      };
-
-      const destino = req.session.returnTo || '/empresa/home';
-      delete req.session.returnTo;
-      return req.session.save(() => res.redirect(destino));
-    }
-
-    if (usuario.tipo === 'candidato') {
-      const candidato = await candidatoModel.obterCandidatoPorUsuarioId(usuario.id);
-
-      // Se perfil está incompleto, só força complemento se NÃO houver skip
-      if ((!candidato || isCandidatoIncompleto(candidato)) && !skipAtivo) {
-        return redirecionarFluxoCandidato(usuario.id, res);
+      if (remember === 'on') {
+        const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
+        req.session.cookie.maxAge = THIRTY_DAYS;
+        req.session.cookie.expires = new Date(Date.now() + THIRTY_DAYS);
+      } else {
+        if ('maxAge' in req.session.cookie) delete req.session.cookie.maxAge;
+        req.session.cookie.expires = undefined;
       }
 
-      const localidade = [candidato?.cidade, candidato?.estado, candidato?.pais]
-        .filter(Boolean)
-        .join(', ');
+      if (usuario.tipo === 'empresa') {
+        const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario.id);
+        if ((!empresa || isEmpresaIncompleto(empresa)) && !keep /* opcional: você pode manter sua lógica de skip */) {
+          return redirecionarFluxoEmpresa(usuario.id, res);
+        }
 
-      req.session.candidato = {
-        id: candidato?.id ?? null,
-        usuario_id: usuario.id,
-        nome: candidato?.nome || '',
-        sobrenome: candidato?.sobrenome || '',
-        email: usuario.email,
-        tipo: 'candidato',
-        telefone: candidato?.telefone || '',
-        dataNascimento: candidato?.data_nascimento || null,
-        foto_perfil: candidato?.foto_perfil || '',
-        localidade,
-        areas: candidato?.candidato_area?.map(r => r.area_interesse.nome) || []
-      };
+        req.session.empresa = {
+          id: empresa?.id ?? null,
+          usuario_id: usuario.id,
+          nome_empresa: empresa?.nome_empresa || '',
+          descricao: empresa?.descricao || '',
+          telefone: empresa?.telefone || '',
+          cidade: empresa?.cidade || '',
+          estado: empresa?.estado || '',
+          pais: empresa?.pais || '',
+          foto_perfil: (empresa?.foto_perfil && String(empresa.foto_perfil).trim() !== '')
+            ? empresa.foto_perfil
+            : '/img/placeholder-empresa.png',
+          email: usuario.email
+        };
 
-      req.session.usuario = {
-        id: usuario.id,
-        tipo: 'candidato',
-        nome: candidato?.nome || '',
-        sobrenome: candidato?.sobrenome || '',
-        // preserva o skip na sessão para próximas requisições do mesmo login
-        skipCadastro: skipAtivo || req.session?.usuario?.skipCadastro || false
-      };
+        req.session.usuario = {
+          id: usuario.id,
+          tipo: 'empresa',
+          nome: empresa?.nome_empresa || '',
+          email: usuario.email,
+          skipCadastro: false,
+        };
 
-      const destino = req.session.returnTo || '/candidatos/home';
-      delete req.session.returnTo;
-      return req.session.save(() => res.redirect(destino));
-    }
+        const destino = req.session.returnTo || '/empresa/home';
+        delete req.session.returnTo;
+        return req.session.save(() => res.redirect(destino));
+      }
 
-    return res.redirect('/cadastro');
+      if (usuario.tipo === 'candidato') {
+        const candidato = await candidatoModel.obterCandidatoPorUsuarioId(usuario.id);
+        if ((!candidato || isCandidatoIncompleto(candidato)) && !keep) {
+          return redirecionarFluxoCandidato(usuario.id, res);
+        }
+
+        const localidade = [candidato?.cidade, candidato?.estado, candidato?.pais]
+          .filter(Boolean).join(', ');
+
+        req.session.candidato = {
+          id: candidato?.id ?? null,
+          usuario_id: usuario.id,
+          nome: candidato?.nome || '',
+          sobrenome: candidato?.sobrenome || '',
+          email: usuario.email,
+          tipo: 'candidato',
+          telefone: candidato?.telefone || '',
+          dataNascimento: candidato?.data_nascimento || null,
+          foto_perfil: candidato?.foto_perfil || '',
+          localidade,
+          areas: candidato?.candidato_area?.map(r => r.area_interesse.nome) || []
+        };
+
+        req.session.usuario = {
+          id: usuario.id,
+          tipo: 'candidato',
+          nome: candidato?.nome || '',
+          sobrenome: candidato?.sobrenome || '',
+          skipCadastro: false,
+        };
+
+        const destino = req.session.returnTo || '/candidatos/home';
+        delete req.session.returnTo;
+        return req.session.save(() => res.redirect(destino));
+      }
+
+      return res.redirect('/cadastro');
+    });
+
   } catch (err) {
     console.error('Erro ao realizar login:', err);
     req.session.erro = 'Erro ao realizar login.';

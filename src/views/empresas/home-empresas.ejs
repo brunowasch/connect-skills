@@ -309,7 +309,25 @@
   </main>
 
   <%- include('../partials/footer') %>
-
+  <% if (!sessionRemember) { %>
+<script>
+  (function () {
+    function sendBye() {
+      try {
+        const url = '/usuarios/_leave';
+        const data = new Blob([], { type: 'application/octet-stream' });
+        navigator.sendBeacon?.(url, data);
+      } catch (e) { /* silencioso */ }
+    }
+    // Dispara em navegação/fechamento (mais confiável que beforeunload)
+    window.addEventListener('pagehide', sendBye, { capture: true });
+    // Safari antigos
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') sendBye();
+    });
+  })();
+</script>
+<% } %>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     document.querySelectorAll('.progress-bar[data-progress]').forEach(el => {

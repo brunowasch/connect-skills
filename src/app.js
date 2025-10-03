@@ -83,16 +83,17 @@ const sessionStore = new MySQLStore({
 
 app.use(session({
   name: 'connectskills.sid',
-  secret: process.env.SECRET_SESSION || process.env.SESSION_SECRET || 'connectskills-secret',
+  secret: process.env.SECRET_SESSION || 'connectskills-secret',
   resave: false,
   saveUninitialized: false,
   store: sessionStore,
+  rolling: false,
+  unset: 'destroy',
   cookie: {
     httpOnly: true,
     secure: isProd,
     sameSite: 'lax',
-    maxAge: 1000 * 60 * 60 * 24 * 7, 
-  },
+  }
 }));
 
 app.use(passport.initialize());
@@ -112,6 +113,7 @@ app.use((req, res, next) => {
   res.locals.candidato = req.session.candidato || null;
   res.locals.empresa   = req.session.empresa || null;
   res.locals.usuario   = req.session.usuario || res.locals.candidato || res.locals.empresa || null;
+  res.locals.sessionRemember = Boolean(req.session?.remember); 
   next();
 });
 
@@ -124,6 +126,18 @@ app.use(empresaArquivoRoutes);
 app.use('/usuarios', usuarioRoutes);
 app.use('/candidatos', candidatoRoutes);
 app.use('/empresas', empresaRoutes);
+
+app.post('/usuarios/_leave', (req, res) => {
+  try {
+    if (req.session?.usuario && !req.session?.remember) {
+      req.session.destroy(() => res.sendStatus(204));
+    } else {
+      res.sendStatus(204);
+    }
+  } catch {
+    res.sendStatus(204);
+  }
+});
 
 app.get('/healthz', (_req, res) => {
   res.status(200).json({ status: 'ok', time: new Date().toISOString() });
