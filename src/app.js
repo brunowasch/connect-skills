@@ -78,7 +78,7 @@ const sessionStore = new MySQLStore({
   waitForConnections: true,
   queueLimit: 0,
 
-  disableTouch: true,
+  disableTouch: false,
 });
 
 app.use(session({
@@ -129,7 +129,8 @@ app.use('/empresas', empresaRoutes);
 
 app.post('/usuarios/_leave', (req, res) => {
   try {
-    if (req.session?.usuario && !req.session?.remember) {
+    const externalLeave = req.get('X-External-Leave') === '1';
+    if (externalLeave && req.session?.usuario && !req.session?.remember) {
       req.session.destroy(() => res.sendStatus(204));
     } else {
       res.sendStatus(204);

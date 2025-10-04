@@ -258,7 +258,6 @@ async function resetParcialEmpresa(usuarioId) {
   });
 }
 
-// === criarUsuario (ajustada) ===
 exports.criarUsuario = async (req, res) => {
   let { email, senha, tipo } = req.body;
   if (!email || !senha || !tipo) {
@@ -272,22 +271,18 @@ exports.criarUsuario = async (req, res) => {
     const usuarioExistente = await usuarioModel.buscarPorEmail(emailNormalizado);
 
     if (usuarioExistente) {
-      // E-mail já existe
       if (usuarioExistente.email_verificado) {
         const usuarioId = usuarioExistente.id;
 
-        // Carrega perfis existentes
         const cand = await candidatoModel.obterCandidatoPorUsuarioId(usuarioId);
         const emp  = await empresaModel.obterEmpresaPorUsuarioId(usuarioId);
         const jaTemCandidato = !!cand;
         const jaTemEmpresa   = !!emp;
 
-        // Se já existe QUALQUER perfil, congela tipo e bloqueia criar o outro
         if (jaTemCandidato || jaTemEmpresa) {
           const tipoAtual = jaTemCandidato ? 'candidato' : 'empresa';
 
           if (tipo !== tipoAtual) {
-            // Conflito de tipo — mostra modal e envia e-mail de confirmação de ação
             await enviarEmailConfirmacaoAcao(emailNormalizado, usuarioId, tipoAtual);
             return res.status(200).render('auth/cadastro', {
               erro: `Este e-mail já possui um perfil do tipo ${tipoAtual}. Para mudar, exclua o perfil atual antes.`,
@@ -298,7 +293,6 @@ exports.criarUsuario = async (req, res) => {
             });
           }
 
-          // Mesmo tipo: se incompleto, abre modal + envia e-mail; se completo, mostra aviso com link de login
           const incompleto = (tipoAtual === 'candidato')
             ? isCandidatoIncompleto(cand)
             : isEmpresaIncompleto(emp);
@@ -314,7 +308,6 @@ exports.criarUsuario = async (req, res) => {
             });
           }
 
-          // Cadastro COMPLETO - renderiza a própria tela de cadastro com aviso + link de login
           return res.status(200).render('auth/cadastro', {
             erro: 'Já existe uma conta com este e-mail. <a href="/login" class="text-primary">Clique aqui para fazer login</a>.',
             emailPrefill: emailNormalizado,
@@ -324,12 +317,10 @@ exports.criarUsuario = async (req, res) => {
           });
         }
 
-        // NÃO tem perfil ainda -> agora pode fixar o tipo (uma única vez)
         if (usuarioExistente.tipo !== tipo) {
           await usuarioModel.atualizarUsuario(usuarioId, { tipo });
         }
 
-        // Primeiro perfil do tipo selecionado — mostra modal e também manda e-mail de confirmação de ação
         await enviarEmailConfirmacaoAcao(emailNormalizado, usuarioId, tipo);
 
         return res.status(200).render('auth/cadastro', {
@@ -341,7 +332,6 @@ exports.criarUsuario = async (req, res) => {
         });
       }
 
-      // E-mail existe, mas ainda não verificado -> atualiza senha/tipo e reenvia verificação padrão
       const salt = await bcrypt.genSalt(10);
       const senhaCriptografada = await bcrypt.hash(senha, salt);
 
@@ -351,7 +341,6 @@ exports.criarUsuario = async (req, res) => {
       return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(emailNormalizado)}`);
     }
 
-    // Usuário novo
     const salt = await bcrypt.genSalt(10);
     const senhaCriptografada = await bcrypt.hash(senha, salt);
 
@@ -416,6 +405,7 @@ exports.login = async (req, res) => {
         if ('maxAge' in req.session.cookie) delete req.session.cookie.maxAge;
         req.session.cookie.expires = undefined;
       }
+      req.session.save();
 
       if (usuario.tipo === 'empresa') {
         const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario.id);
@@ -732,14 +722,13 @@ exports.confirmarAcaoCadastro = async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const usuario_id = Number(decoded.id);
     const tipo = decoded.tipo;
-    const acao = decoded.acao; // 'continuar' | 'reiniciar'
+    const acao = decoded.acao;
 
     if (!usuario_id || !tipo || !acao) {
       req.session.erro = 'Dados do token incompletos.';
       return res.redirect('/cadastro');
     }
 
-    // Segurança extra: valida se o usuário existe e está verificado
     const usuario = await usuarioModel.buscarPorId(usuario_id);
     if (!usuario || !usuario.email_verificado) {
       req.session.erro = 'Ação não permitida para esta conta.';
@@ -752,7 +741,6 @@ exports.confirmarAcaoCadastro = async (req, res) => {
     }
 
     if (acao === 'reiniciar') {
-      // Limpa sessão
       delete req.session.candidato;
       delete req.session.empresa;
 
@@ -776,17 +764,14 @@ exports.confirmarAcaoCadastro = async (req, res) => {
 };
 
 exports.pularCadastro = (req, res) => {
-  // garante objeto de sessão
   if (!req.session.usuario) req.session.usuario = {};
   req.session.usuario.skipCadastro = true;
 
-  // marca também na sessão específica se existir
   if (req.session.candidato) req.session.candidato.skipCadastro = true;
   if (req.session.empresa) req.session.empresa.skipCadastro = true;
 
-  // cookie persistente (1 ano)
   res.cookie('cs_skipCadastro', '1', {
-    httpOnly: false, // pode ser true se preferir
+    httpOnly: false, 
     sameSite: 'lax',
     maxAge: 31536000000
   });
