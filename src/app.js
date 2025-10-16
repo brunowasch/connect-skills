@@ -63,6 +63,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads'), {
   immutable: true,
 }));
 
+const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
 const sessionStore = new MySQLStore({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT || 3306),
@@ -71,14 +72,18 @@ const sessionStore = new MySQLStore({
   database: process.env.DB_NAME,
 
   clearExpired: true,
-  checkExpirationInterval: 1000 * 60 * 20, // 20 min
-  expiration: 1000 * 60 * 60 * 24 * 7,     // 7 dias
-
-  connectionLimit: 10,
-  waitForConnections: true,
-  queueLimit: 0,
-
+  checkExpirationInterval: 1000 * 60 * 60, 
+  expiration: THIRTY_DAYS,                
   disableTouch: false,
+});
+
+app.use((req, _res, next) => {
+  try {
+    if (req.session?.remember) {
+      req.session.touch();
+    }
+  } catch {}
+  next();
 });
 
 app.use(session({
@@ -126,19 +131,6 @@ app.use(empresaArquivoRoutes);
 app.use('/usuarios', usuarioRoutes);
 app.use('/candidatos', candidatoRoutes);
 app.use('/empresas', empresaRoutes);
-
-app.post('/usuarios/_leave', (req, res) => {
-  try {
-    const externalLeave = req.get('X-External-Leave') === '1';
-    if (externalLeave && req.session?.usuario && !req.session?.remember) {
-      req.session.destroy(() => res.sendStatus(204));
-    } else {
-      res.sendStatus(204);
-    }
-  } catch {
-    res.sendStatus(204);
-  }
-});
 
 app.get('/healthz', (_req, res) => {
   res.status(200).json({ status: 'ok', time: new Date().toISOString() });
