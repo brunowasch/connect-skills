@@ -782,6 +782,7 @@ exports.rankingCandidatos = async (req, res) => {
 
       return {
         pos: idx + 1,
+        candidato_id: c.id,
         nome,
         local,
         telefone,
