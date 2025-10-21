@@ -90,9 +90,18 @@
             </div>
           </div>
 
-          <a href="/candidato/editar-perfil" class="btn btn-primary btn-sm">
-            <i class="bi bi-pencil-square me-1"></i> Editar perfil
-          </a>
+          <div class="d-flex align-items-center gap-2 ms-md-auto perfil-actions">
+            <a href="/candidato/editar-perfil" class="btn btn-primary btn-sm">
+              <i class="bi bi-pencil-square me-1"></i> Editar perfil
+            </a>
+
+          <button class="btn btn-outline-secondary btn-sm"
+                  data-candidato-id="<%= candidato?.id %>"
+                  title="Copiar link público do perfil do candidato"
+                  onclick="copiarLinkPerfilPublicoCandidato(this)">
+            <i class="bi bi-link-45deg"></i>
+          </button>
+          <small id="msgCopiadoCandidato" class="text-success" style="display:none;">Copiado!</small>
         </div>
       </div>
     </div>
@@ -193,5 +202,40 @@
 
 <%- include('../partials/footer') %>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  function copiarLinkPerfilPublicoCandidato(btn) {
+    const candidatoId = btn.getAttribute('data-candidato-id');
+    const url = `${window.location.origin}/candidatos/perfil/${candidatoId}`;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => mostrarMsgCopiadoCandidato())
+        .catch(() => fallbackCopyCandidato(url));
+    } else {
+      fallbackCopyCandidato(url);
+    }
+  }
+
+  function fallbackCopyCandidato(texto) {
+    try {
+      const input = document.createElement('input');
+      input.value = texto;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      mostrarMsgCopiadoCandidato();
+    } catch (_) {
+      alert('Copie o link: ' + texto);
+    }
+  }
+
+  function mostrarMsgCopiadoCandidato() {
+    const msg = document.getElementById('msgCopiadoCandidato');
+    if (!msg) return;
+    msg.style.display = 'inline';
+    setTimeout(() => (msg.style.display = 'none'), 1500);
+  }
+</script>
 </body>
 </html>

@@ -78,6 +78,62 @@ const normUrl = (u) => {
   return s;
 };
 
+function parseTelefoneBR(telRaw) {
+  const tel = (telRaw || '').trim();
+  if (!tel) return { ddi: '', ddd: '', numeroFormatado: '' };
+
+  // 1) Nosso formato salvo: +DD-XX-<resto...>
+  if (tel.includes('-')) {
+    const partes = tel.split('-').map(p => p.trim()).filter(Boolean);
+    let ddi = partes[0] || '';
+    let ddd = partes[1] || '';
+    const resto = partes.slice(2).join('');
+    const numeros = resto.replace(/\D/g, '');
+
+    let numeroFormatado = '';
+    if (numeros.length >= 9) {
+      numeroFormatado = `${numeros.slice(0, 5)}-${numeros.slice(5, 9)}`;
+    } else if (numeros.length === 8) {
+      numeroFormatado = `${numeros.slice(0, 4)}-${numeros.slice(4, 8)}`;
+    } else {
+      numeroFormatado = partes.slice(2).join('-'); // fallback
+    }
+
+    ddi = ddi.startsWith('+') ? ddi : (ddi ? `+${ddi}` : '+55');
+    ddd = ddd.replace(/\D/g, '');
+    return { ddi, ddd, numeroFormatado };
+  }
+
+  // 2) Formatos soltos: "+55 (51) 99217-9330" etc.
+  const m = tel.match(/^(\+\d+)?\s*\(?(\d{2,3})\)?\s*([\d\- ]{7,})$/);
+  if (m) {
+    const ddi = (m[1] || '+55').trim();
+    const ddd = (m[2] || '').trim();
+    const numeros = (m[3] || '').replace(/\D/g, '');
+
+    let numeroFormatado = '';
+    if (numeros.length >= 9) {
+      numeroFormatado = `${numeros.slice(0, 5)}-${numeros.slice(5, 9)}`;
+    } else if (numeros.length === 8) {
+      numeroFormatado = `${numeros.slice(0, 4)}-${numeros.slice(4, 8)}`;
+    } else {
+      numeroFormatado = numeros;
+    }
+    return { ddi, ddd, numeroFormatado };
+  }
+
+  // 3) Fallback
+  return { ddi: '', ddd: '', numeroFormatado: '' };
+}
+
+function sanitizeDdi(ddi) {
+  const s = String(ddi || '').toLowerCase().trim();
+  if (!s || s.includes('undefined')) return '+55';
+  const only = s.replace(/[^+\d]/g, '');
+  if (!/\d/.test(only)) return '+55';
+  return only.startsWith('+') ? only : `+${only}`;
+}
+
 // util tamanho legível
 function humanFileSize(bytes) {
   if (!bytes || bytes <= 0) return '0 B';
@@ -512,7 +568,19 @@ exports.renderMeuPerfil = async (req, res) => {
       return { ddi: '', ddd: '', numeroFormatado: '' };
     }
 
-    const { ddi, ddd, numeroFormatado } = parseTelefoneBR(candidato.telefone);
+    let { ddi, ddd, numeroFormatado } = parseTelefoneBR(candidato.telefone);
+    ddi = sanitizeDdi(ddi);
+
+    function sanitizeDdi(ddi) {
+      const s = String(ddi || '').toLowerCase().trim();
+      if (!s || s.includes('undefined')) return '+55';
+      // mantém apenas + e dígitos
+      const only = s.replace(/[^+\d]/g, '');
+      // precisa ter pelo menos um dígito
+      if (!/\d/.test(only)) return '+55';
+      // garantir que começa com +
+      return only.startsWith('+') ? only : `+${only}`;
+    }
 
     res.render('candidatos/meu-perfil', {
       candidato,
@@ -1586,5 +1654,68 @@ exports.pularCadastroCandidato = async (req, res) => {
     console.error('[pularCadastroCandidato] erro:', err?.message || err);
     req.session.erro = 'Não foi possível pular o complemento agora.';
     return res.redirect('/login');
+  }
+};
+
+exports.perfilPublicoCandidato = async (req, res) => {
+  try {
+    const idParam = req.params.id;
+    const candidatoId = Number(idParam);
+    if (!Number.isFinite(candidatoId) || candidatoId <= 0) {
+      return res.status(400).render('shared/404', { mensagem: 'ID de candidato inválido.' });
+    }
+
+    const candidato = await prisma.candidato.findUnique({
+      where: { id: candidatoId },
+      include: {
+        usuario: { select: { email: true, nome: true, sobrenome: true } },
+        candidato_area: { include: { area_interesse: { select: { id: true, nome: true } } } },
+        candidato_link: { orderBy: { ordem: 'asc' }, select: { id: true, label: true, url: true, ordem: true } },
+        candidato_arquivo: {
+          orderBy: { criadoEm: 'desc' },
+          select: { id: true, nome: true, mime: true, tamanho: true, url: true, criadoEm: true }
+        }
+      }
+    });
+
+    if (!candidato) {
+      return res.status(404).render('shared/404', { mensagem: 'Candidato não encontrado.' });
+    }
+
+    // Foto
+    const fotoPerfil = (candidato.foto_perfil && String(candidato.foto_perfil).trim() !== '')
+      ? String(candidato.foto_perfil).trim()
+      : '/img/avatar.png';
+
+    // Localidade
+    const localidade = [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ');
+    
+    let { ddi, ddd, numeroFormatado } = parseTelefoneBR(candidato.telefone);
+    ddi = sanitizeDdi(ddi);
+    const telefoneExibicao = (ddd && numeroFormatado)
+      ? `${ddi} (${ddd}) ${numeroFormatado}`
+      : (String(candidato.telefone || '').replace(/\+undefined/gi, '').trim());
+    
+      // Áreas
+    const areas = (candidato.candidato_area || [])
+      .map(ca => ca.area_interesse?.nome)
+      .filter(Boolean);
+
+    // Formatação básica de telefone (mantendo o que vier, se houver)
+    const telefone = (candidato.telefone || '').trim();
+
+    // Entrega para a view pública (vamos criar depois)
+    return res.render('candidatos/perfil-publico-candidatos', {
+      candidato,
+      fotoPerfil,
+      localidade,
+      areas,
+      links: candidato.candidato_link || [],
+      arquivos: candidato.candidato_arquivo || [],
+      telefoneExibicao
+    });
+  } catch (err) {
+    console.error('Erro ao carregar perfil público do candidato:', err?.message || err);
+    return res.status(500).render('shared/500', { erro: 'Erro interno do servidor' });
   }
 };

@@ -27,6 +27,8 @@ router.post('/cadastro/foto-perfil', uploadCandidato.single('novaFoto'), candida
 router.get('/cadastro/areas', candidatoController.telaSelecionarAreas);
 router.post('/cadastro/areas', candidatoController.salvarAreas);
 
+router.get('/perfil/:id', candidatoController.perfilPublicoCandidato);
+
 // Rotas autenticadas
 router.get('/home', ensureCandidato, candidatoController.telaHomeCandidato);
 router.get('/meu-perfil', ensureCandidato, candidatoController.renderMeuPerfil);
