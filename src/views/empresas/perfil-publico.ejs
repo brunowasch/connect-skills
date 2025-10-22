@@ -23,8 +23,42 @@
     .file-meta { font-size:.9rem; color:#6c757d; }
   </style>
 </head>
-<body class="bg-light" data-pode-testar="<%= (typeof podeTestar !== 'undefined' && podeTestar) ? '1' : '0' %>">
 
+<body class="bg-light" data-pode-testar="<%= (typeof podeTestar !== 'undefined' && podeTestar) ? '1' : '0' %>">
+            <%
+          function toViewUrl(u) {
+            try {
+              let url = String(u || '').trim();
+              if (!url) return '';
+
+              // Google Drive: /file/d/{id} -> uc?export=view&id={id}
+              if (/drive\.google\.com\/file\/d\//.test(url)) {
+                const id = url.match(/\/file\/d\/([^/]+)/)?.[1];
+                if (id) return `https://drive.google.com/uc?export=view&id=${id}`;
+              }
+
+              // Dropbox: ?dl=1/0 -> ?raw=1 (abre no navegador)
+              url = url.replace(/\?dl=1\b/, '?raw=1').replace(/\?dl=0\b/, '?raw=1');
+
+              // Cloudinary: remove fl_attachment e flags de download
+              url = url
+                .replace(/\/upload\/(?:[^/]*,)?fl_attachment(?:[^/]*,)?\//, '/upload/')
+                .replace(/(\?|&)fl_attachment(=[^&]*)?/gi, '')
+                .replace(/(\?|&)response-content-disposition=attachment/gi, '');
+
+              // S3/Genérico: force inline se vier attachment
+              url = url.replace(/response-content-disposition=attachment/gi, 'response-content-disposition=inline');
+
+              // genérico: download=1
+              url = url.replace(/(\?|&)download=1\b/gi, '$1');
+
+              if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+              return url;
+            } catch (e) {
+              return u;
+            }
+          }
+          %>
   <% if (typeof include !== 'undefined') { %>
     <%- include('../partials/flash-messages') %>
   <% } %>
@@ -108,9 +142,9 @@
                   </div>
                 </div>
               </div>
-              <a href="<%= url %>" target="_blank" class="btn btn-sm btn-outline-primary">
-                Abrir
-              </a>
+                <a href="/public/empresa/anexos/<%= f.id %>/abrir" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                  Abrir
+                </a>
             </div>
           <% }) %>
         </div>

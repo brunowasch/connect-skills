@@ -55,10 +55,41 @@
   </style>
 </head>
 <body>
+<%
+function toViewUrl(u) {
+  try {
+    let url = String(u || '').trim();
+    if (!url) return '';
 
+    // Google Drive: /file/d/{id} -> visualização
+    if (/drive\.google\.com\/file\/d\//.test(url)) {
+      const id = url.match(/\/file\/d\/([^/]+)/)?.[1];
+      if (id) return `https://drive.google.com/uc?export=view&id=${id}`;
+    }
+
+    // Dropbox: forçar visualização
+    url = url.replace(/\?dl=1\b/, '?raw=1').replace(/\?dl=0\b/, '?raw=1');
+
+    // Cloudinary: remover download forçado
+    url = url
+      .replace(/\/upload\/(?:[^/]*,)?fl_attachment(?:[^/]*,)?\//, '/upload/')
+      .replace(/(\?|&)fl_attachment(=[^&]*)?/gi, '')
+      .replace(/(\?|&)response-content-disposition=attachment/gi, '');
+
+    // S3/Genérico: trocar attachment -> inline
+    url = url.replace(/response-content-disposition=attachment/gi, 'response-content-disposition=inline');
+
+    // genérico: download=1 -> remove
+    url = url.replace(/(\?|&)download=1\b/gi, '$1');
+
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    return url;
+  } catch (e) {
+    return u;
+  }
+}
+%>
   <main class="container py-5">
-
-    <!-- Cabeçalho do perfil -->
     <section class="perfil-card mb-4">
       <div class="d-flex flex-column flex-md-row align-items-center gap-3">
         <img class="avatar" src="<%= fotoPerfil || '/img/avatar.png' %>" alt="Foto do candidato">
@@ -198,7 +229,7 @@
                     </div>
                   </div>
                   <div class="d-flex align-items-center gap-2">
-                    <a class="btn btn-sm btn-outline-primary" href="<%= url %>" target="_blank" rel="noopener">
+                    <a class="btn btn-sm btn-outline-primary" href="/public/candidato/anexos/<%= f.id %>/abrir" target="_blank" rel="noopener">
                       <i class="bi bi-box-arrow-up-right"></i> Abrir
                     </a>
                   </div>

@@ -180,3 +180,51 @@ exports.salvarLink = async (req, res) => {
     return res.redirect('/empresa/editar-empresa');
   }
 };
+
+exports.abrirAnexoPublico = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID inválido.');
+
+    const ax = await prisma.empresa_arquivo.findUnique({
+      where: { id },
+      select: { url: true, nome: true, mime: true }
+    });
+    if (!ax || !ax.url) return res.status(404).send('Anexo não encontrado.');
+
+    const url  = String(ax.url).trim();
+    const nome = (ax.nome || 'arquivo.pdf').replace(/"/g, '');
+    const mime = (ax.mime || '').toLowerCase();
+
+    const upstream = await axios.get(url, {
+      responseType: 'stream',
+      headers: { ...(req.headers.range ? { Range: req.headers.range } : {}), Accept: 'application/pdf,image/*,*/*' },
+      maxRedirects: 5,
+      decompress: false,
+      validateStatus: () => true
+    });
+
+    res.status(upstream.status === 206 ? 206 : 200);
+    res.removeHeader('X-Content-Type-Options');
+
+    if (mime) res.setHeader('Content-Type', mime);
+    else if (upstream.headers['content-type']) res.setHeader('Content-Type', upstream.headers['content-type']);
+    else res.setHeader('Content-Type', 'application/pdf');
+
+    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+    if (upstream.headers['content-range'])  res.setHeader('Content-Range',  upstream.headers['content-range']);
+    if (upstream.headers['accept-ranges'])  res.setHeader('Accept-Ranges',  upstream.headers['accept-ranges']);
+    if (upstream.headers['last-modified'])  res.setHeader('Last-Modified',  upstream.headers['last-modified']);
+    if (upstream.headers['etag'])           res.setHeader('ETag',           upstream.headers['etag']);
+    if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
+
+    // Exibir inline no navegador
+    res.setHeader('Content-Disposition', `inline; filename="${nome}"`);
+
+    upstream.data.on('error', () => { if (!res.headersSent) res.status(502); res.end(); });
+    upstream.data.pipe(res);
+  } catch (e) {
+    console.error('[empresaArquivoController.abrirAnexoPublico] erro:', e?.message || e);
+    if (!res.headersSent) res.status(500).send('Falha ao abrir o anexo.');
+  }
+};
