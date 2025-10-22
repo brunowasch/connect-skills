@@ -13,6 +13,7 @@
     .perfil-foto { width: 250px; height: 250px; object-fit: cover; }
     @media (max-width: 576px) { .perfil-foto { width: 180px; height: 180px; } }
     .link-row .bi-trash { cursor: pointer; color: #dc3545; }
+    .contador { font-size: .85rem; color: #6c757d; }
   </style>
 </head>
 <body class="page-editar-perfil">
@@ -104,6 +105,27 @@
               <input id="numero" name="numero" type="text" class="form-control text-center" maxlength="11" style="width: 180px;" value="<%= numero %>" oninput="formatarNumero(this)">
             </div>
           </div>
+
+          <!-- DESCRIÇÃO / SOBRE MIM -->
+          <div class="mb-3">
+            <label for="descricao" class="form-label d-flex align-items-center gap-2">
+              <i class="bi bi-person-lines-fill"></i>
+              Descrição (sobre você) <span class="text-muted">(opcional)</span>
+            </label>
+            <textarea
+              id="descricao"
+              name="descricao"
+              class="form-control"
+              rows="5"
+              maxlength="600"
+              placeholder="Conte um pouco sobre você: objetivos, experiências, cursos, valores, projetos principais…"
+            ><%= (typeof descricao !== 'undefined' && descricao !== null) ? descricao : (candidato?.descricao || '') %></textarea>
+            <div class="d-flex justify-content-between mt-1">
+              <small class="text-muted">Dica: foque no que te destaca para as vagas que você busca.</small>
+              <small class="contador"><span id="descContador">0</span>/600</small>
+            </div>
+          </div>
+          <!-- /DESCRIÇÃO -->
 
           <div class="mb-4">
             <div class="d-flex align-items-center justify-content-between">
@@ -306,6 +328,19 @@
         document.getElementById('deleteAnexoNome').textContent = nome || '';
       });
     }
+
+    // Contador de caracteres da descrição
+    (function () {
+      const ta = document.getElementById('descricao');
+      const span = document.getElementById('descContador');
+      if (!ta || !span) return;
+      const max = parseInt(ta.getAttribute('maxlength') || '600', 10);
+      const update = () => { span.textContent = (ta.value || '').length; };
+      ta.addEventListener('input', update);
+      // inicial
+      if (ta.value && ta.value.length > max) ta.value = ta.value.slice(0, max);
+      update();
+    })();
   </script>
 </body>
 </html>

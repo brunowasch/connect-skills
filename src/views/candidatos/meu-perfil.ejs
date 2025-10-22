@@ -22,6 +22,7 @@
     .list-group-item { padding-top: .6rem; padding-bottom: .6rem; }
     .section-title { font-size: 1.15rem; font-weight: 600; display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
     .perfil-header { row-gap: 1rem; }
+    .sobre-mim { white-space: pre-wrap; }
   </style>
 </head>
 <body class="bg-light">
@@ -88,6 +89,25 @@
                 <% } %>
               </span>
             </div>
+
+            <!-- SOBRE MIM (logo abaixo da data de nascimento) -->
+            <div class="mt-2">
+              <% const _descricao = (typeof descricao !== 'undefined' && descricao !== null) ? descricao : (candidato?.descricao || ''); %>
+              <% if (_descricao && _descricao.trim().length) { %>
+                <div class="small text-muted mb-1 d-flex align-items-center gap-2">
+                  <i class="bi bi-person-lines-fill icon-sm"></i>
+                  <strong>Sobre mim</strong>
+                </div>
+                <p class="sobre-mim mb-0"><%= _descricao %></p>
+              <% } else { %>
+                <div class="small text-muted d-flex align-items-center gap-2">
+                  <i class="bi bi-person-lines-fill icon-sm"></i>
+                  <span>Nenhuma descrição adicionada.</span>
+                  <a href="/candidato/editar-perfil#descricao" class="text-decoration-none">Adicionar descrição</a>
+                </div>
+              <% } %>
+            </div>
+            <!-- /SOBRE MIM -->
           </div>
 
           <div class="d-flex align-items-center gap-2 ms-md-auto perfil-actions">

@@ -872,7 +872,8 @@ exports.telaEditarPerfil = async (req, res) => {
       links: cand.candidato_link || [],
       anexos,
       arquivos,
-      humanFileSize
+      humanFileSize,
+      descricao: cand.descricao || ''
     }); 
   } catch (err) {
     console.error('Erro ao carregar tela editar perfil:', err);
@@ -885,7 +886,7 @@ exports.salvarEditarPerfil = async (req, res) => {
   if (!sess) return res.redirect('/login');
 
   const candidato_id = Number(sess.id);
-  const { nome, sobrenome, localidade, ddi, ddd, numero, dataNascimento, removerFoto } = req.body;
+  const { nome, sobrenome, localidade, ddi, ddd, numero, dataNascimento, removerFoto, descricao } = req.body;
 
   const nomeTrim       = (nome || '').trim();
   const sobrenomeTrim  = (sobrenome || '').trim();
@@ -947,6 +948,10 @@ exports.salvarEditarPerfil = async (req, res) => {
       const ddiFinal = (ddi || '+55').toString().trim() || '+55';
       // Guarda exatamente como o usuário digitou (com hífen no meio do número)
       updateData.telefone = `${ddiFinal}-${dddTrim}-${numeroVisivel}`;
+    }
+    if (typeof descricao === 'string') {
+      const descTrim = descricao.trim();
+      updateData.descricao = descTrim.length ? descTrim : null;
     }
 
     if (Object.keys(updateData).length > 0) {
@@ -1020,6 +1025,7 @@ exports.salvarEditarPerfil = async (req, res) => {
       anexos,
       arquivos,
       humanFileSize,
+      descricao,
       errorMessage: 'Não foi possível atualizar seu perfil. Tente novamente.'
     });
   }
