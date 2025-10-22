@@ -52,6 +52,10 @@
       color: #0d6efd;              /* azul do Bootstrap */
       text-decoration: underline;  /* opcional: sublinha ao passar o mouse */
     }
+    .sobre-mim {
+      font-size: 0.95rem;   /* menor que o texto normal */
+      color: #495057;       /* cor mais suave */
+    }
   </style>
 </head>
 <body>
@@ -120,6 +124,17 @@ function toViewUrl(u) {
             <% if (dnStr) { %><span class="muted"><i class="bi bi-calendar3"></i> Data de nascimento: <%= dnStr %></span><% } %>
             <% if (tel)  { %><span class="muted"><i class="bi bi-telephone"></i> <%= tel %></span><% } %>
           </div>
+          <% 
+          const sobreMim = (candidato?.descricao || '').trim(); %>
+          <% if (sobreMim) { %>
+            <div class="mt-2">
+              <div class="small text-muted mb-1 d-flex align-items-center gap-2">
+                <i class="bi bi-person-lines-fill icon-sm"></i>
+                <strong>Sobre mim</strong>
+              </div>
+              <p class="sobre-mim mb-0" style="white-space: pre-wrap;"><%= sobreMim %></p>
+            </div>
+          <% } %>
         </div>
       </div>
 
