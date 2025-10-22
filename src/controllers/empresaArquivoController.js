@@ -1,248 +1,95 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { cloudinary } = require('../config/cloudinary');
-const path = require('path');
 const axios = require('axios');
 
-function humanFileSize(bytes) {
-  if (!bytes || bytes <= 0) return '0 B';
-  const thresh = 1024;
-  if (Math.abs(bytes) < thresh) return bytes + ' B';
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let u = -1;
-  do { bytes /= thresh; ++u; } while (Math.abs(bytes) >= thresh && u < units.length - 1);
-  return bytes.toFixed(1) + ' ' + units[u];
-}
-function fixMojibake(str) {
-  if (!str) return str;
-  if (/[Ã�]/.test(str)) {
-    try { return Buffer.from(str, 'latin1').toString('utf8'); } catch { return str; }
-  }
-  return str;
-}
-function tryExtractPublicIdFromCloudinaryUrl(url) {
-  try {
-    const urlObj = new URL(url);
-    if (!urlObj.hostname.includes('res.cloudinary.com')) return null;
-    const parts = urlObj.pathname.split('/upload/');
-    if (parts.length < 2) return null;
-    const afterUpload = parts[1].replace(/^v[0-9]+\//, '');
-    const withoutExt = afterUpload.replace(/\.[a-z0-9]+$/i, '');
-    return withoutExt;
-  } catch {
-    return null;
-  }
-}
-function slugify(s) {
-  return String(s)
-    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9._-]+/g, '-')
-    .replace(/-+/g, '-').replace(/^-|-$/g, '')
-    .toLowerCase();
-}
-
-async function getEmpresaBySession(req) {
-  const sess = req.session?.empresa;
-  if (!sess?.id) throw new Error('Acesso negado: empresa não autenticada.');
-  const empresa = await prisma.empresa.findUnique({ where: { id: Number(sess.id) } });
-  if (!empresa) throw new Error('Empresa não encontrada para este usuário.');
-  return empresa;
-}
-
 exports.uploadAnexos = async (req, res) => {
-  const back = '/empresa/editar-empresa';
   try {
-    const empresa = await getEmpresaBySession(req);
-
-    const files = req.files || [];
-    if (!files.length) {
-      req.flash?.('erro', 'Nenhum arquivo enviado.');
-      return res.redirect(back);
+    const emp = req.session?.empresa;
+    if (!emp?.id) {
+      if (req.flash) req.flash('erro', 'Faça login para enviar anexos.');
+      return res.redirect('/login');
     }
 
-    let count = 0;
-    for (const file of files) {
-      const originalNameRaw = file.originalname || 'arquivo';
-      const parsed = path.parse(originalNameRaw);
-      const fixedBase = fixMojibake(parsed.name);
-      const finalName = fixedBase + (parsed.ext || '');
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (!files.length) {
+      if (req.flash) req.flash('erro', 'Selecione ao menos um arquivo.');
+      return res.redirect('/empresa/editar-empresa');
+    }
 
-      const folder = `connect-skills/empresas/${empresa.id}/anexos`;
+    if (!cloudinary?.uploader) {
+      if (req.flash) req.flash('erro', 'Storage não configurado (Cloudinary).');
+      return res.redirect('/empresa/editar-empresa');
+    }
 
-      const isImage = /^image\//i.test(file.mimetype);
-      const isPDF = file.mimetype === 'application/pdf';
+    let enviados = 0;
+    for (const f of files) {
+      const dataUri = `data:${f.mimetype};base64,${f.buffer.toString('base64')}`;
+
+      // Igual ao candidato: PDF => raw, imagem => image, restante => auto
+      const isImage = /^image\//i.test(f.mimetype);
+      const isPDF   = f.mimetype === 'application/pdf';
       const resourceType = isPDF ? 'raw' : (isImage ? 'image' : 'auto');
 
-      const publicId = `${slugify(fixedBase)}-${Date.now()}`;
-
-      const uploadResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            folder,
-            resource_type: resourceType,
-            public_id: publicId,
-            overwrite: false,
-            use_filename: true,
-            unique_filename: false,
-          },
-          (error, result) => (error ? reject(error) : resolve(result))
-        );
-        stream.end(file.buffer);
+      const up = await cloudinary.uploader.upload(dataUri, {
+        folder: 'connect-skills/empresa/anexos',
+        resource_type: resourceType,
+        use_filename: true
       });
+
+      const url = up?.secure_url || up?.url || null;
+      if (!url) throw new Error('Falha ao obter secure_url do Cloudinary.');
 
       await prisma.empresa_arquivo.create({
         data: {
-          empresa_id: empresa.id,
-          nome: finalName,
-          url: uploadResult.secure_url,
-          mime: file.mimetype,
-          tamanho: file.size,
-        },
+          empresa_id: Number(emp.id),
+          nome: String(f.originalname || 'arquivo').slice(0, 255),
+          mime: String(f.mimetype || 'application/octet-stream').slice(0, 100),
+          tamanho: Number(f.size || up.bytes || 0),
+          url
+        }
       });
 
-      count++;
+      enviados++;
     }
 
-    req.flash?.('msg', `${count} arquivo(s) enviado(s) com sucesso.`);
-    res.redirect(back);
-  } catch (err) {
-    console.error('Erro no upload de anexos (empresa):', err);
-    req.flash?.('erro', 'Falha ao enviar arquivos. Tente novamente.');
-    res.redirect('/empresa/editar-empresa');
-  }
-};
-
-// ===== Salvar link =====
-exports.salvarLink = async (req, res) => {
-  const back = '/empresa/editar-empresa';
-  try {
-    const empresa = await getEmpresaBySession(req);
-    let { label, url } = req.body;
-
-    url = String(url || '').trim();
-    if (!/^https?:\/\/.+/i.test(url)) {
-      req.flash?.('erro', 'Informe uma URL válida iniciando com http(s)://');
-      return res.redirect(back);
-    }
-
-    const nome = fixMojibake(String(label || 'Link').trim());
-
-    // Guarda link na tabela própria
-    const ordemMax = await prisma.empresa_link.aggregate({
-      where: { empresa_id: empresa.id },
-      _max: { ordem: true }
-    });
-    const proxOrdem = (ordemMax._max.ordem ?? 0) + 1;
-
-    await prisma.empresa_link.create({
-      data: {
-        empresa_id: empresa.id,
-        label: nome,
-        url,
-        ordem: proxOrdem
-      }
-    });
-
-    req.flash?.('msg', 'Link adicionado com sucesso.');
-    res.redirect(back);
-  } catch (err) {
-    console.error('Erro ao salvar link (empresa):', err);
-    req.flash?.('erro', 'Não foi possível salvar o link.');
-    res.redirect('/empresa/editar-empresa');
-  }
-};
-
-// ===== Deletar anexo =====
-exports.deletarAnexo = async (req, res) => {
-  const back = '/empresa/editar-empresa';
-  try {
-    const empresa = await getEmpresaBySession(req);
-    const { id } = req.params;
-
-    const anexo = await prisma.empresa_arquivo.findUnique({ where: { id: Number(id) } });
-    if (!anexo || anexo.empresa_id !== empresa.id) {
-      req.flash?.('erro', 'Anexo não encontrado.');
-      return res.redirect(back);
-    }
-
-    const publicId = tryExtractPublicIdFromCloudinaryUrl(anexo.url);
-    if (publicId) {
-      const mime = (anexo.mime || '').toLowerCase();
-      let primaryType = 'raw';
-      if (mime.startsWith('image/')) primaryType = 'image';
-      else if (mime.startsWith('video/')) primaryType = 'video';
-
-      try {
-        // tenta primeiro o tipo mais provável
-        await cloudinary.uploader.destroy(publicId, { resource_type: primaryType });
-      } catch (e1) {
-        // fallbacks (sem 'auto', pois o Cloudinary não aceita 'auto' no destroy)
-        await Promise.allSettled([
-          cloudinary.uploader.destroy(publicId, { resource_type: 'raw' }),
-          cloudinary.uploader.destroy(publicId, { resource_type: 'image' }),
-          cloudinary.uploader.destroy(publicId, { resource_type: 'video' }),
-        ]);
-      }
-    }
-
-    await prisma.empresa_arquivo.delete({ where: { id: anexo.id } });
-    req.flash?.('msg', 'Anexo excluído com sucesso.');
-    res.redirect(back);
-  } catch (err) {
-    console.error('Erro ao excluir anexo (empresa):', err);
-    req.flash?.('erro', 'Não foi possível excluir o anexo.');
-    res.redirect('/empresa/editar-empresa');
-  }
-};
-
-// ===== Deletar link =====
-exports.deletarLink = async (req, res) => {
-  const back = '/empresa/editar-empresa';
-  try {
-    const empresa = await getEmpresaBySession(req);
-    const { id } = req.params;
-
-    const link = await prisma.empresa_link.findUnique({ where: { id: Number(id) } });
-    if (!link || link.empresa_id !== empresa.id) {
-      req.flash?.('erro', 'Link não encontrado.');
-      return res.redirect(back);
-    }
-
-    await prisma.empresa_link.delete({ where: { id: link.id } });
-    req.flash?.('msg', 'Link excluído com sucesso.');
-    res.redirect(back);
-  } catch (err) {
-    console.error('Erro ao excluir link (empresa):', err);
-    req.flash?.('erro', 'Não foi possível excluir o link.');
-    res.redirect('/empresa/editar-empresa');
+    if (req.flash) req.flash('sucesso', `${enviados} arquivo(s) enviado(s) com sucesso.`);
+    return res.redirect('/empresa/editar-empresa');
+  } catch (e) {
+    console.error('[empresaArquivoController.uploadAnexos] erro:', e);
+    if (req.flash) req.flash('erro', 'Falha ao enviar anexos. Tente novamente.');
+    return res.redirect('/empresa/editar-empresa');
   }
 };
 
 exports.abrirAnexo = async (req, res) => {
   try {
-    // empresa autenticada
-    const sess = req.session?.empresa;
-    if (!sess?.id) return res.status(401).send('Não autenticado.');
+    const emp = req.session?.empresa;
+    if (!emp?.id) return res.redirect('/login');
 
-    const { id } = req.params;
+    const id = Number(req.params.id);
+    const ax = await prisma.empresa_arquivo.findFirst({
+      where: { id, empresa_id: Number(emp.id) },
+      select: { url: true, nome: true, mime: true }
+    });
 
-    // busca anexo da empresa
-    const anexo = await prisma.empresa_arquivo.findUnique({ where: { id: Number(id) } });
-    if (!anexo || anexo.empresa_id !== Number(sess.id)) {
-      return res.status(404).send('Anexo não encontrado.');
+    if (!ax || !ax.url) {
+      req.flash?.('erro', 'Arquivo sem URL válida.');
+      return res.redirect('/empresa/editar-empresa');
     }
 
-    const url  = anexo.url;                               // secure_url do Cloudinary
-    const nome = (anexo.nome || 'arquivo.pdf').replace(/"/g, '');
-    const mime = (anexo.mime || '').toLowerCase();
+    const url  = String(ax.url).trim();
+    if (!/^https?:\/\//i.test(url)) {
+      req.flash?.('erro', 'URL do anexo inválida. Reenvie o arquivo.');
+      return res.redirect('/empresa/editar-empresa');
+    }
 
-    // baixa do Cloudinary (stream) e repassa headers adequados
+    const nome = (ax.nome || 'arquivo.pdf').replace(/"/g, '');
+    const mime = (ax.mime || '').toLowerCase();
+
     const upstream = await axios.get(url, {
       responseType: 'stream',
-      headers: {
-        ...(req.headers.range ? { Range: req.headers.range } : {}),
-        Accept: 'application/pdf,*/*',
-      },
+      headers: { ...(req.headers.range ? { Range: req.headers.range } : {}), Accept: 'application/pdf,*/*' },
       maxRedirects: 5,
       decompress: false,
       validateStatus: () => true,
@@ -251,7 +98,6 @@ exports.abrirAnexo = async (req, res) => {
     res.status(upstream.status === 206 ? 206 : 200);
     res.removeHeader('X-Content-Type-Options');
 
-    // força PDF se seu banco diz que é PDF (evita "octet-stream")
     if (mime === 'application/pdf') {
       res.setHeader('Content-Type', 'application/pdf');
     } else if (upstream.headers['content-type']) {
@@ -267,18 +113,70 @@ exports.abrirAnexo = async (req, res) => {
     if (upstream.headers['etag'])           res.setHeader('ETag',           upstream.headers['etag']);
     if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
 
-    // abre inline no browser
+    // Abrir inline no viewer do navegador (como no candidato)
     res.setHeader('Content-Disposition', `inline; filename="${nome}"`);
 
     upstream.data.on('error', (e) => {
-      console.error('Stream upstream error (empresa):', e?.message || e);
+      console.error('Stream upstream error:', e?.message || e);
       if (!res.headersSent) res.status(502);
       res.end();
     });
 
     upstream.data.pipe(res);
-  } catch (err) {
-    console.error('abrirAnexo (empresa) erro:', err?.message || err);
-    if (!res.headersSent) res.status(500).send('Falha ao abrir o anexo.');
+  } catch (e) {
+    console.error('[empresaArquivoController.abrirAnexo] erro:', e);
+    if (!res.headersSent) {
+      req.flash?.('erro', 'Falha ao abrir o anexo.');
+      return res.redirect('/empresa/editar-empresa');
+    }
+  }
+};
+
+exports.deletarAnexo = async (req, res) => {
+  try {
+    const emp = req.session?.empresa;
+    if (!emp?.id) return res.redirect('/login');
+
+    const id = Number(req.params.id);
+    await prisma.empresa_arquivo.delete({ where: { id } });
+
+    if (req.flash) req.flash('sucesso', 'Anexo excluído.');
+    return res.redirect('/empresa/editar-empresa');
+  } catch (e) {
+    console.error('[empresaArquivoController.deletarAnexo] erro:', e);
+    if (req.flash) req.flash('erro', 'Falha ao excluir o anexo.');
+    return res.redirect('/empresa/editar-empresa');
+  }
+};
+
+/** Salva um link público como “anexo” (opcional, igual candidato). */
+exports.salvarLink = async (req, res) => {
+  try {
+    const emp = req.session?.empresa;
+    if (!emp?.id) return res.redirect('/login');
+
+    const { url, label } = req.body;
+    const final = String(url || '').trim();
+    if (!final) {
+      if (req.flash) req.flash('erro', 'Informe uma URL válida.');
+      return res.redirect('/empresa/editar-empresa');
+    }
+
+    await prisma.empresa_arquivo.create({
+      data: {
+        empresa_id: Number(emp.id),
+        nome: String(label || final).slice(0, 255),
+        mime: 'text/url',
+        tamanho: 0,
+        url: final
+      }
+    });
+
+    if (req.flash) req.flash('sucesso', 'Link adicionado.');
+    return res.redirect('/empresa/editar-empresa');
+  } catch (e) {
+    console.error('[empresaArquivoController.salvarLink] erro:', e);
+    if (req.flash) req.flash('erro', 'Falha ao salvar link.');
+    return res.redirect('/empresa/editar-empresa');
   }
 };

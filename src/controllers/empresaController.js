@@ -1460,3 +1460,119 @@ exports.pularCadastroEmpresa = async (req, res) => {
   }
 };
 
+exports.uploadAnexosEmpresa = async (req, res) => {
+  const sess = req.session?.empresa;
+  if (!sess?.id) {
+    req.session.erro = 'Faça login para enviar anexos.';
+    return res.redirect('/login');
+  }
+
+  try {
+    // Cloudinary é obrigatório para anexos (guarda a URL pública)
+    if (!cloudinary?.uploader) {
+      req.session.erro = 'Storage não configurado para anexos (Cloudinary).';
+      return res.redirect('/empresa/editar-empresa');
+    }
+
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (!files.length) {
+      req.session.erro = 'Nenhum arquivo selecionado.';
+      return res.redirect('/empresa/editar-empresa');
+    }
+
+    let enviados = 0;
+    for (const f of files) {
+      // Faz upload (aceita imagens, PDFs, DOCX, etc.)
+      const opts = { folder: 'connect-skills/empresa/anexos', resource_type: 'auto' };
+
+      // suporta tanto storage em disco (f.path) quanto em memória (f.buffer)
+      const upRes = f?.path
+        ? await cloudinary.uploader.upload(f.path, opts)
+        : await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(opts, (err, r) => err ? reject(err) : resolve(r));
+            stream.end(f.buffer);
+          });
+
+      const finalUrl  = upRes?.secure_url || upRes?.url || null;
+      const finalMime = f?.mimetype || 'application/octet-stream';
+      const finalName = f?.originalname || 'arquivo';
+      const finalSize = typeof f?.size === 'number' ? f.size : (upRes?.bytes || 0);
+
+      if (!finalUrl) throw new Error('Falha ao obter URL do anexo no Cloudinary.');
+
+      await prisma.empresa_arquivo.create({
+        data: {
+          empresa_id: Number(sess.id),
+          nome: String(finalName).slice(0, 255),
+          mime: String(finalMime).slice(0, 100),
+          tamanho: Number(finalSize) || 0,
+          url: finalUrl
+        }
+      });
+
+      enviados++;
+    }
+
+    req.session.sucessoCadastro = `${enviados} arquivo(s) enviado(s) com sucesso.`;
+    return res.redirect('/empresa/editar-empresa');
+  } catch (e) {
+    console.error('uploadAnexosEmpresa erro:', e);
+    req.session.erro = 'Falha ao enviar anexos. Verifique o arquivo e tente novamente.';
+    return res.redirect('/empresa/editar-empresa');
+  }
+};
+
+exports.abrirAnexoEmpresa = async (req, res) => {
+  const sess = req.session?.empresa;
+  if (!sess?.id) return res.redirect('/login');
+
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).send('ID inválido.');
+
+  try {
+    const ax = await prisma.empresa_arquivo.findFirst({
+      where: { id, empresa_id: Number(sess.id) },
+      select: { url: true }
+    });
+    if (!ax) {
+      req.session.erro = 'Anexo não encontrado.';
+      return res.redirect('/empresa/editar-empresa');
+    }
+    if (!ax.url || ax.url === '#') {
+      req.session.erro = 'Arquivo sem URL válida.';
+      return res.redirect('/empresa/editar-empresa');
+    }
+    return res.redirect(ax.url); // navegador abre (PDF/IMG) ou baixa (demais)
+  } catch (e) {
+    console.error('abrirAnexoEmpresa erro:', e);
+    req.session.erro = 'Falha ao abrir o anexo.';
+    return res.redirect('/empresa/editar-empresa');
+  }
+};
+
+exports.excluirAnexoEmpresa = async (req, res) => {
+  const sess = req.session?.empresa;
+  if (!sess?.id) return res.redirect('/login');
+
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).send('ID inválido.');
+
+  try {
+    const ax = await prisma.empresa_arquivo.findFirst({
+      where: { id, empresa_id: Number(sess.id) },
+      select: { id: true }
+    });
+    if (!ax) {
+      req.session.erro = 'Anexo não encontrado.';
+      return res.redirect('/empresa/editar-empresa');
+    }
+
+    await prisma.empresa_arquivo.delete({ where: { id: ax.id } });
+    req.session.sucessoCadastro = 'Anexo excluído.';
+    return res.redirect('/empresa/editar-empresa');
+  } catch (e) {
+    console.error('excluirAnexoEmpresa erro:', e);
+    req.session.erro = 'Falha ao excluir o anexo.';
+    return res.redirect('/empresa/editar-empresa');
+  }
+};
