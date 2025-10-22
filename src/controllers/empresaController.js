@@ -1040,7 +1040,15 @@ exports.perfilPublico = async (req, res) => {
   }
 
   try {
-    const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
+    // Carrega a empresa já com links e anexos
+    const empresa = await prisma.empresa.findUnique({
+      where: { id: empresaId },
+      include: {
+        empresa_link:    { orderBy: { ordem: 'asc' } },
+        empresa_arquivo: { orderBy: { criadoEm: 'desc' } },
+      }
+    });
+
     if (!empresa) {
       req.session.erro = 'Empresa não encontrada.';
       return res.redirect('/');
@@ -1097,11 +1105,14 @@ exports.perfilPublico = async (req, res) => {
       }
     }
 
+    // >>> Envia links e anexos para a view <<<
     return res.render('empresas/perfil-publico', {
       empresa,
       vagasPublicadas,
       somentePreview,
-      podeTestar
+      podeTestar,
+      links:  empresa.empresa_link || [],
+      anexos: empresa.empresa_arquivo || []
     });
   } catch (error) {
     console.error('Erro ao carregar perfil público:', error);
@@ -1109,6 +1120,7 @@ exports.perfilPublico = async (req, res) => {
     return res.redirect('/');
   }
 };
+
 
 exports.telaEditarPerfil = async (req, res) => {
   const sess = req.session.empresa;

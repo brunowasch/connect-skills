@@ -17,6 +17,10 @@
     .resultados-ia { margin-top: 1rem; padding-bottom: 1rem; }
     .ia-header { display:flex; align-items:center; justify-content:space-between; gap:.75rem; position:sticky; top:0; background:#f8f9fa; padding:.25rem 0 .5rem; z-index:1; }
     .ia-footer { margin-top:2rem; padding-top:1rem; border-top:1px dashed #ddd; display:flex; justify-content:flex-end; }
+    .perfil-link { color:#212529; text-decoration:none; transition:color .3s ease; }
+    .perfil-link:hover { color:#0d6efd; text-decoration:underline; }
+    .file-row { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+    .file-meta { font-size:.9rem; color:#6c757d; }
   </style>
 </head>
 <body class="bg-light" data-pode-testar="<%= (typeof podeTestar !== 'undefined' && podeTestar) ? '1' : '0' %>">
@@ -52,6 +56,66 @@
         </div>
       </div>
     </div>
+    <% const linksArr   = Array.isArray(links)   ? links   : (Array.isArray(empresa?.empresa_link)    ? empresa.empresa_link    : []); %>
+    <% const anexosArr  = Array.isArray(anexos)  ? anexos  : (Array.isArray(empresa?.empresa_arquivo) ? empresa.empresa_arquivo : []); %>
+
+    <!-- Links -->
+    <section class="perfil-card p-4 mb-4">
+      <h4><i class="bi bi-link-45deg"></i> Links</h4>
+      <hr>
+      <% if (!linksArr.length) { %>
+        <div class="text-muted">Nenhum link informado.</div>
+      <% } else { %>
+        <ul class="list-group list-group-flush">
+          <% linksArr.forEach(link => { 
+              let url = (link?.url || '').trim();
+              if (!url) return;
+              if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+          %>
+            <li class="list-group-item d-flex align-items-center gap-3">
+              <i class="bi bi-box-arrow-up-right"></i>
+              <a href="<%= url %>" target="_blank" rel="noopener noreferrer" class="perfil-link">
+                <%= link?.url %>
+              </a>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </section>
+
+    <!-- Arquivos -->
+    <section class="perfil-card p-4 mb-4">
+      <h4><i class="bi bi-paperclip"></i> Arquivos</h4>
+      <hr>
+      <% if (!anexosArr.length) { %>
+        <div class="text-muted">Nenhum arquivo anexado.</div>
+      <% } else { %>
+        <div class="vstack gap-2">
+          <% anexosArr.forEach(function(f){ 
+               const url = (f?.url || '').trim();
+               if (!url) return;
+               const nome = (f?.nome || 'Arquivo');
+               const mime = (f?.mime || '');
+               const tam  = (typeof f?.tamanho === 'number' ? f.tamanho : null);
+          %>
+            <div class="file-row p-2 border rounded">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-file-earmark fs-5"></i>
+                <div>
+                  <div class="fw-semibold"><%= nome %></div>
+                  <div class="file-meta">
+                    <%= mime || '' %> — <%= tam ? (tam/1024).toFixed(1) + ' KB' : '—' %>
+                  </div>
+                </div>
+              </div>
+              <a href="<%= url %>" target="_blank" class="btn btn-sm btn-outline-primary">
+                Abrir
+              </a>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </section>
 
     <h4 class="mb-3">Vagas Publicadas</h4>
 
@@ -165,176 +229,5 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    (function(){
-      var podeTestar = document.body.getAttribute('data-pode-testar') === '1';
-
-      if (!podeTestar) {
-        document.addEventListener('DOMContentLoaded', function(){
-          var els = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-          for (var i=0;i<els.length;i++){
-            new bootstrap.Tooltip(els[i]);
-          }
-        });
-        return; 
-      }
-
-      function keyVagaAvaliada(id) { return 'connectskills_vaga_avaliada_' + id; }
-
-      document.addEventListener('click', function(e){
-        var openBtn = e.target.closest('.botao-ia');
-        if (openBtn) {
-          var card = openBtn.closest('.vaga-card');
-          var bloco = card.querySelector('.bloco-ia');
-          var toggleWrap = card.querySelector('.ia-toggle');
-          if (bloco){ bloco.style.display = 'block'; }
-          if (toggleWrap){ toggleWrap.classList.add('d-none'); }
-          openBtn.setAttribute('aria-expanded', 'true');
-          return;
-        }
-
-        var closeBottom = e.target.closest('.fechar-ia-baixo');
-        if (closeBottom) {
-          var card2 = closeBottom.closest('.vaga-card');
-          var bloco2 = card2.querySelector('.bloco-ia');
-          var toggleWrap2 = card2.querySelector('.ia-toggle');
-          var toggleBtn2 = card2.querySelector('.botao-ia');
-          if (bloco2){ bloco2.style.display = 'none'; }
-          if (toggleWrap2){ toggleWrap2.classList.remove('d-none'); }
-          if (toggleBtn2) {
-            var ja = localStorage.getItem(keyVagaAvaliada(card2.getAttribute('data-vaga-id'))) === '1';
-            toggleBtn2.textContent = ja ? 'Ver teste da IA' : 'Iniciar teste com a IA';
-            toggleBtn2.setAttribute('aria-expanded', 'false');
-          }
-          return;
-        }
-      });
-
-      document.addEventListener('click', function(e){
-        var btn = e.target.closest('.btn-avaliar');
-        if (!btn) return;
-
-        var card = btn.closest('.vaga-card[data-vaga-id]');
-        var vagaId = card ? card.getAttribute('data-vaga-id') : null;
-        if (!vagaId) return;
-
-        if (localStorage.getItem(keyVagaAvaliada(vagaId)) === '1') {
-          var msg = card.querySelector('.msg-ja-avaliada');
-          if (msg) msg.style.display = 'block';
-          return;
-        }
-
-        var container = btn.closest('.bloco-ia');
-        var status = container.querySelector('.status-ia');
-        var output = container.querySelector('.resultados-ia');
-        var inputs = container.querySelectorAll('.resposta-ia-item');
-        var textarea = container.querySelector('.resposta-ia');
-
-        output.innerHTML = '';
-
-        var payload = null;
-        if (inputs && inputs.length) {
-          var respostas = [];
-          for (var i=0;i<inputs.length;i++){
-            var v = (inputs[i].value || '').trim();
-            respostas.push(v);
-          }
-          var temAlgo = false;
-          for (var j=0;j<respostas.length;j++){
-            if (respostas[j].length > 0){ temAlgo = true; break; }
-          }
-          if (!temAlgo) {
-            output.innerHTML = '<div class="text-danger">Preencha ao menos uma resposta.</div>';
-            return;
-          }
-          payload = { respostas: respostas };
-        } else if (textarea) {
-          var respTxt = (textarea.value || '').trim();
-          if (!respTxt) {
-            output.innerHTML = '<div class="text-danger">Digite sua resposta antes de analisar.</div>';
-            return;
-          }
-          payload = { resposta: respTxt };
-        } else {
-          output.innerHTML = '<div class="text-danger">Não foi possível ler suas respostas.</div>';
-          return;
-        }
-
-        btn.disabled = true;
-        status.style.display = 'inline';
-
-        fetch('/candidato/vaga/' + vagaId + '/avaliar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-        .then(function(resp){ return resp.json().then(function(data){ return {http: resp, body: data}; }); })
-        .then(function(pack){
-          var resp = pack.http;
-          var data = pack.body;
-          status.style.display = 'none';
-
-          if (resp.status === 401) {
-            output.innerHTML = '<div class="text-danger">Entre com uma conta de candidato para realizar o teste.</div>';
-            btn.disabled = false;
-            return;
-          }
-          if (resp.status === 409) {
-            output.innerHTML = '<div class="alert alert-info">Você já realizou o teste desta vaga.</div>';
-            localStorage.setItem(keyVagaAvaliada(vagaId), '1');
-            return;
-          }
-
-          if (!data || data.ok !== true) {
-            btn.disabled = false;
-            var errMsg = (data && data.error) ? data.error : 'Erro desconhecido.';
-            output.innerHTML = '<div class="text-danger">' + errMsg + '</div>';
-            return;
-          }
-
-          if (typeof data.score === 'number') {
-            output.insertAdjacentHTML('afterbegin',
-              '<div class="alert alert-info py-2 mb-3">' +
-              '<strong>Sua compatibilidade geral:</strong> ' + data.score + '%<br>' +
-              '<small class="text-muted">Sua participação foi registrada para o ranking.</small>' +
-              '</div>'
-            );
-          }
-
-          if (Array.isArray(data.results) && data.results.length) {
-            var itens = '';
-            for (var k=0;k<data.results.length;k++){
-              var r = data.results[k];
-              var itemTxt = String(r.Item || '').replace(/^Item\\s*\\d+:\\s*/i, '');
-              var ratingTxt = (typeof r.rating === 'number') ? (r.rating + '%') : '-';
-              itens += '<li class="list-group-item d-flex justify-content-between align-items-center">' +
-                       '<span>' + itemTxt + '</span>' +
-                       '<span class="badge bg-secondary rounded-pill">' + ratingTxt + '</span>' +
-                       '</li>';
-            }
-            output.innerHTML += '' +
-              '<div class="mt-2">' +
-              '<div class="fw-semibold mb-1">Compatibilidade por opção</div>' +
-              '<ul class="list-group">' + itens + '</ul>' +
-              '</div>';
-          } else {
-            output.innerHTML += '<div class="text-muted">A IA não retornou itens para avaliar.</div>';
-          }
-
-          localStorage.setItem(keyVagaAvaliada(vagaId), '1');
-          btn.classList.remove('btn-primary');
-          btn.classList.add('btn-outline-secondary');
-          btn.textContent = 'Teste já realizado';
-          var msgJa = card.querySelector('.msg-ja-avaliada');
-          if (msgJa) msgJa.style.display = 'block';
-        })
-        .catch(function(){
-          status.style.display = 'none';
-          btn.disabled = false;
-          output.innerHTML = '<div class="text-danger">Falha ao contatar o serviço de análise. Tente novamente.</div>';
-        });
-      });
-    })();
-  </script>
 </body>
 </html>

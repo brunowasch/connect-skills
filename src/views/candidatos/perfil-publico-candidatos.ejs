@@ -86,14 +86,17 @@
             <i class="bi bi-geo-alt"></i> <%= loc || 'Localidade não informada' %>
           </p>
           <div class="d-flex flex-wrap justify-content-center justify-content-md-start gap-3 mt-2">
-            <% if (dnStr) { %><span class="muted"><i class="bi bi-calendar3"></i> Nasc.: <%= dnStr %></span><% } %>
+            <% if (dnStr) { %><span class="muted"><i class="bi bi-calendar3"></i> Data de nascimento: <%= dnStr %></span><% } %>
             <% if (tel)  { %><span class="muted"><i class="bi bi-telephone"></i> <%= tel %></span><% } %>
           </div>
         </div>
       </div>
 
       <% if (Array.isArray(areas) && areas.length) { %>
-        <div class="mt-3 d-flex flex-wrap gap-2 justify-content-center justify-content-md-start">
+        <p class="mt-4">
+          Áreas de interesse:
+        </p>
+        <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-md-start">
           <% areas.forEach(function(a){ %>
             <span class="chip"><i class="bi bi-briefcase"></i> <%= a %></span>
           <% }); %>
@@ -197,9 +200,6 @@
                   <div class="d-flex align-items-center gap-2">
                     <a class="btn btn-sm btn-outline-primary" href="<%= url %>" target="_blank" rel="noopener">
                       <i class="bi bi-box-arrow-up-right"></i> Abrir
-                    </a>
-                    <a class="btn btn-sm btn-outline-secondary" href="<%= url %>" download>
-                      <i class="bi bi-download"></i> Baixar
                     </a>
                   </div>
                 </div>
