@@ -203,6 +203,21 @@
         </ul>
       </section>
     <% } %>
+    
+    <% if (vaga.vaga_link?.length) { %>
+      <section class="card border-0 shadow-sm p-3 p-md-4 mb-4 card-section">
+        <h6>Links</h6>
+        <ul class="list-unstyled mb-0">
+          <% vaga.vaga_link.forEach(lk => { %>
+            <li class="mb-2">
+              <a href="<%= lk.url %>" target="_blank" rel="noopener">
+                <i class="bi bi-link-45deg me-1"></i> <%= lk.titulo %>
+              </a>
+            </li>
+          <% }) %>
+        </ul>
+      </section>
+    <% } %>
     <section class="card border-0 shadow-sm p-3 p-md-4 mb-5">
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
         <!-- RANQUEAMENTO (esquerda) -->

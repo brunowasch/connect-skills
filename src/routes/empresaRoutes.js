@@ -5,6 +5,8 @@ const empresaController = require('../controllers/empresaController');
 const { uploadEmpresa } = require('../middlewares/uploadEmpresa');
 const { uploadVaga } = require('../middlewares/uploadVaga');
 const vagaArquivoController = require('../controllers/vagaArquivoController');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 let ensureEmpresa = null;
 try {
@@ -85,5 +87,42 @@ router.post('/excluir-vaga/:id', ensureEmpresa, (req, res) =>
 );
 
 router.get('/pular-cadastro', empresaController.pularCadastroEmpresa);
+
+router.post('/vaga/links/:id/delete', ensureEmpresa, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const lk = await prisma.vaga_link.findUnique({
+      where: { id },
+      select: { vaga_id: true }
+    });
+    if (!lk) return res.redirect('/empresa/meu-perfil');
+
+    await prisma.vaga_link.delete({ where: { id } });
+
+    return res.redirect(`/empresa/vaga/${lk.vaga_id}/editar`);
+  } catch (e) {
+    console.error('Erro ao excluir link da vaga:', e);
+    return res.redirect('/empresa/meu-perfil');
+  }
+});
+
+router.post('/vaga/anexos/:id/delete', ensureEmpresa, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const ax = await prisma.vaga_arquivo.findUnique({
+      where: { id },
+      select: { vaga_id: true }
+    });
+    if (!ax) return res.redirect('/empresa/meu-perfil');
+
+    await prisma.vaga_arquivo.delete({ where: { id } });
+
+    return res.redirect(`/empresa/vaga/${ax.vaga_id}/editar`);
+  } catch (e) {
+    console.error('Erro ao excluir anexo da vaga:', e);
+    return res.redirect('/empresa/meu-perfil');
+  }
+});
 
 module.exports = router;

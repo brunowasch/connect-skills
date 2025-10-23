@@ -119,6 +119,30 @@
       </div>
 
       <div class="mb-4">
+        <label class="form-label">Links úteis da vaga (opcional)</label>
+
+        <div id="links-container">
+          <div class="row g-2 align-items-end mb-2 link-row">
+            <div class="col-md-5">
+              <input type="text" name="linksTitulo[]" class="form-control" placeholder="Ex: Portfólio da empresa">
+            </div>
+            <div class="col-md-6">
+              <input type="url" name="linksUrl[]" class="form-control" placeholder="https://...">
+            </div>
+            <div class="col-md-1">
+              <button type="button" class="btn btn-outline-danger w-100 btn-remover-link">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" id="btnAddLink" class="btn btn-outline-secondary btn-sm mt-2">
+          <i class="bi bi-plus-lg"></i> Adicionar link
+        </button>
+      </div>
+
+      <div class="mb-4">
         <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
         <div id="area-buttons" class="d-flex flex-wrap gap-2 justify-content-center">
           <% areas.forEach(a => { %>
@@ -153,7 +177,35 @@
   </main>
 
   <%- include('../partials/footer') %>
-  <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
+<script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
+<script>
+  (function(){
+    const wrap = document.getElementById('links-container');
+    document.getElementById('btnAddLink').addEventListener('click', () => {
+      const row = document.createElement('div');
+      row.className = 'row g-2 align-items-end mb-2 link-row';
+      row.innerHTML = `
+        <div class="col-md-5">
+          <input type="text" name="linksTitulo[]" class="form-control" placeholder="Ex: Portfólio da empresa">
+        </div>
+        <div class="col-md-6">
+          <input type="url" name="linksUrl[]" class="form-control" placeholder="https://...">
+        </div>
+        <div class="col-md-1">
+          <button type="button" class="btn btn-outline-danger w-100 btn-remover-link">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>`;
+      wrap.appendChild(row);
+    });
+    wrap.addEventListener('click', e => {
+      if (e.target.closest('.btn-remover-link')) {
+        const row = e.target.closest('.link-row');
+        if (row) row.remove();
+      }
+    });
+  })();
+</script>
 
 </body>
 </html>

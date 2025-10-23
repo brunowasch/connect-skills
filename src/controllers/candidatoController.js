@@ -619,7 +619,8 @@ exports.mostrarVagas = async (req, res) => {
         empresa: true,
         vaga_area: { include: { area_interesse: true } },
         vaga_soft_skill: { include: { soft_skill: true } },
-        vaga_arquivo: true  
+        vaga_arquivo: true,
+        vaga_link: true,
       }
     });
 
@@ -1557,7 +1558,8 @@ exports.vagaDetalhes = async (req, res) => {
         vaga_soft_skill: {
           include: { soft_skill: { select: { id: true, nome: true } } }
         },
-        vaga_arquivo: true
+        vaga_arquivo: true,
+        vaga_link: true,
       }
     });
 

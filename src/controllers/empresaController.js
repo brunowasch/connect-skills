@@ -284,7 +284,8 @@ exports.homeEmpresa = async (req, res) => {
       include: {
         vaga_area:       { include: { area_interesse: true } },
         vaga_soft_skill: { include: { soft_skill: true } },
-        empresa: { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } }
+        empresa: { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } },
+        vaga_link: true,
       },
       orderBy: { created_at: 'desc' }
     });
@@ -505,6 +506,27 @@ exports.salvarVaga = async (req, res) => {
       }
     });
 
+    const titulos = Array.isArray(req.body.linksTitulo) ? req.body.linksTitulo : [];
+    const urls    = Array.isArray(req.body.linksUrl)    ? req.body.linksUrl    : [];
+
+    const toHttp = (u) => {
+      if (!u) return '';
+      const s = String(u).trim();
+      return /^https?:\/\//i.test(s) ? s : 'https://' + s;
+    };
+
+    const linksData = [];
+    for (let i = 0; i < Math.max(titulos.length, urls.length); i++) {
+      const titulo = String(titulos[i] || '').trim();
+      const url    = toHttp(urls[i] || '');
+      if (!titulo || !url) continue;
+      linksData.push({ vaga_id: vagaCriada.id, titulo: titulo.slice(0,120), url: url.slice(0,1024), ordem: i+1 });
+    }
+
+    if (linksData.length) {
+      await prisma.vaga_link.createMany({ data: linksData });
+    }
+
     if (req.files?.length) {
       await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaCriada.id);
     }
@@ -529,6 +551,7 @@ exports.mostrarPerfil = async (req, res) => {
         empresa: true,
         vaga_area: { include: { area_interesse: true } },
         vaga_arquivo: true,
+        vaga_link: true,
       }
     });
 
@@ -572,6 +595,7 @@ exports.telaEditarVaga = async (req, res) => {
         vaga_area: { include: { area_interesse: true } },
         vaga_soft_skill: { include: { soft_skill: true } },
         vaga_arquivo: true,
+        vaga_link: true,
       }
     });
 
@@ -709,6 +733,21 @@ exports.salvarEditarVaga = async (req, res) => {
 
     if (req.files?.length) {
       await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaId);
+    }
+
+    const titulos = Array.isArray(req.body.linksTitulo) ? req.body.linksTitulo : [];
+    const urls    = Array.isArray(req.body.linksUrl)    ? req.body.linksUrl    : [];
+    const toHttp = (u) => /^https?:\/\//i.test(String(u||'').trim()) ? String(u).trim() : ('https://' + String(u||'').trim());
+
+    const novos = [];
+    for (let i = 0; i < Math.max(titulos.length, urls.length); i++) {
+      const titulo = String(titulos[i] || '').trim();
+      const url    = toHttp(urls[i] || '');
+      if (!titulo || !url) continue;
+      novos.push({ vaga_id: vagaId, titulo: titulo.slice(0,120), url: url.slice(0,1024), ordem: i+1 });
+    }
+    if (novos.length) {
+      await prisma.vaga_link.createMany({ data: novos });
     }
 
     req.session.sucessoVaga = 'Vaga atualizada com sucesso!';
@@ -917,6 +956,7 @@ exports.telaVagaDetalhe = async (req, res) => {
         vaga_area:      { include: { area_interesse: true } },
         vaga_soft_skill:{ include: { soft_skill: true } },
         vaga_arquivo:   true,
+        vaga_link: true,
       },
     });
 
@@ -1072,6 +1112,7 @@ exports.perfilPublico = async (req, res) => {
         vaga_area: { include: { area_interesse: true } },
         vaga_soft_skill: { include: { soft_skill: true } },
         vaga_arquivo: true,
+        vaga_link: true,
       }
     });
 
@@ -1334,6 +1375,7 @@ exports.mostrarVagas = async (req, res) => {
         vaga_area: { include: { area_interesse: true } },
         empresa: { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } },
         vaga_arquivo: true,
+        vaga_link: true,
       },
       orderBy
     });
