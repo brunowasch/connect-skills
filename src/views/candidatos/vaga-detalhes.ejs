@@ -102,6 +102,21 @@
           </div>
           <% } %>
 
+          <% if (vaga.vaga_arquivo?.length) { %>
+            <div class="mb-3">
+              <div class="section-title"><i class="bi bi-paperclip"></i> Anexos</div>
+              <ul class="list-unstyled mb-0">
+                <% vaga.vaga_arquivo.forEach(ax => { %>
+                  <li class="mb-2">
+                    <a href="/empresa/public/vaga/anexos/<%= ax.id %>/abrir" target="_blank" rel="noopener">
+                      <i class="bi bi-file-earmark-text me-1"></i> <%= ax.nome %>
+                    </a>
+                  </li>
+                <% }) %>
+              </ul>
+            </div>
+          <% } %>
+          
           <% if (areas && areas.length) { %>
           <div class="mb-3">
             <div class="section-title"><i class="bi bi-diagram-3"></i> Áreas de atuação</div>

@@ -613,6 +613,16 @@ exports.mostrarVagas = async (req, res) => {
   try {
     let vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
 
+    vagas = await prisma.vaga.findMany({
+      where: { id: { in: vagas.map(v => v.id) } },
+      include: {
+        empresa: true,
+        vaga_area: { include: { area_interesse: true } },
+        vaga_soft_skill: { include: { soft_skill: true } },
+        vaga_arquivo: true  
+      }
+    });
+
     // filtra somente vagas abertas
     const vagaIds = vagas.map(v => v.id);
     let abertasSet = new Set(vagaIds);
@@ -1546,7 +1556,8 @@ exports.vagaDetalhes = async (req, res) => {
         },
         vaga_soft_skill: {
           include: { soft_skill: { select: { id: true, nome: true } } }
-        }
+        },
+        vaga_arquivo: true
       }
     });
 

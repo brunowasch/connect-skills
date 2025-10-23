@@ -3,6 +3,8 @@ const router = express.Router();
 
 const empresaController = require('../controllers/empresaController');
 const { uploadEmpresa } = require('../middlewares/uploadEmpresa');
+const { uploadVaga } = require('../middlewares/uploadVaga');
+const vagaArquivoController = require('../controllers/vagaArquivoController');
 
 let ensureEmpresa = null;
 try {
@@ -39,13 +41,14 @@ router.get('/editar-empresa', ensureEmpresa, empresaController.telaEditarPerfil)
 router.post('/editar-empresa', ensureEmpresa, uploadEmpresa.single('novaFoto'), empresaController.salvarEdicaoPerfil);
 
 router.get('/publicar-vaga', ensureEmpresa, empresaController.telaPublicarVaga);
-router.post('/publicar-vaga', ensureEmpresa, empresaController.salvarVaga);
+router.post('/publicar-vaga', ensureEmpresa, uploadVaga.array('anexosVaga'), empresaController.salvarVaga);
+router.get('/public/vaga/anexos/:id/abrir', vagaArquivoController.abrirAnexoPublico);
 
 router.get('/vagas', ensureEmpresa, empresaController.mostrarVagas);
 router.get('/vaga/:id', ensureEmpresa, empresaController.telaVagaDetalhe);
 
 router.get('/vaga/:id/editar', ensureEmpresa, empresaController.telaEditarVaga);
-router.post('/vaga/:id/editar', ensureEmpresa, empresaController.salvarEditarVaga);
+router.post('/vaga/:id/editar', ensureEmpresa, uploadVaga.array('anexosVaga'), empresaController.salvarEditarVaga);
 
 router.post('/vaga/:id/fechar', ensureEmpresa, empresaController.fecharVaga);
 router.post('/vaga/:id/reabrir', ensureEmpresa, empresaController.reabrirVaga);

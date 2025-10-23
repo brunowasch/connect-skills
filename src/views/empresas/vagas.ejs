@@ -164,6 +164,34 @@
                     </span>
                   <% }) %>
                 </div>
+                <% if (vaga?.vaga_arquivo && vaga.vaga_arquivo.length) { %>
+                  <div class="mt-2">
+                    <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+                      <span class="badge rounded-pill text-bg-light border">
+                        <i class="bi bi-paperclip me-1"></i>
+                        <%= vaga.vaga_arquivo.length %> anexo(s)
+                      </span>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2">
+                      <% vaga.vaga_arquivo.slice(0, 3).forEach(ax => { %>
+                        <a
+                          href="/empresa/public/vaga/anexos/<%= ax.id %>/abrir"
+                          target="_blank" rel="noopener"
+                          class="badge rounded-pill text-bg-light border"
+                          title="Abrir anexo no navegador">
+                          <i class="bi bi-file-earmark-text me-1"></i>
+                          <%= ax.nome.length > 24 ? ax.nome.slice(0,24) + '…' : ax.nome %>
+                        </a>
+                      <% }) %>
+                      <% if (vaga.vaga_arquivo.length > 3) { %>
+                        <span class="badge rounded-pill text-bg-light border">
+                          +<%= vaga.vaga_arquivo.length - 3 %> anexo(s)
+                        </span>
+                      <% } %>
+                    </div>
+                  </div>
+                <% } %>
               </div>
             </div>
           </div>

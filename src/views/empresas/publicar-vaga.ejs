@@ -18,7 +18,7 @@
     </a>
     <h2 class="text-center text-primary fw-bold mb-4 mt-4">Publicar vaga</h2>
 
-    <form id="formPublicarVaga" action="/empresa/publicar-vaga" method="POST">
+    <form id="formPublicarVaga" action="/empresa/publicar-vaga" method="POST" enctype="multipart/form-data">
       <div class="row mb-4">
         <div class="col-md-6">
           <label for="cargo" class="form-label">Cargo</label>
@@ -110,6 +110,12 @@
           Descreva como seria o candidato ideal para esta vaga. A IA usará essa descrição, junto das respostas do candidato, para calcular o nível de compatibilidade.
         </small>
         <textarea name="opcao" id="opcao" class="form-control mt-2" rows="4" placeholder="Exemplo: O candidato ideal deve ser comunicativo, com facilidade para trabalho em equipe e domínio em ferramentas de análise de dados" required></textarea>
+      </div>
+
+      <div class="mb-4">
+        <label for="anexosVaga" class="form-label">Anexos da vaga (PDF, imagens, etc.)</label>
+        <input type="file" id="anexosVaga" name="anexosVaga" class="form-control" multiple>
+        <small class="text-muted d-block mt-1">Tamanho máx. 10MB por arquivo.</small>
       </div>
 
       <div class="mb-4">

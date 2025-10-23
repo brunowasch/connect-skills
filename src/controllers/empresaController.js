@@ -7,6 +7,7 @@ const vagaAvaliacaoModel = require('../models/vagaAvaliacaoModel');
 const { cloudinary } = require('../config/cloudinary');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const vagaArquivoController = require('./vagaArquivoController');
 
 function getEmpresaFromSession(req) {
   const s = req.session || {};
@@ -485,7 +486,7 @@ exports.salvarVaga = async (req, res) => {
       salarioFormatado = parseFloat(bruto);
     }
 
-    await prisma.vaga.create({
+    const vagaCriada = await prisma.vaga.create({
       data: {
         empresa_id,
         cargo,
@@ -499,10 +500,14 @@ exports.salvarVaga = async (req, res) => {
         beneficio: beneficiosTexto,
         pergunta,
         opcao,
-        vaga_area: { createMany: { data: areas_ids.map(id=>({ area_interesse_id: id })) } },
-        vaga_soft_skill: { createMany: { data: soft_skills_ids.map(id=>({ soft_skill_id: id })) } }
+        vaga_area:      { createMany: { data: areas_ids.map(id=>({ area_interesse_id: id })) } },
+        vaga_soft_skill:{ createMany: { data: soft_skills_ids.map(id=>({ soft_skill_id: id })) } }
       }
     });
+
+    if (req.files?.length) {
+      await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaCriada.id);
+    }
 
     req.session.sucessoVaga = 'Vaga publicada com sucesso!';
     return res.redirect('/empresa/meu-perfil');
@@ -522,7 +527,8 @@ exports.mostrarPerfil = async (req, res) => {
       where: { empresa_id: req.session.empresa.id },
       include: {
         empresa: true,
-        vaga_area: { include: { area_interesse: true } }
+        vaga_area: { include: { area_interesse: true } },
+        vaga_arquivo: true,
       }
     });
 
@@ -564,7 +570,8 @@ exports.telaEditarVaga = async (req, res) => {
       where: { id: vagaId },
       include: {
         vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } }
+        vaga_soft_skill: { include: { soft_skill: true } },
+        vaga_arquivo: true,
       }
     });
 
@@ -698,6 +705,10 @@ exports.salvarEditarVaga = async (req, res) => {
       await prisma.vaga_soft_skill.createMany({
         data: skillIds.map(id => ({ vaga_id: vagaId, soft_skill_id: id }))
       });
+    }
+
+    if (req.files?.length) {
+      await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaId);
     }
 
     req.session.sucessoVaga = 'Vaga atualizada com sucesso!';
@@ -905,6 +916,7 @@ exports.telaVagaDetalhe = async (req, res) => {
         empresa: true,
         vaga_area:      { include: { area_interesse: true } },
         vaga_soft_skill:{ include: { soft_skill: true } },
+        vaga_arquivo:   true,
       },
     });
 
@@ -1058,11 +1070,11 @@ exports.perfilPublico = async (req, res) => {
       where: { empresa_id: empresaId },
       include: {
         vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } }
+        vaga_soft_skill: { include: { soft_skill: true } },
+        vaga_arquivo: true,
       }
     });
 
-    // Filtra fechadas pelo histórico
     const ids = vagasPublicadasAll.map(v => v.id);
     let vagasPublicadas = vagasPublicadasAll;
     if (ids.length) {
@@ -1071,7 +1083,7 @@ exports.perfilPublico = async (req, res) => {
         orderBy: { criado_em: 'desc' },
         select: { vaga_id: true, situacao: true, criado_em: true }
       });
-      const latest = new Map(); // vaga_id -> situacao
+      const latest = new Map();
       for (const s of statusList) {
         if (!latest.has(s.vaga_id)) latest.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
       }
@@ -1320,7 +1332,8 @@ exports.mostrarVagas = async (req, res) => {
       where,
       include: {
         vaga_area: { include: { area_interesse: true } },
-        empresa: { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } }
+        empresa: { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } },
+        vaga_arquivo: true,
       },
       orderBy
     });
@@ -1338,7 +1351,8 @@ exports.mostrarVagas = async (req, res) => {
 
     let vagasComTotal = vagas.map(v => ({
       ...v,
-      total_candidatos: countsMap.get(v.id) || 0
+      total_candidatos: countsMap.get(v.id) || 0,
+      total_anexos: v.vaga_arquivo?.length || 0,
     }));
 
     switch (ordenar) {
