@@ -8,6 +8,14 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <link rel="stylesheet" href="/css/shared/style.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
+  <style>
+    .avatar-col { width: 72px; }
+    .btn-ver-perfil {
+      font-size: .8rem;
+      padding: .15rem .4rem;
+      line-height: 1.1;
+    }
+  </style>
 </head>
 <body class="bg-light">
   <%- include('../partials/header-empresa') %>
@@ -44,6 +52,7 @@
     <div class="bg-white rounded shadow-sm">
       <% rows.forEach((r, idx) => { 
           const modalId = `modal-respostas-${r.candidato_id || idx}`;
+          const cid = r.candidato_id || r.candidatoId || r.id_candidato || r.id || null;
 
           const fonte = String(r.questions || '').trim();
           const linhasFonte = (fonte ? fonte : String(vaga.pergunta || ''))
@@ -66,18 +75,38 @@
           </div>
 
           <div class="d-flex align-items-center gap-3 flex-grow-1">
-            <img src="<%= r.foto_perfil || '/img/avatar.png' %>"
-                 alt="Foto do candidato"
-                 class="rounded-circle"
-                 style="width: 48px; height: 48px; object-fit: cover;">
+            <div class="avatar-col d-flex flex-column align-items-center">
+              <% if (cid) { %>
+                <a href="/candidatos/perfil/<%= cid %>" target="_blank" rel="noopener" title="Abrir perfil público">
+                  <img src="<%= r.foto_perfil || '/img/avatar.png' %>"
+                       alt="Foto do candidato"
+                       class="rounded-circle"
+                       style="width: 48px; height: 48px; object-fit: cover; cursor: pointer;">
+                </a>
+                <a href="/candidatos/perfil/<%= cid %>" target="_blank" rel="noopener"
+                   class="btn btn-outline-primary btn-sm btn-ver-perfil mt-2 w-100">
+                  <i class="bi bi-box-arrow-up-right"></i>
+                </a>
+              <% } else { %>
+                <img src="<%= r.foto_perfil || '/img/avatar.png' %>"
+                     alt="Foto do candidato (ID ausente)"
+                     class="rounded-circle"
+                     style="width: 48px; height: 48px; object-fit: cover;">
+              <% } %>
+            </div>
+
             <div>
               <div class="fw-semibold"><%= r.nome %></div>
               <div class="text-muted small"><%= r.local %></div>
 
               <div class="d-flex flex-wrap gap-3 small mt-1">
-                <% if (r.telefone) { %>
-                  <a href="tel:<%= r.telefone.replace(/\D/g,'') %>" class="text-decoration-none">
-                    <i class="bi bi-telephone"></i> <%= r.telefone %>
+                <% 
+                  const telBruto = String(r.telefone || '');
+                  const telLimpo = telBruto.replace(/\+?undefined-?/gi, '').trim();
+                %>
+                <% if (telLimpo) { %>
+                  <a href="tel:<%= telLimpo.replace(/\D/g,'') %>" class="text-decoration-none">
+                    <i class="bi bi-telephone"></i> <%= telLimpo %>
                   </a>
                 <% } %>
                 <% if (r.email) { %>

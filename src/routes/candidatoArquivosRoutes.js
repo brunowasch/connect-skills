@@ -21,5 +21,6 @@ router.get('/candidato/anexos/:id/abrir', candidatoArquivoController.abrirAnexo)
 router.post('/candidato/anexos/upload', authCandidato, upload.array('arquivos', 5), candidatoArquivoController.uploadAnexos);
 router.post('/candidato/anexos/link',   authCandidato, candidatoArquivoController.salvarLink);
 router.post('/candidato/anexos/:id/delete', authCandidato, candidatoArquivoController.deletarAnexo);
+router.get('/public/candidato/anexos/:id/abrir', candidatoArquivoController.abrirAnexoPublico);
 
 module.exports = router;

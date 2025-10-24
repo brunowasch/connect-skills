@@ -269,3 +269,50 @@ exports.abrirAnexo = async (req, res) => {
     if (!res.headersSent) res.status(500).send('Falha ao abrir o anexo.');
   }
 };
+
+exports.abrirAnexoPublico = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID inválido.');
+
+    const anexo = await prisma.candidato_arquivo.findUnique({ where: { id } });
+    if (!anexo) return res.status(404).send('Anexo não encontrado.');
+
+    const url  = anexo.url;
+    const nome = (anexo.nome || 'arquivo.pdf').replace(/"/g, '');
+    const mime = (anexo.mime || '').toLowerCase();
+
+    const upstream = await axios.get(url, {
+      responseType: 'stream',
+      headers: {
+        ...(req.headers.range ? { Range: req.headers.range } : {}),
+        Accept: 'application/pdf,image/*,*/*',
+      },
+      maxRedirects: 5,
+      decompress: false,
+      validateStatus: () => true,
+    });
+
+    res.status(upstream.status === 206 ? 206 : 200);
+    res.removeHeader('X-Content-Type-Options');
+
+    if (mime) res.setHeader('Content-Type', mime);
+    else if (upstream.headers['content-type']) res.setHeader('Content-Type', upstream.headers['content-type']);
+    else res.setHeader('Content-Type', 'application/pdf');
+
+    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+    if (upstream.headers['content-range'])  res.setHeader('Content-Range', upstream.headers['content-range']);
+    if (upstream.headers['accept-ranges'])  res.setHeader('Accept-Ranges', upstream.headers['accept-ranges']);
+    if (upstream.headers['last-modified'])  res.setHeader('Last-Modified', upstream.headers['last-modified']);
+    if (upstream.headers['etag'])           res.setHeader('ETag', upstream.headers['etag']);
+    if (upstream.headers['cache-control'])  res.setHeader('Cache-Control', upstream.headers['cache-control']);
+
+    res.setHeader('Content-Disposition', `inline; filename="${nome}"`);
+
+    upstream.data.on('error', () => { if (!res.headersSent) res.status(502); res.end(); });
+    upstream.data.pipe(res);
+  } catch (err) {
+    console.error('abrirAnexoPublico erro:', err?.message || err);
+    if (!res.headersSent) res.status(500).send('Falha ao abrir o anexo.');
+  }
+};

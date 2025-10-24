@@ -4,3 +4,8 @@
     <p>Todos os direitos reservados.</p>
   </div>
 </footer>
+
+<script id="cs-config" type="application/json">
+  <%- JSON.stringify({ CS_REMEMBER: Boolean(sessionRemember) }) %>
+</script>
+<script src="/js/shared/sessionLeave.js"></script>

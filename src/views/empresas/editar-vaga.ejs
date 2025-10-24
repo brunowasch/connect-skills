@@ -19,7 +19,7 @@
     </a>
     <h2 class="text-center text-primary fw-bold mb-4 mt-4">Editar Vaga</h2>
 
-    <form id="formEditarVaga" action="/empresa/editar-vaga/<%= vaga.id %>" method="POST">
+    <form id="formEditarVaga" action="/empresa/editar-vaga/<%= vaga.id %>" method="POST" enctype="multipart/form-data">
       <div class="row mb-4">
         <div class="col-md-6">
           <label class="form-label">Cargo</label>
@@ -87,6 +87,70 @@
         <label class="form-label">Opções para IA</label>
         <textarea name="opcao" class="form-control" rows="2"><%= vaga.opcao || '' %></textarea>
       </div>
+      <div class="mb-4">
+        <label class="form-label">Adicionar novos anexos</label>
+        <input type="file" name="anexosVaga" multiple class="form-control">
+      </div>
+
+      <% if (vaga.vaga_arquivo?.length) { %>
+        <h6 class="mt-3">Anexos já enviados</h6>
+        <ul class="list-unstyled">
+          <% vaga.vaga_arquivo.forEach(ax => { %>
+            <li class="d-flex align-items-center justify-content-between border rounded p-2 mb-2">
+              <a href="/empresa/public/vaga/anexos/<%= ax.id %>/abrir" target="_blank" rel="noopener">
+                <i class="bi bi-paperclip"></i> <%= ax.nome %>
+              </a>
+              <button class="btn btn-sm btn-outline-danger" formaction="/empresa/vaga/anexos/<%= ax.id %>/delete" formmethod="post">
+                <i class="bi bi-trash"></i>
+              </button>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+
+      <% if (vaga.vaga_link?.length) { %>
+        <div class="mb-2">
+          <label class="form-label">Links adicionados</label>
+          <ul class="list-unstyled">
+            <% vaga.vaga_link.forEach(l => { %>
+              <li class="mb-2 d-flex align-items-center justify-content-between">
+                <a href="<%= l.url %>" target="_blank" rel="noopener">
+                  <i class="bi bi-link-45deg me-1"></i> <%= l.titulo %>
+                </a>
+                <!-- (opcional) botão de excluir -->
+                <button class="btn btn-sm btn-outline-danger"
+                        formaction="/empresa/vaga/links/<%= l.id %>/delete" formmethod="post">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </li>
+            <% }) %>
+          </ul>
+        </div>
+      <% } %>
+
+      <div class="mb-4">
+      <label class="form-label">Links úteis da vaga (opcional)</label>
+
+      <div id="links-container">
+        <div class="row g-2 align-items-end mb-2 link-row">
+          <div class="col-md-5">
+            <input type="text" name="linksTitulo[]" class="form-control" placeholder="Ex: Portfólio da empresa">
+          </div>
+          <div class="col-md-6">
+            <input type="url" name="linksUrl[]" class="form-control" placeholder="https://...">
+          </div>
+          <div class="col-md-1">
+            <button type="button" class="btn btn-outline-danger w-100 btn-remover-link">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <button type="button" id="btnAddLink" class="btn btn-outline-secondary btn-sm mt-2">
+        <i class="bi bi-plus-lg"></i> Adicionar link
+      </button>
+    </div>
 
       <div class="mb-4">
         <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
@@ -154,6 +218,34 @@ document.addEventListener('DOMContentLoaded', function () {
   toggle();
   if (tipo) tipo.addEventListener('change', toggle);
 });
+</script>
+<script>
+  (function(){
+    const wrap = document.getElementById('links-container');
+    document.getElementById('btnAddLink').addEventListener('click', () => {
+      const row = document.createElement('div');
+      row.className = 'row g-2 align-items-end mb-2 link-row';
+      row.innerHTML = `
+        <div class="col-md-5">
+          <input type="text" name="linksTitulo[]" class="form-control" placeholder="Ex: Portfólio da empresa">
+        </div>
+        <div class="col-md-6">
+          <input type="url" name="linksUrl[]" class="form-control" placeholder="https://...">
+        </div>
+        <div class="col-md-1">
+          <button type="button" class="btn btn-outline-danger w-100 btn-remover-link">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>`;
+      wrap.appendChild(row);
+    });
+    wrap.addEventListener('click', e => {
+      if (e.target.closest('.btn-remover-link')) {
+        const row = e.target.closest('.link-row');
+        if (row) row.remove();
+      }
+    });
+  })();
 </script>
 </body>
 </html>

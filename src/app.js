@@ -9,6 +9,7 @@ const passport = require('passport');
 const compression = require('compression');
 const helmet = require('helmet');
 const nodemailer = require('nodemailer');
+const cookieParser = require('cookie-parser');
 
 // Configs e utils
 require('./config/passportGoogle');
@@ -45,6 +46,7 @@ app.use(compression({
 
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(express.json({ limit: '1mb' }));
+app.use(cookieParser());
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -61,6 +63,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads'), {
   immutable: true,
 }));
 
+const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
 const sessionStore = new MySQLStore({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT || 3306),
@@ -69,28 +72,33 @@ const sessionStore = new MySQLStore({
   database: process.env.DB_NAME,
 
   clearExpired: true,
-  checkExpirationInterval: 1000 * 60 * 20, // 20 min
-  expiration: 1000 * 60 * 60 * 24 * 7,     // 7 dias
+  checkExpirationInterval: 1000 * 60 * 60, 
+  expiration: THIRTY_DAYS,                
+  disableTouch: false,
+});
 
-  connectionLimit: 10,
-  waitForConnections: true,
-  queueLimit: 0,
-
-  disableTouch: true,
+app.use((req, _res, next) => {
+  try {
+    if (req.session?.remember) {
+      req.session.touch();
+    }
+  } catch {}
+  next();
 });
 
 app.use(session({
   name: 'connectskills.sid',
-  secret: process.env.SECRET_SESSION || process.env.SESSION_SECRET || 'connectskills-secret',
+  secret: process.env.SECRET_SESSION || 'connectskills-secret',
   resave: false,
   saveUninitialized: false,
   store: sessionStore,
+  rolling: false,
+  unset: 'destroy',
   cookie: {
     httpOnly: true,
-    secure: false,     
+    secure: isProd,
     sameSite: 'lax',
-    maxAge: 1000 * 60 * 60 * 24 * 7,
-  },
+  }
 }));
 
 app.use(passport.initialize());
@@ -110,6 +118,7 @@ app.use((req, res, next) => {
   res.locals.candidato = req.session.candidato || null;
   res.locals.empresa   = req.session.empresa || null;
   res.locals.usuario   = req.session.usuario || res.locals.candidato || res.locals.empresa || null;
+  res.locals.sessionRemember = Boolean(req.session?.remember); 
   next();
 });
 

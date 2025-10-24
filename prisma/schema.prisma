@@ -22,6 +22,7 @@ model candidato {
   sobrenome         String?
   data_nascimento   DateTime?
   pais              String?
+  descricao         String?             @db.Text
   estado            String?
   cidade            String?
   telefone          String?
@@ -151,7 +152,9 @@ model vaga {
   created_at          DateTime                 @default(now())
   empresa             empresa                  @relation(fields: [empresa_id], references: [id])
   vaga_area           vaga_area[]
+  vaga_arquivo        vaga_arquivo[]
   vaga_avaliacao      vaga_avaliacao[]
+  vaga_link           vaga_link[]
   vaga_soft_skill     vaga_soft_skill[]
 
   @@index([empresa_id], map: "vaga_empresa_id_fkey")
@@ -202,6 +205,31 @@ model vaga_status {
   criado_em DateTime @default(now())
 
   @@index([vaga_id, criado_em])
+}
+
+model vaga_arquivo {
+  id       Int      @id @default(autoincrement()) @db.UnsignedInt
+  vaga_id  Int      @db.UnsignedInt
+  nome     String   @db.VarChar(255)
+  mime     String   @db.VarChar(100)
+  tamanho  Int      @db.UnsignedInt
+  url      String   @db.Text
+  criadoEm DateTime @default(now()) @db.DateTime(0)
+  vaga     vaga     @relation(fields: [vaga_id], references: [id], onDelete: Cascade, map: "fk_vaga_arquivo_vaga")
+
+  @@index([vaga_id], map: "idx_vaga_arquivo_vaga_id")
+}
+
+model vaga_link {
+  id       Int      @id @default(autoincrement()) @db.UnsignedInt
+  vaga_id  Int      @db.UnsignedInt
+  titulo   String   @db.VarChar(120)
+  url      String   @db.VarChar(1024)
+  ordem    Int      @default(1) @db.UnsignedInt
+  criadoEm DateTime @default(now()) @db.DateTime(0)
+  vaga     vaga     @relation(fields: [vaga_id], references: [id], onDelete: Cascade, map: "fk_vaga_link_vaga")
+
+  @@index([vaga_id], map: "idx_vaga_link_vaga_id")
 }
 
 enum vaga_tipo_local_trabalho {
