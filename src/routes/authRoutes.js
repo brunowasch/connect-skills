@@ -27,8 +27,6 @@ router.get('/login', (req, res) => {
   });
 });
 
-
-
 // Início do login com Google
 router.get('/auth/google', (req, res, next) => {
 const tipo = req.query.tipo || 'candidato';

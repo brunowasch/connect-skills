@@ -22,11 +22,11 @@
     .list-group-item { padding-top: .6rem; padding-bottom: .6rem; }
     .section-title { font-size: 1.15rem; font-weight: 600; display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
     .perfil-header { row-gap: 1rem; }
+    .sobre-mim { white-space: pre-wrap; }
   </style>
 </head>
 <body class="bg-light">
   <%- include('../partials/header-candidato') %>
-  <%- include('../partials/flash-messages') %>
   <main class="container pb-5">
   <% if (sucesso) { %>
     <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
@@ -89,11 +89,39 @@
                 <% } %>
               </span>
             </div>
+
+            <!-- SOBRE MIM (logo abaixo da data de nascimento) -->
+            <div class="mt-2">
+              <% const _descricao = (typeof descricao !== 'undefined' && descricao !== null) ? descricao : (candidato?.descricao || ''); %>
+              <% if (_descricao && _descricao.trim().length) { %>
+                <div class="small text-muted mb-1 d-flex align-items-center gap-2">
+                  <i class="bi bi-person-lines-fill icon-sm"></i>
+                  <strong>Sobre mim</strong>
+                </div>
+                <p class="sobre-mim mb-0"><%= _descricao %></p>
+              <% } else { %>
+                <div class="small text-muted d-flex align-items-center gap-2">
+                  <i class="bi bi-person-lines-fill icon-sm"></i>
+                  <span>Nenhuma descrição adicionada.</span>
+                  <a href="/candidato/editar-perfil#descricao" class="text-decoration-none">Adicionar descrição</a>
+                </div>
+              <% } %>
+            </div>
+            <!-- /SOBRE MIM -->
           </div>
 
-          <a href="/candidato/editar-perfil" class="btn btn-primary btn-sm">
-            <i class="bi bi-pencil-square me-1"></i> Editar perfil
-          </a>
+          <div class="d-flex align-items-center gap-2 ms-md-auto perfil-actions">
+            <a href="/candidato/editar-perfil" class="btn btn-primary btn-sm">
+              <i class="bi bi-pencil-square me-1"></i> Editar perfil
+            </a>
+
+          <button class="btn btn-sm"
+                  data-candidato-id="<%= candidato?.id %>"
+                  title="Copiar link público do perfil do candidato"
+                  onclick="copiarLinkPerfilPublicoCandidato(this)">
+            <i class="bi bi-link-45deg"></i>
+          </button>
+          <small id="msgCopiadoCandidato" class="text-success" style="display:none;">Copiado!</small>
         </div>
       </div>
     </div>
@@ -178,7 +206,7 @@
                     <td><%= new Date(a.criadoEm).toLocaleString('pt-BR') %></td>
                     <td class="text-end">
                     <a href="/candidato/anexos/<%= a.id %>/abrir" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
-                      Abrir
+                     <i class="bi bi-box-arrow-up-right"></i> Abrir
                     </a>
                     </td>
                   </tr>
@@ -194,5 +222,40 @@
 
 <%- include('../partials/footer') %>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  function copiarLinkPerfilPublicoCandidato(btn) {
+    const candidatoId = btn.getAttribute('data-candidato-id');
+    const url = `${window.location.origin}/candidatos/perfil/${candidatoId}`;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => mostrarMsgCopiadoCandidato())
+        .catch(() => fallbackCopyCandidato(url));
+    } else {
+      fallbackCopyCandidato(url);
+    }
+  }
+
+  function fallbackCopyCandidato(texto) {
+    try {
+      const input = document.createElement('input');
+      input.value = texto;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      mostrarMsgCopiadoCandidato();
+    } catch (_) {
+      alert('Copie o link: ' + texto);
+    }
+  }
+
+  function mostrarMsgCopiadoCandidato() {
+    const msg = document.getElementById('msgCopiadoCandidato');
+    if (!msg) return;
+    msg.style.display = 'inline';
+    setTimeout(() => (msg.style.display = 'none'), 1500);
+  }
+</script>
 </body>
 </html>

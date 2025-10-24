@@ -10,10 +10,13 @@ const prisma = new PrismaClient();
 const fromAddress = process.env.EMAIL_FROM || `Connect Skills <${process.env.EMAIL_USER || process.env.GMAIL_USER}>`;
 
 function baseUrl() {
-  // Verifica o ambiente de produção ou desenvolvimento
-  const isProd = process.env.NODE_ENV === 'production';  
+  const isProd = process.env.NODE_ENV === 'production';
   const url = process.env.BASE_URL || (isProd ? 'https://connectskills.com.br' : 'http://localhost:3000');
   return url.endsWith('/') ? url.slice(0, -1) : url;
+}
+
+function skipFlagAtivo(req) {
+  return Boolean(req.session?.usuario?.skipCadastro) || req.cookies?.cs_skipCadastro === '1';
 }
 
 async function enviarEmailVerificacao(email, usuario_id) {
@@ -59,7 +62,7 @@ async function enviarEmailVerificacao(email, usuario_id) {
 
 async function enviarEmailConfirmacaoAcao(email, usuario_id, tipo) {
   const transporter = nodemailer.createTransport({
-  service: 'gmail',
+    service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER || process.env.GMAIL_USER,
       pass: process.env.EMAIL_PASS || process.env.GMAIL_PASS,
@@ -198,11 +201,12 @@ async function redirecionarFluxoEmpresa(usuarioId, res) {
   }
 
   if (!empresa.foto_perfil || empresa.foto_perfil.trim() === '') {
-    return res.redirect(`/empresas/foto-perfil?usuario_id=${usuarioId}`);
+    return res.redirect(`/empresa/foto-perfil?usuario_id=${usuarioId}`);
   }
 
   return res.redirect('/empresa/home');
 }
+
 
 async function resetParcialCandidato(usuarioId) {
   await prisma.$transaction(async (tx) => {
@@ -254,7 +258,6 @@ async function resetParcialEmpresa(usuarioId) {
   });
 }
 
-// === criarUsuario (ajustada) ===
 exports.criarUsuario = async (req, res) => {
   let { email, senha, tipo } = req.body;
   if (!email || !senha || !tipo) {
@@ -268,22 +271,18 @@ exports.criarUsuario = async (req, res) => {
     const usuarioExistente = await usuarioModel.buscarPorEmail(emailNormalizado);
 
     if (usuarioExistente) {
-      // E-mail já existe
       if (usuarioExistente.email_verificado) {
         const usuarioId = usuarioExistente.id;
 
-        // Carrega perfis existentes
         const cand = await candidatoModel.obterCandidatoPorUsuarioId(usuarioId);
         const emp  = await empresaModel.obterEmpresaPorUsuarioId(usuarioId);
         const jaTemCandidato = !!cand;
         const jaTemEmpresa   = !!emp;
 
-        // Se já existe QUALQUER perfil, congela tipo e bloqueia criar o outro
         if (jaTemCandidato || jaTemEmpresa) {
           const tipoAtual = jaTemCandidato ? 'candidato' : 'empresa';
 
           if (tipo !== tipoAtual) {
-            // Conflito de tipo — mostra modal e envia e-mail de confirmação de ação
             await enviarEmailConfirmacaoAcao(emailNormalizado, usuarioId, tipoAtual);
             return res.status(200).render('auth/cadastro', {
               erro: `Este e-mail já possui um perfil do tipo ${tipoAtual}. Para mudar, exclua o perfil atual antes.`,
@@ -294,15 +293,12 @@ exports.criarUsuario = async (req, res) => {
             });
           }
 
-          // Mesmo tipo: se incompleto, abre modal + envia e-mail; se completo, mostra aviso com link de login
           const incompleto = (tipoAtual === 'candidato')
             ? isCandidatoIncompleto(cand)
             : isEmpresaIncompleto(emp);
 
           if (incompleto) {
-            // Envia e-mail de confirmação de ação (continuar/reiniciar)
             await enviarEmailConfirmacaoAcao(emailNormalizado, usuarioId, tipoAtual);
-
             return res.status(200).render('auth/cadastro', {
               erro: null,
               emailPrefill: emailNormalizado,
@@ -312,7 +308,6 @@ exports.criarUsuario = async (req, res) => {
             });
           }
 
-          // Cadastro COMPLETO - renderiza a própria tela de cadastro com aviso + link de login
           return res.status(200).render('auth/cadastro', {
             erro: 'Já existe uma conta com este e-mail. <a href="/login" class="text-primary">Clique aqui para fazer login</a>.',
             emailPrefill: emailNormalizado,
@@ -322,12 +317,10 @@ exports.criarUsuario = async (req, res) => {
           });
         }
 
-        // NÃO tem perfil ainda -> agora pode fixar o tipo (uma única vez)
         if (usuarioExistente.tipo !== tipo) {
           await usuarioModel.atualizarUsuario(usuarioId, { tipo });
         }
 
-        // Primeiro perfil do tipo selecionado — mostra modal e também manda e-mail de confirmação de ação
         await enviarEmailConfirmacaoAcao(emailNormalizado, usuarioId, tipo);
 
         return res.status(200).render('auth/cadastro', {
@@ -339,7 +332,6 @@ exports.criarUsuario = async (req, res) => {
         });
       }
 
-      // E-mail existe, mas ainda não verificado -> atualiza senha/tipo e reenvia verificação padrão
       const salt = await bcrypt.genSalt(10);
       const senhaCriptografada = await bcrypt.hash(senha, salt);
 
@@ -349,7 +341,6 @@ exports.criarUsuario = async (req, res) => {
       return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(emailNormalizado)}`);
     }
 
-    // Usuário novo
     const salt = await bcrypt.genSalt(10);
     const senhaCriptografada = await bcrypt.hash(senha, salt);
 
@@ -372,7 +363,7 @@ exports.criarUsuario = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-  const { email, senha } = req.body;
+  const { email, senha, remember } = req.body;
   if (!email || !senha) {
     req.session.erro = 'Preencha todos os campos.';
     return res.redirect('/login');
@@ -393,64 +384,101 @@ exports.login = async (req, res) => {
     }
 
     if (!usuario.email_verificado) {
-      // Mantém experiência: leva para a tela que orienta a verificar o e-mail, com opção de reenviar
       return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(usuario.email)}`);
     }
 
-    if (usuario.tipo === 'empresa') {
-      const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario.id);
-
-      if (!empresa || isEmpresaIncompleto(empresa)) {
-        return redirecionarFluxoEmpresa(usuario.id, res);
+    req.session.regenerate(async (err) => {
+      if (err) {
+        console.error('Erro ao regenerar sessão:', err);
+        req.session.erro = 'Erro ao iniciar sessão.';
+        return res.redirect('/login');
       }
 
-      req.session.empresa = {
-        id: empresa.id,
-        usuario_id: usuario.id,
-        nome_empresa: empresa.nome_empresa,
-        descricao: empresa.descricao,
-        telefone: empresa.telefone,
-        cidade: empresa.cidade,
-        estado: empresa.estado,
-        pais: empresa.pais,
-        foto_perfil: empresa.foto_perfil || '/img/placeholder-empresa.png',
-        email: usuario.email
-      };
-      req.session.usuario = { id: usuario.id, tipo: 'empresa', nome: empresa.nome_empresa, email: usuario.email };
+      const keep = remember === 'on';
+      req.session.remember = keep;
 
-      const destino = req.session.returnTo || '/empresa/home';
-      delete req.session.returnTo;
-      return req.session.save(() => res.redirect(destino));
-    }
+      if (remember === 'on') {
+        const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
+        req.session.cookie.maxAge = THIRTY_DAYS;
+        req.session.cookie.expires = new Date(Date.now() + THIRTY_DAYS);
+      } else {
+        if ('maxAge' in req.session.cookie) delete req.session.cookie.maxAge;
+        req.session.cookie.expires = undefined;
+      }
+      req.session.save();
 
-    if (usuario.tipo === 'candidato') {
-      const candidato = await candidatoModel.obterCandidatoPorUsuarioId(usuario.id);
+      if (usuario.tipo === 'empresa') {
+        const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario.id);
+        if ((!empresa || isEmpresaIncompleto(empresa)) && !keep /* opcional: você pode manter sua lógica de skip */) {
+          return redirecionarFluxoEmpresa(usuario.id, res);
+        }
 
-      if (!candidato || isCandidatoIncompleto(candidato)) {
-        return redirecionarFluxoCandidato(usuario.id, res);
+        req.session.empresa = {
+          id: empresa?.id ?? null,
+          usuario_id: usuario.id,
+          nome_empresa: empresa?.nome_empresa || '',
+          descricao: empresa?.descricao || '',
+          telefone: empresa?.telefone || '',
+          cidade: empresa?.cidade || '',
+          estado: empresa?.estado || '',
+          pais: empresa?.pais || '',
+          foto_perfil: (empresa?.foto_perfil && String(empresa.foto_perfil).trim() !== '')
+            ? empresa.foto_perfil
+            : '/img/placeholder-empresa.png',
+          email: usuario.email
+        };
+
+        req.session.usuario = {
+          id: usuario.id,
+          tipo: 'empresa',
+          nome: empresa?.nome_empresa || '',
+          email: usuario.email,
+          skipCadastro: false,
+        };
+
+        const destino = req.session.returnTo || '/empresa/home';
+        delete req.session.returnTo;
+        return req.session.save(() => res.redirect(destino));
       }
 
-      req.session.candidato = {
-        id: candidato.id,
-        usuario_id: usuario.id,
-        nome: candidato.nome,
-        sobrenome: candidato.sobrenome,
-        email: usuario.email,
-        tipo: 'candidato',
-        telefone: candidato.telefone,
-        dataNascimento: candidato.data_nascimento,
-        foto_perfil: candidato.foto_perfil,
-        localidade: `${candidato.cidade}, ${candidato.estado}, ${candidato.pais}`,
-        areas: candidato.candidato_area?.map(r => r.area_interesse.nome) || []
-      };
-      req.session.usuario = { id: usuario.id, tipo: 'candidato', nome: candidato.nome, sobrenome: candidato.sobrenome };
+      if (usuario.tipo === 'candidato') {
+        const candidato = await candidatoModel.obterCandidatoPorUsuarioId(usuario.id);
+        if ((!candidato || isCandidatoIncompleto(candidato)) && !keep) {
+          return redirecionarFluxoCandidato(usuario.id, res);
+        }
 
-      const destino = req.session.returnTo || '/candidatos/home';
-      delete req.session.returnTo;
-      return req.session.save(() => res.redirect(destino));
-    }
+        const localidade = [candidato?.cidade, candidato?.estado, candidato?.pais]
+          .filter(Boolean).join(', ');
 
-    return res.redirect('/cadastro');
+        req.session.candidato = {
+          id: candidato?.id ?? null,
+          usuario_id: usuario.id,
+          nome: candidato?.nome || '',
+          sobrenome: candidato?.sobrenome || '',
+          email: usuario.email,
+          tipo: 'candidato',
+          telefone: candidato?.telefone || '',
+          dataNascimento: candidato?.data_nascimento || null,
+          foto_perfil: candidato?.foto_perfil || '',
+          localidade,
+          areas: candidato?.candidato_area?.map(r => r.area_interesse.nome) || []
+        };
+
+        req.session.usuario = {
+          id: usuario.id,
+          tipo: 'candidato',
+          nome: candidato?.nome || '',
+          sobrenome: candidato?.sobrenome || '',
+          skipCadastro: false,
+        };
+
+        const destino = req.session.returnTo || '/candidatos/home';
+        delete req.session.returnTo;
+        return req.session.save(() => res.redirect(destino));
+      }
+
+      return res.redirect('/cadastro');
+    });
 
   } catch (err) {
     console.error('Erro ao realizar login:', err);
@@ -458,7 +486,6 @@ exports.login = async (req, res) => {
     return res.redirect('/login');
   }
 };
-
 
 exports.verificarEmail = async (req, res) => {
   const { token } = req.query;
@@ -546,7 +573,7 @@ exports.recuperarSenha = async (req, res) => {
     const token = jwt.sign({ id: usuario.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     const transporter = nodemailer.createTransport({
-    service: 'gmail',
+      service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER || process.env.GMAIL_USER,
         pass: process.env.EMAIL_PASS || process.env.GMAIL_PASS,
@@ -623,8 +650,8 @@ exports.redefinirSenha = async (req, res) => {
 };
 
 exports.continuarCadastro = async (req, res) => {
-  const { usuario_id, tipo } = req.query;
-  if (!usuario_id || !tipo) return res.redirect('/cadastro');
+  const { usuario_id } = req.query;
+  if (!usuario_id) return res.redirect('/cadastro');
 
   try {
     const usuario = await usuarioModel.buscarPorId(Number(usuario_id));
@@ -634,8 +661,15 @@ exports.continuarCadastro = async (req, res) => {
       return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(usuario.email)}`);
     }
 
-    if (tipo === 'candidato') return redirecionarFluxoCandidato(Number(usuario_id), res);
-    if (tipo === 'empresa')   return redirecionarFluxoEmpresa(Number(usuario_id), res);
+    const tipoEfetivo = usuario.tipo || req.session?.usuario?.tipo;
+
+    if (skipFlagAtivo(req)) {
+      return res.redirect(tipoEfetivo === 'empresa' ? '/empresa/home' : '/candidatos/home');
+    }
+
+    if (tipoEfetivo === 'candidato') return redirecionarFluxoCandidato(Number(usuario_id), res);
+    if (tipoEfetivo === 'empresa')   return redirecionarFluxoEmpresa(Number(usuario_id), res);
+
     return res.redirect('/cadastro');
   } catch (err) {
     console.error('Erro ao continuar cadastro:', err);
@@ -643,6 +677,7 @@ exports.continuarCadastro = async (req, res) => {
     return res.redirect('/cadastro');
   }
 };
+
 
 exports.reiniciarCadastro = async (req, res) => {
   const { usuario_id, tipo } = req.query;
@@ -652,7 +687,6 @@ exports.reiniciarCadastro = async (req, res) => {
     const usuario = await usuarioModel.buscarPorId(Number(usuario_id));
     if (!usuario) return res.redirect('/cadastro');
 
-    // 🚫 Bloqueio: precisa verificar o e-mail antes de reiniciar
     if (!usuario.email_verificado) {
       return res.redirect(`/usuarios/aguardando-verificacao?email=${encodeURIComponent(usuario.email)}`);
     }
@@ -688,14 +722,13 @@ exports.confirmarAcaoCadastro = async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const usuario_id = Number(decoded.id);
     const tipo = decoded.tipo;
-    const acao = decoded.acao; // 'continuar' | 'reiniciar'
+    const acao = decoded.acao;
 
     if (!usuario_id || !tipo || !acao) {
       req.session.erro = 'Dados do token incompletos.';
       return res.redirect('/cadastro');
     }
 
-    // Segurança extra: valida se o usuário existe e está verificado
     const usuario = await usuarioModel.buscarPorId(usuario_id);
     if (!usuario || !usuario.email_verificado) {
       req.session.erro = 'Ação não permitida para esta conta.';
@@ -708,7 +741,6 @@ exports.confirmarAcaoCadastro = async (req, res) => {
     }
 
     if (acao === 'reiniciar') {
-      // Limpa sessão
       delete req.session.candidato;
       delete req.session.empresa;
 
@@ -729,4 +761,24 @@ exports.confirmarAcaoCadastro = async (req, res) => {
     req.session.erro = 'Link inválido ou expirado.';
     return res.redirect('/cadastro');
   }
+};
+
+exports.pularCadastro = (req, res) => {
+  if (!req.session.usuario) req.session.usuario = {};
+  req.session.usuario.skipCadastro = true;
+
+  if (req.session.candidato) req.session.candidato.skipCadastro = true;
+  if (req.session.empresa) req.session.empresa.skipCadastro = true;
+
+  res.cookie('cs_skipCadastro', '1', {
+    httpOnly: false, 
+    sameSite: 'lax',
+    maxAge: 31536000000
+  });
+
+  const tipo = req.session.usuario?.tipo ||
+               (req.session.candidato && 'candidato') ||
+               (req.session.empresa && 'empresa');
+
+  return res.redirect(tipo === 'empresa' ? '/empresa/home' : '/candidatos/home');
 };

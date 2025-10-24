@@ -45,6 +45,10 @@
       Home_Office:  'Home Office',
       H_brido:      'Híbrido'
     };
+
+    const _areas = (typeof areas !== 'undefined' && Array.isArray(areas))
+      ? areas
+      : (Array.isArray(candidato?.areas) ? candidato.areas : []);
   %>
 
   <main class="container py-5">
@@ -52,6 +56,20 @@
       <h2 class="mb-0 mt-4">Vagas recomendadas</h2>
     </div>
 
+    <% if (!_areas || _areas.length < 3) { %>
+      <div class="alert alert-warning d-flex justify-content-between align-items-center gap-3 rounded-4 shadow-sm border">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <div>
+            <div class="fw-semibold">Você ainda não selecionou áreas de interesse.</div>
+            <small class="text-muted">Defina até 3 áreas para melhorar suas recomendações.</small>
+          </div>
+        </div>
+        <a href="/candidato/editar-areas" class="btn btn-sm btn-primary">
+          Selecionar áreas
+        </a>
+      </div>
+    <% } %>
     <form class="bg-white rounded-4 p-3 shadow-sm border mb-4" method="GET" action="/candidatos/vagas" id="form-filtros">
       <div class="row g-2 align-items-center">
         <div class="col-12 col-md">
@@ -146,6 +164,47 @@
                   <% vaga.vaga_area.forEach(rel => { %>
                     <span class="badge rounded-pill text-primary border border-primary bg-white"><%= rel.area_interesse.nome %></span>
                   <% }) %>
+                </div>
+              <% } %>
+              <% if (vaga.vaga_arquivo?.length) { %>
+                <div class="mt-2">
+                  <small class="text-muted d-block mb-1">Anexos da vaga:</small>
+                  <div class="d-flex flex-wrap gap-2">
+                    <% vaga.vaga_arquivo.slice(0, 3).forEach(ax => { %>
+                      <a
+                        href="/empresa/public/vaga/anexos/<%= ax.id %>/abrir"
+                        target="_blank" rel="noopener"
+                        class="badge rounded-pill text-bg-light border badge-outline"
+                        title="Abrir anexo no navegador">
+                        <i class="bi bi-paperclip me-1"></i><%= ax.nome.length > 22 ? ax.nome.slice(0,22) + '…' : ax.nome %>
+                      </a>
+                    <% }) %>
+                    <% if (vaga.vaga_arquivo.length > 3) { %>
+                      <span class="badge rounded-pill text-bg-light border">
+                        +<%= vaga.vaga_arquivo.length - 3 %> anexo(s)
+                      </span>
+                    <% } %>
+                  </div>
+                </div>
+              <% } %>
+              <% if (vaga.vaga_link?.length) { %>
+                <div class="mt-2">
+                  <small class="text-muted d-block mb-1">Links da vaga:</small>
+                  <div class="d-flex flex-wrap gap-2">
+                    <% vaga.vaga_link.slice(0,3).forEach(lk => { %>
+                      <a href="<%= lk.url %>" target="_blank" rel="noopener"
+                        class="badge rounded-pill text-bg-light border badge-outline"
+                        title="<%= lk.titulo %>">
+                        <i class="bi bi-link-45deg me-1"></i>
+                        <%= lk.titulo.length > 24 ? lk.titulo.slice(0,24)+'…' : lk.titulo %>
+                      </a>
+                    <% }) %>
+                    <% if (vaga.vaga_link.length > 3) { %>
+                      <span class="badge rounded-pill text-bg-light border badge-outline">
+                        +<%= vaga.vaga_link.length - 3 %> link(s)
+                      </span>
+                    <% } %>
+                  </div>
                 </div>
               <% } %>
             </div>

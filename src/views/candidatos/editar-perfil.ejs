@@ -13,6 +13,7 @@
     .perfil-foto { width: 250px; height: 250px; object-fit: cover; }
     @media (max-width: 576px) { .perfil-foto { width: 180px; height: 180px; } }
     .link-row .bi-trash { cursor: pointer; color: #dc3545; }
+    .contador { font-size: .85rem; color: #6c757d; }
   </style>
 </head>
 <body class="page-editar-perfil">
@@ -68,18 +69,18 @@
           <h3 class="mb-4 mt-4">Editar perfil</h3>
 
           <div class="mb-3">
-            <label for="nome" class="form-label">Nome</label>
+            <label for="nome" class="form-label">Nome <span class="text-muted">(obrigatório)</span></label>
             <input type="text" class="form-control" id="nome" name="nome" value="<%= nome %>" required>
           </div>
 
           <div class="mb-3">
-            <label for="sobrenome" class="form-label">Sobrenome</label>
-            <input type="text" class="form-control" id="sobrenome" name="sobrenome" value="<%= sobrenome %>" required>
+            <label for="sobrenome" class="form-label">Sobrenome <span class="text-muted">(opcional)</span></label>
+            <input type="text" class="form-control" id="sobrenome" name="sobrenome" value="<%= sobrenome %>">
           </div>
 
           <div class="mb-3 position-relative">
-            <label for="localidade" class="form-label">Localidade</label>
-            <input type="text" class="form-control" id="localidade" name="localidade" value="<%= localidade %>" autocomplete="off" required>
+            <label for="localidade" class="form-label">Localidade <span class="text-muted">(opcional — ex: Cidade, Estado, País)</span></label>
+            <input type="text" class="form-control" id="localidade" name="localidade" value="<%= localidade %>" autocomplete="off">
             <ul id="sugestoesLocalidade" class="list-group position-absolute w-100 mt-1 d-none" style="z-index: 1000;"></ul>
             <div id="erro-localidade" class="invalid-feedback mt-1 d-none"></div>
             <button type="button" id="btnLocalizacao" class="btn btn-outline-primary btn-sm mt-2">
@@ -96,22 +97,43 @@
               <span class="form-control text-center bg-light" style="width: 60px;">+55</span>
             </div>
             <div class="col-auto mb-3 d-flex flex-column align-items-start">
-              <label for="ddd" class="form-label">DDD</label>
-              <input id="ddd" name="ddd" type="text" class="form-control text-center" maxlength="2" style="width: 60px;" value="<%= ddd %>" oninput="this.value = this.value.replace(/[^0-9]/g, '')" required>
+              <label for="ddd" class="form-label">DDD <span class="text-muted">(opcional)</span></label>
+              <input id="ddd" name="ddd" type="text" class="form-control text-center" maxlength="2" style="width: 60px;" value="<%= ddd %>" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
             </div>
             <div class="col-auto mb-3 d-flex flex-column align-items-start">
-              <label for="numero" class="form-label">Número</label>
-              <input id="numero" name="numero" type="text" class="form-control text-center" maxlength="11" style="width: 180px;" value="<%= numero %>" oninput="formatarNumero(this)" required>
+              <label for="numero" class="form-label">Número <span class="text-muted">(opcional)</span></label>
+              <input id="numero" name="numero" type="text" class="form-control text-center" maxlength="11" style="width: 180px;" value="<%= numero %>" oninput="formatarNumero(this)">
             </div>
           </div>
 
+          <!-- DESCRIÇÃO / SOBRE MIM -->
+          <div class="mb-3">
+            <label for="descricao" class="form-label d-flex align-items-center gap-2">
+              <i class="bi bi-person-lines-fill"></i>
+              Descrição (sobre você) <span class="text-muted">(opcional)</span>
+            </label>
+            <textarea
+              id="descricao"
+              name="descricao"
+              class="form-control"
+              rows="5"
+              maxlength="600"
+              placeholder="Conte um pouco sobre você: objetivos, experiências, cursos, valores, projetos principais…"
+            ><%= (typeof descricao !== 'undefined' && descricao !== null) ? descricao : (candidato?.descricao || '') %></textarea>
+            <div class="d-flex justify-content-between mt-1">
+              <small class="text-muted">Dica: foque no que te destaca para as vagas que você busca.</small>
+              <small class="contador"><span id="descContador">0</span>/600</small>
+            </div>
+          </div>
+          <!-- /DESCRIÇÃO -->
+
           <div class="mb-4">
             <div class="d-flex align-items-center justify-content-between">
-              <label class="form-label m-0">Links do perfil</label>
+              <label class="form-label m-0">Links do perfil <span class="text-muted">(opcional)</span></label>
             </div>
 
             <div id="linksContainer" class="mt-2">
-              <% const _links = Array.isArray(links) && links.length ? links : [{url:''}]; %>
+              <% const _links = (typeof links !== 'undefined' && Array.isArray(links) && links.length) ? links : [{ url: '' }]; %>
               <% _links.forEach((link) => { %>
                 <div class="row g-2 align-items-end mb-2 link-row">
                   <div class="col-md-7">
@@ -132,6 +154,7 @@
         </div>
       </div>
     </form>
+
     <section class="mt-5">
       <h4 class="m-0 mb-3">Anexos</h4>
 
@@ -172,9 +195,9 @@
                     <td><%= humanFileSize(a.tamanho) %></td>
                     <td><%= new Date(a.criadoEm).toLocaleString('pt-BR') %></td>
                     <td class="text-end">
-                    <a href="/candidato/anexos/<%= a.id %>/abrir" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
-                      Abrir
-                    </a>
+                      <a href="/candidato/anexos/<%= a.id %>/abrir" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                        Abrir
+                      </a>
                       <button
                         type="button"
                         class="btn btn-sm btn-outline-danger"
@@ -232,6 +255,7 @@
         </div>
       </div>
     </div>
+
     <div class="d-flex gap-3 mt-4">
       <button type="submit" form="formEditarPerfil" class="btn btn-primary">Salvar</button>
       <a href="/candidato/meu-perfil" class="btn btn-danger">Cancelar</a>
@@ -304,6 +328,19 @@
         document.getElementById('deleteAnexoNome').textContent = nome || '';
       });
     }
+
+    // Contador de caracteres da descrição
+    (function () {
+      const ta = document.getElementById('descricao');
+      const span = document.getElementById('descContador');
+      if (!ta || !span) return;
+      const max = parseInt(ta.getAttribute('maxlength') || '600', 10);
+      const update = () => { span.textContent = (ta.value || '').length; };
+      ta.addEventListener('input', update);
+      // inicial
+      if (ta.value && ta.value.length > max) ta.value = ta.value.slice(0, max);
+      update();
+    })();
   </script>
 </body>
 </html>

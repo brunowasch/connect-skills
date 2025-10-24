@@ -7,6 +7,7 @@ const vagaAvaliacaoModel = require('../models/vagaAvaliacaoModel');
 const { cloudinary } = require('../config/cloudinary');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const vagaArquivoController = require('./vagaArquivoController');
 
 function getEmpresaFromSession(req) {
   const s = req.session || {};
@@ -238,23 +239,27 @@ exports.homeEmpresa = async (req, res) => {
       const usuario_id = parseInt(req.query.usuario_id, 10);
       if (isNaN(usuario_id)) return res.redirect('/login');
 
-      empresa = await prisma.empresa.findUnique({ where: { usuario_id } });
-      if (!empresa) return res.redirect('/login');
+      const empDb = await prisma.empresa.findUnique({ where: { usuario_id } });
+      if (!empDb) return res.redirect('/login');
 
-      const usuario = await prisma.usuario.findUnique({ where: { id: usuario_id }, select: { email: true } });
+      const usuario = await prisma.usuario.findUnique({
+        where: { id: usuario_id },
+        select: { email: true, nome: true }
+      });
 
       req.session.empresa = {
-        id: empresa.id,
-        usuario_id: empresa.usuario_id,
-        nome_empresa: empresa.nome_empresa,
-        descricao: empresa.descricao,
-        cidade: empresa.cidade,
-        estado: empresa.estado,
-        pais: empresa.pais,
-        telefone: empresa.telefone,
-        foto_perfil: empresa.foto_perfil || '',
+        id: empDb.id,
+        usuario_id: empDb.usuario_id,
+        nome_empresa: empDb.nome_empresa,
+        descricao: empDb.descricao,
+        cidade: empDb.cidade,
+        estado: empDb.estado,
+        pais: empDb.pais,
+        telefone: empDb.telefone,
+        foto_perfil: empDb.foto_perfil || '',
         email: usuario?.email || ''
       };
+      empresa = req.session.empresa;
     }
 
     const usuario = await prisma.usuario.findUnique({
@@ -270,17 +275,17 @@ exports.homeEmpresa = async (req, res) => {
       email: usuario?.email || ''
     };
 
-    const localidade = [req.session.empresa.cidade, req.session.empresa.estado, req.session.empresa.pais]
-      .filter(Boolean).join(', ');
+    const localidade = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', ') || 'Localidade não informada';
 
-    const empresaId = Number(req.session.empresa.id);
+    const empresaId = Number(empresa.id);
 
     const vagasAll = await prisma.vaga.findMany({
       where: { empresa_id: empresaId },
       include: {
-        vaga_area:      { include: { area_interesse: true } },
-        vaga_soft_skill:{ include: { soft_skill: true } },
-        empresa:        { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } }
+        vaga_area:       { include: { area_interesse: true } },
+        vaga_soft_skill: { include: { soft_skill: true } },
+        empresa: { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } },
+        vaga_link: true,
       },
       orderBy: { created_at: 'desc' }
     });
@@ -318,18 +323,33 @@ exports.homeEmpresa = async (req, res) => {
     const totalVagas = vagasDecoradas.length;
     const totalCandidatos = vagasDecoradas.reduce((acc, v) => acc + (v.total_candidatos || 0), 0);
 
-    res.render('empresas/home-empresas', {
-      nome: req.session.empresa.nome_empresa,
-      descricao: req.session.empresa.descricao,
-      telefone: req.session.empresa.telefone,
-      localidade,
-      fotoPerfil: req.session.empresa.foto_perfil || '/img/avatar.png',
-      usuario: req.session.usuario,
-      empresa: req.session.empresa,
+    // ===== Avatar padrão e Progress =====
+    const fotoPerfil =
+      empresa.foto_perfil && empresa.foto_perfil.trim() !== ''
+        ? empresa.foto_perfil
+        : '/img/avatar.png';
 
-      vagasRecentes: vagasDecoradas,                
-      totais: { totalVagas, totalCandidatos },      
-      activePage: 'home'
+    const checklistEmp = [
+      !!(empresa.nome_empresa && empresa.nome_empresa.trim() !== ''),
+      !!(empresa.descricao && empresa.descricao.trim() !== ''),
+      localidade !== 'Localidade não informada',
+      !!(empresa.telefone && empresa.telefone.trim() !== ''),
+      !!(empresa.foto_perfil && empresa.foto_perfil.trim() !== '')
+    ];
+    const profileCompletion = Math.round((checklistEmp.filter(Boolean).length / checklistEmp.length) * 100);
+
+    res.render('empresas/home-empresas', {
+      nome: empresa.nome_empresa,
+      descricao: empresa.descricao,
+      telefone: empresa.telefone,
+      localidade,
+      fotoPerfil,                  // <- usa avatar se vazio
+      usuario: req.session.usuario,
+      empresa,
+      vagasRecentes: vagasDecoradas,
+      totais: { totalVagas, totalCandidatos },
+      activePage: 'home',
+      profileCompletion           // <- para a view mostrar condicionalmente
     });
   } catch (err) {
     console.error('Erro ao exibir home da empresa:', err);
@@ -337,7 +357,6 @@ exports.homeEmpresa = async (req, res) => {
     res.redirect('/login');
   }
 };
-
 
 exports.telaPerfilEmpresa = async (req, res) => {
   const sess = req.session.empresa;
@@ -468,7 +487,7 @@ exports.salvarVaga = async (req, res) => {
       salarioFormatado = parseFloat(bruto);
     }
 
-    await prisma.vaga.create({
+    const vagaCriada = await prisma.vaga.create({
       data: {
         empresa_id,
         cargo,
@@ -482,10 +501,35 @@ exports.salvarVaga = async (req, res) => {
         beneficio: beneficiosTexto,
         pergunta,
         opcao,
-        vaga_area: { createMany: { data: areas_ids.map(id=>({ area_interesse_id: id })) } },
-        vaga_soft_skill: { createMany: { data: soft_skills_ids.map(id=>({ soft_skill_id: id })) } }
+        vaga_area:      { createMany: { data: areas_ids.map(id=>({ area_interesse_id: id })) } },
+        vaga_soft_skill:{ createMany: { data: soft_skills_ids.map(id=>({ soft_skill_id: id })) } }
       }
     });
+
+    if (req.files?.length) {
+      await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaCriada.id);
+    }
+
+    const titulos = Array.isArray(req.body.linksTitulo) ? req.body.linksTitulo : [];
+    const urls    = Array.isArray(req.body.linksUrl)    ? req.body.linksUrl    : [];
+
+    const toHttp = (u) => {
+      if (!u) return '';
+      const s = String(u).trim();
+      return /^https?:\/\//i.test(s) ? s : 'https://' + s;
+    };
+
+    const linksData = [];
+    for (let i = 0; i < Math.max(titulos.length, urls.length); i++) {
+      const titulo = String(titulos[i] || '').trim();
+      const url    = toHttp(urls[i] || '');
+      if (!titulo || !url) continue;
+      linksData.push({ vaga_id: vagaCriada.id, titulo: titulo.slice(0,120), url: url.slice(0,1024), ordem: i+1 });
+    }
+
+    if (linksData.length) {
+      await prisma.vaga_link.createMany({ data: linksData });
+    }
 
     req.session.sucessoVaga = 'Vaga publicada com sucesso!';
     return res.redirect('/empresa/meu-perfil');
@@ -505,7 +549,9 @@ exports.mostrarPerfil = async (req, res) => {
       where: { empresa_id: req.session.empresa.id },
       include: {
         empresa: true,
-        vaga_area: { include: { area_interesse: true } }
+        vaga_area: { include: { area_interesse: true } },
+        vaga_arquivo: true,
+        vaga_link: true,
       }
     });
 
@@ -547,7 +593,9 @@ exports.telaEditarVaga = async (req, res) => {
       where: { id: vagaId },
       include: {
         vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } }
+        vaga_soft_skill: { include: { soft_skill: true } },
+        vaga_arquivo: true,
+        vaga_link: true,
       }
     });
 
@@ -683,6 +731,25 @@ exports.salvarEditarVaga = async (req, res) => {
       });
     }
 
+    if (req.files?.length) {
+      await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaId);
+    }
+
+    const titulos = Array.isArray(req.body.linksTitulo) ? req.body.linksTitulo : [];
+    const urls    = Array.isArray(req.body.linksUrl)    ? req.body.linksUrl    : [];
+    const toHttp = (u) => /^https?:\/\//i.test(String(u||'').trim()) ? String(u).trim() : ('https://' + String(u||'').trim());
+
+    const novos = [];
+    for (let i = 0; i < Math.max(titulos.length, urls.length); i++) {
+      const titulo = String(titulos[i] || '').trim();
+      const url    = toHttp(urls[i] || '');
+      if (!titulo || !url) continue;
+      novos.push({ vaga_id: vagaId, titulo: titulo.slice(0,120), url: url.slice(0,1024), ordem: i+1 });
+    }
+    if (novos.length) {
+      await prisma.vaga_link.createMany({ data: novos });
+    }
+
     req.session.sucessoVaga = 'Vaga atualizada com sucesso!';
     return res.redirect('/empresa/meu-perfil');
   } catch (err) {
@@ -765,6 +832,7 @@ exports.rankingCandidatos = async (req, res) => {
 
       return {
         pos: idx + 1,
+        candidato_id: c.id,
         nome,
         local,
         telefone,
@@ -887,6 +955,8 @@ exports.telaVagaDetalhe = async (req, res) => {
         empresa: true,
         vaga_area:      { include: { area_interesse: true } },
         vaga_soft_skill:{ include: { soft_skill: true } },
+        vaga_arquivo:   true,
+        vaga_link: true,
       },
     });
 
@@ -1022,7 +1092,15 @@ exports.perfilPublico = async (req, res) => {
   }
 
   try {
-    const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
+    // Carrega a empresa já com links e anexos
+    const empresa = await prisma.empresa.findUnique({
+      where: { id: empresaId },
+      include: {
+        empresa_link:    { orderBy: { ordem: 'asc' } },
+        empresa_arquivo: { orderBy: { criadoEm: 'desc' } },
+      }
+    });
+
     if (!empresa) {
       req.session.erro = 'Empresa não encontrada.';
       return res.redirect('/');
@@ -1032,11 +1110,12 @@ exports.perfilPublico = async (req, res) => {
       where: { empresa_id: empresaId },
       include: {
         vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } }
+        vaga_soft_skill: { include: { soft_skill: true } },
+        vaga_arquivo: true,
+        vaga_link: true,
       }
     });
 
-    // Filtra fechadas pelo histórico
     const ids = vagasPublicadasAll.map(v => v.id);
     let vagasPublicadas = vagasPublicadasAll;
     if (ids.length) {
@@ -1045,7 +1124,7 @@ exports.perfilPublico = async (req, res) => {
         orderBy: { criado_em: 'desc' },
         select: { vaga_id: true, situacao: true, criado_em: true }
       });
-      const latest = new Map(); // vaga_id -> situacao
+      const latest = new Map();
       for (const s of statusList) {
         if (!latest.has(s.vaga_id)) latest.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
       }
@@ -1079,11 +1158,14 @@ exports.perfilPublico = async (req, res) => {
       }
     }
 
+    // >>> Envia links e anexos para a view <<<
     return res.render('empresas/perfil-publico', {
       empresa,
       vagasPublicadas,
       somentePreview,
-      podeTestar
+      podeTestar,
+      links:  empresa.empresa_link || [],
+      anexos: empresa.empresa_arquivo || []
     });
   } catch (error) {
     console.error('Erro ao carregar perfil público:', error);
@@ -1092,9 +1174,10 @@ exports.perfilPublico = async (req, res) => {
   }
 };
 
+
 exports.telaEditarPerfil = async (req, res) => {
   const sess = req.session.empresa;
-    const humanFileSize = (bytes) => {
+  const humanFileSize = (bytes) => {
     if (!bytes || bytes <= 0) return '0 B';
     const thresh = 1024;
     if (Math.abs(bytes) < thresh) return bytes + ' B';
@@ -1136,7 +1219,7 @@ exports.salvarEdicaoPerfil = async (req, res) => {
     const sess = req.session.empresa;
     if (!sess) return res.redirect('/login');
 
-    const { nome, descricao, localidade, ddd, numero } = req.body;
+    const { nome, descricao, localidade, ddd, numero, removerFoto, fotoBase64 } = req.body;
 
     // Localidade
     let cidade = '', estado = '', pais = '';
@@ -1145,34 +1228,64 @@ exports.salvarEdicaoPerfil = async (req, res) => {
       [cidade, estado = '', pais = ''] = partes;
     }
 
+    // Telefone
     let telefone = req.body.telefone || '';
     const dddDigits = (ddd || '').replace(/\D/g, '');
     const numDigits = (numero || '').replace(/\D/g, '');
     if (dddDigits && numDigits) {
       let numeroFmt;
       if (numDigits.length >= 9) {
-        // celular (9 dígitos)
-        numeroFmt = `${numDigits.slice(0, 5)}-${numDigits.slice(5, 9)}`;
+        numeroFmt = `${numDigits.slice(0, 5)}-${numDigits.slice(5, 9)}`; // celular
       } else if (numDigits.length >= 8) {
-        // fixo (8 dígitos)
-        numeroFmt = `${numDigits.slice(0, 4)}-${numDigits.slice(4, 8)}`;
+        numeroFmt = `${numDigits.slice(0, 4)}-${numDigits.slice(4, 8)}`; // fixo
       } else {
-        numeroFmt = numDigits; // fallback
+        numeroFmt = numDigits;
       }
       telefone = `+55 (${dddDigits}) ${numeroFmt}`;
     }
 
-    await prisma.empresa.update({
-      where: { id: Number(sess.id) },
-      data: {
-        nome_empresa: nome,
-        descricao,
-        cidade, estado, pais,
-        telefone
+    let novaFotoUrl = null;
+
+    if (String(removerFoto).toLowerCase() === 'true') {
+      novaFotoUrl = '';
+    }
+
+    if (!novaFotoUrl && fotoBase64 && /^data:image\/(png|jpe?g|webp);base64,/.test(fotoBase64)) {
+      try {
+        const mod = require('../config/cloudinary');
+        const cloud = mod?.cloudinary || mod;
+        const uploader = cloud?.uploader;
+
+        if (uploader && typeof uploader.upload === 'function') {
+          const uploadRes = await uploader.upload(fotoBase64, {
+            folder: 'connect-skills/empresa',
+            overwrite: true,
+            invalidate: true,
+          });
+          novaFotoUrl = uploadRes.secure_url || uploadRes.url || '';
+        } else {
+          console.warn('[editar-empresa] Cloudinary não configurado ou sem uploader. Pulando upload.');
+        }
+      } catch (e) {
+        console.warn('[editar-empresa] Falha ao enviar foto para Cloudinary:', e.message);
       }
+    }
+
+    const dataUpdate = {
+      nome_empresa: nome,
+      descricao,
+      cidade, estado, pais,
+      telefone
+    };
+    if (novaFotoUrl !== null) {
+      dataUpdate.foto_perfil = novaFotoUrl;
+    }
+
+    const empresaAtualizada = await prisma.empresa.update({
+      where: { id: Number(sess.id) },
+      data: dataUpdate
     });
 
-    // Links do perfil (igual estava)
     const urls = Array.isArray(req.body['link_url[]']) ? req.body['link_url[]'] :
                  Array.isArray(req.body.link_url) ? req.body.link_url :
                  (req.body.link_url ? [req.body.link_url] : []);
@@ -1195,6 +1308,17 @@ exports.salvarEdicaoPerfil = async (req, res) => {
     if (creates.length) {
       await prisma.empresa_link.createMany({ data: creates });
     }
+
+    req.session.empresa = {
+      ...req.session.empresa,
+      nome_empresa: empresaAtualizada.nome_empresa,
+      descricao: empresaAtualizada.descricao,
+      cidade: empresaAtualizada.cidade,
+      estado: empresaAtualizada.estado,
+      pais: empresaAtualizada.pais,
+      telefone: empresaAtualizada.telefone,
+      foto_perfil: empresaAtualizada.foto_perfil || req.session.empresa.foto_perfil
+    };
 
     req.session.sucessoCadastro = 'Perfil atualizado com sucesso.';
     res.redirect('/empresa/meu-perfil');
@@ -1249,7 +1373,9 @@ exports.mostrarVagas = async (req, res) => {
       where,
       include: {
         vaga_area: { include: { area_interesse: true } },
-        empresa: { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } }
+        empresa: { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } },
+        vaga_arquivo: true,
+        vaga_link: true,
       },
       orderBy
     });
@@ -1267,7 +1393,8 @@ exports.mostrarVagas = async (req, res) => {
 
     let vagasComTotal = vagas.map(v => ({
       ...v,
-      total_candidatos: countsMap.get(v.id) || 0
+      total_candidatos: countsMap.get(v.id) || 0,
+      total_anexos: v.vaga_arquivo?.length || 0,
     }));
 
     switch (ordenar) {
@@ -1315,4 +1442,193 @@ exports.salvarComplementarGoogle = (req, res) => {
   const usuarioId = req.session?.usuario?.id;
   if (!usuarioId) return res.redirect('/login');
   return res.redirect(`/empresas/nome-empresa?usuario_id=${usuarioId}`);
+};
+
+exports.pularCadastroEmpresa = async (req, res) => {
+  if (!req.session.usuario) req.session.usuario = {};
+  req.session.usuario.skipCadastro = true;
+  if (req.session.candidato) req.session.candidato.skipCadastro = true;
+
+  res.cookie('cs_skipCadastro', '1', {
+    httpOnly: false,
+    sameSite: 'lax',
+    maxAge: 31536000000
+  });
+
+  try {
+    const usuarioId = Number(
+      req.query.usuario_id || req.body.usuario_id || req.session?.usuario?.id
+    );
+    if (!usuarioId) return res.redirect('/login');
+
+    // Garante que exista um registro de empresa
+    let emp = await prisma.empresa.findUnique({
+      where: { usuario_id: usuarioId },
+      include: {
+        usuario: { select: { email: true } }
+      }
+    });
+
+    if (!emp) {
+      const usr = await prisma.usuario.findUnique({ where: { id: usuarioId } });
+      emp = await prisma.empresa.create({
+        data: {
+          usuario_id: usuarioId,
+          nome_empresa: usr?.nome || 'Empresa',
+          descricao: '',
+          pais: '', estado: '', cidade: '',
+          telefone: '',
+          foto_perfil: ''
+        },
+        include: { usuario: { select: { email: true } } }
+      });
+    }
+
+    // Prepara localidade formatada
+    const localidade = [emp.cidade, emp.estado, emp.pais].filter(Boolean).join(', ');
+
+    // Salva na sessão
+    req.session.usuario = {
+      id: usuarioId,
+      tipo: 'empresa',
+      nome: emp.nome_empresa,
+      email: emp.usuario?.email || ''
+    };
+    req.session.empresa = {
+      id: emp.id,
+      usuario_id: usuarioId,
+      nome_empresa: emp.nome_empresa,
+      descricao: emp.descricao,
+      email: emp.usuario?.email || '',
+      telefone: emp.telefone || '',
+      foto_perfil: emp.foto_perfil || '',
+      cidade: emp.cidade || '',
+      estado: emp.estado || '',
+      pais: emp.pais || '',
+      localidade
+    };
+
+    return req.session.save(() => res.redirect('/empresa/home'));
+  } catch (err) {
+    console.error('[pularCadastroEmpresa] erro:', err?.message || err);
+    req.session.erro = 'Não foi possível pular o complemento agora.';
+    return res.redirect('/login');
+  }
+};
+
+exports.uploadAnexosEmpresa = async (req, res) => {
+  const sess = req.session?.empresa;
+  if (!sess?.id) {
+    req.session.erro = 'Faça login para enviar anexos.';
+    return res.redirect('/login');
+  }
+
+  try {
+    // Cloudinary é obrigatório para anexos (guarda a URL pública)
+    if (!cloudinary?.uploader) {
+      req.session.erro = 'Storage não configurado para anexos (Cloudinary).';
+      return res.redirect('/empresa/editar-empresa');
+    }
+
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (!files.length) {
+      req.session.erro = 'Nenhum arquivo selecionado.';
+      return res.redirect('/empresa/editar-empresa');
+    }
+
+    let enviados = 0;
+    for (const f of files) {
+      // Faz upload (aceita imagens, PDFs, DOCX, etc.)
+      const opts = { folder: 'connect-skills/empresa/anexos', resource_type: 'auto' };
+
+      // suporta tanto storage em disco (f.path) quanto em memória (f.buffer)
+      const upRes = f?.path
+        ? await cloudinary.uploader.upload(f.path, opts)
+        : await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(opts, (err, r) => err ? reject(err) : resolve(r));
+            stream.end(f.buffer);
+          });
+
+      const finalUrl  = upRes?.secure_url || upRes?.url || null;
+      const finalMime = f?.mimetype || 'application/octet-stream';
+      const finalName = f?.originalname || 'arquivo';
+      const finalSize = typeof f?.size === 'number' ? f.size : (upRes?.bytes || 0);
+
+      if (!finalUrl) throw new Error('Falha ao obter URL do anexo no Cloudinary.');
+
+      await prisma.empresa_arquivo.create({
+        data: {
+          empresa_id: Number(sess.id),
+          nome: String(finalName).slice(0, 255),
+          mime: String(finalMime).slice(0, 100),
+          tamanho: Number(finalSize) || 0,
+          url: finalUrl
+        }
+      });
+
+      enviados++;
+    }
+
+    req.session.sucessoCadastro = `${enviados} arquivo(s) enviado(s) com sucesso.`;
+    return res.redirect('/empresa/editar-empresa');
+  } catch (e) {
+    console.error('uploadAnexosEmpresa erro:', e);
+    req.session.erro = 'Falha ao enviar anexos. Verifique o arquivo e tente novamente.';
+    return res.redirect('/empresa/editar-empresa');
+  }
+};
+
+exports.abrirAnexoEmpresa = async (req, res) => {
+  const sess = req.session?.empresa;
+  if (!sess?.id) return res.redirect('/login');
+
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).send('ID inválido.');
+
+  try {
+    const ax = await prisma.empresa_arquivo.findFirst({
+      where: { id, empresa_id: Number(sess.id) },
+      select: { url: true }
+    });
+    if (!ax) {
+      req.session.erro = 'Anexo não encontrado.';
+      return res.redirect('/empresa/editar-empresa');
+    }
+    if (!ax.url || ax.url === '#') {
+      req.session.erro = 'Arquivo sem URL válida.';
+      return res.redirect('/empresa/editar-empresa');
+    }
+    return res.redirect(ax.url); // navegador abre (PDF/IMG) ou baixa (demais)
+  } catch (e) {
+    console.error('abrirAnexoEmpresa erro:', e);
+    req.session.erro = 'Falha ao abrir o anexo.';
+    return res.redirect('/empresa/editar-empresa');
+  }
+};
+
+exports.excluirAnexoEmpresa = async (req, res) => {
+  const sess = req.session?.empresa;
+  if (!sess?.id) return res.redirect('/login');
+
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).send('ID inválido.');
+
+  try {
+    const ax = await prisma.empresa_arquivo.findFirst({
+      where: { id, empresa_id: Number(sess.id) },
+      select: { id: true }
+    });
+    if (!ax) {
+      req.session.erro = 'Anexo não encontrado.';
+      return res.redirect('/empresa/editar-empresa');
+    }
+
+    await prisma.empresa_arquivo.delete({ where: { id: ax.id } });
+    req.session.sucessoCadastro = 'Anexo excluído.';
+    return res.redirect('/empresa/editar-empresa');
+  } catch (e) {
+    console.error('excluirAnexoEmpresa erro:', e);
+    req.session.erro = 'Falha ao excluir o anexo.';
+    return res.redirect('/empresa/editar-empresa');
+  }
 };
