@@ -7,6 +7,9 @@ const candidatoController = require('../controllers/candidatoController');
 const uploadCandidato = require('../middlewares/upload');
 const { ensureCandidato } = require('../middlewares/auth');
 
+// ⬇⬇⬇ ADICIONE ESTA LINHA:
+const vagaController = require('../controllers/vagaController');
+
 // Fluxo de cadastro
 router.get('/cadastro/nome', candidatoController.telaNomeCandidato);
 router.post('/cadastro/nome', candidatoController.salvarNomeCandidato);
@@ -35,6 +38,7 @@ router.get('/meu-perfil', ensureCandidato, candidatoController.renderMeuPerfil);
 router.get('/vagas', ensureCandidato, candidatoController.mostrarVagas);
 router.get('/vagas/historico', ensureCandidato, candidatoController.historicoAplicacoes);
 router.get('/vagas/:id', ensureCandidato, candidatoController.vagaDetalhes);
+router.get('/vagas/:id/perguntas-disc', ensureCandidato, vagaController.apiPerguntasDISC);
 
 // Edição de perfil
 router.get('/editar-perfil', ensureCandidato, candidatoController.telaEditarPerfil);
