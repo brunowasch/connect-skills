@@ -506,6 +506,10 @@ exports.salvarVaga = async (req, res) => {
       }
     });
 
+    if (req.files?.length) {
+      await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaCriada.id);
+    }
+
     const titulos = Array.isArray(req.body.linksTitulo) ? req.body.linksTitulo : [];
     const urls    = Array.isArray(req.body.linksUrl)    ? req.body.linksUrl    : [];
 
@@ -525,10 +529,6 @@ exports.salvarVaga = async (req, res) => {
 
     if (linksData.length) {
       await prisma.vaga_link.createMany({ data: linksData });
-    }
-
-    if (req.files?.length) {
-      await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaCriada.id);
     }
 
     req.session.sucessoVaga = 'Vaga publicada com sucesso!';

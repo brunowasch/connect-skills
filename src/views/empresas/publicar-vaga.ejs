@@ -114,8 +114,13 @@
 
       <div class="mb-4">
         <label for="anexosVaga" class="form-label">Anexos da vaga (PDF, imagens, etc.)</label>
-        <input type="file" id="anexosVaga" name="anexosVaga" class="form-control" multiple>
+        <div id="anexos-wrapper">
+          <input type="file" id="anexosVaga" name="anexosVaga" class="form-control" multiple>
+        </div>
         <small class="text-muted d-block mt-1">Tamanho máx. 10MB por arquivo.</small>
+        <div id="anexos-hidden" class="d-none"></div>
+
+        <div id="lista-anexos" class="mt-2"></div>
       </div>
 
       <div class="mb-4">
@@ -205,6 +210,97 @@
       }
     });
   })();
+  (function(){
+  const input = document.getElementById('anexosVaga');
+  const lista = document.getElementById('lista-anexos');
+
+  input.addEventListener('change', () => {
+    lista.innerHTML = ''; // limpa antes de renderizar de novo
+    if (input.files.length) {
+      const ul = document.createElement('ul');
+      ul.className = 'list-group';
+      [...input.files].forEach(file => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-center justify-content-between';
+        li.innerHTML = `
+          <span><i class="bi bi-paperclip me-2"></i>${file.name}</span>
+          <small class="text-muted">${(file.size / 1024).toFixed(1)} KB</small>
+        `;
+        ul.appendChild(li);
+      });
+      lista.appendChild(ul);
+    }
+  });
+})();
+</script>
+<script>
+(function () {
+  const wrapper = document.getElementById('anexos-wrapper');
+  const hidden  = document.getElementById('anexos-hidden');
+  const lista   = document.getElementById('lista-anexos');
+
+  function criaInputNovo() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.name = 'anexosVaga';
+    input.className = 'form-control';
+    input.multiple = true;
+    input.addEventListener('change', onChangeInput);
+    wrapper.innerHTML = '';
+    wrapper.appendChild(input);
+    return input;
+  }
+
+  function renderLista() {
+    lista.innerHTML = '';
+    const grupos = hidden.querySelectorAll('input[type="file"][name="anexosVaga"], #anexos-wrapper input[type="file"][name="anexosVaga"]');
+
+    let count = 0;
+    grupos.forEach((inp, idx) => {
+      const files = Array.from(inp.files || []);
+      if (!files.length) return;
+
+      files.forEach((f, i) => {
+        count++;
+        const li = document.createElement('div');
+        li.className = 'list-group-item d-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2';
+        li.innerHTML = `
+          <span><i class="bi bi-paperclip me-2"></i>${f.name}</span>
+          <div class="d-flex align-items-center gap-2">
+            <small class="text-muted">${(f.size / 1024).toFixed(1)} KB</small>
+            <button type="button" class="btn btn-sm btn-outline-danger">Remover</button>
+          </div>
+        `;
+        li.querySelector('button').addEventListener('click', () => {
+          inp.remove();       
+          li.remove();        
+          renderLista();      
+        });
+        lista.appendChild(li);
+      });
+    });
+
+    if (!count) {
+      const vazio = document.createElement('div');
+      vazio.className = 'text-muted small';
+      vazio.textContent = 'Nenhum arquivo selecionado ainda.';
+      lista.appendChild(vazio);
+    }
+  }
+  function onChangeInput(e) {
+    const input = e.target;
+    if (!input.files || !input.files.length) return;
+
+    hidden.appendChild(input);
+
+    criaInputNovo();
+
+    renderLista();
+  }
+  const initial = document.querySelector('#anexos-wrapper input[type="file"]');
+  initial.addEventListener('change', onChangeInput);
+  renderLista();
+})();
 </script>
 
 </body>
