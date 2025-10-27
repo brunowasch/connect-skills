@@ -212,7 +212,7 @@
 
           <hr class="mt-4 mb-3">
 
-          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2" data-vaga-id="<%= vaga.id %>">
             <a href="/candidatos/vagas/<%= vaga.id %>" class="btn btn-outline-primary">
               <i class="bi bi-eye me-1"></i> Ver detalhes
             </a>
@@ -221,7 +221,7 @@
             </button>
           </div>
 
-          <div class="bloco-ia border rounded p-3 bg-light mt-3">
+          <div class="bloco-ia border rounded p-3 bg-light mt-3 d-none">
             <h6 class="fw-semibold mb-3">Questionário da vaga</h6>
             <%
               const perguntas = (vaga.pergunta || '').split('\n').map(s => s.trim()).filter(Boolean);
@@ -276,5 +276,100 @@
       });
     })();
   </script>
+<script>
+document.addEventListener('click', async (ev) => {
+  // Abrir bloco e carregar perguntas
+  const startBtn = ev.target.closest('.btn-entrevista');
+  if (startBtn) {
+    const wrapper = startBtn.closest('[data-vaga-id]');
+    const vagaId = Number(wrapper?.dataset?.vagaId);
+    if (!vagaId) return;
+
+    const bloco = wrapper.parentElement.querySelector('.bloco-ia');
+    if (!bloco) return;
+
+    bloco.classList.remove('d-none');
+    bloco.innerHTML = '<div class="text-muted">Carregando perguntas…</div>';
+
+    try {
+      const resp = await fetch(`/candidato/vagas/${vagaId}/perguntas-disc`);
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error || 'Falha ao carregar perguntas');
+      const perguntas = data.questions || [];
+
+      bloco.innerHTML = `
+        <h6 class="fw-semibold mb-3">Questionário da vaga</h6>
+        <form class="form-disc" data-vaga="${vagaId}">
+          ${perguntas.map((q, idx) => `
+            <div class="mb-2">
+              <label class="form-label">${idx + 1}. ${q}</label>
+              <textarea class="form-control" rows="3" name="a_${idx}" placeholder="Sua resposta..." required></textarea>
+              <input type="hidden" name="q_${idx}" value="${q.replace(/"/g,'&quot;')}">
+            </div>
+          `).join('')}
+          <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-success btn-avaliar" type="submit">
+              <i class="bi bi-clipboard2-check"></i> Analisar compatibilidade
+            </button>
+            <button class="btn btn-outline-secondary fechar-ia" type="button">Ocultar</button>
+          </div>
+          <div class="mt-3 resultados-ia"></div>
+        </form>
+      `;
+    } catch (e) {
+      bloco.innerHTML = `<div class="text-danger">Erro: ${e.message || e}</div>`;
+    }
+  }
+
+  // Ocultar bloco
+  const closeBtn = ev.target.closest('.fechar-ia');
+  if (closeBtn) {
+    const bloco = closeBtn.closest('.bloco-ia');
+    if (bloco) bloco.classList.add('d-none');
+  }
+});
+
+// Envio do formulário para análise
+document.addEventListener('submit', async (ev) => {
+  const form = ev.target.closest('.form-disc');
+  if (!form) return;
+  ev.preventDefault();
+
+  const vagaId = Number(form.getAttribute('data-vaga'));
+  const respostas = Array.from(form.querySelectorAll('textarea[name^="a_"]'));
+  const qa = respostas.map((ta, i) => {
+    const q = form.querySelector(`input[name="q_${i}"]`)?.value || '';
+    return { question: q, answer: ta.value.trim() };
+  });
+
+  if (!qa.length || qa.some(x => !x.answer)) {
+    alert('Preencha suas respostas antes de analisar.');
+    return;
+  }
+
+  const btn = form.querySelector('.btn-avaliar');
+  const out = form.querySelector('.resultados-ia');
+  btn.disabled = true;
+
+  try {
+    // Ajuste a URL se sua rota for outra; aqui uso a que você já tem no back.
+    const resp = await fetch(`/candidato/vaga/${vagaId}/avaliar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ qa })
+    });
+
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Falha ao analisar');
+
+    // Renderize o resultado como preferir; aqui vai um exemplo simples:
+    out.innerHTML = `<div class="alert alert-success">Análise enviada com sucesso!</div>`;
+  } catch (e) {
+    out.innerHTML = `<div class="alert alert-danger">Erro: ${e.message || e}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
 </body>
 </html>

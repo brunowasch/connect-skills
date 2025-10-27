@@ -6,6 +6,7 @@ const vagaModel = require('../models/vagaModel');
 const { sugerirCompatibilidade } = require('../services/iaClient');
 const vagaAvaliacaoModel = require('../models/vagaAvaliacaoModel');
 const { cloudinary } = require('../config/cloudinary');
+const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
 
 const ensureQmark = (q) => {
   const t = (q || '').trim();
@@ -1277,8 +1278,19 @@ exports.avaliarCompatibilidade = async (req, res) => {
 
     // 3) array {question, answer}), items (descrição do candidato ideal), skills (soft skills)
     const qaRaw = Array.isArray(req.body.qa) ? req.body.qa : [];
-    const itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
+    let itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
     const skillsRaw = Array.isArray(req.body.skills) ? req.body.skills : [];
+
+    // 3.x) Fallback para items: se não veio no body, usa a descrição da vaga
+    if (!itemsStr) {
+      const vagaDb = await prisma.vaga.findUnique({
+        where: { id: vaga_id },
+        select: { descricao: true }
+      });
+      if (vagaDb?.descricao?.trim()) {
+        itemsStr = vagaDb.descricao.trim();
+      }
+    }
 
     // 3.1) Validações mínimas
     const qa = qaRaw
@@ -1295,9 +1307,51 @@ exports.avaliarCompatibilidade = async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Campo "items" (descrição do candidato ideal) é obrigatório.' });
     }
 
-    const skills = skillsRaw
+    // skills + fallback no banco se o front não mandar
+    let skills = skillsRaw
       .map(s => (typeof s === 'string' ? s.trim() : ''))
       .filter(Boolean);
+
+    if (!skills.length) {
+      const vagaDbSkills = await prisma.vaga.findUnique({
+        where: { id: vaga_id },
+        select: { vaga_soft_skill: { include: { soft_skill: true } } }
+      });
+      skills = (vagaDbSkills?.vaga_soft_skill || [])
+        .map(vs => vs.soft_skill?.nome)
+        .filter(Boolean);
+    }
+
+    // ---------- NOVO BLOCO "da": inclui DISC + perguntas personalizadas (um objeto por pergunta) ----------
+    const findAnswer = (question) => {
+      const qnorm = String(question || '').trim().toLowerCase();
+      const hit = qa.find(item => String(item.question || '').trim().toLowerCase() === qnorm);
+      return hit ? String(hit.answer || '').trim() : '';
+    };
+
+    // 1) Perguntas DISC (4 por skill)
+    const seen = new Set(); // para evitar duplicatas
+    let da = [];
+    for (const skillName of skills) {
+      const discQs = getDiscQuestionsForSkills([skillName]) || [];
+      for (const q of discQs) {
+        const key = String(q).trim().toLowerCase();
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          da.push({ question: q, answer: findAnswer(q) });
+        }
+      }
+    }
+
+    // 2) Perguntas personalizadas (vindas do qa) que não estejam nas DISC
+    for (const { question } of qa) {
+      const key = String(question || '').trim().toLowerCase();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        da.push({ question, answer: findAnswer(question) });
+      }
+    }
+    // ---------- FIM DO NOVO BLOCO "da" ----------
 
     // 4) Flatten para salvar em "resposta"
     const lines = qa
@@ -1313,8 +1367,10 @@ exports.avaliarCompatibilidade = async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Nenhuma resposta válida encontrada em qa.' });
     }
 
-    // 5) Chamada à IA com novo payload
-    const payload = { qa, items: itemsStr, skills };
+    // 5) Chamada à IA com novo payload (agora inclui "da")
+    const payload = { qa, items: itemsStr, skills, da };
+    console.log('[Compat] Payload a enviar para /suggest:', JSON.stringify(payload, null, 2));
+
     const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest';
     const axiosResp = await axios.post(url, payload, {
       headers: { 'Content-Type': 'application/json' },
@@ -1365,7 +1421,7 @@ exports.avaliarCompatibilidade = async (req, res) => {
         breakdown: { skills, results }
       }
     });
-
+    
     // 9) Resposta
     return res.json({ ok: true, score, results, skills });
   } catch (err) {
@@ -1392,8 +1448,19 @@ exports.avaliarVagaIa = async (req, res) => {
     }
 
     const qaRaw = Array.isArray(req.body.qa) ? req.body.qa : [];
-    const itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
+    let itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
     const skillsRaw = Array.isArray(req.body.skills) ? req.body.skills : [];
+
+    // Fallback para items com a descrição da vaga
+    if (!itemsStr) {
+      const vagaDb = await prisma.vaga.findUnique({
+        where: { id: vaga_id },
+        select: { descricao: true }
+      });
+      if (vagaDb?.descricao?.trim()) {
+        itemsStr = vagaDb.descricao.trim();
+      }
+    }
 
     const qa = qaRaw
       .map(x => ({
@@ -1409,9 +1476,50 @@ exports.avaliarVagaIa = async (req, res) => {
       return res.status(400).json({ ok: false, erro: 'Campo "items" (descrição do candidato ideal) é obrigatório.' });
     }
 
-    const skills = skillsRaw
+    // skills + fallback no banco se o front não mandar
+    let skills = skillsRaw
       .map(s => (typeof s === 'string' ? s.trim() : ''))
       .filter(Boolean);
+
+    if (!skills.length) {
+      const vagaDbSkills = await prisma.vaga.findUnique({
+        where: { id: vaga_id },
+        select: { vaga_soft_skill: { include: { soft_skill: true } } }
+      });
+      skills = (vagaDbSkills?.vaga_soft_skill || [])
+        .map(vs => vs.soft_skill?.nome)
+        .filter(Boolean);
+    }
+
+    const findAnswer = (question) => {
+      const qnorm = String(question || '').trim().toLowerCase();
+      const hit = qa.find(item => String(item.question || '').trim().toLowerCase() === qnorm);
+      return hit ? String(hit.answer || '').trim() : '';
+    };
+
+    const seen = new Set();
+    let da = [];
+
+    // 1) DISC
+    for (const skillName of skills) {
+      const discQs = getDiscQuestionsForSkills([skillName]) || [];
+      for (const q of discQs) {
+        const key = String(q).trim().toLowerCase();
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          da.push({ question: q, answer: findAnswer(q) });
+        }
+      }
+    }
+
+    // 2) Personalizadas (qa) que não sejam repetidas
+    for (const { question } of qa) {
+      const key = String(question || '').trim().toLowerCase();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        da.push({ question, answer: findAnswer(question) });
+      }
+    }
 
     const lines = qa
       .map(({ question, answer }) => {
@@ -1425,7 +1533,9 @@ exports.avaliarVagaIa = async (req, res) => {
       return res.status(400).json({ ok: false, erro: 'Nenhuma resposta válida encontrada em qa.' });
     }
 
-    const payload = { qa, items: itemsStr, skills };
+    const payload = { qa, items: itemsStr, skills, da };
+    console.log('[Compat] Payload a enviar para /suggest:', JSON.stringify(payload, null, 2));
+
     const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest';
     const axiosResp = await axios.post(url, payload, {
       headers: { 'Content-Type': 'application/json' },
@@ -1483,6 +1593,7 @@ exports.avaliarVagaIa = async (req, res) => {
     return res.status(500).json({ ok: false, erro: 'Erro interno ao avaliar a vaga.' });
   }
 };
+
 
 exports.excluirConta = async (req, res) => {
   try {
