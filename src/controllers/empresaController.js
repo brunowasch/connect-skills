@@ -176,35 +176,60 @@ exports.telaFotoPerfil = (req, res) => {
 };
 
 exports.salvarFotoPerfil = async (req, res) => {
-  const usuario_id = req.body.usuario_id || req.query.usuario_id;
+  const usuario_id = req.body.usuario_id || req.query.usuario_id
 
-  if (!req.file?.path) {
+  if (!req.file) {
     return res.render('empresas/foto-perfil-empresa', {
       usuario_id,
-      error: 'Selecione uma foto antes de continuar.'
-    });
+      error: 'Selecione ou capture uma foto antes de continuar.'
+    })
   }
 
   try {
-    const empresa = await prisma.empresa.findUnique({ where: { usuario_id: Number(usuario_id) } });
+    const empresa = await prisma.empresa.findUnique({ where: { usuario_id: Number(usuario_id) } })
     if (!empresa) {
-      req.session.erro = 'Empresa não encontrada.';
-      return res.redirect(`/empresas/foto-perfil?usuario_id=${usuario_id}`);
+      req.session.erro = 'Empresa não encontrada.'
+      return res.redirect(`/empresas/foto-perfil?usuario_id=${usuario_id}`)
     }
 
-    const resultadoCloudinary = await cloudinary.uploader.upload(req.file.path, {
-      folder: 'connect-skills/empresas',
-      public_id: `empresa_${empresa.id}_foto_perfil`,
-      use_filename: true,
-      unique_filename: false,
-    });
+    const file = req.file
+    let urlImagem = null
 
-    const urlImagem = resultadoCloudinary.secure_url;
+    if (file.path && /^https?:\/\//i.test(String(file.path))) {
+      urlImagem = file.path
+    } else {
+      const hasBuffer = Buffer.isBuffer(file.buffer)
+      if (hasBuffer) {
+        const up = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: 'connect-skills/empresas', public_id: `empresa_${empresa.id}_foto_perfil`, overwrite: true, resource_type: 'image' },
+            (err, result) => (err ? reject(err) : resolve(result))
+          )
+          stream.end(file.buffer)
+        })
+        urlImagem = up.secure_url || up.url
+      } else if (file.path) {
+        const up = await cloudinary.uploader.upload(file.path, {
+          folder: 'connect-skills/empresas',
+          public_id: `empresa_${empresa.id}_foto_perfil`,
+          overwrite: true,
+          resource_type: 'image'
+        })
+        urlImagem = up.secure_url || up.url
+      }
+    }
+
+    if (!urlImagem) {
+      return res.render('empresas/foto-perfil-empresa', {
+        usuario_id,
+        error: 'Não foi possível processar a imagem. Tente novamente.'
+      })
+    }
 
     await prisma.empresa.update({
       where: { id: empresa.id },
       data: { foto_perfil: urlImagem }
-    });
+    })
 
     req.session.empresa = {
       id: empresa.id,
@@ -216,20 +241,19 @@ exports.salvarFotoPerfil = async (req, res) => {
       pais: empresa.pais,
       telefone: empresa.telefone,
       foto_perfil: urlImagem
-    };
+    }
+    req.session.usuario = { id: empresa.usuario_id, tipo: 'empresa', nome: empresa.nome_empresa }
 
-    req.session.usuario = { id: empresa.usuario_id, tipo: 'empresa', nome: empresa.nome_empresa };
-
-    req.session.sucessoCadastro = 'Foto de perfil salva com sucesso!';
-    req.session.save(() => res.redirect('/empresa/home'));
+    req.session.sucessoCadastro = 'Foto de perfil salva com sucesso!'
+    req.session.save(() => res.redirect('/empresa/home'))
   } catch (err) {
-    console.error('Erro ao salvar foto de perfil da empresa:', err);
+    console.error('Erro ao salvar foto de perfil da empresa:', err)
     return res.render('empresas/foto-perfil-empresa', {
       usuario_id,
       error: 'Erro interno ao salvar a foto. Tente novamente.'
-    });
+    })
   }
-};
+}
 
 exports.homeEmpresa = async (req, res) => {
   try {

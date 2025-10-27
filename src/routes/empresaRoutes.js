@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const empresaController = require('../controllers/empresaController');
-const { uploadEmpresa } = require('../middlewares/uploadEmpresa');
+const uploadEmpresa = require('../config/multerEmpresa')
 const { uploadVaga } = require('../middlewares/uploadVaga');
 const vagaArquivoController = require('../controllers/vagaArquivoController');
 const { PrismaClient } = require('@prisma/client');
