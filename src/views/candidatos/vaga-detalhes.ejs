@@ -83,6 +83,21 @@
             </div>
             <% } %>
           </div>
+          
+          <div class="col-12 col-md-6">
+            <div class="section-title"><i class="bi bi-briefcase"></i> Vínculo empregatício</div>
+            <% const vinculoMap = {
+                Estagio: 'Estágio',
+                CLT_Tempo_Integral: 'CLT (tempo integral)',
+                CLT_Meio_Periodo: 'CLT (meio período)',
+                Trainee: 'Trainee',
+                Aprendiz: 'Aprendiz',
+                PJ: 'PJ (Pessoa Jurídica)',
+                Freelancer_Autonomo: 'Freelancer / Autônomo',
+                Temporario: 'Temporário'
+              }; %>
+            <div><%= vinculoMap[vaga.vinculo_empregaticio] || '—' %></div>
+          </div>
 
           <hr/>
 

@@ -107,6 +107,21 @@
             <% } %>
           </p>
         </div>
+        
+        <div class="col-12 col-md-6">
+          <h6>Vínculo empregatício</h6>
+          <% const vinculoMap = {
+              Estagio: 'Estágio',
+              CLT_Tempo_Integral: 'CLT (tempo integral)',
+              CLT_Meio_Periodo: 'CLT (meio período)',
+              Trainee: 'Trainee',
+              Aprendiz: 'Aprendiz',
+              PJ: 'PJ (Pessoa Jurídica)',
+              Freelancer_Autonomo: 'Freelancer / Autônomo',
+              Temporario: 'Temporário'
+            }; %>
+          <p class="mb-0"><%= vinculoMap[vaga?.vinculo_empregaticio] || 'Não informado' %></p>
+        </div>
 
         <div class="col-12 col-md-6">
           <h6>Escala</h6>

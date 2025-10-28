@@ -139,6 +139,17 @@
                   </span>
                 </div>
 
+                <span class="badge rounded-pill text-bg-light border mt-2">
+                  <i class="bi bi-briefcase me-1"></i>
+                  <%
+                    const vinculoMap = {
+                      Estagio: 'Estágio', CLT_Tempo_Integral: 'CLT (tempo integral)', CLT_Meio_Periodo: 'CLT (meio período)',
+                      Trainee: 'Trainee', Aprendiz: 'Aprendiz', PJ: 'PJ', Freelancer_Autonomo: 'Freelancer/Autônomo', Temporario: 'Temporário'
+                    };
+                  %>
+                  <%= vinculoMap[vaga.vinculo_empregaticio] || '—' %>
+                </span>
+
                 <p class="mb-2 mt-3"><%= vaga.descricao %></p>
 
                 <div class="mt-2 mb-2 small">
