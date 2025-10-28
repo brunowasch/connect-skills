@@ -136,26 +136,27 @@ model usuario {
 }
 
 model vaga {
-  id                  Int                      @id @default(autoincrement()) @db.UnsignedInt
-  empresa_id          Int
-  cargo               String
-  tipo_local_trabalho vaga_tipo_local_trabalho
-  escala_trabalho     String
-  dias_presenciais    Int?
-  dias_home_office    Int?
-  salario             Decimal?                 @db.Decimal(10, 2)
-  moeda               String?                  @db.VarChar(5)
-  descricao           String                   @db.Text
-  beneficio           String?                  @db.Text
-  pergunta            String?                  @db.Text
-  opcao               String?                  @db.Text
-  created_at          DateTime                 @default(now())
-  empresa             empresa                  @relation(fields: [empresa_id], references: [id])
-  vaga_area           vaga_area[]
-  vaga_arquivo        vaga_arquivo[]
-  vaga_avaliacao      vaga_avaliacao[]
-  vaga_link           vaga_link[]
-  vaga_soft_skill     vaga_soft_skill[]
+  id                   Int                        @id @default(autoincrement()) @db.UnsignedInt
+  empresa_id           Int
+  cargo                String
+  tipo_local_trabalho  vaga_tipo_local_trabalho
+  escala_trabalho      String
+  dias_presenciais     Int?
+  dias_home_office     Int?
+  salario              Decimal?                   @db.Decimal(10, 2)
+  moeda                String?                    @db.VarChar(5)
+  descricao            String                     @db.Text
+  beneficio            String?                    @db.Text
+  pergunta             String?                    @db.Text
+  opcao                String?                    @db.Text
+  created_at           DateTime                   @default(now())
+  vinculo_empregaticio vaga_vinculo_empregaticio?
+  empresa              empresa                    @relation(fields: [empresa_id], references: [id])
+  vaga_area            vaga_area[]
+  vaga_arquivo         vaga_arquivo[]
+  vaga_avaliacao       vaga_avaliacao[]
+  vaga_link            vaga_link[]
+  vaga_soft_skill      vaga_soft_skill[]
 
   @@index([empresa_id], map: "vaga_empresa_id_fkey")
 }
@@ -236,4 +237,15 @@ enum vaga_tipo_local_trabalho {
   Presencial
   Home_Office @map("Home Office")
   H_brido     @map("Híbrido")
+}
+
+enum vaga_vinculo_empregaticio {
+  Estagio
+  CLT_Tempo_Integral
+  CLT_Meio_Periodo
+  Trainee
+  Aprendiz
+  PJ
+  Freelancer_Autonomo
+  Temporario
 }

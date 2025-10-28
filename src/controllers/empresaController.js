@@ -437,132 +437,145 @@ exports.telaPublicarVaga = async (req, res) => {
 
 exports.salvarVaga = async (req, res) => {
   try {
-    if (!req.session.empresa) return res.redirect('/login');
-
-    const rawAreas = req.body.areasSelecionadas ?? req.body.areas ?? '[]';
-    let areasBrutas;
-    try {
-      areasBrutas = Array.isArray(rawAreas) ? rawAreas : JSON.parse(rawAreas);
-    } catch {
-      areasBrutas = [];
+    const empresaSessao = req.session?.empresa || null
+    if (!empresaSessao?.id) {
+      req.session.erro = 'Sessão expirada. Faça login novamente.'
+      return res.redirect('/login')
     }
 
-    if (!Array.isArray(areasBrutas) || areasBrutas.length === 0) {
-      const areasList  = await prisma.area_interesse.findMany({ where: { padrao: true }, orderBy: { nome: 'asc' } });
-      const skillsList = await prisma.soft_skill.findMany({ orderBy: { nome: 'asc' } });
-
-      return res.status(400).render('empresas/publicar-vaga', {
-        erroAreas: 'Selecione ao menos uma área de atuação.',
-        erroHabilidades: null,
-        vaga: {
-          cargo: req.body.cargo || '',
-          tipo_local_trabalho: req.body.tipo || '',
-          escala_trabalho: req.body.escala || '',
-          dias_presenciais: req.body.diasPresenciais || null,
-          dias_home_office: req.body.diasHomeOffice || null,
-          salario: req.body.salario || '',
-          moeda: req.body.moeda || '',
-          descricao: req.body.descricao || '',
-          beneficio: Array.isArray(req.body.beneficio) ? req.body.beneficio : [req.body.beneficio || ''],
-          beneficioOutro: req.body.beneficioOutro || '',
-          pergunta: req.body.pergunta || '',
-          opcao: req.body.opcao || ''
-        },
-        areas: areasList,
-        skills: skillsList,
-        selectedAreas: [],
-        selectedSkills: []
-      });
+    const back = req.get('referer') || '/empresa/publicar-vaga'
+    const norm = s => (s ? String(s).trim() : '')
+    const toNullIfEmpty = s => (norm(s) === '' ? null : norm(s))
+    const toIntOrNull = v => {
+      const s = norm(v); if (!s) return null
+      const n = parseInt(s, 10); return Number.isFinite(n) ? n : null
+    }
+    const parseMoney = v => {
+      if (v == null || v === '') return null
+      const s = String(v).replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')
+      const n = Number(s)
+      return Number.isFinite(n) ? n : null
     }
 
-    const areas_ids = [];
-    for (const item of areasBrutas) {
-      const s = String(item);
-      if (s.startsWith('nova:')) {
-        const nomeNova = s.slice(5).trim();
-        if (!nomeNova) continue;
-        let nova = await prisma.area_interesse.findFirst({ where:{ nome: nomeNova } });
-        if (!nova) {
-          nova = await prisma.area_interesse.create({ data:{ nome: nomeNova } });
+    const VINCULOS_OK = new Set([
+      'Estagio',
+      'CLT_Tempo_Integral',
+      'CLT_Meio_Periodo',
+      'Trainee',
+      'Aprendiz',
+      'PJ',
+      'Freelancer_Autonomo',
+      'Temporario'
+    ])
+
+    const {
+      cargo,
+      tipo,              // tipo_local_trabalho
+      escala,            // escala_trabalho
+      diasPresenciais,
+      diasHomeOffice,
+      salario,
+      moeda,
+      descricao,
+      beneficio,         // checkboxes
+      beneficioOutro,    // texto livre (vai ser incorporado em beneficio)
+      pergunta,          // obrigatório
+      opcao,             // obrigatório
+      vinculo,           // novo
+      areas,             // possível legado
+      areasSelecionadas  // atual (hidden JSON na view)
+    } = req.body
+
+    if (!norm(cargo)) { req.session.erro = 'Informe o cargo da vaga.'; return res.redirect(back) }
+    if (!norm(tipo))  { req.session.erro = 'Informe o tipo de local de trabalho.'; return res.redirect(back) }
+    if (!norm(pergunta) || !norm(opcao)) {
+      req.session.erro = 'Preencha os campos de "Pergunta para IA" e "Opções de resposta para IA".'
+      return res.redirect(back)
+    }
+
+    // Benefícios: une checkboxes + "outro" em um único texto
+    let beneficiosArr = Array.isArray(beneficio) ? beneficio.map(norm).filter(Boolean) : []
+    if (norm(beneficioOutro)) beneficiosArr.push(norm(beneficioOutro))
+    const beneficioStr = beneficiosArr.join(', ')
+
+    const vinculoSafe = VINCULOS_OK.has(String(vinculo)) ? String(vinculo) : null
+    const salarioNumber = parseMoney(salario)
+    const moedaSafe = norm(moeda) || 'BRL'
+    const diasPresenciaisInt = toIntOrNull(diasPresenciais)
+    const diasHomeOfficeInt  = toIntOrNull(diasHomeOffice)
+
+    // Áreas: suporta tanto o hidden JSON novo quanto formato antigo
+    let areasInput = []
+    if (areasSelecionadas) {
+      try { areasInput = JSON.parse(areasSelecionadas) } catch {}
+    } else if (areas) {
+      areasInput = Array.isArray(areas) ? areas : [areas]
+    }
+    const idsAreas = []
+    const novasAreas = []
+    for (const item of areasInput) {
+      const val = norm(item)
+      if (!val) continue
+      if (/^nova:/i.test(val)) {
+        const nome = norm(val.replace(/^nova:/i, ''))
+        if (nome) novasAreas.push(nome)
+      } else if (/^\d+$/.test(val)) {
+        idsAreas.push(Number(val))
+      }
+    }
+
+    const vagaCriada = await prisma.$transaction(async (tx) => {
+      const vaga = await tx.vaga.create({
+        data: {
+          empresa_id: Number(empresaSessao.id),
+          cargo: norm(cargo),
+          tipo_local_trabalho: norm(tipo),
+          escala_trabalho: toNullIfEmpty(escala),
+          dias_presenciais: diasPresenciaisInt,
+          dias_home_office: diasHomeOfficeInt,
+          salario: salarioNumber,
+          moeda: toNullIfEmpty(moedaSafe),
+          descricao: toNullIfEmpty(descricao),
+          beneficio: toNullIfEmpty(beneficioStr),
+          pergunta: norm(pergunta),
+          opcao: norm(opcao),
+          vinculo_empregaticio: vinculoSafe
         }
-        areas_ids.push(nova.id);
-      } else {
-        areas_ids.push(Number(item));
+      })
+
+      // Relaciona áreas existentes
+      const limitIds = idsAreas.slice(0, 3)
+      if (limitIds.length) {
+        await tx.vaga_area.createMany({
+          data: limitIds.map(areaId => ({ vaga_id: vaga.id, area_interesse_id: areaId })),
+          skipDuplicates: true
+        })
       }
-    }
 
-    const rawSkills = req.body.habilidadesSelecionadas ?? '[]';
-    let skillsBrutas;
-    try { skillsBrutas = Array.isArray(rawSkills) ? rawSkills : JSON.parse(rawSkills); }
-    catch { skillsBrutas = []; }
-
-    const soft_skills_ids = skillsBrutas.map(Number);
-
-    const empresa_id = req.session.empresa.id;
-    const { cargo, tipo, escala, diasPresenciais, diasHomeOffice, salario, moeda, descricao, beneficio, beneficioOutro, pergunta, opcao } = req.body;
-
-    let beneficiosArr = Array.isArray(beneficio) ? beneficio : [beneficio];
-    if (beneficioOutro?.trim()) beneficiosArr.push(beneficioOutro.trim());
-    const beneficiosTexto = beneficiosArr.join(', ');
-
-    let salarioFormatado = null;
-    if (salario) {
-      const bruto = salario.toString().replace(/\./g,'').replace(',','.');
-      salarioFormatado = parseFloat(bruto);
-    }
-
-    const vagaCriada = await prisma.vaga.create({
-      data: {
-        empresa_id,
-        cargo,
-        tipo_local_trabalho: tipo,
-        escala_trabalho: escala,
-        dias_presenciais: (diasPresenciais ?? '') === '' ? null : parseInt(diasPresenciais, 10),
-        dias_home_office: (diasHomeOffice ?? '') === '' ? null : parseInt(diasHomeOffice, 10),
-        salario: salarioFormatado,
-        moeda,
-        descricao,
-        beneficio: beneficiosTexto,
-        pergunta,
-        opcao,
-        vaga_area:      { createMany: { data: areas_ids.map(id=>({ area_interesse_id: id })) } },
-        vaga_soft_skill:{ createMany: { data: soft_skills_ids.map(id=>({ soft_skill_id: id })) } }
+      // Cria novas áreas e relaciona (também com limite total 3)
+      for (const nome of novasAreas) {
+        if (limitIds.length >= 3) break
+        let area = await tx.area_interesse.findFirst({ where: { nome } })
+        if (!area) area = await tx.area_interesse.create({ data: { nome, padrao: false } })
+        await tx.vaga_area.upsert({
+          where: { vaga_id_area_id: { vaga_id: vaga.id, area_id: area.id } },
+          create: { vaga_id: vaga.id, area_interesse_id: area.id },
+          update: {}
+        })
       }
-    });
 
-    if (req.files?.length) {
-      await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaCriada.id);
-    }
+      return vaga
+    })
 
-    const titulos = Array.isArray(req.body.linksTitulo) ? req.body.linksTitulo : [];
-    const urls    = Array.isArray(req.body.linksUrl)    ? req.body.linksUrl    : [];
-
-    const toHttp = (u) => {
-      if (!u) return '';
-      const s = String(u).trim();
-      return /^https?:\/\//i.test(s) ? s : 'https://' + s;
-    };
-
-    const linksData = [];
-    for (let i = 0; i < Math.max(titulos.length, urls.length); i++) {
-      const titulo = String(titulos[i] || '').trim();
-      const url    = toHttp(urls[i] || '');
-      if (!titulo || !url) continue;
-      linksData.push({ vaga_id: vagaCriada.id, titulo: titulo.slice(0,120), url: url.slice(0,1024), ordem: i+1 });
-    }
-
-    if (linksData.length) {
-      await prisma.vaga_link.createMany({ data: linksData });
-    }
-
-    req.session.sucessoVaga = 'Vaga publicada com sucesso!';
-    return res.redirect('/empresa/meu-perfil');
+    req.session.sucessoVaga = 'Vaga publicada com sucesso!'
+    return res.redirect('/empresa/vaga/' + vagaCriada.id)
   } catch (err) {
-    console.error('[ERRO] salvarVaga:', err);
-    req.session.erro = 'Erro ao salvar vaga.';
-    return res.redirect('/empresa/publicar-vaga');
+    console.error('Erro ao salvar vaga:', err)
+    req.session.erro = 'Não foi possível publicar a vaga. ' + (err?.message || '')
+    const back = req.get('referer') || '/empresa/publicar-vaga'
+    return res.redirect(back)
   }
-};
+}
 
 exports.mostrarPerfil = async (req, res) => {
   const empresa = req.session.empresa;

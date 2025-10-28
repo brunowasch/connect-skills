@@ -16,11 +16,11 @@
     .bloco-ia { margin-top: 1rem; margin-bottom: 2rem; }
     .resultados-ia { margin-top: 1rem; padding-bottom: 1rem; }
     .ia-header { display:flex; align-items:center; justify-content:space-between; gap:.75rem; position:sticky; top:0; background:#f8f9fa; padding:.25rem 0 .5rem; z-index:1; }
-    .ia-footer { margin-top:2rem; padding-top:1rem; border-top:1px dashed #ddd; display:flex; justify-content:flex-end; }
     .perfil-link { color:#212529; text-decoration:none; transition:color .3s ease; }
     .perfil-link:hover { color:#0d6efd; text-decoration:underline; }
     .file-row { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
     .file-meta { font-size:.9rem; color:#6c757d; }
+    .badge-outline { background:#fff; border:1px solid rgba(0,0,0,.1); }
   </style>
 </head>
 
@@ -60,7 +60,6 @@
     <% const linksArr   = Array.isArray(links)   ? links   : (Array.isArray(empresa?.empresa_link)    ? empresa.empresa_link    : []); %>
     <% const anexosArr  = Array.isArray(anexos)  ? anexos  : (Array.isArray(empresa?.empresa_arquivo) ? empresa.empresa_arquivo : []); %>
 
-    <!-- Links -->
     <section class="perfil-card p-4 mb-4">
       <h4><i class="bi bi-link-45deg"></i> Links do Perfil</h4>
       <hr>
@@ -84,7 +83,6 @@
       <% } %>
     </section>
 
-    <!-- Arquivos -->
     <section class="perfil-card p-4 mb-4">
       <h4><i class="bi bi-paperclip"></i> Arquivos do Perfil</h4>
       <hr>
@@ -124,6 +122,16 @@
       <div class="alert alert-secondary">Nenhuma vaga publicada por esta empresa.</div>
     <% } else { %>
       <% var tipoMap = { Presencial:'Presencial', Home_Office:'Home Office', H_brido:'Híbrido' }; %>
+      <% var vinculoMap = {
+           Estagio: 'Estágio',
+           CLT_Tempo_Integral: 'CLT (tempo integral)',
+           CLT_Meio_Periodo: 'CLT (meio período)',
+           Trainee: 'Trainee',
+           Aprendiz: 'Aprendiz',
+           PJ: 'PJ (Pessoa Jurídica)',
+           Freelancer_Autonomo: 'Freelancer / Autônomo',
+           Temporario: 'Temporário'
+         }; %>
       <% vagasPublicadas.forEach(function(vaga){ %>
         <div class="vaga-card mb-4" data-vaga-id="<%= vaga.id %>">
           <h5 class="fw-bold"><%= vaga.cargo %></h5>
@@ -155,6 +163,13 @@
             </p>
           <% } %>
 
+          <!-- NOVO: Vínculo empregatício -->
+          <% if (vaga.vinculo_empregaticio) { %>
+            <p class="mb-1">
+              <strong>Vínculo:</strong> <%= vinculoMap[vaga.vinculo_empregaticio] || '—' %>
+            </p>
+          <% } %>
+
           <% if (vaga.beneficio && vaga.beneficio.trim()) { %>
             <p class="mb-1"><strong>Benefícios:</strong>
               <%= vaga.beneficio.split(',').map(function(b){ return b.trim(); }).filter(Boolean).join(', ') %>
@@ -176,14 +191,14 @@
                 <% vaga.vaga_link.slice(0, 4).forEach(lk => { %>
                   <a href="<%= /^https?:\/\//i.test(lk.url) ? lk.url : ('https://' + lk.url) %>"
                     target="_blank" rel="noopener"
-                    class="badge rounded-pill text-bg-light border"
+                    class="badge rounded-pill text-bg-light border badge-outline"
                     title="<%= lk.titulo %>">
                     <i class="bi bi-link-45deg me-1"></i>
                     <%= (lk.titulo || lk.url).length > 24 ? (lk.titulo || lk.url).slice(0,24) + '...' : (lk.titulo || lk.url) %>
                   </a>
                 <% }) %>
                 <% if (vaga.vaga_link.length > 4) { %>
-                  <span class="badge rounded-pill text-bg-light border">
+                  <span class="badge rounded-pill text-bg-light border badge-outline">
                     +<%= vaga.vaga_link.length - 4 %> link(s)
                   </span>
                 <% } %>
@@ -198,14 +213,14 @@
                 <% vaga.vaga_arquivo.slice(0, 4).forEach(ax => { %>
                   <a href="/empresa/public/vaga/anexos/<%= ax.id %>/abrir"
                     target="_blank" rel="noopener"
-                    class="badge rounded-pill text-bg-light border"
+                    class="badge rounded-pill text-bg-light border badge-outline"
                     title="Abrir <%= ax.nome %> no navegador">
                     <i class="bi bi-paperclip me-1"></i>
                     <%= ax.nome && ax.nome.length > 24 ? ax.nome.slice(0,24) + '...' : (ax.nome || 'arquivo') %>
                   </a>
                 <% }) %>
                 <% if (vaga.vaga_arquivo.length > 4) { %>
-                  <span class="badge rounded-pill text-bg-light border">
+                  <span class="badge rounded-pill text-bg-light border badge-outline">
                     +<%= vaga.vaga_arquivo.length - 4 %> anexo(s)
                   </span>
                 <% } %>
@@ -213,7 +228,6 @@
             </div>
           <% } %>
 
-          <!-- Ações / Entrevista DISC -->
           <div class="mt-3 text-end">
             <button class="btn <%= somentePreview ? 'btn-outline-secondary' : 'btn-outline-primary' %> fw-bold btn-entrevista" type="button">
               <i class="bi bi-send me-1"></i>
@@ -224,7 +238,6 @@
             <% } %>
           </div>
 
-          <!-- Bloco IA -->
           <div class="border rounded p-3 bg-light bloco-ia d-none">
             <div class="ia-header">
               <div class="alert alert-secondary small mb-0 py-1 px-2">
@@ -240,135 +253,134 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-<script>
-  (function(){
-    var podeTestar = document.body.getAttribute('data-pode-testar') === '1';
+  <script>
+    (function(){
+      var podeTestar = document.body.getAttribute('data-pode-testar') === '1';
 
-    function showWarning(bloco, conteudo) {
-      bloco.classList.remove('d-none');
-      conteudo.innerHTML =
-        '<div class="alert alert-warning mb-0">Entre como candidato para responder o questionário e analisar sua compatibilidade. ' +
-        '<a href="/login" class="alert-link">Fazer login</a></div>';
-    }
-
-    document.addEventListener('click', function(ev){
-      var startBtn = ev.target.closest('.btn-entrevista');
-      if (!startBtn) return;
-
-      var card = startBtn.closest('[data-vaga-id]');
-      var vagaId = Number(card && card.dataset && card.dataset.vagaId);
-      if (!vagaId) return;
-
-      var bloco = card.querySelector('.bloco-ia');
-      var conteudo = card.querySelector('.bloco-ia .conteudo-ia');
-      if (!bloco || !conteudo) return;
-
-      // Se não pode testar (preview), não chama a API — só mostra aviso
-      if (!podeTestar) {
-        showWarning(bloco, conteudo);
-        return;
+      function showWarning(bloco, conteudo) {
+        bloco.classList.remove('d-none');
+        conteudo.innerHTML =
+          '<div class="alert alert-warning mb-0">Entre como candidato para responder o questionário e analisar sua compatibilidade. ' +
+          '<a href="/login" class="alert-link">Fazer login</a></div>';
       }
 
-      bloco.classList.remove('d-none');
-      conteudo.innerHTML = '<div class="text-muted">Carregando perguntas...</div>';
+      document.addEventListener('click', function(ev){
+        var startBtn = ev.target.closest('.btn-entrevista');
+        if (!startBtn) return;
 
-      fetch('/candidato/vagas/' + vagaId + '/perguntas-disc', { credentials: 'same-origin' })
+        var card = startBtn.closest('[data-vaga-id]');
+        var vagaId = Number(card && card.dataset && card.dataset.vagaId);
+        if (!vagaId) return;
+
+        var bloco = card.querySelector('.bloco-ia');
+        var conteudo = card.querySelector('.bloco-ia .conteudo-ia');
+        if (!bloco || !conteudo) return;
+
+        if (!podeTestar) {
+          showWarning(bloco, conteudo);
+          return;
+        }
+
+        bloco.classList.remove('d-none');
+        conteudo.innerHTML = '<div class="text-muted">Carregando perguntas...</div>';
+
+        fetch('/candidato/vagas/' + vagaId + '/perguntas-disc', { credentials: 'same-origin' })
+          .then(function(resp){
+            var ct = resp.headers.get('content-type') || '';
+            if (ct.indexOf('application/json') === -1) {
+              return resp.text().then(function(t){
+                throw new Error('Resposta não JSON (possível redirecionamento).');
+              });
+            }
+            return resp.json();
+          })
+          .then(function(data){
+            if (!data.ok) throw new Error(data.error || 'Falha ao carregar perguntas');
+            var perguntas = Array.isArray(data.questions) ? data.questions : [];
+
+            var html = '';
+            html += '<form class="form-disc" data-vaga="' + vagaId + '">';
+            for (var i = 0; i < perguntas.length; i++) {
+              var q = String(perguntas[i] || '');
+              html += '<div class="mb-2">';
+              html +=   '<label class="form-label">' + (i + 1) + '. ' + q + '</label>';
+              html +=   '<textarea class="form-control" rows="3" name="a_' + i + '" placeholder="Sua resposta..." required></textarea>';
+              html +=   '<input type="hidden" name="q_' + i + '" value="' + q.replace(/"/g,'&quot;') + '">';
+              html += '</div>';
+            }
+            html += '<div class="d-flex gap-2 mt-3">';
+            html +=   '<button class="btn btn-success btn-avaliar" type="submit">';
+            html +=     '<i class="bi bi-clipboard2-check"></i> Analisar compatibilidade';
+            html +=   '</button>';
+            html +=   '<button class="btn btn-outline-secondary fechar-ia" type="button">Ocultar</button>';
+            html += '</div>';
+            html += '<div class="mt-3 resultados-ia"></div>';
+            html += '</form>';
+
+            conteudo.innerHTML = html;
+          })
+          .catch(function(e){
+            conteudo.innerHTML = '<div class="text-danger">Erro: ' + (e.message || e) + '</div>';
+          });
+      });
+
+      document.addEventListener('click', function(ev){
+        var closeBtn = ev.target.closest('.fechar-ia');
+        if (!closeBtn) return;
+        var bloco = closeBtn.closest('.bloco-ia');
+        if (bloco) bloco.classList.add('d-none');
+      });
+
+      document.addEventListener('submit', function(ev){
+        var form = ev.target.closest('.form-disc');
+        if (!form) return;
+        ev.preventDefault();
+
+        var vagaId = Number(form.getAttribute('data-vaga'));
+        var respostas = Array.prototype.slice.call(form.querySelectorAll('textarea[name^="a_"]'));
+        var qa = respostas.map(function(ta, i){
+          var qEl = form.querySelector('input[name="q_' + i + '"]');
+          var q = qEl ? qEl.value : '';
+          return { question: q, answer: ta.value.trim() };
+        });
+
+        if (!qa.length || qa.some(function(x){ return !x.answer; })) {
+          alert('Preencha suas respostas antes de analisar.');
+          return;
+        }
+
+        var btn = form.querySelector('.btn-avaliar');
+        var out = form.querySelector('.resultados-ia');
+        btn.disabled = true;
+        out.innerHTML = '<div class="text-muted">Analisando compatibilidade...</div>';
+
+        fetch('/candidato/vaga/' + vagaId + '/avaliar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ qa: qa })
+        })
         .then(function(resp){
           var ct = resp.headers.get('content-type') || '';
           if (ct.indexOf('application/json') === -1) {
             return resp.text().then(function(t){
-              throw new Error('Resposta não JSON (possível redirecionamento): ' + t.slice(0, 120));
+              throw new Error('Resposta não JSON.');
             });
           }
           return resp.json();
         })
         .then(function(data){
-          if (!data.ok) throw new Error(data.error || 'Falha ao carregar perguntas');
-          var perguntas = Array.isArray(data.questions) ? data.questions : [];
-
-          var html = '';
-          html += '<form class="form-disc" data-vaga="' + vagaId + '">';
-          for (var i = 0; i < perguntas.length; i++) {
-            var q = String(perguntas[i] || '');
-            html += '<div class="mb-2">';
-            html +=   '<label class="form-label">' + (i + 1) + '. ' + q + '</label>';
-            html +=   '<textarea class="form-control" rows="3" name="a_' + i + '" placeholder="Sua resposta..." required></textarea>';
-            html +=   '<input type="hidden" name="q_' + i + '" value="' + q.replace(/"/g,'&quot;') + '">';
-            html += '</div>';
-          }
-          html += '<div class="d-flex gap-2 mt-3">';
-          html +=   '<button class="btn btn-success btn-avaliar" type="submit">';
-          html +=     '<i class="bi bi-clipboard2-check"></i> Analisar compatibilidade';
-          html +=   '</button>';
-          html +=   '<button class="btn btn-outline-secondary fechar-ia" type="button">Ocultar</button>';
-          html += '</div>';
-          html += '<div class="mt-3 resultados-ia"></div>';
-          html += '</form>';
-
-          conteudo.innerHTML = html;
+          if (!data.ok) throw new Error(data.error || 'Falha ao analisar');
+          out.innerHTML = '<div class="alert alert-success">Análise enviada com sucesso!</div>';
         })
         .catch(function(e){
-          conteudo.innerHTML = '<div class="text-danger">Erro: ' + (e.message || e) + '</div>';
+          out.innerHTML = '<div class="alert alert-danger">Erro: ' + (e.message || e) + '</div>';
+        })
+        .finally(function(){
+          btn.disabled = false;
         });
-    });
-
-    document.addEventListener('click', function(ev){
-      var closeBtn = ev.target.closest('.fechar-ia');
-      if (!closeBtn) return;
-      var bloco = closeBtn.closest('.bloco-ia');
-      if (bloco) bloco.classList.add('d-none');
-    });
-
-    document.addEventListener('submit', function(ev){
-      var form = ev.target.closest('.form-disc');
-      if (!form) return;
-      ev.preventDefault();
-
-      var vagaId = Number(form.getAttribute('data-vaga'));
-      var respostas = Array.prototype.slice.call(form.querySelectorAll('textarea[name^="a_"]'));
-      var qa = respostas.map(function(ta, i){
-        var qEl = form.querySelector('input[name="q_' + i + '"]');
-        var q = qEl ? qEl.value : '';
-        return { question: q, answer: ta.value.trim() };
       });
-
-      if (!qa.length || qa.some(function(x){ return !x.answer; })) {
-        alert('Preencha suas respostas antes de analisar.');
-        return;
-      }
-
-      var btn = form.querySelector('.btn-avaliar');
-      var out = form.querySelector('.resultados-ia');
-      btn.disabled = true;
-      out.innerHTML = '<div class="text-muted">Analisando compatibilidade...</div>';
-
-      fetch('/candidato/vaga/' + vagaId + '/avaliar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ qa: qa })
-      })
-      .then(function(resp){
-        var ct = resp.headers.get('content-type') || '';
-        if (ct.indexOf('application/json') === -1) {
-          return resp.text().then(function(t){
-            throw new Error('Resposta não JSON: ' + t.slice(0, 120));
-          });
-        }
-        return resp.json();
-      })
-      .then(function(data){
-        if (!data.ok) throw new Error(data.error || 'Falha ao analisar');
-        out.innerHTML = '<div class="alert alert-success">Análise enviada com sucesso!</div>';
-      })
-      .catch(function(e){
-        out.innerHTML = '<div class="alert alert-danger">Erro: ' + (e.message || e) + '</div>';
-      })
-      .finally(function(){
-        btn.disabled = false;
-      });
-    });
-  })();
-</script>
+    })();
+  </script>
 </body>
 </html>
