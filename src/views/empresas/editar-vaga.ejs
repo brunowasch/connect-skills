@@ -52,18 +52,35 @@
           <div id="erroDias" class="text-danger small ms-3"></div>
         </div>
 
-        <div class="mb-3">
-          <label class="form-label">Salário (opcional)</label>
-          <div class="d-flex gap-2">
-            <select class="form-select" name="moeda" id="moeda" style="max-width: 90px;">
-              <option value="BRL" <%= vaga.moeda === 'BRL' ? 'selected' : '' %>>R$</option>
-              <option value="USD" <%= vaga.moeda === 'USD' ? 'selected' : '' %>>US$</option>
-              <option value="EUR" <%= vaga.moeda === 'EUR' ? 'selected' : '' %>>€</option>
-              <option value="GBP" <%= vaga.moeda === 'GBP' ? 'selected' : '' %>>£</option>
-              <option value="JPY" <%= vaga.moeda === 'JPY' ? 'selected' : '' %>>¥</option>
-            </select>
+        <div class="row mb-3">
+          <div class="col-md-6 mt-3">
+            <label class="form-label">Salário (opcional)</label>
+            <div class="d-flex gap-2">
+              <select class="form-select" name="moeda" id="moeda" style="max-width: 90px;">
+                <option value="BRL" <%= vaga.moeda === 'BRL' ? 'selected' : '' %>>R$</option>
+                <option value="USD" <%= vaga.moeda === 'USD' ? 'selected' : '' %>>US$</option>
+                <option value="EUR" <%= vaga.moeda === 'EUR' ? 'selected' : '' %>>€</option>
+                <option value="GBP" <%= vaga.moeda === 'GBP' ? 'selected' : '' %>>£</option>
+                <option value="JPY" <%= vaga.moeda === 'JPY' ? 'selected' : '' %>>¥</option>
+              </select>
+              <input type="text" class="form-control" name="salario"
+                    value="<%= vaga.salario || '' %>" placeholder="Ex: 2500">
+            </div>
+          </div>
 
-            <input type="text" class="form-control" name="salario" value="<%= vaga.salario || '' %>" placeholder="Ex: 2500" style="max-width:150px;">
+          <div class="col-md-6 mt-3">
+            <label class="form-label">Vínculo empregatício</label>
+            <select name="vinculo" class="form-select">
+              <option value="">Selecione…</option>
+              <option value="Estagio"             <%= vaga.vinculo_empregaticio === 'Estagio' ? 'selected' : '' %>>Estágio</option>
+              <option value="CLT_Tempo_Integral"  <%= vaga.vinculo_empregaticio === 'CLT_Tempo_Integral' ? 'selected' : '' %>>CLT (tempo integral)</option>
+              <option value="CLT_Meio_Periodo"    <%= vaga.vinculo_empregaticio === 'CLT_Meio_Periodo' ? 'selected' : '' %>>CLT (meio período)</option>
+              <option value="Trainee"             <%= vaga.vinculo_empregaticio === 'Trainee' ? 'selected' : '' %>>Trainee</option>
+              <option value="Aprendiz"            <%= vaga.vinculo_empregaticio === 'Aprendiz' ? 'selected' : '' %>>Aprendiz</option>
+              <option value="PJ"                  <%= vaga.vinculo_empregaticio === 'PJ' ? 'selected' : '' %>>PJ (Pessoa Jurídica)</option>
+              <option value="Freelancer_Autonomo" <%= vaga.vinculo_empregaticio === 'Freelancer_Autonomo' ? 'selected' : '' %>>Freelancer / Autônomo</option>
+              <option value="Temporario"          <%= vaga.vinculo_empregaticio === 'Temporario' ? 'selected' : '' %>>Temporário</option>
+            </select>
           </div>
         </div>
 

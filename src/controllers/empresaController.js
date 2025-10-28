@@ -696,8 +696,22 @@ exports.salvarEditarVaga = async (req, res) => {
       beneficioOutro,
 
       areasSelecionadas,
-      habilidadesSelecionadas
+      habilidadesSelecionadas,
+      vinculo
     } = req.body;
+
+    const VINCULOS_OK = new Set([
+      'Estagio',
+      'CLT_Tempo_Integral',
+      'CLT_Meio_Periodo',
+      'Trainee',
+      'Aprendiz',
+      'PJ',
+      'Freelancer_Autonomo',
+      'Temporario'
+    ])
+
+    const vinculoSafe = VINCULOS_OK.has(String(vinculo)) ? String(vinculo) : null
 
     const areaIds = [];
     try {
@@ -751,7 +765,8 @@ exports.salvarEditarVaga = async (req, res) => {
         descricao,
         beneficio: beneficiosTexto,
         pergunta,
-        opcao
+        opcao,
+        vinculo_empregaticio: vinculoSafe
       }
     });
 
