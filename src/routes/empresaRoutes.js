@@ -18,6 +18,13 @@ try {
   ensureEmpresa = (req, res, next) => next();
 }
 
+const remember = (req, _res, next) => {
+  if (req.method === 'GET') {
+    req.session.lastEmpresaPage = req.originalUrl;
+  }
+  next();
+};
+
 router.get('/cadastro', empresaController.telaCadastro);
 router.post('/cadastro', empresaController.cadastrarEmpresa);
 
@@ -36,8 +43,8 @@ router.post('/telefone', empresaController.salvarTelefone);
 router.get('/foto-perfil', empresaController.telaFotoPerfil);
 router.post('/foto-perfil', uploadEmpresa.single('novaFoto'), empresaController.salvarFotoPerfil);
 
-router.get('/home', empresaController.homeEmpresa);
-router.get('/meu-perfil', ensureEmpresa, empresaController.telaPerfilEmpresa);
+router.get('/home', remember, empresaController.homeEmpresa);
+router.get('/meu-perfil', ensureEmpresa, remember, empresaController.telaPerfilEmpresa);
 
 router.get('/editar-empresa', ensureEmpresa, empresaController.telaEditarPerfil);
 router.post('/editar-empresa', ensureEmpresa, uploadEmpresa.single('novaFoto'), empresaController.salvarEdicaoPerfil);
@@ -46,7 +53,7 @@ router.get('/publicar-vaga', ensureEmpresa, empresaController.telaPublicarVaga);
 router.post('/publicar-vaga', ensureEmpresa, uploadVaga.array('anexosVaga'), empresaController.salvarVaga);
 router.get('/public/vaga/anexos/:id/abrir', vagaArquivoController.abrirAnexoPublico);
 
-router.get('/vagas', ensureEmpresa, empresaController.mostrarVagas);
+router.get('/vagas', ensureEmpresa, remember, empresaController.mostrarVagas);
 router.get('/vaga/:id', ensureEmpresa, empresaController.telaVagaDetalhe);
 
 router.get('/vaga/:id/editar', ensureEmpresa, empresaController.telaEditarVaga);

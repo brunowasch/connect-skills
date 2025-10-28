@@ -427,7 +427,9 @@ exports.telaPublicarVaga = async (req, res) => {
 
     const habilidades = await prisma.soft_skill.findMany({ orderBy: { nome: 'asc' } });
 
-    res.render('empresas/publicar-vaga', { areas, habilidades });
+    const backUrl = req.query.back || req.session.lastEmpresaPage || req.get('referer') || '/empresa/home';
+
+    res.render('empresas/publicar-vaga', { areas, habilidades, backUrl });
   } catch (err) {
     console.error('Erro ao carregar áreas e habilidades:', err);
     req.session.erro = 'Erro ao carregar o formulário.';

@@ -13,7 +13,7 @@
   <%- include('../partials/header-empresa') %>
   <%- include('../partials/flash-messages') %>
   <main class="container py-5 mt-4" style="max-width: 800px;">
-    <a href="/empresa/meu-perfil" class="text-decoration-none" title="Voltar ao perfil">
+    <a href="<%= backUrl %>" class="text-decoration-none" title="Voltar">
       <i class="bi bi-x fs-3"></i>
     </a>
     <h2 class="text-center text-primary fw-bold mb-4 mt-4">Publicar vaga</h2>
@@ -190,7 +190,7 @@
       </div>
 
       <div class="text-center mt-4">
-        <a href="/empresa/meu-perfil" class="btn btn-outline-danger px-5 me-2">Cancelar</a>
+        <a href="<%= backUrl %>" class="btn btn-outline-danger px-5 me-2">Cancelar</a>
         <button type="submit" class="btn btn-outline-primary px-5">Continuar</button>
       </div>
     </form>
