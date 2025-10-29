@@ -1690,6 +1690,22 @@ exports.vagaDetalhes = async (req, res) => {
 
     const diasPresenciais = vaga.dias_presenciais || '';
     const diasHomeOffice = vaga.dias_home_office || '';
+  
+    const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
+    const discQs = getDiscQuestionsForSkills(skills) || [];
+
+    const extraRaw = String(vaga.pergunta || '').trim();
+    const extraQs = extraRaw
+      ? extraRaw
+          .replace(/\r\n/g, '\n')
+          .replace(/\\r\\n/g, '\n')
+          .replace(/\\n/g, '\n')
+          .split('\n')
+          .map(s => s.trim())
+          .filter(Boolean)
+      : [];
+
+    const perguntasLista = Array.from(new Set([...discQs, ...extraQs]));
 
     return res.render('candidatos/vaga-detalhes', {
       tituloPagina: `Detalhes da vaga`,
@@ -1700,6 +1716,7 @@ exports.vagaDetalhes = async (req, res) => {
       skills,
       diasPresenciais,
       diasHomeOffice,
+      perguntasLista,
       usuarioSessao: req.session?.usuario || null
     });
   } catch (err) {
