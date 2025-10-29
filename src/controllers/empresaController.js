@@ -1109,16 +1109,47 @@ exports.telaVagaDetalhe = async (req, res) => {
         vaga_link: true,
       },
     });
-
     if (!vaga) {
       return res.status(404).render('shared/404', { url: req.originalUrl });
     }
 
-    // último status no histórico
-    const statusAtual = await obterStatusDaVaga(id); // 'aberta' | 'fechada'
-    const shareUrl = `${req.protocol}://${req.get('host')}/vagas/${id}`; // link público para candidatos
+    const statusAtual = await obterStatusDaVaga(id);
+    const shareUrl = `${req.protocol}://${req.get('host')}/vagas/${id}`;
 
-    return res.render('empresas/vaga-detalhe', { vaga, statusAtual, shareUrl });
+    let perguntasLista = [];
+    try {
+      const skillNames = (vaga.vaga_soft_skill || [])
+        .map(vs => vs.soft_skill?.nome)
+        .filter(Boolean);
+
+      const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
+      const discQs = (typeof getDiscQuestionsForSkills === 'function'
+        ? getDiscQuestionsForSkills(skillNames)
+        : []) || [];
+
+      const extraRaw = String(vaga.pergunta || '').trim();
+      const extraQs = extraRaw
+        ? extraRaw
+            .replace(/\r\n/g, '\n')
+            .replace(/\\r\\n/g, '\n')
+            .replace(/\\n/g, '\n')
+            .split('\n')
+            .map(s => s.trim())
+            .filter(Boolean)
+        : [];
+
+      perguntasLista = [...discQs, ...extraQs];
+    } catch (e) {
+      console.warn('[telaVagaDetalhe] falha ao montar perguntas:', e?.message || e);
+      perguntasLista = [];
+    }
+
+    return res.render('empresas/vaga-detalhe', {
+      vaga,
+      statusAtual,
+      shareUrl,
+      perguntasLista, 
+    });
   } catch (err) {
     console.error('Erro telaVagaDetalhe', err);
     return res.status(500).render('shared/500', { erro: 'Falha ao carregar a vaga.' });
