@@ -158,9 +158,9 @@
 
           <div id="bloco-ia" class="bloco-ia border rounded p-3 bg-light mt-2">
             <h6 class="fw-semibold mb-3">Questionário da vaga</h6>
-            <%
-              const perguntas = (vaga.pergunta || '').split('\n').map(s => s.trim()).filter(Boolean);
-            %>
+              <% const perguntas = Array.isArray(perguntasLista) && perguntasLista.length ? perguntasLista
+              : (vaga.pergunta || '').split('\n') .map(s => s.trim()) .filter(Boolean);
+              %>
             <% if (perguntas.length) { %>
               <% perguntas.forEach((q, idx) => { %>
                 <div class="mb-2">
