@@ -1254,7 +1254,6 @@ exports.restaurarFotoGoogle = async (req, res) => {
 
 exports.avaliarCompatibilidade = async (req, res) => {
   try {
-    // 1) Sessão e ids
     const sess = req.session?.candidato;
     if (!sess) {
       return res.status(401).json({ ok: false, error: 'Não autenticado' });
@@ -1262,12 +1261,10 @@ exports.avaliarCompatibilidade = async (req, res) => {
     const candidato_id = Number(sess.id);
     const vaga_id = Number(req.params.id);
 
-    // Bloqueia vaga fechada
     if (await isVagaFechada(vaga_id)) {
       return res.status(403).json({ ok: false, error: 'Esta vaga está fechada no momento.' });
     }
 
-    // 2) Bloquear reenvio
     const existente = await prisma.vaga_avaliacao.findFirst({
       where: { vaga_id, candidato_id },
       select: { id: true }
@@ -1276,12 +1273,10 @@ exports.avaliarCompatibilidade = async (req, res) => {
       return res.status(409).json({ ok: false, error: 'Você já realizou o teste desta vaga.' });
     }
 
-    // 3) array {question, answer}), items (descrição do candidato ideal), skills (soft skills)
     const qaRaw = Array.isArray(req.body.qa) ? req.body.qa : [];
     let itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
     const skillsRaw = Array.isArray(req.body.skills) ? req.body.skills : [];
 
-    // 3.x) Fallback para items: se não veio no body, usa a descrição da vaga
     if (!itemsStr) {
       const vagaDb = await prisma.vaga.findUnique({
         where: { id: vaga_id },
@@ -1292,22 +1287,13 @@ exports.avaliarCompatibilidade = async (req, res) => {
       }
     }
 
-    // 3.1) Validações mínimas
-    const qa = qaRaw
+    const qaNormalized = qaRaw
       .map(x => ({
         question: typeof x?.question === 'string' ? x.question.trim() : '',
         answer: typeof x?.answer === 'string' ? x.answer.trim() : ''
       }))
       .filter(x => x.question || x.answer);
 
-    if (!qa.length) {
-      return res.status(400).json({ ok: false, error: 'É obrigatório enviar ao menos uma pergunta/resposta em qa.' });
-    }
-    if (!itemsStr) {
-      return res.status(400).json({ ok: false, error: 'Campo "items" (descrição do candidato ideal) é obrigatório.' });
-    }
-
-    // skills + fallback no banco se o front não mandar
     let skills = skillsRaw
       .map(s => (typeof s === 'string' ? s.trim() : ''))
       .filter(Boolean);
@@ -1322,38 +1308,33 @@ exports.avaliarCompatibilidade = async (req, res) => {
         .filter(Boolean);
     }
 
-    // ---------- NOVO BLOCO "da": inclui DISC + perguntas personalizadas (um objeto por pergunta) ----------
+    const discQuestions = (getDiscQuestionsForSkills(skills) || []).map(q =>
+      String(q || '').trim().toLowerCase()
+    );
+
     const findAnswer = (question) => {
       const qnorm = String(question || '').trim().toLowerCase();
-      const hit = qa.find(item => String(item.question || '').trim().toLowerCase() === qnorm);
+      const hit = qaNormalized.find(item => String(item.question || '').trim().toLowerCase() === qnorm);
       return hit ? String(hit.answer || '').trim() : '';
     };
 
-    // 1) Perguntas DISC (4 por skill)
-    const seen = new Set(); // para evitar duplicatas
-    let da = [];
-    for (const skillName of skills) {
-      const discQs = getDiscQuestionsForSkills([skillName]) || [];
-      for (const q of discQs) {
-        const key = String(q).trim().toLowerCase();
-        if (key && !seen.has(key)) {
-          seen.add(key);
-          da.push({ question: q, answer: findAnswer(q) });
-        }
-      }
+    const da = (getDiscQuestionsForSkills(skills) || []).map(q => ({
+      question: q,
+      answer: findAnswer(q)
+    }));
+
+    const qa = qaNormalized.filter(item => {
+      const key = String(item.question || '').trim().toLowerCase();
+      return key && !discQuestions.includes(key);
+    });
+
+    if (!qa.length) {
+      return res.status(400).json({ ok: false, error: 'É obrigatório enviar ao menos uma pergunta/resposta em qa.' });
+    }
+    if (!itemsStr) {
+      return res.status(400).json({ ok: false, error: 'Campo "items" (descrição do candidato ideal) é obrigatório.' });
     }
 
-    // 2) Perguntas personalizadas (vindas do qa) que não estejam nas DISC
-    for (const { question } of qa) {
-      const key = String(question || '').trim().toLowerCase();
-      if (key && !seen.has(key)) {
-        seen.add(key);
-        da.push({ question, answer: findAnswer(question) });
-      }
-    }
-    // ---------- FIM DO NOVO BLOCO "da" ----------
-
-    // 4) Flatten para salvar em "resposta"
     const lines = qa
       .map(({ question, answer }) => {
         const q = ensureQmark(question);
@@ -1367,7 +1348,6 @@ exports.avaliarCompatibilidade = async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Nenhuma resposta válida encontrada em qa.' });
     }
 
-    // 5) Chamada à IA com novo payload (agora inclui "da")
     const payload = { qa, items: itemsStr, skills, da };
     console.log('[Compat] Payload a enviar para /suggest:', JSON.stringify(payload, null, 2));
 
@@ -1377,7 +1357,6 @@ exports.avaliarCompatibilidade = async (req, res) => {
       timeout: 30000
     });
 
-    // 6) Parse + normalização
     const raw = safeParse(axiosResp.data);
     const results = normalizeResults(raw);
 
@@ -1402,10 +1381,8 @@ exports.avaliarCompatibilidade = async (req, res) => {
       return res.status(422).json({ ok: false, error: '[IA] Formato inesperado', raw });
     }
 
-    // 7) Score final
     const score = avgScore0to100(results);
 
-    // 8) Persistir
     await prisma.vaga_avaliacao.upsert({
       where: { vaga_candidato_unique: { vaga_id, candidato_id } },
       create: {
@@ -1421,8 +1398,7 @@ exports.avaliarCompatibilidade = async (req, res) => {
         breakdown: { skills, results }
       }
     });
-    
-    // 9) Resposta
+
     return res.json({ ok: true, score, results, skills });
   } catch (err) {
     console.error('Erro ao avaliar compatibilidade:', err?.message || err);
@@ -1433,6 +1409,7 @@ exports.avaliarCompatibilidade = async (req, res) => {
     return res.status(500).json({ ok: false, error: reason });
   }
 };
+
 
 exports.avaliarVagaIa = async (req, res) => {
   try {
