@@ -8,6 +8,7 @@ const { cloudinary } = require('../config/cloudinary');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const vagaArquivoController = require('./vagaArquivoController');
+const {discQuestionBank} = require('../utils/discQuestionBank');
 
 function getEmpresaFromSession(req) {
   const s = req.session || {};
@@ -439,26 +440,33 @@ exports.telaPublicarVaga = async (req, res) => {
 
 exports.salvarVaga = async (req, res) => {
   try {
-    const empresaSessao = req.session?.empresa || null
+    const empresaSessao = req.session?.empresa || null;
     if (!empresaSessao?.id) {
-      req.session.erro = 'Sessão expirada. Faça login novamente.'
-      return res.redirect('/login')
+      req.session.erro = 'Sessão expirada. Faça login novamente.';
+      return res.redirect('/login');
     }
 
-    const back = req.get('referer') || '/empresa/publicar-vaga'
-    const norm = s => (s ? String(s).trim() : '')
-    const toNullIfEmpty = s => (norm(s) === '' ? null : norm(s))
-    const toIntOrNull = v => {
-      const s = norm(v); if (!s) return null
-      const n = parseInt(s, 10); return Number.isFinite(n) ? n : null
-    }
-    const parseMoney = v => {
-      if (v == null || v === '') return null
-      const s = String(v).replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')
-      const n = Number(s)
-      return Number.isFinite(n) ? n : null
-    }
+    const back = req.get('referer') || '/empresa/publicar-vaga';
 
+    const norm = (s) => (s ? String(s).trim() : '');
+    const toNullIfEmpty = (s) => (norm(s) === '' ? null : norm(s));
+    const toIntOrNull = (v) => {
+      const s = norm(v);
+      if (!s) return null;
+      const n = parseInt(s, 10);
+      return Number.isFinite(n) ? n : null;
+    };
+    const parseMoney = (v) => {
+      if (v == null || v === '') return null;
+      const s = String(v)
+        .replace(/\./g, '')
+        .replace(',', '.')
+        .replace(/[^\d.-]/g, '');
+      const n = Number(s);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    // vínculos aceitos
     const VINCULOS_OK = new Set([
       'Estagio',
       'CLT_Tempo_Integral',
@@ -467,8 +475,8 @@ exports.salvarVaga = async (req, res) => {
       'Aprendiz',
       'PJ',
       'Freelancer_Autonomo',
-      'Temporario'
-    ])
+      'Temporario',
+    ]);
 
     const {
       cargo,
@@ -480,52 +488,80 @@ exports.salvarVaga = async (req, res) => {
       moeda,
       descricao,
       beneficio,         // checkboxes
-      beneficioOutro,    // texto livre (vai ser incorporado em beneficio)
-      pergunta,          // obrigatório
-      opcao,             // obrigatório
-      vinculo,           // novo
-      areas,             // possível legado
-      areasSelecionadas  // atual (hidden JSON na view)
-    } = req.body
+      beneficioOutro,    // texto livre
+      pergunta,          // obrigatório (para IA)
+      opcao,             // obrigatório (para IA)
+      vinculo,           // vínculo empregatício
+      areas,             // legado
+      areasSelecionadas, // JSON hidden (novo)
+      habilidadesSelecionadas, // JSON hidden para soft skills
+    } = req.body;
 
-    if (!norm(cargo)) { req.session.erro = 'Informe o cargo da vaga.'; return res.redirect(back) }
-    if (!norm(tipo))  { req.session.erro = 'Informe o tipo de local de trabalho.'; return res.redirect(back) }
+    if (!norm(cargo)) {
+      req.session.erro = 'Informe o cargo da vaga.';
+      return res.redirect(back);
+    }
+    if (!norm(tipo)) {
+      req.session.erro = 'Informe o tipo de local de trabalho.';
+      return res.redirect(back);
+    }
+    // perguntas para IA obrigatórias
     if (!norm(pergunta) || !norm(opcao)) {
-      req.session.erro = 'Preencha os campos de "Pergunta para IA" e "Opções de resposta para IA".'
-      return res.redirect(back)
+      req.session.erro = 'Preencha os campos de "Pergunta para IA" e "Opções de resposta para IA".';
+      return res.redirect(back);
     }
 
-    // Benefícios: une checkboxes + "outro" em um único texto
-    let beneficiosArr = Array.isArray(beneficio) ? beneficio.map(norm).filter(Boolean) : []
-    if (norm(beneficioOutro)) beneficiosArr.push(norm(beneficioOutro))
-    const beneficioStr = beneficiosArr.join(', ')
+    // Benefícios: une checkboxes + "Outro"
+    let beneficiosArr = Array.isArray(beneficio) ? beneficio.map(norm).filter(Boolean) : [];
+    if (norm(beneficioOutro)) beneficiosArr.push(norm(beneficioOutro));
+    const beneficioStr = beneficiosArr.join(', ');
 
-    const vinculoSafe = VINCULOS_OK.has(String(vinculo)) ? String(vinculo) : null
-    const salarioNumber = parseMoney(salario)
-    const moedaSafe = norm(moeda) || 'BRL'
-    const diasPresenciaisInt = toIntOrNull(diasPresenciais)
-    const diasHomeOfficeInt  = toIntOrNull(diasHomeOffice)
+    const vinculoSafe = VINCULOS_OK.has(String(vinculo)) ? String(vinculo) : null;
+    const salarioNumber = parseMoney(salario);
+    const moedaSafe = norm(moeda) || 'BRL';
+    const diasPresenciaisInt = toIntOrNull(diasPresenciais);
+    const diasHomeOfficeInt = toIntOrNull(diasHomeOffice);
 
-    // Áreas: suporta tanto o hidden JSON novo quanto formato antigo
-    let areasInput = []
+    // --- ÁREAS: suporta o novo hidden JSON e o formato antigo ---
+    let areasInput = [];
     if (areasSelecionadas) {
-      try { areasInput = JSON.parse(areasSelecionadas) } catch {}
+      try {
+        areasInput = JSON.parse(areasSelecionadas);
+      } catch (_) {
+        areasInput = [];
+      }
     } else if (areas) {
-      areasInput = Array.isArray(areas) ? areas : [areas]
+      areasInput = Array.isArray(areas) ? areas : [areas];
     }
-    const idsAreas = []
-    const novasAreas = []
+
+    const idsAreas = [];
+    const novasAreas = [];
     for (const item of areasInput) {
-      const val = norm(item)
-      if (!val) continue
+      const val = norm(item);
+      if (!val) continue;
       if (/^nova:/i.test(val)) {
-        const nome = norm(val.replace(/^nova:/i, ''))
-        if (nome) novasAreas.push(nome)
+        const nome = norm(val.replace(/^nova:/i, ''));
+        if (nome) novasAreas.push(nome);
       } else if (/^\d+$/.test(val)) {
-        idsAreas.push(Number(val))
+        idsAreas.push(Number(val));
       }
     }
 
+    // --- SOFT SKILLS: hidden JSON "habilidadesSelecionadas" ---
+    let softSkillIds = [];
+    if (habilidadesSelecionadas) {
+      try {
+        const parsed = Array.isArray(habilidadesSelecionadas)
+          ? habilidadesSelecionadas
+          : JSON.parse(habilidadesSelecionadas);
+        softSkillIds = parsed.map((x) => Number(x)).filter(Number.isFinite);
+      } catch (_) {
+        softSkillIds = [];
+      }
+    }
+
+    // Transação: cria a vaga, vincula áreas (máx. 3), cria novas áreas se necessário,
+    // e cria os vínculos de soft skills, além de gravar perguntas/opções e vínculo.
     const vagaCriada = await prisma.$transaction(async (tx) => {
       const vaga = await tx.vaga.create({
         data: {
@@ -541,43 +577,87 @@ exports.salvarVaga = async (req, res) => {
           beneficio: toNullIfEmpty(beneficioStr),
           pergunta: norm(pergunta),
           opcao: norm(opcao),
-          vinculo_empregaticio: vinculoSafe
-        }
-      })
+          vinculo_empregaticio: vinculoSafe,
+        },
+      });
 
-      // Relaciona áreas existentes
-      const limitIds = idsAreas.slice(0, 3)
+      // Relaciona áreas existentes (máx. 3)
+      const limitIds = idsAreas.slice(0, 3);
       if (limitIds.length) {
         await tx.vaga_area.createMany({
-          data: limitIds.map(areaId => ({ vaga_id: vaga.id, area_interesse_id: areaId })),
-          skipDuplicates: true
-        })
+          data: limitIds.map((areaId) => ({
+            vaga_id: vaga.id,
+            area_interesse_id: areaId,
+          })),
+          skipDuplicates: true,
+        });
       }
 
-      // Cria novas áreas e relaciona (também com limite total 3)
+      // Cria áreas novas e relaciona (respeitando o teto de 3 no total)
       for (const nome of novasAreas) {
-        if (limitIds.length >= 3) break
-        let area = await tx.area_interesse.findFirst({ where: { nome } })
-        if (!area) area = await tx.area_interesse.create({ data: { nome, padrao: false } })
+        if (limitIds.length >= 3) break;
+        let area = await tx.area_interesse.findFirst({ where: { nome } });
+        if (!area) {
+          area = await tx.area_interesse.create({ data: { nome, padrao: false } });
+        }
         await tx.vaga_area.upsert({
           where: { vaga_id_area_id: { vaga_id: vaga.id, area_id: area.id } },
           create: { vaga_id: vaga.id, area_interesse_id: area.id },
-          update: {}
-        })
+          update: {},
+        });
+        limitIds.push(area.id); // conta no limite
       }
 
-      return vaga
-    })
+      // Relaciona SOFT SKILLS selecionadas (se houver)
+      if (softSkillIds.length) {
+        await tx.vaga_soft_skill.createMany({
+          data: softSkillIds.map((id) => ({ vaga_id: vaga.id, soft_skill_id: id })),
+          skipDuplicates: true,
+        });
+      }
 
-    req.session.sucessoVaga = 'Vaga publicada com sucesso!'
-    return res.redirect('/empresa/vaga/' + vagaCriada.id)
+      return vaga;
+    });
+
+    // --- Anexos enviados na publicação (opcional) ---
+    if (req.files?.length) {
+      await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaCriada.id);
+    }
+
+    // --- Links auxiliares (opcional) ---
+    const titulos = Array.isArray(req.body.linksTitulo) ? req.body.linksTitulo : [];
+    const urls = Array.isArray(req.body.linksUrl) ? req.body.linksUrl : [];
+    const toHttp = (u) => {
+      if (!u) return '';
+      const s = String(u).trim();
+      return /^https?:\/\//i.test(s) ? s : 'https://' + s;
+    };
+
+    const linksData = [];
+    for (let i = 0; i < Math.max(titulos.length, urls.length); i++) {
+      const titulo = String(titulos[i] || '').trim();
+      const url = toHttp(urls[i] || '');
+      if (!titulo || !url) continue;
+      linksData.push({
+        vaga_id: vagaCriada.id,
+        titulo: titulo.slice(0, 120),
+        url: url.slice(0, 1024),
+        ordem: i + 1,
+      });
+    }
+    if (linksData.length) {
+      await prisma.vaga_link.createMany({ data: linksData });
+    }
+
+    req.session.sucessoVaga = 'Vaga publicada com sucesso!';
+    return res.redirect('/empresa/vaga/' + vagaCriada.id);
   } catch (err) {
-    console.error('Erro ao salvar vaga:', err)
-    req.session.erro = 'Não foi possível publicar a vaga. ' + (err?.message || '')
-    const back = req.get('referer') || '/empresa/publicar-vaga'
-    return res.redirect(back)
+    console.error('Erro ao salvar vaga (unificado):', err);
+    req.session.erro = 'Não foi possível publicar a vaga. ' + (err?.message || '');
+    const back = req.get('referer') || '/empresa/publicar-vaga';
+    return res.redirect(back);
   }
-}
+};
 
 exports.mostrarPerfil = async (req, res) => {
   const empresa = req.session.empresa;
@@ -691,15 +771,15 @@ exports.salvarEditarVaga = async (req, res) => {
       moeda,
       descricao,
 
-      pergunta,
-      opcao,
+      pergunta,  // mantém suporte
+      opcao,     // mantém suporte
 
       beneficio,
       beneficioOutro,
 
       areasSelecionadas,
       habilidadesSelecionadas,
-      vinculo
+      vinculo,
     } = req.body;
 
     const VINCULOS_OK = new Set([
@@ -710,11 +790,11 @@ exports.salvarEditarVaga = async (req, res) => {
       'Aprendiz',
       'PJ',
       'Freelancer_Autonomo',
-      'Temporario'
-    ])
+      'Temporario',
+    ]);
+    const vinculoSafe = VINCULOS_OK.has(String(vinculo)) ? String(vinculo) : null;
 
-    const vinculoSafe = VINCULOS_OK.has(String(vinculo)) ? String(vinculo) : null
-
+    // Áreas (suporta novas com 'nova:')
     const areaIds = [];
     try {
       const areasBrutas = JSON.parse(areasSelecionadas || '[]');
@@ -738,19 +818,26 @@ exports.salvarEditarVaga = async (req, res) => {
       return res.redirect(`/empresa/vagas/${vagaId}/editar`);
     }
 
+    // Soft skills
     const skillIds = (() => {
-      try { return JSON.parse(habilidadesSelecionadas || '[]').map(Number); }
-      catch { return []; }
+      try {
+        return JSON.parse(habilidadesSelecionadas || '[]').map(Number);
+      } catch {
+        return [];
+      }
     })();
 
-    let beneficiosArr = Array.isArray(beneficio) ? beneficio : (beneficio ? [beneficio] : []);
-    if (beneficioOutro?.trim()) beneficiosArr.push(beneficioOutro.trim());
+    // Benefícios
+    let beneficiosArr = Array.isArray(beneficio) ? beneficio : beneficio ? [beneficio] : [];
+    if ((beneficioOutro || '').trim()) beneficiosArr.push(beneficioOutro.trim());
     const beneficiosTexto = beneficiosArr.join(', ');
 
+    // Salário
     const salarioNum = salario
       ? parseFloat(String(salario).replace(/\./g, '').replace(',', '.'))
       : null;
 
+    // Limpa relações e atualiza a vaga (incluindo perguntas e vínculo)
     await prisma.vaga_area.deleteMany({ where: { vaga_id: vagaId } });
     await prisma.vaga_soft_skill.deleteMany({ where: { vaga_id: vagaId } });
 
@@ -768,37 +855,47 @@ exports.salvarEditarVaga = async (req, res) => {
         beneficio: beneficiosTexto,
         pergunta,
         opcao,
-        vinculo_empregaticio: vinculoSafe
-      }
+        vinculo_empregaticio: vinculoSafe,
+      },
     });
 
-    // Recria relações com limite de 3 áreas
+    // Recria relações (máx. 3 áreas)
     const areaIdsLimitadas = areaIds.slice(0, 3);
     if (areaIdsLimitadas.length) {
       await prisma.vaga_area.createMany({
-        data: areaIdsLimitadas.map(id => ({ vaga_id: vagaId, area_interesse_id: id }))
+        data: areaIdsLimitadas.map((id) => ({ vaga_id: vagaId, area_interesse_id: id })),
       });
     }
     if (skillIds.length) {
       await prisma.vaga_soft_skill.createMany({
-        data: skillIds.map(id => ({ vaga_id: vagaId, soft_skill_id: id }))
+        data: skillIds.map((id) => ({ vaga_id: vagaId, soft_skill_id: id })),
       });
     }
 
+    // Novos anexos (opcional)
     if (req.files?.length) {
       await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaId);
     }
 
+    // Novos links (opcional)
     const titulos = Array.isArray(req.body.linksTitulo) ? req.body.linksTitulo : [];
-    const urls    = Array.isArray(req.body.linksUrl)    ? req.body.linksUrl    : [];
-    const toHttp = (u) => /^https?:\/\//i.test(String(u||'').trim()) ? String(u).trim() : ('https://' + String(u||'').trim());
+    const urls = Array.isArray(req.body.linksUrl) ? req.body.linksUrl : [];
+    const toHttp = (u) =>
+      /^https?:\/\//i.test(String(u || '').trim())
+        ? String(u).trim()
+        : 'https://' + String(u || '').trim();
 
     const novos = [];
     for (let i = 0; i < Math.max(titulos.length, urls.length); i++) {
       const titulo = String(titulos[i] || '').trim();
-      const url    = toHttp(urls[i] || '');
+      const url = toHttp(urls[i] || '');
       if (!titulo || !url) continue;
-      novos.push({ vaga_id: vagaId, titulo: titulo.slice(0,120), url: url.slice(0,1024), ordem: i+1 });
+      novos.push({
+        vaga_id: vagaId,
+        titulo: titulo.slice(0, 120),
+        url: url.slice(0, 1024),
+        ordem: i + 1,
+      });
     }
     if (novos.length) {
       await prisma.vaga_link.createMany({ data: novos });
@@ -807,12 +904,11 @@ exports.salvarEditarVaga = async (req, res) => {
     req.session.sucessoVaga = 'Vaga atualizada com sucesso!';
     return res.redirect('/empresa/meu-perfil');
   } catch (err) {
-    console.error('[ERRO] Falha ao editar vaga:', err);
+    console.error('[ERRO] Falha ao editar vaga (unificado):', err);
     req.session.erro = 'Não foi possível editar a vaga.';
     return res.redirect('/empresa/meu-perfil');
   }
 };
-
 
 // Ranking
 exports.rankingCandidatos = async (req, res) => {
