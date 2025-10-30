@@ -163,9 +163,9 @@
               %>
             <% if (perguntas.length) { %>
               <% perguntas.forEach((q, idx) => { %>
-                <div class="mb-2">
+                <div class="mb-3">
                   <label class="form-label"><%= (idx+1) + '. ' + q %></label>
-                  <input type="text" class="form-control resposta-ia-item" placeholder="Sua resposta...">
+                  <textarea class="form-control resposta-ia-item" rows="3" placeholder="Digite sua resposta..."></textarea>
                 </div>
               <% }) %>
             <% } else { %>
@@ -263,10 +263,10 @@
         resultados.innerHTML = '<div class="text-muted">Analisando...</div>';
 
         const qa = [];
-        document.querySelectorAll('.resposta-ia-item').forEach((input) => {
-          const labelEl = input.closest('.mb-2')?.querySelector('.form-label');
+        document.querySelectorAll('.resposta-ia-item').forEach((textarea) => {
+          const labelEl = textarea.closest('.mb-3, .mb-2')?.querySelector('.form-label');
           const label = labelEl ? labelEl.textContent : '';
-          qa.push({ question: label.replace(/^\d+\.\s*/, ''), answer: input.value });
+          qa.push({ question: label.replace(/^\d+\.\s*/, ''), answer: textarea.value });
         });
         if (!qa.length) {
           const unica = document.querySelector('.resposta-ia')?.value || '';
@@ -297,7 +297,7 @@
 
           resultados.innerHTML = `
             <div class="alert alert-success">
-              <div><strong>Compatibilidade:</strong> ${data.score}%</div>
+              <div class="alert alert-success">Suas respostas foram enviadas com sucesso!</div>
               <ul class="mb-0">${linhas}</ul>
             </div>`;
         } catch (err) {

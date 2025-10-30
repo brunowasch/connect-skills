@@ -40,6 +40,19 @@
           Os candidatos estão ranqueados com base na compatibilidade (0–100) calculada pela nossa IA a partir das respostas. Em caso de empate, são ranqueados em ordem de chegada.
         </div>
       </div>
+
+      <!-- (novo) seletor de ordenação -->
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <label for="ordenarPor" class="form-label mb-0">Ordenar por</label>
+        <select id="ordenarPor" class="form-select form-select-sm" style="width:auto">
+          <option value="score">Score Geral</option>
+          <option value="score_D">Dominância (D)</option>
+          <option value="score_I">Influência (I)</option>
+          <option value="score_S">Estabilidade (S)</option>
+          <option value="score_C">Conformidade (C)</option>
+        </select>
+      </div>
+      <!-- /seletor -->
     </div>
 
     <% if (!rows.length) { %>
@@ -49,9 +62,11 @@
       </div>
     <% } else { %>
 
-    <div class="bg-white rounded shadow-sm">
+    <!-- (alterado) id fixo para orientar o JS -->
+    <div id="ranking-list" class="bg-white rounded shadow-sm">
       <% rows.forEach((r, idx) => { 
           const modalId = `modal-respostas-${r.candidato_id || idx}`;
+          const modalIaId = `modal-ia-${r.candidato_id || idx}`; // (novo)
           const cid = r.candidato_id || r.candidatoId || r.id_candidato || r.id || null;
 
           const fonte = String(r.questions || '').trim();
@@ -60,15 +75,33 @@
             .map(s => s.trim())
             .filter(Boolean);
 
-          const pares = linhasFonte.map(L => {
-            const m = L.match(/^(.*?\?)\s*(.*)$/);
-            return { pergunta: m ? m[1].trim() : L, resposta: m ? m[2].trim() : '' };
+          // NOVO SPLIT: usa a ÚLTIMA interrogação como divisor pergunta/resposta
+          const pares = linhasFonte.map((L) => {
+            const s = String(L || '').trim();
+            if (!s) return { pergunta: '', resposta: '' };
+            const lastQ = s.lastIndexOf('?');
+            if (lastQ !== -1) {
+              const pergunta = s.slice(0, lastQ + 1).trim();
+              const resposta = s.slice(lastQ + 1).trim();
+              return { pergunta, resposta };
+            }
+            // Fallbacks com separadores comuns ( " - ", " — ", ":" )
+            const m = s.match(/^(.*?)(?:\s[-–—:]\s)(.+)$/);
+            if (m) return { pergunta: m[1].trim(), resposta: m[2].trim() };
+            // Sem separador -> tudo é pergunta
+            return { pergunta: s, resposta: '' };
           });
 
           const perguntas = pares.map(p => p.pergunta);
           const respostas = pares.map(p => p.resposta);
       %>
-        <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
+        <!-- (alterado) adicionados data-* e classe cand-row para ordenar/filtrar -->
+        <div class="p-3 border-bottom d-flex align-items-center justify-content-between cand-row"
+             data-score="<%= Number(r.score)||0 %>"
+             data-d="<%= Number(r.score_D)||0 %>"
+             data-i="<%= Number(r.score_I)||0 %>"
+             data-s="<%= Number(r.score_S)||0 %>"
+             data-c="<%= Number(r.score_C)||0 %>">
 
           <div class="fs-5 fw-bold" style="width: 2.5rem; text-align: right;">
             <%= r.pos %>º
@@ -120,21 +153,40 @@
                         data-bs-target="#<%= modalId %>">
                   Ver respostas
                 </button>
+
+                <!-- (novo) botão Análise geral da IA -->
+                <% if (r.explanation || typeof r.score_D !== 'undefined') { %>
+                  <button type="button"
+                          class="btn btn-outline-secondary btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#<%= modalIaId %>">
+                    Análise geral da IA
+                  </button>
+                <% } %>
               </div>
             </div>
           </div>
 
+          <!-- (alterado) bloco do score com classes JS para atualizar % e barra -->
           <div class="text-end" style="min-width: 190px;">
-            <div class="fw-semibold"><%= r.score %>%</div>
+            <div class="fw-semibold">
+              <span class="js-metric-value"><%= Number(r.score)||0 %></span>%
+            </div>
             <div class="progress" style="height: 8px; width: 180px;">
-              <div class="progress-bar" role="progressbar"
-                   data-score="<%= r.score %>"
-                   aria-valuenow="<%= r.score %>"
-                   aria-valuemin="0" aria-valuemax="100"></div>
+              <div class="progress-bar js-metric-bar" role="progressbar"
+                   data-score="<%= Number(r.score)||0 %>"
+                   data-d="<%= Number(r.score_D)||0 %>"
+                   data-i="<%= Number(r.score_I)||0 %>"
+                   data-s="<%= Number(r.score_S)||0 %>"
+                   data-c="<%= Number(r.score_C)||0 %>"
+                   aria-valuenow="<%= Number(r.score)||0 %>"
+                   aria-valuemin="0" aria-valuemax="100"
+                   style="width:<%= Number(r.score)||0 %>%"></div>
             </div>
           </div>
         </div>
         
+        <!-- Modal: Ver respostas (mantido) -->
         <div class="modal fade" id="<%= modalId %>" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
@@ -194,6 +246,80 @@
             </div>
           </div>
         </div>
+
+        <!-- (novo) Modal: Análise geral da IA -->
+        <% if (r.explanation || typeof r.score_D !== 'undefined') { %>
+          <div class="modal fade" id="<%= modalIaId %>" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <div>
+                    <h5 class="modal-title">Análise geral da IA</h5>
+                    <div class="text-muted small"><strong><%= r.nome %></strong></div>
+                  </div>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+
+                <div class="modal-body">
+                  <% if (typeof r.score_D !== 'undefined') { %>
+                    <div class="mb-3">
+                      <div class="small text-muted mb-1">Perfil DISC</div>
+                      <% const _discPairs = [
+                           {k:'Dominância (D)', v:Number(r.score_D)||0},
+                           {k:'Influência (I)', v:Number(r.score_I)||0},
+                           {k:'Estabilidade (S)', v:Number(r.score_S)||0},
+                           {k:'Conformidade (C)', v:Number(r.score_C)||0},
+                         ]; %>
+                      <% _discPairs.forEach(p => { %>
+                        <div class="d-flex justify-content-between small">
+                          <span><%= p.k %></span><span><strong><%= p.v %>%</strong></span>
+                        </div>
+                        <div class="progress mb-2" style="height: 6px;">
+                          <div class="progress-bar" role="progressbar" style="width:<%= p.v %>%"
+                               aria-valuenow="<%= p.v %>" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                      <% }) %>
+                    </div>
+                  <% } %>
+
+                  <% if (Array.isArray(r.matchedSkills) && r.matchedSkills.length) { %>
+                    <div class="mb-3">
+                      <div class="small text-muted mb-1">Habilidades compatíveis</div>
+                      <div class="d-flex flex-wrap gap-2">
+                        <% r.matchedSkills.forEach(s => { %>
+                          <span class="badge text-bg-secondary"><%= s %></span>
+                        <% }) %>
+                      </div>
+                    </div>
+                  <% } %>
+
+                  <% if (r.explanation) { %>
+                    <div class="mb-3">
+                      <div class="small text-muted mb-1">Comentário da IA</div>
+                      <p class="mb-0"><%= r.explanation %></p>
+                    </div>
+                  <% } %>
+
+                  <% if (Array.isArray(r.suggestions) && r.suggestions.length) { %>
+                    <div class="mb-2">
+                      <div class="small text-muted mb-1">Sugestões</div>
+                      <ul class="mb-0">
+                        <% r.suggestions.forEach(sg => { %>
+                          <li><%= sg %></li>
+                        <% }) %>
+                      </ul>
+                    </div>
+                  <% } %>
+                </div>
+
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        <% } %>
+
       <% }) %>
     </div>
 
@@ -201,9 +327,68 @@
   </main>
 
   <script>
+    // largura inicial das barras (compatível com o markup original)
     document.querySelectorAll('.progress-bar').forEach(el => {
-      el.style.width = el.dataset.score + '%';
+      const val = Number(el.getAttribute('aria-valuenow') || el.dataset.score || 0);
+      el.style.width = val + '%';
     });
+
+    // Ordenação + atualização dinâmica do número/barra com base na métrica escolhida
+    (function() {
+      const select = document.getElementById('ordenarPor');
+      const container = document.getElementById('ranking-list');
+      if (!select || !container) return;
+
+      function getRows() {
+        return Array.from(container.querySelectorAll('.cand-row'));
+      }
+
+      function updatePositions() {
+        const rows = getRows();
+        rows.forEach((row, idx) => {
+          const posEl = row.querySelector('.fs-5.fw-bold');
+          if (posEl) posEl.textContent = (idx + 1) + 'º';
+        });
+      }
+
+      function valueFromRow(row, key) {
+        switch (key) {
+          case 'score_D': return Number(row.dataset.d || 0);
+          case 'score_I': return Number(row.dataset.i || 0);
+          case 'score_S': return Number(row.dataset.s || 0);
+          case 'score_C': return Number(row.dataset.c || 0);
+          default:        return Number(row.dataset.score || 0); // Geral
+        }
+      }
+
+      function sortBy(key) {
+        const rows = getRows();
+
+        // Ordena desc pela métrica selecionada
+        rows.sort((a, b) => valueFromRow(b, key) - valueFromRow(a, key));
+
+        // Reanexa na nova ordem e atualiza número/barra exibidos
+        rows.forEach(r => {
+          const val = valueFromRow(r, key);
+          const bar = r.querySelector('.js-metric-bar');
+          const num = r.querySelector('.js-metric-value');
+          if (bar) {
+            bar.style.width = val + '%';
+            bar.setAttribute('aria-valuenow', String(val));
+          }
+          if (num) num.textContent = String(val);
+          container.appendChild(r);
+        });
+
+        updatePositions();
+      }
+
+      // aplica já a métrica atual (Geral por padrão)
+      sortBy(select.value || 'score');
+
+      // reordena ao trocar
+      select.addEventListener('change', (e) => sortBy(e.target.value));
+    })();
   </script>
 
   <%- include('../partials/footer') %>

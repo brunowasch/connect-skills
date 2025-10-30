@@ -371,7 +371,7 @@
         })
         .then(function(data){
           if (!data.ok) throw new Error(data.error || 'Falha ao analisar');
-          out.innerHTML = '<div class="alert alert-success">Análise enviada com sucesso!</div>';
+          out.innerHTML = '<div class="alert alert-success">Suas respostas foram enviadas com sucesso!</div>';
         })
         .catch(function(e){
           out.innerHTML = '<div class="alert alert-danger">Erro: ' + (e.message || e) + '</div>';

@@ -911,6 +911,8 @@ exports.salvarEditarVaga = async (req, res) => {
 };
 
 // Ranking
+
+
 exports.rankingCandidatos = async (req, res) => {
   try {
     const params = {
@@ -922,7 +924,6 @@ exports.rankingCandidatos = async (req, res) => {
       return res.redirect('/login');
     }
 
-    // valida a vaga/empresa
     const vaga = await prisma.vaga.findFirst({
       where: { id: params.vaga_id, empresa_id: params.empresa_id },
       include: { empresa: true }
@@ -932,10 +933,26 @@ exports.rankingCandidatos = async (req, res) => {
       return res.redirect('/empresa/vagas');
     }
 
-    // busca avaliações dessa vaga
     const avaliacoes = await vagaAvaliacaoModel.listarPorVaga({ vaga_id: params.vaga_id });
 
-    // monta linhas para a view
+    const tryParseJSON = (s) => {
+      try { return JSON.parse(s); } catch (_) { return null; }
+    };
+
+    // garante interrogação ao final, se não houver pontuação
+    const ensureQmark = (str) => {
+    const t = String(str || '').trim();
+    if (!t) return '';
+    // substitui qualquer pontuação final por "?" ou adiciona "?" se não houver
+    return t.replace(/\s*([?.!…:])?\s*$/, '?');
+  };
+
+    const toLine = ({ question, answer }) => {
+      const q = ensureQmark(String(question || ''));
+      const a = String(answer || '').trim() || '—';
+      return [q, a].join(' ');
+    };
+
     const rows = avaliacoes.map((a, idx) => {
       const c = a.candidato || {};
       const u = c.usuario || {};
@@ -951,58 +968,78 @@ exports.rankingCandidatos = async (req, res) => {
       const foto_perfil = c.foto_perfil || '/img/avatar.png';
       const email = u.email || '';
 
-      let questions = '';
-      // 1) API atual: campo questions no próprio registro
-      if (a.questions && typeof a.questions === 'string') {
-        questions = a.questions.trim();
+      // breakdown pode ter sido salvo como string
+      const breakdown = (typeof a.breakdown === 'string') ? (tryParseJSON(a.breakdown) || {}) : (a.breakdown || {});
+
+      // reconstrói TODAS as perguntas a partir de breakdown.qa + breakdown.da
+      let lines = [];
+      if (breakdown && typeof breakdown === 'object') {
+        const qa = Array.isArray(breakdown.qa) ? breakdown.qa : [];
+        const da = Array.isArray(breakdown.da) ? breakdown.da : [];
+        if (da.length) lines = lines.concat(da.filter(x => x?.question).map(toLine));
+        if (qa.length) lines = lines.concat(qa.filter(x => x?.question).map(toLine));
       }
-      // 2) Formato antigo: texto consolidado em a.resposta (linhas "Pergunta? Resposta")
-      if (!questions && a.resposta && typeof a.resposta === 'string') {
+
+      // fallback para texto consolidado salvo
+      let questions = lines.length ? lines.join('\n') : '';
+      if (!questions && typeof a.resposta === 'string') {
         questions = a.resposta.trim();
       }
-      // 3) Algum JSON stringificado que contenha { questions: "..." }
-      const tryParse = (s) => {
-        try {
-          const obj = JSON.parse(s);
-          if (obj && obj.questions && typeof obj.questions === 'string') {
-            return obj.questions.trim();
-          }
-        } catch (_) {}
-        return '';
-      };
-      if (!questions && typeof a.payload === 'string') {
-        questions = tryParse(a.payload);
+
+      // fallbacks legados (se houver { questions: "..." } em algum campo)
+      if (!questions) {
+        const p = typeof a.payload === 'string' ? tryParseJSON(a.payload) : a.payload;
+        const r = typeof a.api_result === 'string' ? tryParseJSON(a.api_result) : a.api_result;
+        const rr = typeof a.result === 'string' ? tryParseJSON(a.result) : a.result;
+        questions = (p && p.questions) || (r && r.questions) || (rr && rr.questions) || questions || '';
+        if (typeof questions !== 'string') questions = '';
       }
-      if (!questions && typeof a.api_result === 'string') {
-        questions = tryParse(a.api_result);
-      }
-      if (!questions && typeof a.result === 'string') {
-        questions = tryParse(a.result);
-      }
+
+      const score_D = Number(breakdown?.score_D) || 0;
+      const score_I = Number(breakdown?.score_I) || 0;
+      const score_S = Number(breakdown?.score_S) || 0;
+      const score_C = Number(breakdown?.score_C) || 0;
+
+      const explanation   = typeof breakdown?.explanation === 'string' ? breakdown.explanation : '';
+      const suggestions   = Array.isArray(breakdown?.suggestions) ? breakdown.suggestions : [];
+      const matchedSkills = Array.isArray(breakdown?.matchedSkills) ? breakdown.matchedSkills : [];
 
       return {
         pos: idx + 1,
-        candidato_id: c.id,
+        candidato_id: c.id || null,
         nome,
         local,
         telefone,
         email,
-        score: Number(a.score) || 0,
         foto_perfil,
+
+        score: Number(a.score) || 0,
+        score_D, score_I, score_S, score_C,
+
+        explanation,
+        suggestions,
+        matchedSkills,
+
         questions
       };
     });
 
+    // ordenação inicial: score geral
+    rows.sort((a, b) => (b.score || 0) - (a.score || 0));
+
     return res.render('empresas/ranking-candidatos', {
       vaga,
-      rows
+      rows,
+      activePage: 'vagas'
     });
   } catch (err) {
-    console.error('Erro ao carregar ranking:', err?.message || err);
-    req.session.erro = 'Erro ao carregar ranking.';
+    console.error('[rankingCandidatos] erro:', err?.message || err);
+    req.session.erro = 'Não foi possível carregar o ranking.';
     return res.redirect('/empresa/vagas');
   }
 };
+
+
 
 exports.excluirConta = async (req, res) => {
   try {

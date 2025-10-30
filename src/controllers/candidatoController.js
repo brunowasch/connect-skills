@@ -1304,7 +1304,7 @@ exports.avaliarCompatibilidade = async (req, res) => {
     const qaNormalized = qaRaw
       .map(x => ({
         question: typeof x?.question === 'string' ? x.question.trim() : '',
-        answer: typeof x?.answer === 'string' ? x.answer.trim() : ''
+        answer:   typeof x?.answer   === 'string' ? x.answer.trim()   : ''
       }))
       .filter(x => x.question || x.answer);
 
@@ -1342,25 +1342,33 @@ exports.avaliarCompatibilidade = async (req, res) => {
       return key && !discQuestions.includes(key);
     });
 
-    if (!qa.length) {
-      return res.status(400).json({ ok: false, error: 'É obrigatório enviar ao menos uma pergunta/resposta em qa.' });
+    if (!qa.length && !(da.some(x => (x.answer || '').trim()))) {
+      // exige pelo menos algo respondido em QA não-DISC ou em DA (DISC)
+      return res.status(400).json({ ok: false, error: 'É obrigatório enviar ao menos uma pergunta respondida.' });
     }
     if (!itemsStr) {
       return res.status(400).json({ ok: false, error: 'Campo "items" (descrição do candidato ideal) é obrigatório.' });
     }
 
-    // texto “humano” para salvar/mostrar (mantém \n de verdade)
-    const lines = qa
-      .map(({ question, answer }) => {
-        const q = ensureQmark(question);
-        const a = (answer || '').trim();
-        return [q, a].filter(Boolean).join(' ');
-      })
-      .filter(Boolean);
-    const respostaFlatten = lines.join('\n');
-    if (!respostaFlatten) {
-      return res.status(400).json({ ok: false, error: 'Nenhuma resposta válida encontrada em qa.' });
-    }
+    const ensureQmark = (s) => String(s||'').trim().replace(/\s*([?.!…:])?\s*$/, '?');
+
+    const toLine = ({ question, answer }) => {
+      const q = ensureQmark(question || '');
+      const a = (answer || '').trim();
+      return [q, a || '—'].join(' ');
+    };
+
+
+    const linesDa = (da || [])
+      .filter(x => (x.question || '').trim())
+      .map(toLine);
+
+    const linesQa = (qa || [])
+      .filter(x => (x.question || '').trim())
+      .map(toLine);
+
+    // agora "resposta" inclui TUDO, garantindo que o modal liste todas as perguntas
+    const respostaFlattenAll = [...linesDa, ...linesQa].filter(Boolean).join('\n');
 
     // --- ESCAPE APENAS PARA O PAYLOAD ENVIADO --- //
     const payload = {
@@ -1378,33 +1386,75 @@ exports.avaliarCompatibilidade = async (req, res) => {
       timeout: 30000
     });
 
-    const raw = safeParse(axiosResp.data);
+    // ---------- NORMALIZAÇÃO DA RESPOSTA ----------
+    const respData = (axiosResp && typeof axiosResp === 'object') ? axiosResp.data : axiosResp;
+    const raw = safeParse(respData);
     const results = normalizeResults(raw);
 
-    if (!results.length) {
+    // 1) Novo formato DISC (score + score_D/I/S/C)
+    const isDisc =
+      raw && typeof raw === 'object' &&
+      typeof raw.score === 'number' &&
+      ['score_D', 'score_I', 'score_S', 'score_C'].every(k => typeof raw[k] === 'number');
+
+    if (!results.length && isDisc) {
+      const score = Math.max(0, Math.min(100, Number(raw.score) || 0));
+
       await vagaAvaliacaoModel.upsertAvaliacao({
         vaga_id,
         candidato_id,
-        score: 0,
-        resposta: respostaFlatten,
-        breakdown: { erro: '[IA] Formato inesperado', raw, payload }
+        score,
+        // salva TODAS as perguntas no texto consolidado
+        resposta: respostaFlattenAll,
+        // guarda DISC + extras + as perguntas originais para renderização completa
+        breakdown: { ...raw, skills, qa, da }
       });
 
-      console.warn('[IA] Formato inesperado:', JSON.stringify(raw).slice(0, 800));
-      return res.status(422).json({ ok: false, error: '[IA] Formato inesperado', raw });
+      return res.json({
+        ok: true,
+        score,
+        score_D: Number(raw.score_D) || 0,
+        score_I: Number(raw.score_I) || 0,
+        score_S: Number(raw.score_S) || 0,
+        score_C: Number(raw.score_C) || 0,
+        matchedSkills: Array.isArray(raw.matchedSkills) ? raw.matchedSkills : [],
+        suggestions:  Array.isArray(raw.suggestions)  ? raw.suggestions  : [],
+        explanation:  raw.explanation || '',
+        skills
+      });
     }
 
-    const score = avgScore0to100(results);
+    // 2) Formato antigo baseado em results (mapPair + média)
+    if (results.length) {
+      const score = avgScore0to100(results);
 
+      await vagaAvaliacaoModel.upsertAvaliacao({
+        vaga_id,
+        candidato_id,
+        score,
+        resposta: respostaFlattenAll,
+        breakdown: { skills, results, qa, da }
+      });
+
+      return res.json({ ok: true, score, results, skills });
+    }
+
+    // 3) Nenhum formato reconhecido
     await vagaAvaliacaoModel.upsertAvaliacao({
       vaga_id,
       candidato_id,
-      score,
-      resposta: respostaFlatten,
-      breakdown: { skills, results }
+      score: 0,
+      resposta: respostaFlattenAll,
+      breakdown: { erro: '[IA] Formato inesperado', raw, payload, qa, da, skills }
     });
 
-    return res.json({ ok: true, score, results, skills });
+    try {
+      console.warn('[IA] Formato inesperado:', JSON.stringify(raw).slice(0, 800));
+    } catch {
+      console.warn('[IA] Formato inesperado (string):', String(raw).slice(0, 800));
+    }
+    return res.status(422).json({ ok: false, error: '[IA] Formato inesperado', raw });
+
   } catch (err) {
     console.error('Erro ao avaliar compatibilidade:', err?.message || err);
     const reason =
@@ -1835,5 +1885,41 @@ exports.perfilPublicoCandidato = async (req, res) => {
   } catch (err) {
     console.error('Erro ao carregar perfil público do candidato:', err?.message || err);
     return res.status(500).render('shared/500', { erro: 'Erro interno do servidor' });
+  }
+};
+
+exports.aplicarVaga = async (req, res) => {
+  try {
+    const usuario = req.session?.candidato;
+    if (!usuario?.id) {
+      req.session.erro = 'Você precisa estar logado como candidato para aplicar.';
+      return res.redirect('/login');
+    }
+
+    const vagaId = Number(req.params.id);
+
+    // Evita duplicadas
+    const jaExiste = await prisma.vaga_candidato.findFirst({
+      where: { vaga_id: vagaId, candidato_id: usuario.id }
+    });
+    if (jaExiste) {
+      req.session.erro = 'Você já aplicou para esta vaga.';
+      return res.redirect(`/candidatos/vaga/${vagaId}`);
+    }
+
+    await prisma.vaga_candidato.create({
+      data: {
+        vaga_id: vagaId,
+        candidato_id: usuario.id,
+        status: 'em_analise'
+      }
+    });
+
+    req.session.sucesso = 'Aplicação realizada com sucesso!';
+    res.redirect(`/candidatos/vaga/${vagaId}`);
+  } catch (err) {
+    console.error('[aplicarVaga] erro:', err);
+    req.session.erro = 'Não foi possível aplicar à vaga. Tente novamente.';
+    res.redirect('/candidatos/vagas');
   }
 };
