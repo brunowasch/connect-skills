@@ -8,6 +8,20 @@ const vagaAvaliacaoModel = require('../models/vagaAvaliacaoModel');
 const { cloudinary } = require('../config/cloudinary');
 const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
 
+const escapeNL = (v) => (typeof v === 'string' ? v.replace(/\r?\n/g, '\\n') : v);
+
+const escapeQAArray = (arr) =>
+  (Array.isArray(arr) ? arr : []).map(x => ({
+    question: escapeNL(x?.question ?? ''),
+    answer:   escapeNL(x?.answer   ?? ''),
+  }));
+
+const escapeDAArray = (arr) =>
+  (Array.isArray(arr) ? arr : []).map(x => ({
+    question: escapeNL(x?.question ?? ''),
+    answer:   escapeNL(x?.answer   ?? ''),
+  }));
+
 const ensureQmark = (q) => {
   const t = (q || '').trim();
   if (!t) return '';
@@ -1335,6 +1349,7 @@ exports.avaliarCompatibilidade = async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Campo "items" (descrição do candidato ideal) é obrigatório.' });
     }
 
+    // texto “humano” para salvar/mostrar (mantém \n de verdade)
     const lines = qa
       .map(({ question, answer }) => {
         const q = ensureQmark(question);
@@ -1342,16 +1357,22 @@ exports.avaliarCompatibilidade = async (req, res) => {
         return [q, a].filter(Boolean).join(' ');
       })
       .filter(Boolean);
-
     const respostaFlatten = lines.join('\n');
     if (!respostaFlatten) {
       return res.status(400).json({ ok: false, error: 'Nenhuma resposta válida encontrada em qa.' });
     }
 
-    const payload = { qa, items: itemsStr, skills, da };
+    // --- ESCAPE APENAS PARA O PAYLOAD ENVIADO --- //
+    const payload = {
+      qa:     escapeQAArray(qa),
+      items:  escapeNL(itemsStr),
+      skills: skills,
+      da:     escapeDAArray(da)
+    };
+
     console.log('[Compat] Payload a enviar para /suggest:', JSON.stringify(payload, null, 2));
 
-    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest';
+    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest_new';
     const axiosResp = await axios.post(url, payload, {
       headers: { 'Content-Type': 'application/json' },
       timeout: 30000
@@ -1361,20 +1382,12 @@ exports.avaliarCompatibilidade = async (req, res) => {
     const results = normalizeResults(raw);
 
     if (!results.length) {
-      await prisma.vaga_avaliacao.upsert({
-        where: { vaga_candidato_unique: { vaga_id, candidato_id } },
-        create: {
-          vaga_id,
-          candidato_id,
-          score: 0,
-          resposta: respostaFlatten,
-          breakdown: { erro: '[IA] Formato inesperado', raw, payload }
-        },
-        update: {
-          score: 0,
-          resposta: respostaFlatten,
-          breakdown: { erro: '[IA] Formato inesperado', raw, payload }
-        }
+      await vagaAvaliacaoModel.upsertAvaliacao({
+        vaga_id,
+        candidato_id,
+        score: 0,
+        resposta: respostaFlatten,
+        breakdown: { erro: '[IA] Formato inesperado', raw, payload }
       });
 
       console.warn('[IA] Formato inesperado:', JSON.stringify(raw).slice(0, 800));
@@ -1383,20 +1396,12 @@ exports.avaliarCompatibilidade = async (req, res) => {
 
     const score = avgScore0to100(results);
 
-    await prisma.vaga_avaliacao.upsert({
-      where: { vaga_candidato_unique: { vaga_id, candidato_id } },
-      create: {
-        vaga_id,
-        candidato_id,
-        score,
-        resposta: respostaFlatten,
-        breakdown: { skills, results }
-      },
-      update: {
-        score,
-        resposta: respostaFlatten,
-        breakdown: { skills, results }
-      }
+    await vagaAvaliacaoModel.upsertAvaliacao({
+      vaga_id,
+      candidato_id,
+      score,
+      resposta: respostaFlatten,
+      breakdown: { skills, results }
     });
 
     return res.json({ ok: true, score, results, skills });
@@ -1409,7 +1414,6 @@ exports.avaliarCompatibilidade = async (req, res) => {
     return res.status(500).json({ ok: false, error: reason });
   }
 };
-
 
 exports.avaliarVagaIa = async (req, res) => {
   try {
@@ -1428,7 +1432,6 @@ exports.avaliarVagaIa = async (req, res) => {
     let itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
     const skillsRaw = Array.isArray(req.body.skills) ? req.body.skills : [];
 
-    // Fallback para items com a descrição da vaga
     if (!itemsStr) {
       const vagaDb = await prisma.vaga.findUnique({
         where: { id: vaga_id },
@@ -1453,7 +1456,6 @@ exports.avaliarVagaIa = async (req, res) => {
       return res.status(400).json({ ok: false, erro: 'Campo "items" (descrição do candidato ideal) é obrigatório.' });
     }
 
-    // skills + fallback no banco se o front não mandar
     let skills = skillsRaw
       .map(s => (typeof s === 'string' ? s.trim() : ''))
       .filter(Boolean);
@@ -1477,7 +1479,7 @@ exports.avaliarVagaIa = async (req, res) => {
     const seen = new Set();
     let da = [];
 
-    // 1) DISC
+    // DISC
     for (const skillName of skills) {
       const discQs = getDiscQuestionsForSkills([skillName]) || [];
       for (const q of discQs) {
@@ -1489,7 +1491,7 @@ exports.avaliarVagaIa = async (req, res) => {
       }
     }
 
-    // 2) Personalizadas (qa) que não sejam repetidas
+    // Personalizadas
     for (const { question } of qa) {
       const key = String(question || '').trim().toLowerCase();
       if (key && !seen.has(key)) {
@@ -1498,6 +1500,7 @@ exports.avaliarVagaIa = async (req, res) => {
       }
     }
 
+    // texto “humano” (mantém \n real)
     const lines = qa
       .map(({ question, answer }) => {
         const q = ensureQmark(question);
@@ -1510,10 +1513,17 @@ exports.avaliarVagaIa = async (req, res) => {
       return res.status(400).json({ ok: false, erro: 'Nenhuma resposta válida encontrada em qa.' });
     }
 
-    const payload = { qa, items: itemsStr, skills, da };
+    // --- ESCAPE SÓ PARA O PAYLOAD ENVIADO --- //
+    const payload = {
+      qa:     escapeQAArray(qa),
+      items:  escapeNL(itemsStr),
+      skills: skills,
+      da:     escapeDAArray(da)
+    };
+
     console.log('[Compat] Payload a enviar para /suggest:', JSON.stringify(payload, null, 2));
 
-    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest';
+    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest_new';
     const axiosResp = await axios.post(url, payload, {
       headers: { 'Content-Type': 'application/json' },
       timeout: 30000
@@ -1523,20 +1533,12 @@ exports.avaliarVagaIa = async (req, res) => {
     const results = normalizeResults(raw);
 
     if (!results.length) {
-      await prisma.vaga_avaliacao.upsert({
-        where: { vaga_candidato_unique: { vaga_id, candidato_id } },
-        create: {
-          vaga_id,
-          candidato_id,
-          score: 0,
-          resposta: respostaFlatten,
-          breakdown: { skills, results }
-        },
-        update: {
-          score: 0,
-          resposta: respostaFlatten,
-          breakdown: { skills, results }
-        }
+      await vagaAvaliacaoModel.upsertAvaliacao({
+        vaga_id,
+        candidato_id,
+        score: 0,
+        resposta: respostaFlatten,
+        breakdown: { skills, results }
       });
 
       return res.status(422).json({
@@ -1548,20 +1550,12 @@ exports.avaliarVagaIa = async (req, res) => {
 
     const media = avgScore0to100(results);
 
-    await prisma.vaga_avaliacao.upsert({
-      where: { vaga_candidato_unique: { vaga_id, candidato_id } },
-      create: {
-        vaga_id,
-        candidato_id,
-        score: media,
-        resposta: respostaFlatten,
-        breakdown: { skills, results }
-      },
-      update: {
-        score: media,
-        resposta: respostaFlatten,
-        breakdown: { skills, results }
-      }
+    await vagaAvaliacaoModel.upsertAvaliacao({
+      vaga_id,
+      candidato_id,
+      score: media,
+      resposta: respostaFlatten,
+      breakdown: { skills, results }
     });
 
     return res.json({ ok: true, score: media, results, skills });
