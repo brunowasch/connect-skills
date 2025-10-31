@@ -205,7 +205,7 @@
                     <% it.respostas.forEach((r) => { %>
                       <div class="resposta-item">
                         <% if (r.pergunta) { %><div class="fw-semibold"><%= r.pergunta %></div><% } %>
-                        <% if (r.resposta) { %><div class="text-body"><%= r.resposta %></div><% } %>
+                        <% if (r.resposta) { %><div class="text-body" style="white-space:pre-wrap"><%= r.resposta %></div><% } %>
                       </div>
                     <% }); %>
                   </div>

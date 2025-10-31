@@ -784,6 +784,14 @@ exports.historicoAplicacoes = async (req, res) => {
       }
     }
 
+    // Helpers para montar perguntas/respostas completas
+    const tryParseJSON = (s) => { try { return JSON.parse(s); } catch { return null; } };
+    const ensureQmark = (str) => {
+      const t = String(str || '').trim();
+      if (!t) return '';
+      return t.replace(/\s*([?.!…:])?\s*$/, '?');
+    };
+
     // Normaliza dados para a view
     let items = avaliacoes
       .filter(a => a.vaga) // evita órfãos
@@ -802,13 +810,46 @@ exports.historicoAplicacoes = async (req, res) => {
         if (Array.isArray(v.beneficio)) beneficios = v.beneficio;
         else if (v.beneficio) beneficios = String(v.beneficio).split(/[|,]/).map(s => s.trim()).filter(Boolean);
 
-        const respostasTexto = String(a.resposta || '').trim();
-        const respostas = respostasTexto
-          ? respostasTexto.split(/\r?\n/).map(l => {
-              const m = l.match(/^(.*?\?)\s*(.*)$/);
-              return { pergunta: m ? m[1].trim() : '', resposta: m ? m[2].trim() : l.trim() };
-            }).filter(r => r.pergunta || r.resposta)
-          : [];
+        // 1) Tenta montar do breakdown (qa/da) — fonte de verdade
+        const breakdown = typeof a.breakdown === 'string' ? (tryParseJSON(a.breakdown) || {}) : (a.breakdown || {});
+        const qa = Array.isArray(breakdown?.qa) ? breakdown.qa : [];
+        const da = Array.isArray(breakdown?.da) ? breakdown.da : [];
+
+        let respostas = [];
+        if (da.length || qa.length) {
+          const toItem = (r) => ({
+            pergunta: ensureQmark(r?.question || ''),
+            resposta: String(r?.answer || '').trim()
+          });
+          // Prioriza DA (DISC/Auto) e depois QA (extras), preservando ordem
+          respostas = [
+            ...da.filter(x => x && (x.question || x.answer)).map(toItem),
+            ...qa.filter(x => x && (x.question || x.answer)).map(toItem),
+          ];
+        }
+
+        // 2) Fallback: texto consolidado salvo em a.resposta (linhas "pergunta? resposta")
+        if (!respostas.length) {
+          const respostasTexto = String(a.resposta || '').trim();
+          if (respostasTexto) {
+            respostas = respostasTexto
+              .replace(/\r\n/g, '\n')
+              .replace(/\\r\\n/g, '\n')
+              .replace(/\\n/g, '\n')
+              .split('\n')
+              .map(l => l.trim())
+              .filter(Boolean)
+              .map(l => {
+                const idx = l.indexOf('?');
+                if (idx !== -1) {
+                  const pergunta = ensureQmark(l.slice(0, idx + 1).trim());
+                  const resposta = l.slice(idx + 1).trim();
+                  return { pergunta, resposta };
+                }
+                return { pergunta: '', resposta: l };
+              });
+          }
+        }
 
         const statusAtual = statusMap.get(v.id) || 'aberta';
 
@@ -862,7 +903,7 @@ exports.historicoAplicacoes = async (req, res) => {
       case 'menos_salario':
         items.sort((a, b) => (a.vaga.salario || 0) - (b.vaga.salario || 0));
         break;
-      default: 
+      default:
         items.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
     }
 
@@ -877,6 +918,7 @@ exports.historicoAplicacoes = async (req, res) => {
     return res.redirect('/candidatos/vagas/historico');
   }
 };
+
 
 exports.telaEditarPerfil = async (req, res) => {
   if (!req.session.candidato) return res.redirect('/login');
