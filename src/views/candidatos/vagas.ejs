@@ -362,20 +362,46 @@ document.addEventListener('submit', async (ev) => {
   btn.disabled = true;
 
   try {
-    // Ajuste a URL se sua rota for outra; aqui uso a que você já tem no back.
-    const resp = await fetch(`/candidato/vaga/${vagaId}/avaliar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ qa })
-    });
+  const resp = await fetch(`/candidato/vaga/${vagaId}/avaliar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ qa })
+  });
 
-    const data = await resp.json();
-    if (!data.ok) throw new Error(data.error || 'Falha ao analisar');
+  // Tolerante a text/plain ou JSON
+  const raw = await resp.text();
+  let data;
+  try { data = JSON.parse(raw); } catch { data = raw; }
 
-    // Renderize o resultado como preferir; aqui vai um exemplo simples:
+  if (!resp.ok) {
+    const msg = (data && data.error) || `Erro ${resp.status}`;
+    throw new Error(msg);
+  }
+
+  // Normaliza formatos:
+  const r = (data && typeof data === 'object') ? data : {};
+  const hasDisc =
+    typeof r.score === 'number' ||
+    ['score_D','score_I','score_S','score_C'].some(k => typeof r[k] === 'number');
+
+  if (!hasDisc) {
+    // Mantém seu comportamento anterior quando não há campos DISC
     out.innerHTML = `<div class="alert alert-success">Análise enviada com sucesso!</div>`;
-  } catch (e) {
-    out.innerHTML = `<div class="alert alert-danger">Erro: ${e.message || e}</div>`;
+  } else {
+    const sG = Number(r.score)   || 0;
+    const sD = Number(r.score_D) || 0;
+    const sI = Number(r.score_I) || 0;
+    const sS = Number(r.score_S) || 0;
+    const sC = Number(r.score_C) || 0;
+
+    const skills = Array.isArray(r.matchedSkills) ? r.matchedSkills : [];
+    const suggs  = Array.isArray(r.suggestions)  ? r.suggestions  : [];
+    const expl   = r.explanation || '';
+
+    out.innerHTML = '<div class="alert alert-success">Suas respostas foram enviadas com sucesso!</div>';
+  }
+} catch (e) {
+  out.innerHTML = `<div class="alert alert-danger">Erro: ${e.message || e}</div>`;
   } finally {
     btn.disabled = false;
   }
