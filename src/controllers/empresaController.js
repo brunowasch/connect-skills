@@ -48,6 +48,13 @@ async function getEmpresaIdDaSessao(req) {
   return null;
 }
 
+function parseParamId(raw) {
+  const dec = decodeId(String(raw || ''));
+  if (Number.isFinite(dec)) return dec;
+  if (/^\d+$/.test(String(raw))) return Number(raw);
+  return NaN;
+}
+
 exports.telaCadastro = (req, res) => {
   res.render('empresas/cadastro-pessoa-juridica');
 };
@@ -444,6 +451,8 @@ exports.homeEmpresa = async (req, res) => {
 };
 
 exports.telaPerfilEmpresa = async (req, res) => {
+  const { encodeId } = require('../utils/idEncoder');
+
   const sess = req.session.empresa;
   if (!sess) return res.redirect('/login');
 
@@ -451,29 +460,50 @@ exports.telaPerfilEmpresa = async (req, res) => {
     const empresa = await prisma.empresa.findUnique({
       where: { id: Number(sess.id) },
       include: {
-        empresa_link: { orderBy: { ordem: 'asc' } },
+        empresa_link:    { orderBy: { ordem: 'asc' } },
         empresa_arquivo: { orderBy: { criadoEm: 'desc' } },
       },
     });
 
+    if (!empresa) {
+      req.session.erro = 'Empresa não encontrada.';
+      return res.redirect('/empresa/home');
+    }
+
     const vagasDaEmpresa = await prisma.vaga.findMany({
       where: { empresa_id: empresa.id },
       include: {
-        vaga_area: { include: { area_interesse: true } },
+        vaga_area:       { include: { area_interesse: true } },
         vaga_soft_skill: { include: { soft_skill: true } },
       },
     });
 
-    res.render('empresas/meu-perfil', {
+    // ID criptografado da empresa para links públicos
+    const encEmpresaId = encodeId(Number(empresa.id));
+    const perfilPublicoUrl = `/empresa/perfil/${encEmpresaId}`;
+
+    // (Opcional) versões das vagas com ID criptografado (_hid) para usar em links públicos
+    const vagasComHid = vagasDaEmpresa.map(v => ({ ...v, _hid: encodeId(v.id) }));
+
+    return res.render('empresas/meu-perfil', {
       empresa,
+      // mantém o mesmo nome que sua view já usa
       vagasPublicadas: vagasDaEmpresa,
-      links: empresa.empresa_link,
-      anexos: empresa.empresa_arquivo
+      // disponibiliza também a lista com _hid (use se quiser criar links públicos)
+      vagasPublicadasEnc: vagasComHid,
+
+      // links/arquivos
+      links:  empresa.empresa_link,
+      anexos: empresa.empresa_arquivo,
+
+      // novos helpers p/ view
+      encEmpresaId,
+      perfilPublicoUrl,
     });
   } catch (error) {
     console.error('Erro ao buscar vagas/empresa:', error);
     req.session.erro = 'Erro ao carregar perfil.';
-    res.redirect('/empresa/home');
+    return res.redirect('/empresa/home');
   }
 };
 
@@ -710,7 +740,7 @@ exports.salvarVaga = async (req, res) => {
     }
 
     req.session.sucessoVaga = 'Vaga publicada com sucesso!';
-    return res.redirect('/empresa/vaga/' + vagaCriada.id);
+    return res.redirect('/empresa/vaga/' + encodeId(vagaCriada.id));
   } catch (err) {
     console.error('Erro ao salvar vaga (unificado):', err);
     req.session.erro = 'Não foi possível publicar a vaga. ' + (err?.message || '');
@@ -764,10 +794,35 @@ exports.excluirVaga = async (req, res) => {
 };
 
 exports.telaEditarVaga = async (req, res) => {
-  try {
-    const vagaId = Number(req.params.id);
-    const empresaId = req.session.empresa.id;
+  const { encodeId, decodeId } = require('../utils/idEncoder');
 
+  try {
+    // 1) Decodifica o ID vindo da URL
+    const raw = String(req.params.id || '');
+    const dec = decodeId(raw);
+    const vagaId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+
+    if (!Number.isFinite(vagaId)) {
+      req.session.erro = 'Vaga inválida.';
+      return res.redirect('/empresa/meu-perfil');
+    }
+
+    // 2) Redireciona para a versão canônica com ID criptografado, se veio numérico
+    if (/^\d+$/.test(raw)) {
+      const enc = encodeId(vagaId);
+      const canonical = req.originalUrl.replace(raw, enc);
+      if (canonical !== req.originalUrl) {
+        return res.redirect(301, canonical);
+      }
+    }
+
+    const empresaId = req.session?.empresa?.id;
+    if (!empresaId) {
+      req.session.erro = 'Sessão expirada. Faça login novamente.';
+      return res.redirect('/empresa/login');
+    }
+
+    // 3) Busca a vaga no banco
     const vaga = await prisma.vaga.findUnique({
       where: { id: vagaId },
       include: {
@@ -783,6 +838,7 @@ exports.telaEditarVaga = async (req, res) => {
       return res.redirect('/empresa/meu-perfil');
     }
 
+    // 4) Normaliza tipo de local de trabalho
     const normalizaTipo = (t) => {
       switch (String(t || '').trim()) {
         case 'Presencial': return 'Presencial';
@@ -796,6 +852,7 @@ exports.telaEditarVaga = async (req, res) => {
     };
     vaga.tipo_local_trabalho = normalizaTipo(vaga.tipo_local_trabalho);
 
+    // 5) Busca áreas e skills para renderização
     const areaIdsSelecionadas = vaga.vaga_area.map(v => v.area_interesse_id);
 
     const areas = await prisma.area_interesse.findMany({
@@ -808,7 +865,12 @@ exports.telaEditarVaga = async (req, res) => {
     const selectedAreas  = vaga.vaga_area.map(a => a.area_interesse_id);
     const selectedSkills = vaga.vaga_soft_skill.map(s => s.soft_skill_id);
 
-    res.render('empresas/editar-vaga', { vaga, areas, skills, selectedAreas, selectedSkills });
+    // 6) ID criptografado para usar no action do formulário
+    const encId = encodeId(vagaId);
+
+    // 7) Renderiza view
+    res.render('empresas/editar-vaga', { vaga, areas, skills, selectedAreas, selectedSkills, encId });
+
   } catch (err) {
     console.error('Erro na tela de editar vaga:', err);
     req.session.erro = 'Erro ao carregar edição de vaga.';
@@ -817,9 +879,20 @@ exports.telaEditarVaga = async (req, res) => {
 };
 
 exports.salvarEditarVaga = async (req, res) => {
+  const { encodeId, decodeId } = require('../utils/idEncoder');
+
   try {
-    const vagaId = Number(req.params.id);
-    const empresaId = req.session.empresa.id;
+    // 1) Decodifica o ID vindo da URL (aceita codificado ou numérico cru)
+    const raw = String(req.params.id || '');
+    const dec = decodeId(raw);
+    const vagaId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+
+    const empresaId = req.session?.empresa?.id;
+
+    if (!Number.isFinite(vagaId) || !empresaId) {
+      req.session.erro = 'Acesso negado.';
+      return res.redirect('/empresa/meu-perfil');
+    }
 
     const {
       cargo,
@@ -854,7 +927,7 @@ exports.salvarEditarVaga = async (req, res) => {
     ]);
     const vinculoSafe = VINCULOS_OK.has(String(vinculo)) ? String(vinculo) : null;
 
-    // Áreas (suporta novas com 'nova:')
+    // ---------- Áreas (suporta novas com 'nova:') ----------
     const areaIds = [];
     try {
       const areasBrutas = JSON.parse(areasSelecionadas || '[]');
@@ -869,39 +942,46 @@ exports.salvarEditarVaga = async (req, res) => {
           }
           areaIds.push(nova.id);
         } else {
-          areaIds.push(Number(valor));
+          const n = Number(valor);
+          if (Number.isFinite(n)) areaIds.push(n);
         }
       }
     } catch (e) {
       console.error('[ERRO] Falha no parse de areasSelecionadas:', e);
       req.session.erro = 'Erro ao processar áreas selecionadas.';
-      return res.redirect(`/empresa/vagas/${vagaId}/editar`);
+      const enc = encodeId(vagaId);
+      return res.redirect(`/empresas/vaga/${enc}/editar`);
     }
 
-    // Soft skills
+    // ---------- Soft skills ----------
     const skillIds = (() => {
       try {
-        return JSON.parse(habilidadesSelecionadas || '[]').map(Number);
+        return JSON.parse(habilidadesSelecionadas || '[]')
+          .map(Number)
+          .filter(Number.isFinite);
       } catch {
         return [];
       }
     })();
 
-    // Benefícios
+    // ---------- Benefícios ----------
     let beneficiosArr = Array.isArray(beneficio) ? beneficio : beneficio ? [beneficio] : [];
     if ((beneficioOutro || '').trim()) beneficiosArr.push(beneficioOutro.trim());
     const beneficiosTexto = beneficiosArr.join(', ');
 
-    // Salário
+    // ---------- Salário ----------
     const salarioNum = salario
       ? parseFloat(String(salario).replace(/\./g, '').replace(',', '.'))
       : null;
 
-    // Limpa relações e atualiza a vaga (incluindo perguntas e vínculo)
+    // ---------- Atualização principal ----------
+    // Limpa relações e atualiza a vaga (inclui perguntas e vínculo)
     await prisma.vaga_area.deleteMany({ where: { vaga_id: vagaId } });
     await prisma.vaga_soft_skill.deleteMany({ where: { vaga_id: vagaId } });
 
     await prisma.vaga.update({
+      // Se você não tiver índice único composto (id, empresa_id),
+      // o Prisma ignora campos extras no "where" sem erro.
       where: { id: vagaId, empresa_id: empresaId },
       data: {
         cargo,
@@ -919,7 +999,7 @@ exports.salvarEditarVaga = async (req, res) => {
       },
     });
 
-    // Recria relações (máx. 3 áreas)
+    // ---------- Recria relações (máx. 3 áreas) ----------
     const areaIdsLimitadas = areaIds.slice(0, 3);
     if (areaIdsLimitadas.length) {
       await prisma.vaga_area.createMany({
@@ -932,12 +1012,12 @@ exports.salvarEditarVaga = async (req, res) => {
       });
     }
 
-    // Novos anexos (opcional)
+    // ---------- Novos anexos (opcional) ----------
     if (req.files?.length) {
       await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaId);
     }
 
-    // Novos links (opcional)
+    // ---------- Novos links (opcional) ----------
     const titulos = Array.isArray(req.body.linksTitulo) ? req.body.linksTitulo : [];
     const urls = Array.isArray(req.body.linksUrl) ? req.body.linksUrl : [];
     const toHttp = (u) =>
@@ -963,6 +1043,7 @@ exports.salvarEditarVaga = async (req, res) => {
 
     req.session.sucessoVaga = 'Vaga atualizada com sucesso!';
     return res.redirect('/empresa/meu-perfil');
+
   } catch (err) {
     console.error('[ERRO] Falha ao editar vaga (unificado):', err);
     req.session.erro = 'Não foi possível editar a vaga.';
@@ -974,18 +1055,37 @@ exports.salvarEditarVaga = async (req, res) => {
 
 
 exports.rankingCandidatos = async (req, res) => {
+  const { encodeId, decodeId } = require('../utils/idEncoder');
+
   try {
-    const params = {
-      vaga_id: Number(req.params.vagaId),
-      empresa_id: await getEmpresaIdDaSessao(req)
-    };
-    if (!params.empresa_id) {
+    // 1) Decodifica o param (aceita codificado ou numérico cru)
+    const raw = String(req.params.vagaId || '');
+    const dec = decodeId(raw);
+    const vagaId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+
+    const empresaId = await getEmpresaIdDaSessao(req);
+    if (!empresaId) {
       req.session.erro = 'Faça login como empresa para ver o ranking.';
       return res.redirect('/login');
     }
 
+    if (!Number.isFinite(vagaId)) {
+      req.session.erro = 'Vaga inválida.';
+      return res.redirect('/empresa/vagas');
+    }
+
+    // 2) Se veio numérico cru, canonicaliza para a versão com ID codificado (GET)
+    if (/^\d+$/.test(raw)) {
+      const enc = encodeId(vagaId);
+      const canonical = req.originalUrl.replace(raw, enc);
+      if (canonical !== req.originalUrl) {
+        return res.redirect(301, canonical);
+      }
+    }
+
+    // 3) Confere se a vaga pertence à empresa logada
     const vaga = await prisma.vaga.findFirst({
-      where: { id: params.vaga_id, empresa_id: params.empresa_id },
+      where: { id: vagaId, empresa_id: empresaId },
       include: { empresa: true }
     });
     if (!vaga) {
@@ -993,7 +1093,8 @@ exports.rankingCandidatos = async (req, res) => {
       return res.redirect('/empresa/vagas');
     }
 
-    const avaliacoes = await vagaAvaliacaoModel.listarPorVaga({ vaga_id: params.vaga_id });
+    // 4) Busca as avaliações
+    const avaliacoes = await vagaAvaliacaoModel.listarPorVaga({ vaga_id: vagaId });
 
     const tryParseJSON = (s) => {
       try { return JSON.parse(s); } catch (_) { return null; }
@@ -1001,11 +1102,11 @@ exports.rankingCandidatos = async (req, res) => {
 
     // garante interrogação ao final, se não houver pontuação
     const ensureQmark = (str) => {
-    const t = String(str || '').trim();
-    if (!t) return '';
-    // substitui qualquer pontuação final por "?" ou adiciona "?" se não houver
-    return t.replace(/\s*([?.!…:])?\s*$/, '?');
-  };
+      const t = String(str || '').trim();
+      if (!t) return '';
+      // substitui qualquer pontuação final por "?" ou adiciona "?" se não houver
+      return t.replace(/\s*([?.!…:])?\s*$/, '?');
+    };
 
     const toLine = ({ question, answer }) => {
       const q = ensureQmark(String(question || ''));
@@ -1029,7 +1130,9 @@ exports.rankingCandidatos = async (req, res) => {
       const email = u.email || '';
 
       // breakdown pode ter sido salvo como string
-      const breakdown = (typeof a.breakdown === 'string') ? (tryParseJSON(a.breakdown) || {}) : (a.breakdown || {});
+      const breakdown = (typeof a.breakdown === 'string')
+        ? (tryParseJSON(a.breakdown) || {})
+        : (a.breakdown || {});
 
       // reconstrói TODAS as perguntas a partir de breakdown.qa + breakdown.da
       let lines = [];
@@ -1048,9 +1151,9 @@ exports.rankingCandidatos = async (req, res) => {
 
       // fallbacks legados (se houver { questions: "..." } em algum campo)
       if (!questions) {
-        const p = typeof a.payload === 'string' ? tryParseJSON(a.payload) : a.payload;
-        const r = typeof a.api_result === 'string' ? tryParseJSON(a.api_result) : a.api_result;
-        const rr = typeof a.result === 'string' ? tryParseJSON(a.result) : a.result;
+        const p  = typeof a.payload     === 'string' ? tryParseJSON(a.payload)     : a.payload;
+        const r  = typeof a.api_result  === 'string' ? tryParseJSON(a.api_result)  : a.api_result;
+        const rr = typeof a.result      === 'string' ? tryParseJSON(a.result)      : a.result;
         questions = (p && p.questions) || (r && r.questions) || (rr && rr.questions) || questions || '';
         if (typeof questions !== 'string') questions = '';
       }
@@ -1060,7 +1163,7 @@ exports.rankingCandidatos = async (req, res) => {
       const score_S = Number(breakdown?.score_S) || 0;
       const score_C = Number(breakdown?.score_C) || 0;
 
-      const explanation   = typeof breakdown?.explanation === 'string' ? breakdown.explanation : '';
+      const explanation   = typeof breakdown?.explanation   === 'string' ? breakdown.explanation   : '';
       const suggestions   = Array.isArray(breakdown?.suggestions) ? breakdown.suggestions : [];
       const matchedSkills = Array.isArray(breakdown?.matchedSkills) ? breakdown.matchedSkills : [];
 
@@ -1083,13 +1186,14 @@ exports.rankingCandidatos = async (req, res) => {
         questions
       };
     });
-
-    // ordenação inicial: score geral
     rows.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+    const encVagaId = encodeId(vagaId);
 
     return res.render('empresas/ranking-candidatos', {
       vaga,
       rows,
+      encVagaId,
       activePage: 'vagas'
     });
   } catch (err) {
@@ -1185,11 +1289,24 @@ exports.telaAnexosEmpresa = async (req, res) => {
 };
 
 exports.telaVagaDetalhe = async (req, res) => {
+  const { encodeId, decodeId } = require('../utils/idEncoder');
   const empresaSess = getEmpresaFromSession(req);
-  const id = Number(req.params.id);
+
+  // 1) Decodifica o param e canonicaliza se vier numérico "cru"
+  const raw = String(req.params.id || '');
+  const dec = decodeId(raw);
+  const id = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
 
   if (!Number.isFinite(id)) {
     return res.status(404).render('shared/404', { url: req.originalUrl });
+  }
+
+  if (/^\d+$/.test(raw)) {
+    const enc = encodeId(id);
+    const canonical = req.originalUrl.replace(raw, enc);
+    if (canonical !== req.originalUrl) {
+      return res.redirect(301, canonical);
+    }
   }
 
   try {
@@ -1200,18 +1317,21 @@ exports.telaVagaDetalhe = async (req, res) => {
       },
       include: {
         empresa: true,
-        vaga_area:      { include: { area_interesse: true } },
-        vaga_soft_skill:{ include: { soft_skill: true } },
-        vaga_arquivo:   true,
-        vaga_link: true,
+        vaga_area:       { include: { area_interesse: true } },
+        vaga_soft_skill: { include: { soft_skill: true } },
+        vaga_arquivo:    true,
+        vaga_link:       true,
       },
     });
+
     if (!vaga) {
       return res.status(404).render('shared/404', { url: req.originalUrl });
     }
 
     const statusAtual = await obterStatusDaVaga(id);
-    const shareUrl = `${req.protocol}://${req.get('host')}/vagas/${id}`;
+
+    const encId = encodeId(id);
+    const shareUrl = `${req.protocol}://${req.get('host')}/empresas/vaga/${encId}`;
 
     let perguntasLista = [];
     try {
@@ -1244,8 +1364,9 @@ exports.telaVagaDetalhe = async (req, res) => {
     return res.render('empresas/vaga-detalhe', {
       vaga,
       statusAtual,
-      shareUrl,
-      perguntasLista, 
+      shareUrl,      
+      perguntasLista,
+      encId
     });
   } catch (err) {
     console.error('Erro telaVagaDetalhe', err);
@@ -1254,13 +1375,28 @@ exports.telaVagaDetalhe = async (req, res) => {
 };
 
 exports.fecharVaga = async (req, res) => {
-  const id = Number(req.params.id);
+  const { encodeId, decodeId } = require('../utils/idEncoder');
+
+  // Aceita ID codificado ou numérico cru
+  const raw = String(req.params.id || '');
+  const dec = decodeId(raw);
+  const vagaId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+
   try {
+    if (!Number.isFinite(vagaId)) {
+      req.session.erro = 'Vaga inválida.';
+      return res.redirect('/empresa/meu-perfil');
+    }
+
     const empresaId = await getEmpresaIdDaSessao(req);
+    if (!empresaId) {
+      req.session.erro = 'Sessão expirada. Faça login novamente.';
+      return res.redirect('/empresa/login');
+    }
 
     // Confere se a vaga existe e pertence à empresa logada
     const vaga = await prisma.vaga.findFirst({
-      where: { id, ...(empresaId ? { empresa_id: empresaId } : {}) },
+      where: { id: vagaId, empresa_id: empresaId },
       select: { id: true }
     });
     if (!vaga) {
@@ -1269,31 +1405,52 @@ exports.fecharVaga = async (req, res) => {
     }
 
     // Se já está fechada, só redireciona
-    const statusAtual = await obterStatusDaVaga(id);
+    const statusAtual = await obterStatusDaVaga(vagaId);
+    const enc = encodeId(vagaId);
     if (statusAtual === 'fechada') {
-      return res.redirect(`/empresa/vaga/${id}`);
+      return res.redirect(`/empresa/vaga/${enc}`);
     }
 
     // Grava evento "fechada"
     await prisma.vaga_status.create({
-      data: { vaga_id: id, situacao: 'fechada' }
+      data: { vaga_id: vagaId, situacao: 'fechada' }
     });
 
-    return res.redirect(`/empresa/vaga/${id}`);
+    return res.redirect(`/empresa/vaga/${enc}`);
   } catch (err) {
     console.error('Erro fecharVaga:', err?.message || err);
     req.session.erro = 'Não foi possível fechar a vaga.';
-    return res.redirect(`/empresa/vaga/${id}`);
+    if (Number.isFinite(vagaId)) {
+      const enc = encodeId(vagaId);
+      return res.redirect(`/empresa/vaga/${enc}`);
+    }
+    return res.redirect('/empresa/meu-perfil');
   }
 };
 
 exports.reabrirVaga = async (req, res) => {
-  const id = Number(req.params.id);
-  try {
-    const empresaId = await getEmpresaIdDaSessao(req);
+  const { encodeId, decodeId } = require('../utils/idEncoder');
 
+  // Decodifica o ID (aceita codificado ou numérico cru)
+  const raw = String(req.params.id || '');
+  const dec = decodeId(raw);
+  const vagaId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+
+  try {
+    if (!Number.isFinite(vagaId)) {
+      req.session.erro = 'Vaga inválida.';
+      return res.redirect('/empresa/meu-perfil');
+    }
+
+    const empresaId = await getEmpresaIdDaSessao(req);
+    if (!empresaId) {
+      req.session.erro = 'Sessão expirada. Faça login novamente.';
+      return res.redirect('/empresa/login');
+    }
+
+    // Confere se a vaga pertence à empresa logada
     const vaga = await prisma.vaga.findFirst({
-      where: { id, ...(empresaId ? { empresa_id: empresaId } : {}) },
+      where: { id: vagaId, empresa_id: empresaId },
       select: { id: true }
     });
     if (!vaga) {
@@ -1301,82 +1458,123 @@ exports.reabrirVaga = async (req, res) => {
       return res.redirect('/empresa/meu-perfil');
     }
 
-    const statusAtual = await obterStatusDaVaga(id);
+    const statusAtual = await obterStatusDaVaga(vagaId);
+    const enc = encodeId(vagaId);
+
     if (statusAtual === 'aberta') {
-      return res.redirect(`/empresa/vaga/${id}`);
+      // Já está aberta
+      return res.redirect(`/empresa/vaga/${enc}`);
     }
 
     await prisma.vaga_status.create({
-      data: { vaga_id: id, situacao: 'aberta' }
+      data: { vaga_id: vagaId, situacao: 'aberta' }
     });
 
-    return res.redirect(`/empresa/vaga/${id}`);
+    req.session.sucessoVaga = 'Vaga reaberta com sucesso!';
+    return res.redirect(`/empresa/vaga/${enc}`);
   } catch (err) {
     console.error('Erro reabrirVaga:', err?.message || err);
     req.session.erro = 'Não foi possível reabrir a vaga.';
-    return res.redirect(`/empresa/vaga/${id}`);
+    if (Number.isFinite(vagaId)) {
+      const enc = encodeId(vagaId);
+      return res.redirect(`/empresa/vaga/${enc}`);
+    }
+    return res.redirect('/empresa/meu-perfil');
   }
 };
 
 exports.excluirVaga = async (req, res) => {
+  const { encodeId, decodeId } = require('../utils/idEncoder');
   const empresaSess = getEmpresaFromSession(req);
-  const id = Number(req.params.id);
-  if (!Number.isFinite(id)) {
+
+  // 1) Decodifica o ID (aceita codificado ou numérico cru)
+  const raw = String(req.params.id || '');
+  const dec = decodeId(raw);
+  const vagaId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+
+  if (!Number.isFinite(vagaId)) {
     return res.redirect('/empresa/meu-perfil?erro=vaga_invalida');
   }
 
   try {
-    // Confere se a vaga existe e pertence à empresa logada (quando houver)
+    const empresaId = empresaSess?.id ? Number(empresaSess.id) : null;
+    if (!empresaId) {
+      req.session.erro = 'Sessão expirada. Faça login novamente.';
+      return res.redirect('/empresa/login');
+    }
+
+    // 2) Confere se a vaga pertence à empresa logada
     const vaga = await prisma.vaga.findFirst({
-      where: { id, ...(empresaSess?.id ? { empresa_id: Number(empresaSess.id) } : {}) },
+      where: { id: vagaId, empresa_id: empresaId },
       select: { id: true },
     });
-    if (!vaga) return res.redirect('/empresa/meu-perfil?erro=vaga_nao_encontrada');
+    if (!vaga) {
+      return res.redirect('/empresa/meu-perfil?erro=vaga_nao_encontrada');
+    }
 
-    // Monta a transação dinamicamente, só com modelos que existem no Prisma Client
+    // 3) Monta a transação de exclusão (respeitando modelos existentes)
     const tx = [
-      prisma.vaga_area.deleteMany({ where: { vaga_id: id } }),
-      prisma.vaga_soft_skill.deleteMany({ where: { vaga_id: id } }),
+      prisma.vaga_area.deleteMany({ where: { vaga_id: vagaId } }),
+      prisma.vaga_soft_skill.deleteMany({ where: { vaga_id: vagaId } }),
     ];
 
     if (prisma.vaga_hard_skill?.deleteMany) {
-      tx.push(prisma.vaga_hard_skill.deleteMany({ where: { vaga_id: id } }));
+      tx.push(prisma.vaga_hard_skill.deleteMany({ where: { vaga_id: vagaId } }));
     }
     if (prisma.vaga_status?.deleteMany) {
-      tx.push(prisma.vaga_status.deleteMany({ where: { vaga_id: id } }));
+      tx.push(prisma.vaga_status.deleteMany({ where: { vaga_id: vagaId } }));
     }
     if (prisma.vaga_avaliacao?.deleteMany) {
-      tx.push(prisma.vaga_avaliacao.deleteMany({ where: { vaga_id: id } }));
+      tx.push(prisma.vaga_avaliacao.deleteMany({ where: { vaga_id: vagaId } }));
     }
 
-    // Por último, a própria vaga
-    tx.push(prisma.vaga.delete({ where: { id } }));
+    tx.push(prisma.vaga.delete({ where: { id: vagaId } }));
 
     await prisma.$transaction(tx);
 
     req.session.sucessoVaga = 'Vaga excluída com sucesso!';
     return res.redirect('/empresa/meu-perfil');
   } catch (err) {
-    console.error('Erro excluirVaga', err);
+    console.error('Erro excluirVaga:', err?.message || err);
+    req.session.erro = 'Não foi possível excluir a vaga.';
+    if (Number.isFinite(vagaId)) {
+      const enc = encodeId(vagaId);
+      return res.redirect(`/empresa/vaga/${enc}`);
+    }
     return res.redirect('/empresa/meu-perfil?erro=nao_foi_possivel_excluir');
   }
 };
 
 exports.perfilPublico = async (req, res) => {
-  const empresaId = parseInt(req.params.id, 10);
-  if (Number.isNaN(empresaId)) {
+  const { encodeId, decodeId } = require('../utils/idEncoder');
+
+  // 1) Decodifica o ID da empresa (aceita codificado ou numérico cru)
+  const raw = String(req.params.id || '');
+  const dec = decodeId(raw);
+  const empresaId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+
+  if (!Number.isFinite(empresaId)) {
     req.session.erro = 'ID de empresa inválido.';
     return res.redirect('/');
   }
 
+  // 2) Redireciona para a versão canônica com ID codificado se veio numérico
+  if (/^\d+$/.test(raw)) {
+    const enc = encodeId(empresaId);
+    const canonical = req.originalUrl.replace(raw, enc);
+    if (canonical !== req.originalUrl) {
+      return res.redirect(301, canonical);
+    }
+  }
+
   try {
-    // Carrega a empresa já com links e anexos
+    // 3) Carrega a empresa com links e anexos
     const empresa = await prisma.empresa.findUnique({
       where: { id: empresaId },
       include: {
         empresa_link:    { orderBy: { ordem: 'asc' } },
         empresa_arquivo: { orderBy: { criadoEm: 'desc' } },
-      }
+      },
     });
 
     if (!empresa) {
@@ -1384,76 +1582,88 @@ exports.perfilPublico = async (req, res) => {
       return res.redirect('/');
     }
 
+    // 4) Carrega vagas publicadas da empresa
     const vagasPublicadasAll = await prisma.vaga.findMany({
       where: { empresa_id: empresaId },
       include: {
-        vaga_area: { include: { area_interesse: true } },
+        vaga_area:       { include: { area_interesse: true } },
         vaga_soft_skill: { include: { soft_skill: true } },
-        vaga_arquivo: true,
-        vaga_link: true,
-      }
+        vaga_arquivo:    true,
+        vaga_link:       true,
+      },
     });
 
+    // 5) Filtra apenas vagas abertas
     const ids = vagasPublicadasAll.map(v => v.id);
     let vagasPublicadas = vagasPublicadasAll;
     if (ids.length) {
       const statusList = await prisma.vaga_status.findMany({
         where: { vaga_id: { in: ids } },
         orderBy: { criado_em: 'desc' },
-        select: { vaga_id: true, situacao: true, criado_em: true }
+        select: { vaga_id: true, situacao: true, criado_em: true },
       });
       const latest = new Map();
       for (const s of statusList) {
-        if (!latest.has(s.vaga_id)) latest.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
+        if (!latest.has(s.vaga_id))
+          latest.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
       }
-      vagasPublicadas = vagasPublicadasAll.filter(v => (latest.get(v.id) || 'aberta') !== 'fechada');
+      vagasPublicadas = vagasPublicadasAll.filter(
+        v => (latest.get(v.id) || 'aberta') !== 'fechada'
+      );
     }
 
+    // 6) Enriquecimento: se o usuário logado é candidato, traz status das aplicações
     const podeTestar = !!req.session?.candidato;
     const somentePreview = !podeTestar;
 
     if (podeTestar && vagasPublicadas.length) {
-  const candidatoId = Number(req.session.candidato.id);
-  const idsAbertas = vagasPublicadas.map(v => v.id);
+      const candidatoId = Number(req.session.candidato.id);
+      const idsAbertas = vagasPublicadas.map(v => v.id);
 
-  // Traz vaga_id e resposta numa tacada só:
-  const avals = await prisma.vaga_avaliacao.findMany({
-    where: { candidato_id: candidatoId, vaga_id: { in: idsAbertas } },
-    select: { vaga_id: true, resposta: true }
-  });
+      const avals = await prisma.vaga_avaliacao.findMany({
+        where: { candidato_id: candidatoId, vaga_id: { in: idsAbertas } },
+        select: { vaga_id: true, resposta: true },
+      });
 
-  const appliedSet = new Set(avals.map(a => a.vaga_id));
-  const mapResp    = new Map(avals.map(a => [a.vaga_id, a.resposta || '']));
+      const appliedSet = new Set(avals.map(a => a.vaga_id));
+      const mapResp = new Map(avals.map(a => [a.vaga_id, a.resposta || '']));
 
-  for (const vaga of vagasPublicadas) {
-    // 1) sinaliza se já aplicou
-    vaga.ja_aplicou = appliedSet.has(vaga.id);
+      for (const vaga of vagasPublicadas) {
+        vaga.ja_aplicou = appliedSet.has(vaga.id);
 
-    // 2) se houver "resposta" da avaliação, extrai respostas anteriores
-    const texto = mapResp.get(vaga.id) || '';
-    if (!texto) continue;
+        const texto = mapResp.get(vaga.id) || '';
+        if (!texto) continue;
 
-    const linhas = texto.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-    const apenasRespostas = linhas
-      .map(L => {
-        const m = L.match(/\?\s*(.*)$/);
-        return m ? m[1].trim() : '';
-      })
-      .filter(Boolean);
+        const linhas = texto
+          .split(/\r?\n/)
+          .map(s => s.trim())
+          .filter(Boolean);
+        const apenasRespostas = linhas
+          .map(L => {
+            const m = L.match(/\?\s*(.*)$/);
+            return m ? m[1].trim() : '';
+          })
+          .filter(Boolean);
 
-    vaga.respostas_previas = apenasRespostas;
-    vaga.resposta_unica    = apenasRespostas[0] || '';
-  }
-}
+        vaga.respostas_previas = apenasRespostas;
+        vaga.resposta_unica = apenasRespostas[0] || '';
+      }
+    }
 
-    // >>> Envia links e anexos para a view <<<
+    // 7) Codifica os IDs das vagas antes de enviar à view
+    const vagasComIdsCodificados = vagasPublicadas.map(v => ({
+      ...v,
+      _hid: encodeId(v.id),
+    }));
+
+    // 8) Renderiza view
     return res.render('empresas/perfil-publico', {
       empresa,
-      vagasPublicadas,
+      vagasPublicadas: vagasComIdsCodificados,
       somentePreview,
       podeTestar,
-      links:  empresa.empresa_link || [],
-      anexos: empresa.empresa_arquivo || []
+      links: empresa.empresa_link || [],
+      anexos: empresa.empresa_arquivo || [],
     });
   } catch (error) {
     console.error('Erro ao carregar perfil público:', error);

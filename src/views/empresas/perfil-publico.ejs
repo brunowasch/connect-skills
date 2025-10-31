@@ -134,7 +134,7 @@
          }; %>
       <% vagasPublicadas.forEach(function(vaga){ %>
         <% const desabilitarIa = !!vaga.ja_aplicou; %>
-        <div class="vaga-card mb-4" data-vaga-id="<%= vaga.id %>">
+        <div class="vaga-card mb-4" data-vaga-id="<%= vaga.id %>" data-vaga-hid="<%= vaga._hid %>"> 
           <h5 class="fw-bold">
             <%= vaga.cargo %>
             <% if (desabilitarIa) { %>
