@@ -462,6 +462,9 @@ exports.telaHomeCandidato = async (req, res) => {
         };
       });
 
+      const appliedIds = new Set(historico.map(h => h.vaga.id));
+      vagas = (vagas || []).filter(v => !appliedIds.has(v.id));
+
     // 5) Render da home — agora passando 'areas' para a view
     res.render('candidatos/home-candidatos', {
       nome: req.session.candidato.nome,
@@ -668,6 +671,14 @@ exports.mostrarVagas = async (req, res) => {
         v.vaga_area?.some(rel => rel.area_interesse?.nome?.toLowerCase().includes(termo))
       );
     }
+
+    const aplicadas = await prisma.vaga_avaliacao.findMany({
+    where: { candidato_id: Number(usuario.id) },
+    select: { vaga_id: true }
+    });
+
+    const appliedSet = new Set(aplicadas.map(a => a.vaga_id));
+    vagas = (vagas || []).filter(v => !appliedSet.has(v.id));
 
     switch (ordenar) {
       case 'antigos':
@@ -1728,18 +1739,39 @@ exports.vagaDetalhes = async (req, res) => {
 
     const perguntasLista = Array.from(new Set([...discQs, ...extraQs]));
 
-    return res.render('candidatos/vaga-detalhes', {
-      tituloPagina: `Detalhes da vaga`,
-      vaga,
-      publicadoEmBR,
-      beneficios,
-      areas,
-      skills,
-      diasPresenciais,
-      diasHomeOffice,
-      perguntasLista,
-      usuarioSessao: req.session?.usuario || null
-    });
+// ID do candidato (prioriza sessão do candidato)
+const candId = Number(req.session?.candidato?.id || req.session?.usuario?.id || 0);
+
+// Verifica se já aplicou (candidatura) OU já tem avaliação (fallback)
+let jaAplicou = false;
+if (candId && vaga?.id) {
+  const [candidatura, avaliacao] = await Promise.all([
+    prisma.vaga_candidato?.findFirst?.({
+      where: { candidato_id: candId, vaga_id: Number(vaga.id) },
+      select: { id: true }
+    }) ?? null,
+    prisma.vaga_avaliacao?.findFirst?.({
+      where: { candidato_id: candId, vaga_id: Number(vaga.id) },
+      select: { id: true }
+    }) ?? null
+  ]);
+  jaAplicou = !!(candidatura || avaliacao);
+}
+
+return res.render('candidatos/vaga-detalhes', {
+  tituloPagina: `Detalhes da vaga`,
+  vaga,
+  publicadoEmBR,
+  beneficios,
+  areas,
+  skills,
+  diasPresenciais,
+  diasHomeOffice,
+  perguntasLista,
+  jaAplicou,
+  usuarioSessao: req.session?.usuario || null
+});
+
   } catch (err) {
     console.error('Erro ao carregar detalhes da vaga:', err);
     return res.status(500).send('Erro interno ao carregar a vaga');

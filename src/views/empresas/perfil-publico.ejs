@@ -133,8 +133,14 @@
            Temporario: 'Temporário'
          }; %>
       <% vagasPublicadas.forEach(function(vaga){ %>
+        <% const desabilitarIa = !!vaga.ja_aplicou; %>
         <div class="vaga-card mb-4" data-vaga-id="<%= vaga.id %>">
-          <h5 class="fw-bold"><%= vaga.cargo %></h5>
+          <h5 class="fw-bold">
+            <%= vaga.cargo %>
+            <% if (desabilitarIa) { %>
+              <span class="badge rounded-pill text-bg-secondary ms-2">Já aplicada</span>
+            <% } %>
+          </h5>
 
           <% if (vaga.vaga_area && vaga.vaga_area.length > 0) { %>
             <p class="mb-1"><strong>Áreas de atuação:</strong>
@@ -229,10 +235,17 @@
           <% } %>
 
           <div class="mt-3 text-end">
-            <button class="btn <%= somentePreview ? 'btn-outline-secondary' : 'btn-outline-primary' %> fw-bold btn-entrevista" type="button">
+            <button
+              class="btn <%= somentePreview ? 'btn-outline-secondary' : (desabilitarIa ? 'btn-secondary' : 'btn-outline-primary') %> fw-bold btn-entrevista"
+              type="button"
+              <%= desabilitarIa ? 'disabled aria-disabled="true" title="Você já se candidatou a esta vaga. A entrevista com IA está desabilitada."' : '' %>>
               <i class="bi bi-send me-1"></i>
-              <%= (vaga.respostas_previas && vaga.respostas_previas.length) ? 'Ver teste da IA' : 'Iniciar teste com a IA' %>
+              <%= desabilitarIa ? 'Entrevista com IA indisponível' : ((vaga.respostas_previas && vaga.respostas_previas.length) ? 'Ver teste da IA' : 'Iniciar teste com a IA') %>
             </button>
+
+            <% if (desabilitarIa) { %>
+              <div class="mt-2 small text-muted">Você já se candidatou a esta vaga.</div>
+            <% } %>
             <% if (somentePreview) { %>
               <a class="btn btn-primary ms-2" href="/login">Fazer login</a>
             <% } %>

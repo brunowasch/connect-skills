@@ -1353,28 +1353,38 @@ exports.perfilPublico = async (req, res) => {
     const somentePreview = !podeTestar;
 
     if (podeTestar && vagasPublicadas.length) {
-      const candidatoId = Number(req.session.candidato.id);
-      const idsAbertas = vagasPublicadas.map(v => v.id);
+  const candidatoId = Number(req.session.candidato.id);
+  const idsAbertas = vagasPublicadas.map(v => v.id);
 
-      const avals = await prisma.vaga_avaliacao.findMany({
-        where: { candidato_id: candidatoId, vaga_id: { in: idsAbertas } },
-        select: { vaga_id: true, resposta: true }
-      });
-      const mapResp = new Map(avals.map(a => [a.vaga_id, a.resposta || '']));
+  // Traz vaga_id e resposta numa tacada só:
+  const avals = await prisma.vaga_avaliacao.findMany({
+    where: { candidato_id: candidatoId, vaga_id: { in: idsAbertas } },
+    select: { vaga_id: true, resposta: true }
+  });
 
-      for (const vaga of vagasPublicadas) {
-        const texto = mapResp.get(vaga.id) || '';
-        if (!texto) continue;
-        const linhas = texto.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        const apenasRespostas = linhas.map(L => {
-          const m = L.match(/\?\s*(.*)$/);
-          return m ? m[1].trim() : '';
-        }).filter(Boolean);
+  const appliedSet = new Set(avals.map(a => a.vaga_id));
+  const mapResp    = new Map(avals.map(a => [a.vaga_id, a.resposta || '']));
 
-        vaga.respostas_previas = apenasRespostas;
-        vaga.resposta_unica   = apenasRespostas[0] || '';
-      }
-    }
+  for (const vaga of vagasPublicadas) {
+    // 1) sinaliza se já aplicou
+    vaga.ja_aplicou = appliedSet.has(vaga.id);
+
+    // 2) se houver "resposta" da avaliação, extrai respostas anteriores
+    const texto = mapResp.get(vaga.id) || '';
+    if (!texto) continue;
+
+    const linhas = texto.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const apenasRespostas = linhas
+      .map(L => {
+        const m = L.match(/\?\s*(.*)$/);
+        return m ? m[1].trim() : '';
+      })
+      .filter(Boolean);
+
+    vaga.respostas_previas = apenasRespostas;
+    vaga.resposta_unica    = apenasRespostas[0] || '';
+  }
+}
 
     // >>> Envia links e anexos para a view <<<
     return res.render('empresas/perfil-publico', {
