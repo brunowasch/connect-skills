@@ -10,7 +10,11 @@
   <link rel="stylesheet" href="/css/candidatos/selecionar-areas.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
-<body>
+  <style>
+    :root { --nav-h: 0px !important; }
+    body#cadastro-areas { margin: 0; padding-top: 0 !important; }
+  </style>
+<body id="cadastro-areas">
   <%- include('../partials/header') %>
   <%- include('../partials/flash-messages') %>
   <main class="container text-center mt-5 pt-5">

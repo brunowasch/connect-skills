@@ -10,7 +10,12 @@
   <link rel="stylesheet" href="/css/shared/fotoPerfil.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
-<body>
+  <style>
+    :root { --nav-h: 0px !important; }
+    body#cadastro-foto { margin: 0; padding-top: 0 !important; }
+    .main-ajustado-header { margin-top: 0 !important; padding-top: 0 !important; }
+  </style>
+<body id="cadastro-foto">
   <%- include('../partials/header') %>
   <%- include('../partials/flash-messages') %>
   <main class="main-ajustado-header d-flex flex-column align-items-center justify-content-center px-3 text-center mb-3">

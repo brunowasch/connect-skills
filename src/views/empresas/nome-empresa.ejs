@@ -9,7 +9,11 @@
   <link rel="stylesheet" href="/css/shared/style.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
-<body class="d-flex flex-column min-vh-100 bg-white">
+<style>
+    :root { --nav-h: 0px !important; }
+    body#cadastro-nome { margin: 0; padding-top: 0 !important; }
+  </style>
+<body id="cadastro-nome" class="d-flex flex-column min-vh-100 bg-white">
   <%- include('../partials/header') %>
   <%- include('../partials/flash-messages') %>
   <main class="main-ajustado-header flex-grow-1 d-flex flex-column justify-content-center align-items-center px-3">

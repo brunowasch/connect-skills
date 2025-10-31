@@ -10,8 +10,11 @@
   <link rel="stylesheet" href="/css/login/login.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
-<body>
-<%- include('../partials/flash-messages') %>
+  <style>
+    :root { --nav-h: 0px !important; }
+    body#login { padding-top: 0 !important; margin: 0; }
+  </style>
+<body id="login">
 <%- include('../partials/header') %>
 
 <main class="container d-flex justify-content-center align-items-center flex-grow-1 main-ajustada">
@@ -77,5 +80,6 @@
 
 <script src="/js/shared/confirmarSenha.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>document.body.style.paddingTop='';document.documentElement?.style?.removeProperty('--nav-h');</script>
 </body>
 </html>

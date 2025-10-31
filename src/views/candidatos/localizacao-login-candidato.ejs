@@ -10,7 +10,12 @@
   <link rel="stylesheet" href="/css/shared/localizacao-login.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
-<body class="d-flex flex-column min-vh-100">
+  <style>
+    :root { --nav-h: 0px !important; }
+    body#cadastro-localizacao { margin: 0; padding-top: 0 !important; }
+    .main-ajustado-header { margin-top: 0 !important; padding-top: 0 !important; }
+  </style>
+<body  id="cadastro-localizacao" class="d-flex flex-column min-vh-100">
 
   <%- include('../partials/header') %>
   <%- include('../partials/flash-messages') %>

@@ -10,8 +10,9 @@
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 
   <style>
-    body { background:#f8f9fb; }
-    main#content-main { margin-top: var(--header-h);}
+    :root { --nav-h: 0px !important; }
+    body#home-candidato { margin: 0; padding-top: 0 !important; }
+    main#content-main { margin-top: 0 !important; }
     .card-ghost { border:1px dashed rgba(0,0,0,.15); background:#fff; }
     .rounded-2xl { border-radius: 1rem; }
     .shadow-soft { box-shadow: 0 6px 24px rgba(0,0,0,.06); }
@@ -24,7 +25,7 @@
     .kpi .num { font-weight:800; font-size:1.25rem; }
   </style>
 </head>
-<body>
+<body id="home-candidato">
   <%- include('../partials/header-candidato') %>
   <%- include('../partials/flash-messages') %>
 

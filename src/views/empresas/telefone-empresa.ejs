@@ -10,7 +10,11 @@
   <link rel="stylesheet" href="/css/shared/telefone.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
-<body>
+<style>
+    :root { --nav-h: 0px !important; }
+    body#cadastro-telefone { margin: 0; padding-top: 0 !important; }
+</style>
+<body id="cadastro-telefone">
   <%- include('../partials/header') %>
   <%- include('../partials/flash-messages') %>
   <main class="d-flex flex-column align-items-center justify-content-center mt-5">
