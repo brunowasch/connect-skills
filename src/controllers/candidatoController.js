@@ -1482,7 +1482,7 @@ exports.avaliarCompatibilidade = async (req, res) => {
 
     console.log('[Compat] Payload a enviar para /suggest:', JSON.stringify(payload, null, 2));
 
-    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest_new';
+    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest';
     const axiosResp = await axios.post(url, payload, {
       headers: { 'Content-Type': 'application/json' },
       timeout: 30000
