@@ -10,6 +10,11 @@
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
 <body>
+  <style>
+    :root { --nav-h: 0px !important; }
+  body#home { padding-top: 0 !important; }
+    main#content-main { margin-top: var(--header-h); }
+  </style>
   <%- include('../partials/header-empresa') %>
   <%- include('../partials/flash-messages') %>
   <main class="container py-5 mt-4" style="max-width: 800px;">
