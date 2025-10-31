@@ -130,10 +130,19 @@
       <% vagas.forEach(vaga => { %>
         <div class="bg-white rounded-4 p-4 mb-4 shadow-sm position-relative card-vaga border" data-vaga-id="<%= vaga.id %>">
           <div class="d-flex gap-4 align-items-start flex-wrap">
+            <%
+              function empresaLogo(e) {
+                const s = String(e?.foto_perfil || '').trim();
+                if (!s || s === 'null' || s === 'undefined') return '/img/placeholder-empresa.png';
+                return s;
+              }
+            %>
             <a href="/empresa/perfil/<%= vaga.empresa?.id %>">
-              <img src="<%= vaga.empresa?.foto_perfil || '/img/empresa-padrao.png' %>"
-                   alt="Logo da empresa"
-                   class="rounded-circle border perfil-logo">
+              <img
+                src="<%= empresaLogo(vaga.empresa) %>"
+                alt="Logo da empresa"
+                class="rounded-circle border perfil-logo"
+                onerror="this.onerror=null;this.src='/img/placeholder-empresa.png';">
             </a>
             <div class="flex-grow-1">
               <h5 class="mb-0 fw-bold"><%= vaga.empresa?.nome_empresa %></h5>

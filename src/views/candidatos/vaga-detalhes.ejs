@@ -208,11 +208,19 @@
       <div class="col-lg-4">
         <div class="card card-shadow p-3 p-md-4">
           <div class="d-flex align-items-center gap-3">
-            <img
-              src="<%= vaga.empresa?.foto_perfil || '/img/empresa-padrao.png' %>"
-              alt="Foto da Empresa"
-              class="rounded-circle border"
-              style="width:56px;height:56px;object-fit:cover;">
+          <%
+            function empresaLogo(e) {
+              const s = String(e?.foto_perfil || '').trim();
+              if (!s || s === 'null' || s === 'undefined') return '/img/placeholder-empresa.png';
+              return s;
+            }
+          %>
+          <img
+            src="<%= empresaLogo(vaga.empresa) %>"
+            alt="Foto da Empresa"
+            class="rounded-circle border"
+            style="width:56px;height:56px;object-fit:cover;"
+            onerror="this.onerror=null;this.src='/img/placeholder-empresa.png';">
             <div>
               <div class="fw-semibold mb-1"><%= vaga.empresa?.nome_empresa || vaga.empresa?.nome || 'Empresa' %></div>
               <%

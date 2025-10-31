@@ -923,7 +923,9 @@ exports.historicoAplicacoes = async (req, res) => {
           empresa: {
             id: empresa.id,
             nome: empresa.nome_empresa,
-            foto: empresa.foto_perfil || '/img/avatar.png',
+            foto: (empresa.foto_perfil && !['null','undefined'].includes(String(empresa.foto_perfil).trim()))
+            ? empresa.foto_perfil
+            : '/img/empresa-padrao.png',
             localidade: [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', '),
           },
           respostas
