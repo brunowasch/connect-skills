@@ -20,8 +20,8 @@
   <main class="container text-center mt-5 pt-5">
     <h2 class="mb-4">Selecione a seguir três áreas a quais você deseja trabalhar:</h2>
 
-    <form action="/candidato/cadastro/areas?usuario_id=<%= usuario_id %>" method="POST" id="formAreas">
-      <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
+    <form action="/candidatos/cadastro/areas?uid=<%= uid %>" method="POST" id="formAreas">
+      <input type="hidden" name="uid" value="<%= uid %>">
       <input type="hidden" name="areasSelecionadas" id="areasSelecionadas">
 
       <div id="botoes" class="d-flex flex-wrap justify-content-center">
@@ -59,7 +59,7 @@
 
     <div class="text-center">
       <a class="btn btn-link text-decoration-none"
-         href="/candidato/pular-cadastro?usuario_id=<%= usuario_id %>">
+         href="/candidatos/pular-cadastro?uid=<%= uid %>">
         Prefiro completar meu perfil depois
       </a>
     </div>

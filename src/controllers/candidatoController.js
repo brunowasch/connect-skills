@@ -7,6 +7,7 @@ const { sugerirCompatibilidade } = require('../services/iaClient');
 const vagaAvaliacaoModel = require('../models/vagaAvaliacaoModel');
 const { cloudinary } = require('../config/cloudinary');
 const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
+const { encodeId, decodeId } = require('../utils/idEncoder');
 
 const escapeNL = (v) => (typeof v === 'string' ? v.replace(/\r?\n/g, '\\n') : v);
 
@@ -84,7 +85,6 @@ const avgScore0to100 = (results) => {
     : 0;
 };
 
-// normalizador de URL para os links do perfil
 const normUrl = (u) => {
   if (!u) return '';
   const s = String(u).trim();
@@ -170,12 +170,36 @@ async function isVagaFechada(vaga_id) {
 }
 
 exports.telaNomeCandidato = (req, res) => {
-  const { usuario_id } = req.query;
-  res.render('candidatos/cadastro-de-nome-e-sobrenome-candidatos', { usuario_id });
+  const { uid, usuario_id } = req.query;
+
+  if (!uid && usuario_id && /^\d+$/.test(usuario_id)) {
+    const safeUid = encodeId(Number(usuario_id));
+    return res.redirect(`/candidatos/cadastro/nome?uid=${safeUid}`);
+  }
+
+  if (!uid) {
+    req.session.erro = 'Identificador inválido.';
+    return res.redirect('/cadastro');
+  }
+
+  try {
+    const id = decodeId(uid);
+    if (!id || !Number.isFinite(id)) throw new Error('uid inválido');
+  } catch (err) {
+    console.error('Erro ao decodificar UID:', err);
+    req.session.erro = 'Link inválido.';
+    return res.redirect('/cadastro');
+  }
+
+  return res.render('candidatos/cadastro-de-nome-e-sobrenome-candidatos', { uid });
 };
 
 exports.salvarNomeCandidato = async (req, res) => {
-  const { usuario_id, nome, sobrenome, data_nascimento } = req.body;
+  const rawUid = req.body.uid || req.body.usuario_id || req.query.uid || req.query.usuario_id;
+  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
+
+  const { nome, sobrenome, data_nascimento } = req.body;
+
   try {
     await candidatoModel.criarCandidato({
       usuario_id: Number(usuario_id),
@@ -183,31 +207,38 @@ exports.salvarNomeCandidato = async (req, res) => {
       sobrenome,
       data_nascimento: new Date(data_nascimento),
     });
-    res.redirect(`/candidato/localizacao?usuario_id=${usuario_id}`);
+
+    const uid = encodeId(usuario_id);
+    return res.redirect(`/candidato/localizacao?uid=${uid}`);
   } catch (err) {
     console.error('Erro ao salvar nome e sobrenome:', err);
+    const uid = encodeId(usuario_id);
     req.session.erro = 'Erro ao salvar seus dados iniciais. Tente novamente.';
-    res.redirect(`/candidato/nome?usuario_id=${usuario_id}`);
+    return res.redirect(`/candidato/nome?uid=${uid}`);
   }
 };
 
 exports.telaLocalizacao = (req, res) => {
-  const { usuario_id } = req.query;
-  res.render('candidatos/localizacao-login-candidato', { usuario_id });
+  const uid = req.query.uid || null;
+  res.render('candidatos/localizacao-login-candidato', { uid });
 };
 
 exports.salvarLocalizacao = async (req, res) => {
-  const { usuario_id, localidade } = req.body;
+  const rawUid = req.body.uid || req.body.usuario_id || req.query.uid || req.query.usuario_id;
+  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
+  const uid = usuario_id ? encodeId(usuario_id) : '';
+
+  const { localidade } = req.body;
 
   if (!usuario_id || !localidade) {
     req.session.erro = 'ID ou localidade ausente.';
-    return res.redirect(`/candidato/localizacao?usuario_id=${usuario_id || ''}`);
+    return res.redirect(`/candidato/localizacao?uid=${uid}`);
   }
 
   const partes = localidade.split(',').map(p => p.trim());
   if (partes.length < 2 || partes.length > 3) {
     req.session.erro = 'Informe uma localidade válida. Ex: cidade e país, ou cidade, estado e país.';
-    return res.redirect(`/candidato/localizacao?usuario_id=${usuario_id}`);
+    return res.redirect(`/candidato/localizacao?uid=${uid}`);
   }
 
   const [cidade, estado = '', pais = ''] = partes;
@@ -220,41 +251,46 @@ exports.salvarLocalizacao = async (req, res) => {
       pais,
     });
 
-    res.redirect(`/candidato/telefone?usuario_id=${usuario_id}`);
+    return res.redirect(`/candidato/telefone?uid=${uid}`);
   } catch (err) {
     console.error('Erro ao salvar localização:', err);
     req.session.erro = 'Erro ao salvar localização. Tente novamente.';
-    res.redirect(`/candidato/localizacao?usuario_id=${usuario_id}`);
+    return res.redirect(`/candidato/localizacao?uid=${uid}`);
   }
 };
 
 exports.telaTelefone = (req, res) => {
-  const usuarioId = req.query.usuario_id || req.body.usuario_id;
-  res.render('candidatos/telefone', { usuarioId, error: null, telefoneData: {} });
+  const uid = req.query.uid || req.body.uid || null;
+  res.render('candidatos/telefone', { uid, error: null, telefoneData: {} });
 };
 
 exports.salvarTelefone = async (req, res) => {
-  const usuarioId = req.body.usuario_id || req.query.usuario_id;
+  const rawUid = req.body.uid || req.query.uid || req.body.usuario_id || req.query.usuario_id;
+  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
+  const uid = usuario_id ? encodeId(usuario_id) : '';
+
   const { ddi, ddd, telefone } = req.body;
-  if (!usuarioId || !ddi || !ddd || !telefone) {
+  if (!usuario_id || !ddi || !ddd || !telefone) {
     return res.render('candidatos/telefone', {
-      usuarioId,
+      uid,
       error: 'Preencha todos os campos de telefone.',
       telefoneData: { ddi, ddd, telefone }
     });
   }
+
   const telefoneSemHifen = telefone.replace(/-/g, '');
   const telefoneFormatado = `${ddi}-${ddd}-${telefoneSemHifen}`;
+
   try {
     await candidatoModel.atualizarTelefone({
-      usuario_id: Number(usuarioId),
+      usuario_id: Number(usuario_id),
       telefone: telefoneFormatado
     });
-    return res.redirect(`/candidato/cadastro/foto-perfil?usuario_id=${usuarioId}`);
+    return res.redirect(`/candidato/cadastro/foto-perfil?uid=${uid}`);
   } catch (err) {
     console.error('Erro ao salvar telefone:', err);
     return res.render('candidatos/telefone', {
-      usuarioId,
+      uid,
       error: 'Erro ao salvar telefone. Tente novamente.',
       telefoneData: { ddi, ddd, telefone }
     });
@@ -262,15 +298,18 @@ exports.salvarTelefone = async (req, res) => {
 };
 
 exports.telaFotoPerfil = (req, res) => {
-  const usuarioId = req.query.usuario_id || req.body.usuario_id;
-  return res.render('candidatos/foto-perfil', { usuarioId, error: null });
+  const uid = req.query.uid || req.body.uid || null;
+  return res.render('candidatos/foto-perfil', { uid, error: null });
 };
 
 exports.salvarFotoPerfil = async (req, res) => {
-  const usuarioId = req.body.usuario_id || req.query.usuario_id;
+  const rawUid = req.body.uid || req.query.uid || req.body.usuario_id || req.query.usuario_id;
+  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
+  const uid = usuario_id ? encodeId(usuario_id) : '';
+
   if (!req.file?.buffer) {
     return res.render('candidatos/foto-perfil', {
-      usuarioId,
+      uid,
       error: 'Selecione uma foto antes de continuar.'
     });
   }
@@ -279,14 +318,14 @@ exports.salvarFotoPerfil = async (req, res) => {
     const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const result = await cloudinary.uploader.upload(dataUri, {
       folder: 'connect-skills/candidatos',
-      public_id: `foto_candidato_${usuarioId}`,
+      public_id: `foto_candidato_${usuario_id}`,
       overwrite: true
     });
 
     const caminhoFoto = result.secure_url;
 
-    const candidato = await prisma.candidato.findUnique({ where: { usuario_id: Number(usuarioId) } });
-    if (!candidato) throw new Error(`Candidato não existe (usuario_id ${usuarioId})`);
+    const candidato = await prisma.candidato.findUnique({ where: { usuario_id: Number(usuario_id) } });
+    if (!candidato) throw new Error(`Candidato não existe (usuario_id ${usuario_id})`);
 
     await prisma.candidato.update({
       where: { id: candidato.id },
@@ -297,11 +336,11 @@ exports.salvarFotoPerfil = async (req, res) => {
       req.session.candidato.foto_perfil = caminhoFoto;
     }
 
-    return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuarioId}`);
+    return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
   } catch (err) {
     console.error('Erro ao salvar foto de perfil:', err);
     return res.render('candidatos/foto-perfil', {
-      usuarioId,
+      uid,
       error: 'Erro interno ao salvar a foto. Tente novamente.'
     });
   }
@@ -309,42 +348,49 @@ exports.salvarFotoPerfil = async (req, res) => {
 
 exports.telaSelecionarAreas = async (req, res) => {
   try {
-    const usuario_id = req.query.usuario_id;
+    const uid = req.query.uid || req.query.usuario_id || null; 
+    const usuario_id = typeof uid === 'string' && !/^\d+$/.test(uid) ? decodeId(uid) : Number(uid);
+    const safeUid = usuario_id ? encodeId(usuario_id) : '';
 
     const areas = await prisma.area_interesse.findMany({
       where: { padrao: true },
       orderBy: { nome: 'asc' }
     });
 
-    res.render('candidatos/selecionar-areas', { usuario_id, areas });
+    res.render('candidatos/selecionar-areas', { uid: safeUid, areas });
   } catch (erro) {
     console.error('Erro ao carregar áreas:', erro);
+    const backUid = req.query.uid || '';
     req.session.erro = 'Erro ao carregar áreas. Tente novamente.';
-    res.redirect(`/candidato/cadastro/areas?usuario_id=${req.query.usuario_id || ''}`);
+    res.redirect(`/candidato/cadastro/areas?uid=${backUid}`);
   }
 };
 
 exports.salvarAreas = async (req, res) => {
-  const { usuario_id, areasSelecionadas, outra_area_input } = req.body;
-  const nomes = JSON.parse(areasSelecionadas);
+  const rawUid = req.body.uid || req.query.uid || req.body.usuario_id || req.query.usuario_id;
+  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
+  const uid = usuario_id ? encodeId(usuario_id) : '';
+
+  const { areasSelecionadas, outra_area_input } = req.body;
+  const nomes = JSON.parse(areasSelecionadas || '[]');
 
   if (nomes.length !== 3) {
     req.session.erro = 'Selecione exatamente 3 áreas válidas.';
-    return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuario_id}`);
+    return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
   }
 
   try {
     const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
     if (!candidato) {
       req.session.erro = 'Candidato não encontrado.';
-      return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuario_id}`);
+      return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
     }
 
     const nomesFinal = [...nomes];
     if (nomes.includes('Outro')) {
       if (!outra_area_input || outra_area_input.trim() === '') {
         req.session.erro = "Você selecionou 'Outro', mas não preencheu a nova área.";
-        return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuario_id}`);
+        return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
       }
       const novaArea = await candidatoModel.upsertNovaArea(outra_area_input.trim());
       const index = nomesFinal.indexOf('Outro');
@@ -354,7 +400,7 @@ exports.salvarAreas = async (req, res) => {
     const ids = await candidatoModel.buscarIdsDasAreas({ nomes: nomesFinal });
     if (ids.length !== 3) {
       req.session.erro = 'Erro ao localizar todas as áreas selecionadas.';
-      return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuario_id}`);
+      return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
     }
 
     await candidatoModel.salvarAreasDeInteresse({ candidato_id: candidato.id, areas: ids });
@@ -382,7 +428,7 @@ exports.salvarAreas = async (req, res) => {
   } catch (error) {
     console.error('Erro ao salvar áreas de interesse:', error);
     req.session.erro = 'Erro ao salvar áreas de interesse. Tente novamente.';
-    res.redirect(`/candidato/cadastro/areas?usuario_id=${req.body.usuario_id}`);
+    res.redirect(`/candidatos/cadastro/areas?uid=${uid}`);
   }
 };
 
