@@ -8,6 +8,7 @@ const { cloudinary } = require('../config/cloudinary');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const vagaArquivoController = require('./vagaArquivoController');
+const {discQuestionBank} = require('../utils/discQuestionBank');
 
 function getEmpresaFromSession(req) {
   const s = req.session || {};
@@ -427,7 +428,9 @@ exports.telaPublicarVaga = async (req, res) => {
 
     const habilidades = await prisma.soft_skill.findMany({ orderBy: { nome: 'asc' } });
 
-    res.render('empresas/publicar-vaga', { areas, habilidades });
+    const backUrl = req.query.back || req.session.lastEmpresaPage || req.get('referer') || '/empresa/home';
+
+    res.render('empresas/publicar-vaga', { areas, habilidades, backUrl });
   } catch (err) {
     console.error('Erro ao carregar áreas e habilidades:', err);
     req.session.erro = 'Erro ao carregar o formulário.';
@@ -437,106 +440,193 @@ exports.telaPublicarVaga = async (req, res) => {
 
 exports.salvarVaga = async (req, res) => {
   try {
-    if (!req.session.empresa) return res.redirect('/login');
-
-    const rawAreas = req.body.areasSelecionadas ?? req.body.areas ?? '[]';
-    let areasBrutas;
-    try {
-      areasBrutas = Array.isArray(rawAreas) ? rawAreas : JSON.parse(rawAreas);
-    } catch {
-      areasBrutas = [];
+    const empresaSessao = req.session?.empresa || null;
+    if (!empresaSessao?.id) {
+      req.session.erro = 'Sessão expirada. Faça login novamente.';
+      return res.redirect('/login');
     }
 
-    if (!Array.isArray(areasBrutas) || areasBrutas.length === 0) {
-      const areasList  = await prisma.area_interesse.findMany({ where: { padrao: true }, orderBy: { nome: 'asc' } });
-      const skillsList = await prisma.soft_skill.findMany({ orderBy: { nome: 'asc' } });
+    const back = req.get('referer') || '/empresa/publicar-vaga';
 
-      return res.status(400).render('empresas/publicar-vaga', {
-        erroAreas: 'Selecione ao menos uma área de atuação.',
-        erroHabilidades: null,
-        vaga: {
-          cargo: req.body.cargo || '',
-          tipo_local_trabalho: req.body.tipo || '',
-          escala_trabalho: req.body.escala || '',
-          dias_presenciais: req.body.diasPresenciais || null,
-          dias_home_office: req.body.diasHomeOffice || null,
-          salario: req.body.salario || '',
-          moeda: req.body.moeda || '',
-          descricao: req.body.descricao || '',
-          beneficio: Array.isArray(req.body.beneficio) ? req.body.beneficio : [req.body.beneficio || ''],
-          beneficioOutro: req.body.beneficioOutro || '',
-          pergunta: req.body.pergunta || '',
-          opcao: req.body.opcao || ''
+    const norm = (s) => (s ? String(s).trim() : '');
+    const toNullIfEmpty = (s) => (norm(s) === '' ? null : norm(s));
+    const toIntOrNull = (v) => {
+      const s = norm(v);
+      if (!s) return null;
+      const n = parseInt(s, 10);
+      return Number.isFinite(n) ? n : null;
+    };
+    const parseMoney = (v) => {
+      if (v == null || v === '') return null;
+      const s = String(v)
+        .replace(/\./g, '')
+        .replace(',', '.')
+        .replace(/[^\d.-]/g, '');
+      const n = Number(s);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    // vínculos aceitos
+    const VINCULOS_OK = new Set([
+      'Estagio',
+      'CLT_Tempo_Integral',
+      'CLT_Meio_Periodo',
+      'Trainee',
+      'Aprendiz',
+      'PJ',
+      'Freelancer_Autonomo',
+      'Temporario',
+    ]);
+
+    const {
+      cargo,
+      tipo,              // tipo_local_trabalho
+      escala,            // escala_trabalho
+      diasPresenciais,
+      diasHomeOffice,
+      salario,
+      moeda,
+      descricao,
+      beneficio,         // checkboxes
+      beneficioOutro,    // texto livre
+      pergunta,          // obrigatório (para IA)
+      opcao,             // obrigatório (para IA)
+      vinculo,           // vínculo empregatício
+      areas,             // legado
+      areasSelecionadas, // JSON hidden (novo)
+      habilidadesSelecionadas, // JSON hidden para soft skills
+    } = req.body;
+
+    if (!norm(cargo)) {
+      req.session.erro = 'Informe o cargo da vaga.';
+      return res.redirect(back);
+    }
+    if (!norm(tipo)) {
+      req.session.erro = 'Informe o tipo de local de trabalho.';
+      return res.redirect(back);
+    }
+    // perguntas para IA obrigatórias
+    if (!norm(pergunta) || !norm(opcao)) {
+      req.session.erro = 'Preencha os campos de "Pergunta para IA" e "Opções de resposta para IA".';
+      return res.redirect(back);
+    }
+
+    // Benefícios: une checkboxes + "Outro"
+    let beneficiosArr = Array.isArray(beneficio) ? beneficio.map(norm).filter(Boolean) : [];
+    if (norm(beneficioOutro)) beneficiosArr.push(norm(beneficioOutro));
+    const beneficioStr = beneficiosArr.join(', ');
+
+    const vinculoSafe = VINCULOS_OK.has(String(vinculo)) ? String(vinculo) : null;
+    const salarioNumber = parseMoney(salario);
+    const moedaSafe = norm(moeda) || 'BRL';
+    const diasPresenciaisInt = toIntOrNull(diasPresenciais);
+    const diasHomeOfficeInt = toIntOrNull(diasHomeOffice);
+
+    // --- ÁREAS: suporta o novo hidden JSON e o formato antigo ---
+    let areasInput = [];
+    if (areasSelecionadas) {
+      try {
+        areasInput = JSON.parse(areasSelecionadas);
+      } catch (_) {
+        areasInput = [];
+      }
+    } else if (areas) {
+      areasInput = Array.isArray(areas) ? areas : [areas];
+    }
+
+    const idsAreas = [];
+    const novasAreas = [];
+    for (const item of areasInput) {
+      const val = norm(item);
+      if (!val) continue;
+      if (/^nova:/i.test(val)) {
+        const nome = norm(val.replace(/^nova:/i, ''));
+        if (nome) novasAreas.push(nome);
+      } else if (/^\d+$/.test(val)) {
+        idsAreas.push(Number(val));
+      }
+    }
+
+    // --- SOFT SKILLS: hidden JSON "habilidadesSelecionadas" ---
+    let softSkillIds = [];
+    if (habilidadesSelecionadas) {
+      try {
+        const parsed = Array.isArray(habilidadesSelecionadas)
+          ? habilidadesSelecionadas
+          : JSON.parse(habilidadesSelecionadas);
+        softSkillIds = parsed.map((x) => Number(x)).filter(Number.isFinite);
+      } catch (_) {
+        softSkillIds = [];
+      }
+    }
+
+    // Transação: cria a vaga, vincula áreas (máx. 3), cria novas áreas se necessário,
+    // e cria os vínculos de soft skills, além de gravar perguntas/opções e vínculo.
+    const vagaCriada = await prisma.$transaction(async (tx) => {
+      const vaga = await tx.vaga.create({
+        data: {
+          empresa_id: Number(empresaSessao.id),
+          cargo: norm(cargo),
+          tipo_local_trabalho: norm(tipo),
+          escala_trabalho: toNullIfEmpty(escala),
+          dias_presenciais: diasPresenciaisInt,
+          dias_home_office: diasHomeOfficeInt,
+          salario: salarioNumber,
+          moeda: toNullIfEmpty(moedaSafe),
+          descricao: toNullIfEmpty(descricao),
+          beneficio: toNullIfEmpty(beneficioStr),
+          pergunta: norm(pergunta),
+          opcao: norm(opcao),
+          vinculo_empregaticio: vinculoSafe,
         },
-        areas: areasList,
-        skills: skillsList,
-        selectedAreas: [],
-        selectedSkills: []
       });
-    }
 
-    const areas_ids = [];
-    for (const item of areasBrutas) {
-      const s = String(item);
-      if (s.startsWith('nova:')) {
-        const nomeNova = s.slice(5).trim();
-        if (!nomeNova) continue;
-        let nova = await prisma.area_interesse.findFirst({ where:{ nome: nomeNova } });
-        if (!nova) {
-          nova = await prisma.area_interesse.create({ data:{ nome: nomeNova } });
+      // Relaciona áreas existentes (máx. 3)
+      const limitIds = idsAreas.slice(0, 3);
+      if (limitIds.length) {
+        await tx.vaga_area.createMany({
+          data: limitIds.map((areaId) => ({
+            vaga_id: vaga.id,
+            area_interesse_id: areaId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      // Cria áreas novas e relaciona (respeitando o teto de 3 no total)
+      for (const nome of novasAreas) {
+        if (limitIds.length >= 3) break;
+        let area = await tx.area_interesse.findFirst({ where: { nome } });
+        if (!area) {
+          area = await tx.area_interesse.create({ data: { nome, padrao: false } });
         }
-        areas_ids.push(nova.id);
-      } else {
-        areas_ids.push(Number(item));
+        await tx.vaga_area.upsert({
+          where: { vaga_id_area_id: { vaga_id: vaga.id, area_id: area.id } },
+          create: { vaga_id: vaga.id, area_interesse_id: area.id },
+          update: {},
+        });
+        limitIds.push(area.id); // conta no limite
       }
-    }
 
-    const rawSkills = req.body.habilidadesSelecionadas ?? '[]';
-    let skillsBrutas;
-    try { skillsBrutas = Array.isArray(rawSkills) ? rawSkills : JSON.parse(rawSkills); }
-    catch { skillsBrutas = []; }
-
-    const soft_skills_ids = skillsBrutas.map(Number);
-
-    const empresa_id = req.session.empresa.id;
-    const { cargo, tipo, escala, diasPresenciais, diasHomeOffice, salario, moeda, descricao, beneficio, beneficioOutro, pergunta, opcao } = req.body;
-
-    let beneficiosArr = Array.isArray(beneficio) ? beneficio : [beneficio];
-    if (beneficioOutro?.trim()) beneficiosArr.push(beneficioOutro.trim());
-    const beneficiosTexto = beneficiosArr.join(', ');
-
-    let salarioFormatado = null;
-    if (salario) {
-      const bruto = salario.toString().replace(/\./g,'').replace(',','.');
-      salarioFormatado = parseFloat(bruto);
-    }
-
-    const vagaCriada = await prisma.vaga.create({
-      data: {
-        empresa_id,
-        cargo,
-        tipo_local_trabalho: tipo,
-        escala_trabalho: escala,
-        dias_presenciais: (diasPresenciais ?? '') === '' ? null : parseInt(diasPresenciais, 10),
-        dias_home_office: (diasHomeOffice ?? '') === '' ? null : parseInt(diasHomeOffice, 10),
-        salario: salarioFormatado,
-        moeda,
-        descricao,
-        beneficio: beneficiosTexto,
-        pergunta,
-        opcao,
-        vaga_area:      { createMany: { data: areas_ids.map(id=>({ area_interesse_id: id })) } },
-        vaga_soft_skill:{ createMany: { data: soft_skills_ids.map(id=>({ soft_skill_id: id })) } }
+      // Relaciona SOFT SKILLS selecionadas (se houver)
+      if (softSkillIds.length) {
+        await tx.vaga_soft_skill.createMany({
+          data: softSkillIds.map((id) => ({ vaga_id: vaga.id, soft_skill_id: id })),
+          skipDuplicates: true,
+        });
       }
+
+      return vaga;
     });
 
+    // --- Anexos enviados na publicação (opcional) ---
     if (req.files?.length) {
       await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaCriada.id);
     }
 
+    // --- Links auxiliares (opcional) ---
     const titulos = Array.isArray(req.body.linksTitulo) ? req.body.linksTitulo : [];
-    const urls    = Array.isArray(req.body.linksUrl)    ? req.body.linksUrl    : [];
-
+    const urls = Array.isArray(req.body.linksUrl) ? req.body.linksUrl : [];
     const toHttp = (u) => {
       if (!u) return '';
       const s = String(u).trim();
@@ -546,21 +636,26 @@ exports.salvarVaga = async (req, res) => {
     const linksData = [];
     for (let i = 0; i < Math.max(titulos.length, urls.length); i++) {
       const titulo = String(titulos[i] || '').trim();
-      const url    = toHttp(urls[i] || '');
+      const url = toHttp(urls[i] || '');
       if (!titulo || !url) continue;
-      linksData.push({ vaga_id: vagaCriada.id, titulo: titulo.slice(0,120), url: url.slice(0,1024), ordem: i+1 });
+      linksData.push({
+        vaga_id: vagaCriada.id,
+        titulo: titulo.slice(0, 120),
+        url: url.slice(0, 1024),
+        ordem: i + 1,
+      });
     }
-
     if (linksData.length) {
       await prisma.vaga_link.createMany({ data: linksData });
     }
 
     req.session.sucessoVaga = 'Vaga publicada com sucesso!';
-    return res.redirect('/empresa/meu-perfil');
+    return res.redirect('/empresa/vaga/' + vagaCriada.id);
   } catch (err) {
-    console.error('[ERRO] salvarVaga:', err);
-    req.session.erro = 'Erro ao salvar vaga.';
-    return res.redirect('/empresa/publicar-vaga');
+    console.error('Erro ao salvar vaga (unificado):', err);
+    req.session.erro = 'Não foi possível publicar a vaga. ' + (err?.message || '');
+    const back = req.get('referer') || '/empresa/publicar-vaga';
+    return res.redirect(back);
   }
 };
 
@@ -676,16 +771,30 @@ exports.salvarEditarVaga = async (req, res) => {
       moeda,
       descricao,
 
-      pergunta,
-      opcao,
+      pergunta,  // mantém suporte
+      opcao,     // mantém suporte
 
       beneficio,
       beneficioOutro,
 
       areasSelecionadas,
-      habilidadesSelecionadas
+      habilidadesSelecionadas,
+      vinculo,
     } = req.body;
 
+    const VINCULOS_OK = new Set([
+      'Estagio',
+      'CLT_Tempo_Integral',
+      'CLT_Meio_Periodo',
+      'Trainee',
+      'Aprendiz',
+      'PJ',
+      'Freelancer_Autonomo',
+      'Temporario',
+    ]);
+    const vinculoSafe = VINCULOS_OK.has(String(vinculo)) ? String(vinculo) : null;
+
+    // Áreas (suporta novas com 'nova:')
     const areaIds = [];
     try {
       const areasBrutas = JSON.parse(areasSelecionadas || '[]');
@@ -709,19 +818,26 @@ exports.salvarEditarVaga = async (req, res) => {
       return res.redirect(`/empresa/vagas/${vagaId}/editar`);
     }
 
+    // Soft skills
     const skillIds = (() => {
-      try { return JSON.parse(habilidadesSelecionadas || '[]').map(Number); }
-      catch { return []; }
+      try {
+        return JSON.parse(habilidadesSelecionadas || '[]').map(Number);
+      } catch {
+        return [];
+      }
     })();
 
-    let beneficiosArr = Array.isArray(beneficio) ? beneficio : (beneficio ? [beneficio] : []);
-    if (beneficioOutro?.trim()) beneficiosArr.push(beneficioOutro.trim());
+    // Benefícios
+    let beneficiosArr = Array.isArray(beneficio) ? beneficio : beneficio ? [beneficio] : [];
+    if ((beneficioOutro || '').trim()) beneficiosArr.push(beneficioOutro.trim());
     const beneficiosTexto = beneficiosArr.join(', ');
 
+    // Salário
     const salarioNum = salario
       ? parseFloat(String(salario).replace(/\./g, '').replace(',', '.'))
       : null;
 
+    // Limpa relações e atualiza a vaga (incluindo perguntas e vínculo)
     await prisma.vaga_area.deleteMany({ where: { vaga_id: vagaId } });
     await prisma.vaga_soft_skill.deleteMany({ where: { vaga_id: vagaId } });
 
@@ -738,37 +854,48 @@ exports.salvarEditarVaga = async (req, res) => {
         descricao,
         beneficio: beneficiosTexto,
         pergunta,
-        opcao
-      }
+        opcao,
+        vinculo_empregaticio: vinculoSafe,
+      },
     });
 
-    // Recria relações com limite de 3 áreas
+    // Recria relações (máx. 3 áreas)
     const areaIdsLimitadas = areaIds.slice(0, 3);
     if (areaIdsLimitadas.length) {
       await prisma.vaga_area.createMany({
-        data: areaIdsLimitadas.map(id => ({ vaga_id: vagaId, area_interesse_id: id }))
+        data: areaIdsLimitadas.map((id) => ({ vaga_id: vagaId, area_interesse_id: id })),
       });
     }
     if (skillIds.length) {
       await prisma.vaga_soft_skill.createMany({
-        data: skillIds.map(id => ({ vaga_id: vagaId, soft_skill_id: id }))
+        data: skillIds.map((id) => ({ vaga_id: vagaId, soft_skill_id: id })),
       });
     }
 
+    // Novos anexos (opcional)
     if (req.files?.length) {
       await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaId);
     }
 
+    // Novos links (opcional)
     const titulos = Array.isArray(req.body.linksTitulo) ? req.body.linksTitulo : [];
-    const urls    = Array.isArray(req.body.linksUrl)    ? req.body.linksUrl    : [];
-    const toHttp = (u) => /^https?:\/\//i.test(String(u||'').trim()) ? String(u).trim() : ('https://' + String(u||'').trim());
+    const urls = Array.isArray(req.body.linksUrl) ? req.body.linksUrl : [];
+    const toHttp = (u) =>
+      /^https?:\/\//i.test(String(u || '').trim())
+        ? String(u).trim()
+        : 'https://' + String(u || '').trim();
 
     const novos = [];
     for (let i = 0; i < Math.max(titulos.length, urls.length); i++) {
       const titulo = String(titulos[i] || '').trim();
-      const url    = toHttp(urls[i] || '');
+      const url = toHttp(urls[i] || '');
       if (!titulo || !url) continue;
-      novos.push({ vaga_id: vagaId, titulo: titulo.slice(0,120), url: url.slice(0,1024), ordem: i+1 });
+      novos.push({
+        vaga_id: vagaId,
+        titulo: titulo.slice(0, 120),
+        url: url.slice(0, 1024),
+        ordem: i + 1,
+      });
     }
     if (novos.length) {
       await prisma.vaga_link.createMany({ data: novos });
@@ -777,14 +904,15 @@ exports.salvarEditarVaga = async (req, res) => {
     req.session.sucessoVaga = 'Vaga atualizada com sucesso!';
     return res.redirect('/empresa/meu-perfil');
   } catch (err) {
-    console.error('[ERRO] Falha ao editar vaga:', err);
+    console.error('[ERRO] Falha ao editar vaga (unificado):', err);
     req.session.erro = 'Não foi possível editar a vaga.';
     return res.redirect('/empresa/meu-perfil');
   }
 };
 
-
 // Ranking
+
+
 exports.rankingCandidatos = async (req, res) => {
   try {
     const params = {
@@ -796,7 +924,6 @@ exports.rankingCandidatos = async (req, res) => {
       return res.redirect('/login');
     }
 
-    // valida a vaga/empresa
     const vaga = await prisma.vaga.findFirst({
       where: { id: params.vaga_id, empresa_id: params.empresa_id },
       include: { empresa: true }
@@ -806,10 +933,26 @@ exports.rankingCandidatos = async (req, res) => {
       return res.redirect('/empresa/vagas');
     }
 
-    // busca avaliações dessa vaga
     const avaliacoes = await vagaAvaliacaoModel.listarPorVaga({ vaga_id: params.vaga_id });
 
-    // monta linhas para a view
+    const tryParseJSON = (s) => {
+      try { return JSON.parse(s); } catch (_) { return null; }
+    };
+
+    // garante interrogação ao final, se não houver pontuação
+    const ensureQmark = (str) => {
+    const t = String(str || '').trim();
+    if (!t) return '';
+    // substitui qualquer pontuação final por "?" ou adiciona "?" se não houver
+    return t.replace(/\s*([?.!…:])?\s*$/, '?');
+  };
+
+    const toLine = ({ question, answer }) => {
+      const q = ensureQmark(String(question || ''));
+      const a = String(answer || '').trim() || '—';
+      return [q, a].join(' ');
+    };
+
     const rows = avaliacoes.map((a, idx) => {
       const c = a.candidato || {};
       const u = c.usuario || {};
@@ -825,58 +968,78 @@ exports.rankingCandidatos = async (req, res) => {
       const foto_perfil = c.foto_perfil || '/img/avatar.png';
       const email = u.email || '';
 
-      let questions = '';
-      // 1) API atual: campo questions no próprio registro
-      if (a.questions && typeof a.questions === 'string') {
-        questions = a.questions.trim();
+      // breakdown pode ter sido salvo como string
+      const breakdown = (typeof a.breakdown === 'string') ? (tryParseJSON(a.breakdown) || {}) : (a.breakdown || {});
+
+      // reconstrói TODAS as perguntas a partir de breakdown.qa + breakdown.da
+      let lines = [];
+      if (breakdown && typeof breakdown === 'object') {
+        const qa = Array.isArray(breakdown.qa) ? breakdown.qa : [];
+        const da = Array.isArray(breakdown.da) ? breakdown.da : [];
+        if (da.length) lines = lines.concat(da.filter(x => x?.question).map(toLine));
+        if (qa.length) lines = lines.concat(qa.filter(x => x?.question).map(toLine));
       }
-      // 2) Formato antigo: texto consolidado em a.resposta (linhas "Pergunta? Resposta")
-      if (!questions && a.resposta && typeof a.resposta === 'string') {
+
+      // fallback para texto consolidado salvo
+      let questions = lines.length ? lines.join('\n') : '';
+      if (!questions && typeof a.resposta === 'string') {
         questions = a.resposta.trim();
       }
-      // 3) Algum JSON stringificado que contenha { questions: "..." }
-      const tryParse = (s) => {
-        try {
-          const obj = JSON.parse(s);
-          if (obj && obj.questions && typeof obj.questions === 'string') {
-            return obj.questions.trim();
-          }
-        } catch (_) {}
-        return '';
-      };
-      if (!questions && typeof a.payload === 'string') {
-        questions = tryParse(a.payload);
+
+      // fallbacks legados (se houver { questions: "..." } em algum campo)
+      if (!questions) {
+        const p = typeof a.payload === 'string' ? tryParseJSON(a.payload) : a.payload;
+        const r = typeof a.api_result === 'string' ? tryParseJSON(a.api_result) : a.api_result;
+        const rr = typeof a.result === 'string' ? tryParseJSON(a.result) : a.result;
+        questions = (p && p.questions) || (r && r.questions) || (rr && rr.questions) || questions || '';
+        if (typeof questions !== 'string') questions = '';
       }
-      if (!questions && typeof a.api_result === 'string') {
-        questions = tryParse(a.api_result);
-      }
-      if (!questions && typeof a.result === 'string') {
-        questions = tryParse(a.result);
-      }
+
+      const score_D = Number(breakdown?.score_D) || 0;
+      const score_I = Number(breakdown?.score_I) || 0;
+      const score_S = Number(breakdown?.score_S) || 0;
+      const score_C = Number(breakdown?.score_C) || 0;
+
+      const explanation   = typeof breakdown?.explanation === 'string' ? breakdown.explanation : '';
+      const suggestions   = Array.isArray(breakdown?.suggestions) ? breakdown.suggestions : [];
+      const matchedSkills = Array.isArray(breakdown?.matchedSkills) ? breakdown.matchedSkills : [];
 
       return {
         pos: idx + 1,
-        candidato_id: c.id,
+        candidato_id: c.id || null,
         nome,
         local,
         telefone,
         email,
-        score: Number(a.score) || 0,
         foto_perfil,
+
+        score: Number(a.score) || 0,
+        score_D, score_I, score_S, score_C,
+
+        explanation,
+        suggestions,
+        matchedSkills,
+
         questions
       };
     });
 
+    // ordenação inicial: score geral
+    rows.sort((a, b) => (b.score || 0) - (a.score || 0));
+
     return res.render('empresas/ranking-candidatos', {
       vaga,
-      rows
+      rows,
+      activePage: 'vagas'
     });
   } catch (err) {
-    console.error('Erro ao carregar ranking:', err?.message || err);
-    req.session.erro = 'Erro ao carregar ranking.';
+    console.error('[rankingCandidatos] erro:', err?.message || err);
+    req.session.erro = 'Não foi possível carregar o ranking.';
     return res.redirect('/empresa/vagas');
   }
 };
+
+
 
 exports.excluirConta = async (req, res) => {
   try {
@@ -983,16 +1146,47 @@ exports.telaVagaDetalhe = async (req, res) => {
         vaga_link: true,
       },
     });
-
     if (!vaga) {
       return res.status(404).render('shared/404', { url: req.originalUrl });
     }
 
-    // último status no histórico
-    const statusAtual = await obterStatusDaVaga(id); // 'aberta' | 'fechada'
-    const shareUrl = `${req.protocol}://${req.get('host')}/vagas/${id}`; // link público para candidatos
+    const statusAtual = await obterStatusDaVaga(id);
+    const shareUrl = `${req.protocol}://${req.get('host')}/vagas/${id}`;
 
-    return res.render('empresas/vaga-detalhe', { vaga, statusAtual, shareUrl });
+    let perguntasLista = [];
+    try {
+      const skillNames = (vaga.vaga_soft_skill || [])
+        .map(vs => vs.soft_skill?.nome)
+        .filter(Boolean);
+
+      const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
+      const discQs = (typeof getDiscQuestionsForSkills === 'function'
+        ? getDiscQuestionsForSkills(skillNames)
+        : []) || [];
+
+      const extraRaw = String(vaga.pergunta || '').trim();
+      const extraQs = extraRaw
+        ? extraRaw
+            .replace(/\r\n/g, '\n')
+            .replace(/\\r\\n/g, '\n')
+            .replace(/\\n/g, '\n')
+            .split('\n')
+            .map(s => s.trim())
+            .filter(Boolean)
+        : [];
+
+      perguntasLista = [...discQs, ...extraQs];
+    } catch (e) {
+      console.warn('[telaVagaDetalhe] falha ao montar perguntas:', e?.message || e);
+      perguntasLista = [];
+    }
+
+    return res.render('empresas/vaga-detalhe', {
+      vaga,
+      statusAtual,
+      shareUrl,
+      perguntasLista, 
+    });
   } catch (err) {
     console.error('Erro telaVagaDetalhe', err);
     return res.status(500).render('shared/500', { erro: 'Falha ao carregar a vaga.' });
@@ -1159,28 +1353,38 @@ exports.perfilPublico = async (req, res) => {
     const somentePreview = !podeTestar;
 
     if (podeTestar && vagasPublicadas.length) {
-      const candidatoId = Number(req.session.candidato.id);
-      const idsAbertas = vagasPublicadas.map(v => v.id);
+  const candidatoId = Number(req.session.candidato.id);
+  const idsAbertas = vagasPublicadas.map(v => v.id);
 
-      const avals = await prisma.vaga_avaliacao.findMany({
-        where: { candidato_id: candidatoId, vaga_id: { in: idsAbertas } },
-        select: { vaga_id: true, resposta: true }
-      });
-      const mapResp = new Map(avals.map(a => [a.vaga_id, a.resposta || '']));
+  // Traz vaga_id e resposta numa tacada só:
+  const avals = await prisma.vaga_avaliacao.findMany({
+    where: { candidato_id: candidatoId, vaga_id: { in: idsAbertas } },
+    select: { vaga_id: true, resposta: true }
+  });
 
-      for (const vaga of vagasPublicadas) {
-        const texto = mapResp.get(vaga.id) || '';
-        if (!texto) continue;
-        const linhas = texto.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        const apenasRespostas = linhas.map(L => {
-          const m = L.match(/\?\s*(.*)$/);
-          return m ? m[1].trim() : '';
-        }).filter(Boolean);
+  const appliedSet = new Set(avals.map(a => a.vaga_id));
+  const mapResp    = new Map(avals.map(a => [a.vaga_id, a.resposta || '']));
 
-        vaga.respostas_previas = apenasRespostas;
-        vaga.resposta_unica   = apenasRespostas[0] || '';
-      }
-    }
+  for (const vaga of vagasPublicadas) {
+    // 1) sinaliza se já aplicou
+    vaga.ja_aplicou = appliedSet.has(vaga.id);
+
+    // 2) se houver "resposta" da avaliação, extrai respostas anteriores
+    const texto = mapResp.get(vaga.id) || '';
+    if (!texto) continue;
+
+    const linhas = texto.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const apenasRespostas = linhas
+      .map(L => {
+        const m = L.match(/\?\s*(.*)$/);
+        return m ? m[1].trim() : '';
+      })
+      .filter(Boolean);
+
+    vaga.respostas_previas = apenasRespostas;
+    vaga.resposta_unica    = apenasRespostas[0] || '';
+  }
+}
 
     // >>> Envia links e anexos para a view <<<
     return res.render('empresas/perfil-publico', {

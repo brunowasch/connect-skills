@@ -107,6 +107,21 @@
             <% } %>
           </p>
         </div>
+        
+        <div class="col-12 col-md-6">
+          <h6>Vínculo empregatício</h6>
+          <% const vinculoMap = {
+              Estagio: 'Estágio',
+              CLT_Tempo_Integral: 'CLT (tempo integral)',
+              CLT_Meio_Periodo: 'CLT (meio período)',
+              Trainee: 'Trainee',
+              Aprendiz: 'Aprendiz',
+              PJ: 'PJ (Pessoa Jurídica)',
+              Freelancer_Autonomo: 'Freelancer / Autônomo',
+              Temporario: 'Temporário'
+            }; %>
+          <p class="mb-0"><%= vinculoMap[vaga?.vinculo_empregaticio] || 'Não informado' %></p>
+        </div>
 
         <div class="col-12 col-md-6">
           <h6>Escala</h6>
@@ -171,22 +186,15 @@
       </section>
     <% } %>
 
-    <% if (vaga?.pergunta || vaga?.opcao) { %>
+    <% if (Array.isArray(perguntasLista) && perguntasLista.length) { %>
       <section class="card border-0 shadow-sm p-3 p-md-4 mb-4 card-section">
-        <div class="row g-3">
-          <% if (vaga?.pergunta) { %>
-            <div class="col-12 col-md-6">
-              <h6>Pergunta para IA</h6>
-              <p class="mb-0"><%= vaga.pergunta %></p>
-            </div>
-          <% } %>
-          <% if (vaga?.opcao) { %>
-            <div class="col-12 col-md-6">
-              <h6>Opções de resposta para IA</h6>
-              <p class="mb-0"><%= vaga.opcao %></p>
-            </div>
-          <% } %>
-        </div>
+        <h5 class="mb-3">Perguntas para IA</h5>
+
+        <ol class="ps-3">
+          <% perguntasLista.forEach((q) => { %>
+            <li class="mb-2"><%= q %></li>
+          <% }) %>
+        </ol>
       </section>
     <% } %>
     <% if (vaga.vaga_arquivo?.length) { %>
