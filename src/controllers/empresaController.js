@@ -9,6 +9,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const vagaArquivoController = require('./vagaArquivoController');
 const {discQuestionBank} = require('../utils/discQuestionBank');
+const { encodeId, decodeId } = require('../utils/idEncoder');
 
 function getEmpresaFromSession(req) {
   const s = req.session || {};
@@ -54,183 +55,242 @@ exports.telaCadastro = (req, res) => {
 exports.cadastrarEmpresa = (req, res) => {
   const { email, senha } = req.body;
   req.session.empresa = { email, senha };
-  res.redirect('/empresa/nome-empresa');
+  res.redirect('/empresas/nome-empresa');
 };
 
 exports.telaNomeEmpresa = (req, res) => {
-  const { usuario_id } = req.query;
-  if (!usuario_id) {
+  const { uid, usuario_id } = req.query;
+
+  if (!uid && usuario_id && /^\d+$/.test(String(usuario_id))) {
+    const safeUid = encodeId(Number(usuario_id));
+    return res.redirect(`/empresas/nome-empresa?uid=${safeUid}`);
+  }
+
+  if (!uid) {
     req.session.erro = 'ID do usuário não foi informado.';
     return res.redirect('/cadastro');
   }
-  res.render('empresas/nome-empresa', { usuario_id });
+  const dec = decodeId(uid);
+  if (!Number.isFinite(dec)) {
+    req.session.erro = 'Link inválido.';
+    return res.redirect('/cadastro');
+  }
+
+  return res.render('empresas/nome-empresa', { uid });
 };
 
 exports.salvarNomeEmpresa = async (req, res) => {
   try {
-    let { usuario_id, nome_empresa, descricao } = req.body;
-
-    if (!usuario_id || !nome_empresa || !descricao) {
-      req.session.erro = 'Todos os campos são obrigatórios.';
-      return res.redirect(`/empresa/nome-empresa?usuario_id=${usuario_id || ''}`);
-    }
-
-    usuario_id = parseInt(usuario_id, 10);
-    if (isNaN(usuario_id)) {
+    const rawUid = req.body.uid || req.query.uid;
+    const usuario_id = decodeId(rawUid);
+    if (!Number.isFinite(usuario_id)) {
       req.session.erro = 'ID do usuário inválido.';
       return res.redirect('/cadastro');
+    }
+
+    const { nome_empresa, descricao } = req.body;
+    if (!nome_empresa || !descricao) {
+      req.session.erro = 'Todos os campos são obrigatórios.';
+      return res.redirect(`/empresas/nome-empresa?uid=${rawUid}`);
     }
 
     const empresaExistente = await empresaModel.obterEmpresaPorUsuarioId(usuario_id);
     if (empresaExistente) {
       req.session.erro = 'Empresa já cadastrada para esse usuário.';
-      return res.redirect('/empresa/home');
+      return res.redirect('/empresas/home');
     }
 
     await empresaModel.criarEmpresa({ usuario_id, nome_empresa, descricao });
-    res.redirect(`/empresa/localizacao?usuario_id=${usuario_id}`);
+
+    const uid = encodeId(usuario_id);
+    return res.redirect(`/empresas/localizacao?uid=${uid}`);
   } catch (err) {
     console.error('Erro ao inserir empresa:', err);
     req.session.erro = 'Erro ao salvar os dados da empresa.';
-    res.redirect(`/empresa/nome-empresa?usuario_id=${req.body.usuario_id || ''}`);
+    const rawUid = req.body.uid || req.query.uid || '';
+    return res.redirect(`/empresas/nome-empresa?uid=${rawUid}`);
   }
 };
 
 exports.telaLocalizacao = (req, res) => {
-  const { usuario_id } = req.query;
-  if (!usuario_id) {
+  const { uid, usuario_id } = req.query;
+
+  if (!uid && usuario_id && /^\d+$/.test(String(usuario_id))) {
+    const safeUid = encodeId(Number(usuario_id));
+    return res.redirect(`/empresas/localizacao?uid=${safeUid}`);
+  }
+
+  if (!uid) {
     req.session.erro = 'ID do usuário não informado.';
     return res.redirect('/cadastro');
   }
-  res.render('empresas/localizacao-login-juridica', { usuario_id });
+
+  return res.render('empresas/localizacao-login-juridica', { uid });
 };
 
 exports.salvarLocalizacao = async (req, res) => {
   try {
-    let { usuario_id, localidade } = req.body;
-
-    if (!usuario_id || !localidade) {
-      req.session.erro = 'Informe sua localidade.';
-      return res.redirect(`/empresa/localizacao?usuario_id=${usuario_id || ''}`);
-    }
-    usuario_id = parseInt(usuario_id, 10);
-    if (isNaN(usuario_id)) {
+    const rawUid = req.body.uid || req.query.uid;
+    const usuario_id = decodeId(rawUid);
+    if (!Number.isFinite(usuario_id)) {
       req.session.erro = 'ID do usuário inválido.';
       return res.redirect('/cadastro');
+    }
+
+    const { localidade } = req.body;
+    if (!localidade) {
+      req.session.erro = 'Informe sua localidade.';
+      return res.redirect(`/empresas/localizacao?uid=${rawUid}`);
     }
 
     const partes = localidade.split(',').map(p => p.trim());
     if (partes.length < 2 || partes.length > 3) {
       req.session.erro = 'Informe uma localidade válida. Ex: cidade e país, ou cidade, estado e país.';
-      return res.redirect(`/empresa/localizacao?usuario_id=${usuario_id}`);
+      return res.redirect(`/empresas/localizacao?uid=${rawUid}`);
     }
 
     const [cidade, estado = '', pais = ''] = partes;
 
     await empresaModel.atualizarLocalizacao({ usuario_id, pais, estado, cidade });
-    res.redirect(`/empresa/telefone?usuario_id=${usuario_id}`);
+
+    const uid = encodeId(usuario_id);
+    return res.redirect(`/empresas/telefone?uid=${uid}`);
   } catch (err) {
     console.error('Erro ao salvar localização:', err);
     req.session.erro = 'Erro ao salvar localização.';
-    res.redirect(`/empresa/localizacao?usuario_id=${req.body.usuario_id || ''}`);
+    const rawUid = req.body.uid || req.query.uid || '';
+    return res.redirect(`/empresas/localizacao?uid=${rawUid}`);
   }
 };
 
 exports.telaTelefone = (req, res) => {
-  const { usuario_id } = req.query;
-  if (!usuario_id) {
+  const { uid, usuario_id } = req.query;
+
+  if (!uid && usuario_id && /^\d+$/.test(String(usuario_id))) {
+    const safeUid = encodeId(Number(usuario_id));
+    return res.redirect(`/empresas/telefone?uid=${safeUid}`);
+  }
+
+  if (!uid) {
     req.session.erro = 'ID do usuário não informado.';
     return res.redirect('/cadastro');
   }
-  res.render('empresas/telefone-empresa', { usuario_id });
+
+  return res.render('empresas/telefone-empresa', { uid, error: null, telefoneData: {} });
 };
 
 exports.salvarTelefone = async (req, res) => {
   try {
-    let { usuario_id, ddi, ddd, telefone } = req.body;
-
-    if (!usuario_id || !ddi || !ddd || !telefone) {
-      req.session.erro = 'Preencha todos os campos de telefone.';
-      return res.redirect(`/empresa/telefone?usuario_id=${usuario_id || ''}`);
-    }
-
-    usuario_id = parseInt(usuario_id, 10);
-    if (isNaN(usuario_id)) {
+    const rawUid = req.body.uid || req.query.uid;
+    const usuario_id = decodeId(rawUid);
+    if (!Number.isFinite(usuario_id)) {
       req.session.erro = 'ID do usuário inválido.';
       return res.redirect('/cadastro');
+    }
+
+    const { ddi, ddd, telefone } = req.body;
+    if (!ddi || !ddd || !telefone) {
+      return res.render('empresas/telefone-empresa', {
+        uid: rawUid,
+        error: 'Preencha todos os campos de telefone.',
+        telefoneData: { ddi, ddd, telefone }
+      });
     }
 
     const telefoneCompleto = `${ddi} (${ddd}) ${telefone}`;
     await empresaModel.atualizarTelefone({ usuario_id, telefone: telefoneCompleto });
 
-    res.redirect(`/empresas/foto-perfil?usuario_id=${usuario_id}`);
+    const uid = encodeId(usuario_id);
+    return res.redirect(`/empresas/foto-perfil?uid=${uid}`);
   } catch (err) {
     console.error('Erro ao salvar telefone:', err);
-    req.session.erro = 'Erro ao salvar telefone.';
-    res.redirect(`/empresa/telefone?usuario_id=${req.body.usuario_id || ''}`);
+    return res.render('empresas/telefone-empresa', {
+      uid: req.body.uid || req.query.uid,
+      error: 'Erro ao salvar telefone.',
+      telefoneData: { ddi: req.body.ddi, ddd: req.body.ddd, telefone: req.body.telefone }
+    });
   }
 };
 
 exports.telaFotoPerfil = (req, res) => {
-  const { usuario_id } = req.query;
-  res.render('empresas/foto-perfil-empresa', { usuario_id });
+  const { uid, usuario_id } = req.query;
+
+  if (!uid && usuario_id && /^\d+$/.test(String(usuario_id))) {
+    const safeUid = encodeId(Number(usuario_id));
+    return res.redirect(`/empresas/foto-perfil?uid=${safeUid}`);
+  }
+
+  if (!uid) {
+    req.session.erro = 'ID do usuário não informado.';
+    return res.redirect('/cadastro');
+  }
+
+  return res.render('empresas/foto-perfil-empresa', { uid, error: null });
 };
 
 exports.salvarFotoPerfil = async (req, res) => {
-  const usuario_id = req.body.usuario_id || req.query.usuario_id
+  const rawUid = req.body.uid || req.query.uid;
+  const usuario_id = decodeId(rawUid);
+  if (!Number.isFinite(usuario_id)) {
+    req.session.erro = 'ID do usuário inválido.';
+    return res.redirect('/cadastro');
+  }
+  const uid = encodeId(usuario_id);
 
   if (!req.file) {
     return res.render('empresas/foto-perfil-empresa', {
-      usuario_id,
+      uid,
       error: 'Selecione ou capture uma foto antes de continuar.'
-    })
+    });
   }
 
   try {
-    const empresa = await prisma.empresa.findUnique({ where: { usuario_id: Number(usuario_id) } })
+    const empresa = await prisma.empresa.findUnique({ where: { usuario_id: Number(usuario_id) } });
     if (!empresa) {
-      req.session.erro = 'Empresa não encontrada.'
-      return res.redirect(`/empresas/foto-perfil?usuario_id=${usuario_id}`)
+      req.session.erro = 'Empresa não encontrada.';
+      return res.redirect(`/empresas/foto-perfil?uid=${uid}`);
     }
 
-    const file = req.file
-    let urlImagem = null
+    const file = req.file;
+    let urlImagem = null;
 
     if (file.path && /^https?:\/\//i.test(String(file.path))) {
-      urlImagem = file.path
-    } else {
-      const hasBuffer = Buffer.isBuffer(file.buffer)
-      if (hasBuffer) {
-        const up = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            { folder: 'connect-skills/empresas', public_id: `empresa_${empresa.id}_foto_perfil`, overwrite: true, resource_type: 'image' },
-            (err, result) => (err ? reject(err) : resolve(result))
-          )
-          stream.end(file.buffer)
-        })
-        urlImagem = up.secure_url || up.url
-      } else if (file.path) {
-        const up = await cloudinary.uploader.upload(file.path, {
-          folder: 'connect-skills/empresas',
-          public_id: `empresa_${empresa.id}_foto_perfil`,
-          overwrite: true,
-          resource_type: 'image'
-        })
-        urlImagem = up.secure_url || up.url
-      }
+      urlImagem = file.path;
+    } else if (Buffer.isBuffer(file.buffer)) {
+      const up = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'connect-skills/empresas',
+            public_id: `empresa_${empresa.id}_foto_perfil`,
+            overwrite: true,
+            resource_type: 'image'
+          },
+          (err, result) => (err ? reject(err) : resolve(result))
+        );
+        stream.end(file.buffer);
+      });
+      urlImagem = up.secure_url || up.url;
+    } else if (file.path) {
+      const up = await cloudinary.uploader.upload(file.path, {
+        folder: 'connect-skills/empresas',
+        public_id: `empresa_${empresa.id}_foto_perfil`,
+        overwrite: true,
+        resource_type: 'image'
+      });
+      urlImagem = up.secure_url || up.url;
     }
 
     if (!urlImagem) {
       return res.render('empresas/foto-perfil-empresa', {
-        usuario_id,
+        uid,
         error: 'Não foi possível processar a imagem. Tente novamente.'
-      })
+      });
     }
 
     await prisma.empresa.update({
       where: { id: empresa.id },
       data: { foto_perfil: urlImagem }
-    })
+    });
 
     req.session.empresa = {
       id: empresa.id,
@@ -242,19 +302,19 @@ exports.salvarFotoPerfil = async (req, res) => {
       pais: empresa.pais,
       telefone: empresa.telefone,
       foto_perfil: urlImagem
-    }
-    req.session.usuario = { id: empresa.usuario_id, tipo: 'empresa', nome: empresa.nome_empresa }
+    };
+    req.session.usuario = { id: empresa.usuario_id, tipo: 'empresa', nome: empresa.nome_empresa };
 
-    req.session.sucessoCadastro = 'Foto de perfil salva com sucesso!'
-    req.session.save(() => res.redirect('/empresa/home'))
+    req.session.sucessoCadastro = 'Foto de perfil salva com sucesso!';
+    req.session.save(() => res.redirect('/empresas/home')); // plural
   } catch (err) {
-    console.error('Erro ao salvar foto de perfil da empresa:', err)
+    console.error('Erro ao salvar foto de perfil da empresa:', err);
     return res.render('empresas/foto-perfil-empresa', {
-      usuario_id,
+      uid,
       error: 'Erro interno ao salvar a foto. Tente novamente.'
-    })
+    });
   }
-}
+};
 
 exports.homeEmpresa = async (req, res) => {
   try {
@@ -1680,21 +1740,36 @@ exports.pularCadastroEmpresa = async (req, res) => {
   res.cookie('cs_skipCadastro', '1', {
     httpOnly: false,
     sameSite: 'lax',
-    maxAge: 31536000000
+    maxAge: 31536000000 // 1 ano
   });
 
   try {
-    const usuarioId = Number(
-      req.query.usuario_id || req.body.usuario_id || req.session?.usuario?.id
-    );
+    // 1) Tenta via uid criptografado
+    const rawUid = req.query.uid || req.body.uid || null;
+    let usuarioId = null;
+
+    if (rawUid) {
+      const dec = decodeId(rawUid);
+      if (Number.isFinite(dec)) usuarioId = dec;
+    }
+
+    // 2) Fallback legado: ?usuario_id=... ou sessão
+    if (!usuarioId) {
+      const legacy = Number(req.query.usuario_id || req.body.usuario_id || req.session?.usuario?.id);
+      if (Number.isFinite(legacy) && legacy > 0) {
+        usuarioId = legacy;
+        // (Opcional) Poderia normalizar a URL com uid:
+        // const uid = encodeId(legacy);
+        // return res.redirect(`/empresas/pular-cadastro?uid=${uid}`);
+      }
+    }
+
     if (!usuarioId) return res.redirect('/login');
 
     // Garante que exista um registro de empresa
     let emp = await prisma.empresa.findUnique({
       where: { usuario_id: usuarioId },
-      include: {
-        usuario: { select: { email: true } }
-      }
+      include: { usuario: { select: { email: true } } }
     });
 
     if (!emp) {
@@ -1736,7 +1811,7 @@ exports.pularCadastroEmpresa = async (req, res) => {
       localidade
     };
 
-    return req.session.save(() => res.redirect('/empresa/home'));
+    return req.session.save(() => res.redirect('/empresas/home'));
   } catch (err) {
     console.error('[pularCadastroEmpresa] erro:', err?.message || err);
     req.session.erro = 'Não foi possível pular o complemento agora.';

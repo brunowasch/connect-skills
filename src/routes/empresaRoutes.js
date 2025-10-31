@@ -76,21 +76,21 @@ router.get('/ranking-candidatos/:vagaId', ensureEmpresa, empresaController.ranki
 router.post('/excluir-conta', ensureEmpresa, empresaController.excluirConta);
 
 router.get('/editar-vaga/:id', (req, res) =>
-  res.redirect(301, `/empresa/vaga/${req.params.id}/editar`)
+   res.redirect(301, `/empresas/vaga/${req.params.id}/editar`)
 );
 router.post('/editar-vaga/:id', (req, res) =>
-  res.redirect(307, `/empresa/vaga/${req.params.id}/editar`)
+   res.redirect(307, `/empresas/vaga/${req.params.id}/editar`)
 );
 
 router.get('/empresa/vaga/:id/editar', (req, res) =>
-  res.redirect(301, `/empresa/vaga/${req.params.id}/editar`)
+   res.redirect(301, `/empresas/vaga/${req.params.id}/editar`)
 );
 router.post('/empresa/vaga/:id/editar', (req, res) =>
-  res.redirect(307, `/empresa/vaga/${req.params.id}/editar`)
+   res.redirect(307, `/empresas/vaga/${req.params.id}/editar`)
 );
 
 router.post('/excluir-vaga/:id', ensureEmpresa, (req, res) =>
-  res.redirect(307, `/empresa/vaga/${req.params.id}/excluir`)
+   res.redirect(307, `/empresas/vaga/${req.params.id}/excluir`)
 );
 
 router.get('/pular-cadastro', empresaController.pularCadastroEmpresa);
@@ -103,11 +103,11 @@ router.post('/vaga/links/:id/delete', ensureEmpresa, async (req, res) => {
       where: { id },
       select: { vaga_id: true }
     });
-    if (!lk) return res.redirect('/empresa/meu-perfil');
+    if (!lk) return res.redirect('/empresas/meu-perfil');
 
     await prisma.vaga_link.delete({ where: { id } });
 
-    return res.redirect(`/empresa/vaga/${lk.vaga_id}/editar`);
+    return res.redirect(`/empresas/vaga/${lk.vaga_id}/editar`);
   } catch (e) {
     console.error('Erro ao excluir link da vaga:', e);
     return res.redirect('/empresa/meu-perfil');
@@ -121,11 +121,11 @@ router.post('/vaga/anexos/:id/delete', ensureEmpresa, async (req, res) => {
       where: { id },
       select: { vaga_id: true }
     });
-    if (!ax) return res.redirect('/empresa/meu-perfil');
+    if (!ax) return res.redirect('/empresas/meu-perfil');
 
     await prisma.vaga_arquivo.delete({ where: { id } });
 
-    return res.redirect(`/empresa/vaga/${ax.vaga_id}/editar`);
+    return res.redirect(`/empresas/vaga/${ax.vaga_id}/editar`);
   } catch (e) {
     console.error('Erro ao excluir anexo da vaga:', e);
     return res.redirect('/empresa/meu-perfil');
