@@ -6,6 +6,7 @@ const router = express.Router();
 const candidatoController = require('../controllers/candidatoController');
 const uploadCandidato = require('../middlewares/upload');
 const { ensureCandidato } = require('../middlewares/auth');
+const withEncodedParam = require('../middlewares/withEncodedParam');
 
 // ⬇⬇⬇ ADICIONE ESTA LINHA:
 const vagaController = require('../controllers/vagaController');
@@ -30,16 +31,17 @@ router.post('/cadastro/foto-perfil', uploadCandidato.single('novaFoto'), candida
 router.get('/cadastro/areas', candidatoController.telaSelecionarAreas);
 router.post('/cadastro/areas', candidatoController.salvarAreas);
 
-router.get('/perfil/:id', candidatoController.perfilPublicoCandidato);
+router.get('/perfil/:id', withEncodedParam('id'), candidatoController.perfilPublicoCandidato);
 
 // Rotas autenticadas
 router.get('/home', ensureCandidato, candidatoController.telaHomeCandidato);
 router.get('/meu-perfil', ensureCandidato, candidatoController.renderMeuPerfil);
 router.get('/vagas', ensureCandidato, candidatoController.mostrarVagas);
 router.get('/vagas/historico', ensureCandidato, candidatoController.historicoAplicacoes);
-router.get('/vagas/:id', ensureCandidato, candidatoController.vagaDetalhes);
+router.get('/vagas/:id', ensureCandidato, withEncodedParam('id'), candidatoController.vagaDetalhes);
 router.get('/vagas/:id/perguntas-disc', ensureCandidato, vagaController.apiPerguntasDISC);
-router.post('/vagas/:id/aplicar', ensureCandidato, candidatoController.aplicarVaga);
+router.post('/vagas/:id/aplicar', ensureCandidato, withEncodedParam('id'), candidatoController.aplicarVaga);
+
 
 
 // Edição de perfil
