@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="/css/shared/style.css">
 
   <style>
+    :root { --nav-h: 0px !important; }
+    body#home { padding-top: 0 !important; }
     .page-actions{position:sticky; top:0; z-index:1020; border-bottom:1px solid rgba(0,0,0,.05)}
     .badge-status{text-transform:capitalize;}
     .card-job{border-radius:1rem;}
@@ -41,7 +43,7 @@
 <body class="bg-light">
   <%- include('../partials/header-candidato'); %>
 
-  <main class="container py-3" style="margin-top:72px;">
+  <main class="container py-3">
     <div class="d-flex align-items-center justify-content-between mt-1 mb-3">
       <h2 class="mb-0 mt-4">Histórico de vagas aplicadas</h2>
     </div>
@@ -86,7 +88,7 @@
       </div>
     </form>
 
-    <div class="page-actions py-2 mb-3">
+    <div class="page-actions py-2 mb-3" style="background-color: #f1f1f1;">
       <div class="container px-0 d-flex gap-2">
         <a href="/candidatos/vagas" class="btn btn-outline-secondary">
           <i class="bi bi-stars me-1"></i> Vagas recomendadas

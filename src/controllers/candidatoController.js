@@ -7,6 +7,7 @@ const { sugerirCompatibilidade } = require('../services/iaClient');
 const vagaAvaliacaoModel = require('../models/vagaAvaliacaoModel');
 const { cloudinary } = require('../config/cloudinary');
 const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
+const { encodeId, decodeId } = require('../utils/idEncoder');
 
 const escapeNL = (v) => (typeof v === 'string' ? v.replace(/\r?\n/g, '\\n') : v);
 
@@ -84,7 +85,6 @@ const avgScore0to100 = (results) => {
     : 0;
 };
 
-// normalizador de URL para os links do perfil
 const normUrl = (u) => {
   if (!u) return '';
   const s = String(u).trim();
@@ -170,12 +170,36 @@ async function isVagaFechada(vaga_id) {
 }
 
 exports.telaNomeCandidato = (req, res) => {
-  const { usuario_id } = req.query;
-  res.render('candidatos/cadastro-de-nome-e-sobrenome-candidatos', { usuario_id });
+  const { uid, usuario_id } = req.query;
+
+  if (!uid && usuario_id && /^\d+$/.test(usuario_id)) {
+    const safeUid = encodeId(Number(usuario_id));
+    return res.redirect(`/candidatos/cadastro/nome?uid=${safeUid}`);
+  }
+
+  if (!uid) {
+    req.session.erro = 'Identificador inválido.';
+    return res.redirect('/cadastro');
+  }
+
+  try {
+    const id = decodeId(uid);
+    if (!id || !Number.isFinite(id)) throw new Error('uid inválido');
+  } catch (err) {
+    console.error('Erro ao decodificar UID:', err);
+    req.session.erro = 'Link inválido.';
+    return res.redirect('/cadastro');
+  }
+
+  return res.render('candidatos/cadastro-de-nome-e-sobrenome-candidatos', { uid });
 };
 
 exports.salvarNomeCandidato = async (req, res) => {
-  const { usuario_id, nome, sobrenome, data_nascimento } = req.body;
+  const rawUid = req.body.uid || req.body.usuario_id || req.query.uid || req.query.usuario_id;
+  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
+
+  const { nome, sobrenome, data_nascimento } = req.body;
+
   try {
     await candidatoModel.criarCandidato({
       usuario_id: Number(usuario_id),
@@ -183,31 +207,38 @@ exports.salvarNomeCandidato = async (req, res) => {
       sobrenome,
       data_nascimento: new Date(data_nascimento),
     });
-    res.redirect(`/candidato/localizacao?usuario_id=${usuario_id}`);
+
+    const uid = encodeId(usuario_id);
+    return res.redirect(`/candidato/localizacao?uid=${uid}`);
   } catch (err) {
     console.error('Erro ao salvar nome e sobrenome:', err);
+    const uid = encodeId(usuario_id);
     req.session.erro = 'Erro ao salvar seus dados iniciais. Tente novamente.';
-    res.redirect(`/candidato/nome?usuario_id=${usuario_id}`);
+    return res.redirect(`/candidato/nome?uid=${uid}`);
   }
 };
 
 exports.telaLocalizacao = (req, res) => {
-  const { usuario_id } = req.query;
-  res.render('candidatos/localizacao-login-candidato', { usuario_id });
+  const uid = req.query.uid || null;
+  res.render('candidatos/localizacao-login-candidato', { uid });
 };
 
 exports.salvarLocalizacao = async (req, res) => {
-  const { usuario_id, localidade } = req.body;
+  const rawUid = req.body.uid || req.body.usuario_id || req.query.uid || req.query.usuario_id;
+  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
+  const uid = usuario_id ? encodeId(usuario_id) : '';
+
+  const { localidade } = req.body;
 
   if (!usuario_id || !localidade) {
     req.session.erro = 'ID ou localidade ausente.';
-    return res.redirect(`/candidato/localizacao?usuario_id=${usuario_id || ''}`);
+    return res.redirect(`/candidato/localizacao?uid=${uid}`);
   }
 
   const partes = localidade.split(',').map(p => p.trim());
   if (partes.length < 2 || partes.length > 3) {
     req.session.erro = 'Informe uma localidade válida. Ex: cidade e país, ou cidade, estado e país.';
-    return res.redirect(`/candidato/localizacao?usuario_id=${usuario_id}`);
+    return res.redirect(`/candidato/localizacao?uid=${uid}`);
   }
 
   const [cidade, estado = '', pais = ''] = partes;
@@ -220,41 +251,46 @@ exports.salvarLocalizacao = async (req, res) => {
       pais,
     });
 
-    res.redirect(`/candidato/telefone?usuario_id=${usuario_id}`);
+    return res.redirect(`/candidato/telefone?uid=${uid}`);
   } catch (err) {
     console.error('Erro ao salvar localização:', err);
     req.session.erro = 'Erro ao salvar localização. Tente novamente.';
-    res.redirect(`/candidato/localizacao?usuario_id=${usuario_id}`);
+    return res.redirect(`/candidato/localizacao?uid=${uid}`);
   }
 };
 
 exports.telaTelefone = (req, res) => {
-  const usuarioId = req.query.usuario_id || req.body.usuario_id;
-  res.render('candidatos/telefone', { usuarioId, error: null, telefoneData: {} });
+  const uid = req.query.uid || req.body.uid || null;
+  res.render('candidatos/telefone', { uid, error: null, telefoneData: {} });
 };
 
 exports.salvarTelefone = async (req, res) => {
-  const usuarioId = req.body.usuario_id || req.query.usuario_id;
+  const rawUid = req.body.uid || req.query.uid || req.body.usuario_id || req.query.usuario_id;
+  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
+  const uid = usuario_id ? encodeId(usuario_id) : '';
+
   const { ddi, ddd, telefone } = req.body;
-  if (!usuarioId || !ddi || !ddd || !telefone) {
+  if (!usuario_id || !ddi || !ddd || !telefone) {
     return res.render('candidatos/telefone', {
-      usuarioId,
+      uid,
       error: 'Preencha todos os campos de telefone.',
       telefoneData: { ddi, ddd, telefone }
     });
   }
+
   const telefoneSemHifen = telefone.replace(/-/g, '');
   const telefoneFormatado = `${ddi}-${ddd}-${telefoneSemHifen}`;
+
   try {
     await candidatoModel.atualizarTelefone({
-      usuario_id: Number(usuarioId),
+      usuario_id: Number(usuario_id),
       telefone: telefoneFormatado
     });
-    return res.redirect(`/candidato/cadastro/foto-perfil?usuario_id=${usuarioId}`);
+    return res.redirect(`/candidato/cadastro/foto-perfil?uid=${uid}`);
   } catch (err) {
     console.error('Erro ao salvar telefone:', err);
     return res.render('candidatos/telefone', {
-      usuarioId,
+      uid,
       error: 'Erro ao salvar telefone. Tente novamente.',
       telefoneData: { ddi, ddd, telefone }
     });
@@ -262,15 +298,18 @@ exports.salvarTelefone = async (req, res) => {
 };
 
 exports.telaFotoPerfil = (req, res) => {
-  const usuarioId = req.query.usuario_id || req.body.usuario_id;
-  return res.render('candidatos/foto-perfil', { usuarioId, error: null });
+  const uid = req.query.uid || req.body.uid || null;
+  return res.render('candidatos/foto-perfil', { uid, error: null });
 };
 
 exports.salvarFotoPerfil = async (req, res) => {
-  const usuarioId = req.body.usuario_id || req.query.usuario_id;
+  const rawUid = req.body.uid || req.query.uid || req.body.usuario_id || req.query.usuario_id;
+  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
+  const uid = usuario_id ? encodeId(usuario_id) : '';
+
   if (!req.file?.buffer) {
     return res.render('candidatos/foto-perfil', {
-      usuarioId,
+      uid,
       error: 'Selecione uma foto antes de continuar.'
     });
   }
@@ -279,14 +318,14 @@ exports.salvarFotoPerfil = async (req, res) => {
     const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const result = await cloudinary.uploader.upload(dataUri, {
       folder: 'connect-skills/candidatos',
-      public_id: `foto_candidato_${usuarioId}`,
+      public_id: `foto_candidato_${usuario_id}`,
       overwrite: true
     });
 
     const caminhoFoto = result.secure_url;
 
-    const candidato = await prisma.candidato.findUnique({ where: { usuario_id: Number(usuarioId) } });
-    if (!candidato) throw new Error(`Candidato não existe (usuario_id ${usuarioId})`);
+    const candidato = await prisma.candidato.findUnique({ where: { usuario_id: Number(usuario_id) } });
+    if (!candidato) throw new Error(`Candidato não existe (usuario_id ${usuario_id})`);
 
     await prisma.candidato.update({
       where: { id: candidato.id },
@@ -297,11 +336,11 @@ exports.salvarFotoPerfil = async (req, res) => {
       req.session.candidato.foto_perfil = caminhoFoto;
     }
 
-    return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuarioId}`);
+    return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
   } catch (err) {
     console.error('Erro ao salvar foto de perfil:', err);
     return res.render('candidatos/foto-perfil', {
-      usuarioId,
+      uid,
       error: 'Erro interno ao salvar a foto. Tente novamente.'
     });
   }
@@ -309,42 +348,49 @@ exports.salvarFotoPerfil = async (req, res) => {
 
 exports.telaSelecionarAreas = async (req, res) => {
   try {
-    const usuario_id = req.query.usuario_id;
+    const uid = req.query.uid || req.query.usuario_id || null; 
+    const usuario_id = typeof uid === 'string' && !/^\d+$/.test(uid) ? decodeId(uid) : Number(uid);
+    const safeUid = usuario_id ? encodeId(usuario_id) : '';
 
     const areas = await prisma.area_interesse.findMany({
       where: { padrao: true },
       orderBy: { nome: 'asc' }
     });
 
-    res.render('candidatos/selecionar-areas', { usuario_id, areas });
+    res.render('candidatos/selecionar-areas', { uid: safeUid, areas });
   } catch (erro) {
     console.error('Erro ao carregar áreas:', erro);
+    const backUid = req.query.uid || '';
     req.session.erro = 'Erro ao carregar áreas. Tente novamente.';
-    res.redirect(`/candidato/cadastro/areas?usuario_id=${req.query.usuario_id || ''}`);
+    res.redirect(`/candidato/cadastro/areas?uid=${backUid}`);
   }
 };
 
 exports.salvarAreas = async (req, res) => {
-  const { usuario_id, areasSelecionadas, outra_area_input } = req.body;
-  const nomes = JSON.parse(areasSelecionadas);
+  const rawUid = req.body.uid || req.query.uid || req.body.usuario_id || req.query.usuario_id;
+  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
+  const uid = usuario_id ? encodeId(usuario_id) : '';
+
+  const { areasSelecionadas, outra_area_input } = req.body;
+  const nomes = JSON.parse(areasSelecionadas || '[]');
 
   if (nomes.length !== 3) {
     req.session.erro = 'Selecione exatamente 3 áreas válidas.';
-    return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuario_id}`);
+    return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
   }
 
   try {
     const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
     if (!candidato) {
       req.session.erro = 'Candidato não encontrado.';
-      return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuario_id}`);
+      return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
     }
 
     const nomesFinal = [...nomes];
     if (nomes.includes('Outro')) {
       if (!outra_area_input || outra_area_input.trim() === '') {
         req.session.erro = "Você selecionou 'Outro', mas não preencheu a nova área.";
-        return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuario_id}`);
+        return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
       }
       const novaArea = await candidatoModel.upsertNovaArea(outra_area_input.trim());
       const index = nomesFinal.indexOf('Outro');
@@ -354,7 +400,7 @@ exports.salvarAreas = async (req, res) => {
     const ids = await candidatoModel.buscarIdsDasAreas({ nomes: nomesFinal });
     if (ids.length !== 3) {
       req.session.erro = 'Erro ao localizar todas as áreas selecionadas.';
-      return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuario_id}`);
+      return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
     }
 
     await candidatoModel.salvarAreasDeInteresse({ candidato_id: candidato.id, areas: ids });
@@ -382,7 +428,7 @@ exports.salvarAreas = async (req, res) => {
   } catch (error) {
     console.error('Erro ao salvar áreas de interesse:', error);
     req.session.erro = 'Erro ao salvar áreas de interesse. Tente novamente.';
-    res.redirect(`/candidato/cadastro/areas?usuario_id=${req.body.usuario_id}`);
+    res.redirect(`/candidatos/cadastro/areas?uid=${uid}`);
   }
 };
 
@@ -492,7 +538,9 @@ exports.telaHomeCandidato = async (req, res) => {
 };
 
 exports.renderMeuPerfil = async (req, res) => {
-  const candidatoSessao = req.session.candidato || (req.session.usuario?.tipo === 'candidato' ? req.session.usuario : null);
+  const candidatoSessao =
+    req.session.candidato ||
+    (req.session.usuario?.tipo === 'candidato' ? req.session.usuario : null);
   if (!candidatoSessao) return res.redirect('/login');
 
   try {
@@ -537,34 +585,30 @@ exports.renderMeuPerfil = async (req, res) => {
       const tel = (telRaw || '').trim();
       if (!tel) return { ddi: '', ddd: '', numeroFormatado: '' };
 
-      // 1) Formato normalizado por nós: +DD-XX-<resto...> (pode ter hífens dentro do "resto")
+      // 1) Formato normalizado por nós: +DD-XX-<resto...>
       if (tel.includes('-')) {
         const partes = tel.split('-').map(p => p.trim()).filter(Boolean);
         let ddi = partes[0] || '';
         let ddd = partes[1] || '';
-        // Junta tudo que vier depois do DDD
         const resto = partes.slice(2).join('');
-        const numeros = resto.replace(/\D/g, ''); // só dígitos
+        const numeros = resto.replace(/\D/g, '');
 
-        // Máscara: 9 dígitos => 5-4, 8 dígitos => 4-4
         let numeroFormatado = '';
         if (numeros.length >= 9) {
           numeroFormatado = `${numeros.slice(0, 5)}-${numeros.slice(5, 9)}`;
         } else if (numeros.length === 8) {
           numeroFormatado = `${numeros.slice(0, 4)}-${numeros.slice(4, 8)}`;
         } else {
-          // Fallback: tenta manter como estava após o DDD
           numeroFormatado = partes.slice(2).join('-');
         }
 
-        // Normaliza ddi (garante + no começo) e ddd (só dígitos)
         ddi = ddi.startsWith('+') ? ddi : (ddi ? `+${ddi}` : '+55');
         ddd = ddd.replace(/\D/g, '');
 
         return { ddi, ddd, numeroFormatado };
       }
 
-      // 2) Formatos soltos, ex: "+55 (51) 99217-9330" ou " (51) 99217-9330 "
+      // 2) Formatos soltos, ex: "+55 (51) 99217-9330"
       const m = tel.match(/^(\+\d+)?\s*\(?(\d{2,3})\)?\s*([\d\- ]{7,})$/);
       if (m) {
         const ddi = (m[1] || '+55').trim();
@@ -586,19 +630,20 @@ exports.renderMeuPerfil = async (req, res) => {
       return { ddi: '', ddd: '', numeroFormatado: '' };
     }
 
-    let { ddi, ddd, numeroFormatado } = parseTelefoneBR(candidato.telefone);
-    ddi = sanitizeDdi(ddi);
-
     function sanitizeDdi(ddi) {
       const s = String(ddi || '').toLowerCase().trim();
       if (!s || s.includes('undefined')) return '+55';
-      // mantém apenas + e dígitos
       const only = s.replace(/[^+\d]/g, '');
-      // precisa ter pelo menos um dígito
       if (!/\d/.test(only)) return '+55';
-      // garantir que começa com +
       return only.startsWith('+') ? only : `+${only}`;
     }
+
+    let { ddi, ddd, numeroFormatado } = parseTelefoneBR(candidato.telefone);
+    ddi = sanitizeDdi(ddi);
+
+    // ---------- IDs/URL criptografados (para botão copiar link) ----------
+    const encCandidatoId = encodeId(Number(candidato.id));
+    const perfilShareUrl = `${req.protocol}://${req.get('host')}/candidatos/perfil/${encCandidatoId}`;
 
     res.render('candidatos/meu-perfil', {
       candidato,
@@ -613,6 +658,8 @@ exports.renderMeuPerfil = async (req, res) => {
       ddi,
       ddd,
       numeroFormatado,
+      encCandidatoId,
+      perfilShareUrl,
     });
   } catch (err) {
     console.error('Erro em renderMeuPerfil:', err);
@@ -876,7 +923,9 @@ exports.historicoAplicacoes = async (req, res) => {
           empresa: {
             id: empresa.id,
             nome: empresa.nome_empresa,
-            foto: empresa.foto_perfil || '/img/avatar.png',
+            foto: (empresa.foto_perfil && !['null','undefined'].includes(String(empresa.foto_perfil).trim()))
+            ? empresa.foto_perfil
+            : '/img/empresa-padrao.png',
             localidade: [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', '),
           },
           respostas
@@ -1433,7 +1482,7 @@ exports.avaliarCompatibilidade = async (req, res) => {
 
     console.log('[Compat] Payload a enviar para /suggest:', JSON.stringify(payload, null, 2));
 
-    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest_new';
+    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest';
     const axiosResp = await axios.post(url, payload, {
       headers: { 'Content-Type': 'application/json' },
       timeout: 30000
@@ -1723,26 +1772,25 @@ exports.excluirConta = async (req, res) => {
 };
 
 exports.vagaDetalhes = async (req, res) => {
+  const { encodeId, decodeId } = require('../utils/idEncoder');
+
   try {
-    const id = Number(req.params.id);
-    if (!id || Number.isNaN(id)) return res.status(400).send('ID inválido');
+    // ID seguro: aceita hash ou numérico (middleware já canonicaliza GET)
+    const raw = String(req.params.id || '');
+    const dec = decodeId(raw);
+    const id = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+    if (!Number.isFinite(id)) return res.status(400).send('ID inválido');
 
     const vaga = await prisma.vaga.findUnique({
       where: { id },
       include: {
         empresa: {
           include: {
-            usuario: {
-              select: { id: true, nome: true, sobrenome: true, email: true }
-            }
+            usuario: { select: { id: true, nome: true, sobrenome: true, email: true } }
           }
         },
-        vaga_area: {
-          include: { area_interesse: { select: { id: true, nome: true } } }
-        },
-        vaga_soft_skill: {
-          include: { soft_skill: { select: { id: true, nome: true } } }
-        },
+        vaga_area:       { include: { area_interesse: { select: { id: true, nome: true } } } },
+        vaga_soft_skill: { include: { soft_skill: { select: { id: true, nome: true } } } },
         vaga_arquivo: true,
         vaga_link: true,
       }
@@ -1759,14 +1807,16 @@ exports.vagaDetalhes = async (req, res) => {
       ? vaga.beneficio
       : (vaga.beneficio ? String(vaga.beneficio).split('|').map(s => s.trim()).filter(Boolean) : []);
 
-    const areas = (vaga.vaga_area || []).map(va => va.area_interesse?.nome).filter(Boolean);
+    const areas  = (vaga.vaga_area || []).map(va => va.area_interesse?.nome).filter(Boolean);
     const skills = (vaga.vaga_soft_skill || []).map(vs => vs.soft_skill?.nome).filter(Boolean);
 
     const diasPresenciais = vaga.dias_presenciais || '';
-    const diasHomeOffice = vaga.dias_home_office || '';
-  
+    const diasHomeOffice  = vaga.dias_home_office  || '';
+
     const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
-    const discQs = getDiscQuestionsForSkills(skills) || [];
+    const discQs = (typeof getDiscQuestionsForSkills === 'function'
+      ? (getDiscQuestionsForSkills(skills) || [])
+      : []);
 
     const extraRaw = String(vaga.pergunta || '').trim();
     const extraQs = extraRaw
@@ -1781,38 +1831,44 @@ exports.vagaDetalhes = async (req, res) => {
 
     const perguntasLista = Array.from(new Set([...discQs, ...extraQs]));
 
-// ID do candidato (prioriza sessão do candidato)
-const candId = Number(req.session?.candidato?.id || req.session?.usuario?.id || 0);
+    // ID do candidato (prioriza sessão do candidato)
+    const candId = Number(req.session?.candidato?.id || req.session?.usuario?.id || 0);
 
-// Verifica se já aplicou (candidatura) OU já tem avaliação (fallback)
-let jaAplicou = false;
-if (candId && vaga?.id) {
-  const [candidatura, avaliacao] = await Promise.all([
-    prisma.vaga_candidato?.findFirst?.({
-      where: { candidato_id: candId, vaga_id: Number(vaga.id) },
-      select: { id: true }
-    }) ?? null,
-    prisma.vaga_avaliacao?.findFirst?.({
-      where: { candidato_id: candId, vaga_id: Number(vaga.id) },
-      select: { id: true }
-    }) ?? null
-  ]);
-  jaAplicou = !!(candidatura || avaliacao);
-}
+    // Verifica se já aplicou (candidatura) OU já tem avaliação (fallback)
+    let jaAplicou = false;
+    if (candId && vaga?.id) {
+      const [candidatura, avaliacao] = await Promise.all([
+        prisma.vaga_candidato?.findFirst?.({
+          where: { candidato_id: candId, vaga_id: id },
+          select: { id: true }
+        }) ?? null,
+        prisma.vaga_avaliacao?.findFirst?.({
+          where: { candidato_id: candId, vaga_id: id },
+          select: { id: true }
+        }) ?? null
+      ]);
+      jaAplicou = !!(candidatura || avaliacao);
+    }
 
-return res.render('candidatos/vaga-detalhes', {
-  tituloPagina: `Detalhes da vaga`,
-  vaga,
-  publicadoEmBR,
-  beneficios,
-  areas,
-  skills,
-  diasPresenciais,
-  diasHomeOffice,
-  perguntasLista,
-  jaAplicou,
-  usuarioSessao: req.session?.usuario || null
-});
+    // IDs codificados para usar nos hrefs da view
+    const encId = encodeId(id);
+    const encEmpresaId = encodeId(Number(vaga?.empresa?.id || 0));
+
+    return res.render('candidatos/vaga-detalhes', {
+      tituloPagina: 'Detalhes da vaga',
+      vaga,
+      publicadoEmBR,
+      beneficios,
+      areas,
+      skills,
+      diasPresenciais,
+      diasHomeOffice,
+      perguntasLista,
+      jaAplicou,
+      usuarioSessao: req.session?.usuario || null,
+      encId,
+      encEmpresaId,
+    });
 
   } catch (err) {
     console.error('Erro ao carregar detalhes da vaga:', err);
@@ -1900,13 +1956,27 @@ exports.pularCadastroCandidato = async (req, res) => {
 };
 
 exports.perfilPublicoCandidato = async (req, res) => {
+  const { encodeId, decodeId } = require('../utils/idEncoder');
+
   try {
-    const idParam = req.params.id;
-    const candidatoId = Number(idParam);
+    // 1) ID seguro (aceita hash ou numérico); GET numérico -> 301 p/ hash
+    const raw = String(req.params.id || '');
+    const dec = decodeId(raw);
+    const candidatoId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+
     if (!Number.isFinite(candidatoId) || candidatoId <= 0) {
       return res.status(400).render('shared/404', { mensagem: 'ID de candidato inválido.' });
     }
 
+    if (req.method === 'GET' && /^\d+$/.test(raw)) {
+      const enc = encodeId(candidatoId);
+      const canonical = req.originalUrl.replace(raw, enc);
+      if (canonical !== req.originalUrl) {
+        return res.redirect(301, canonical);
+      }
+    }
+
+    // 2) Carrega candidato
     const candidato = await prisma.candidato.findUnique({
       where: { id: candidatoId },
       include: {
@@ -1924,29 +1994,30 @@ exports.perfilPublicoCandidato = async (req, res) => {
       return res.status(404).render('shared/404', { mensagem: 'Candidato não encontrado.' });
     }
 
-    // Foto
+    // 3) Dados de exibição
     const fotoPerfil = (candidato.foto_perfil && String(candidato.foto_perfil).trim() !== '')
       ? String(candidato.foto_perfil).trim()
       : '/img/avatar.png';
 
-    // Localidade
     const localidade = [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ');
-    
+
     let { ddi, ddd, numeroFormatado } = parseTelefoneBR(candidato.telefone);
     ddi = sanitizeDdi(ddi);
     const telefoneExibicao = (ddd && numeroFormatado)
       ? `${ddi} (${ddd}) ${numeroFormatado}`
       : (String(candidato.telefone || '').replace(/\+undefined/gi, '').trim());
-    
-      // Áreas
+
     const areas = (candidato.candidato_area || [])
       .map(ca => ca.area_interesse?.nome)
       .filter(Boolean);
 
-    // Formatação básica de telefone (mantendo o que vier, se houver)
-    const telefone = (candidato.telefone || '').trim();
+    const telefone = (candidato.telefone || '').trim(); // mantido para compat
 
-    // Entrega para a view pública (vamos criar depois)
+    // 4) IDs codificados e URL canônica para compartilhar
+    const encCandidatoId = encodeId(candidatoId);
+    const perfilShareUrl = `${req.protocol}://${req.get('host')}/candidatos/perfil/${encCandidatoId}`;
+
+    // 5) Render
     return res.render('candidatos/perfil-publico-candidatos', {
       candidato,
       fotoPerfil,
@@ -1954,7 +2025,9 @@ exports.perfilPublicoCandidato = async (req, res) => {
       areas,
       links: candidato.candidato_link || [],
       arquivos: candidato.candidato_arquivo || [],
-      telefoneExibicao
+      telefoneExibicao,
+      encCandidatoId,
+      perfilShareUrl,
     });
   } catch (err) {
     console.error('Erro ao carregar perfil público do candidato:', err?.message || err);

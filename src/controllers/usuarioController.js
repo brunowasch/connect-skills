@@ -6,6 +6,7 @@ const candidatoModel = require('../models/candidatoModel');
 const empresaModel = require('../models/empresaModel');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { encodeId } = require('../utils/idEncoder');
 
 const fromAddress = process.env.EMAIL_FROM || `Connect Skills <${process.env.EMAIL_USER || process.env.GMAIL_USER}>`;
 
@@ -151,35 +152,36 @@ function isEmpresaIncompleto(e) {
 }
 
 async function redirecionarFluxoCandidato(usuarioId, res) {
+  const uid = encodeId(usuarioId);
   const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuarioId));
 
   if (!candidato) {
-    return res.redirect(`/candidato/nome?usuario_id=${usuarioId}`);
+    return res.redirect(`/candidatos/cadastro/nome?uid=${uid}`);
   }
 
   if (!candidato.nome || !candidato.sobrenome) {
-    return res.redirect(`/candidato/nome?usuario_id=${usuarioId}`);
+    return res.redirect(`/candidatos/cadastro/nome?uid=${uid}`);
   }
 
   if (!candidato.data_nascimento) {
-    return res.redirect(`/candidato/data-nascimento?usuario_id=${usuarioId}`);
+    return res.redirect(`/candidatos/data-nascimento?uid=${uid}`);
   }
 
   if (!candidato.cidade || !candidato.pais) {
-    return res.redirect(`/candidato/localizacao?usuario_id=${usuarioId}`);
+    return res.redirect(`/candidatos/localizacao?uid=${uid}`);
   }
 
   if (!candidato.telefone) {
-    return res.redirect(`/candidato/telefone?usuario_id=${usuarioId}`);
+    return res.redirect(`/candidatos/telefone?uid=${uid}`);
   }
 
   if (!candidato.foto_perfil || candidato.foto_perfil.trim() === '') {
-    return res.redirect(`/candidato/cadastro/foto-perfil?usuario_id=${usuarioId}`);
+    return res.redirect(`/candidatos/cadastro/foto-perfil?uid=${uid}`);
   }
 
   const areasQtd = (candidato.candidato_area || []).length;
   if (areasQtd !== 3) {
-    return res.redirect(`/candidato/cadastro/areas?usuario_id=${usuarioId}`);
+    return res.redirect(`/candidatos/cadastro/areas?uid=${uid}`);
   }
 
   return res.redirect('/candidatos/home');

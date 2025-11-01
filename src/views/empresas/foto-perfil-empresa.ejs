@@ -21,8 +21,8 @@
   <main class="main-ajustado-header d-flex flex-column align-items-center justify-content-center px-3 text-center mb-3">
     <h3 class="text-center mt-5 mb-4">Adicione uma foto de perfil</h3>
 
-    <form action="/empresa/foto-perfil" method="POST" enctype="multipart/form-data" id="formFoto">
-      <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
+    <form action="/empresas/foto-perfil?uid=<%= uid %>" method="POST" enctype="multipart/form-data" id="formFoto">
+      <input type="hidden" name="uid" value="<%= uid %>">
       <input type="hidden" name="fotoBase64" id="fotoBase64">
 
       <img src="/img/avatar.png" alt="Prévia da Foto" id="previewFoto" class="foto-icon">
@@ -56,7 +56,7 @@
       </div>
     </form>
     <div class="mt-4">
-        <a href="/empresas/home?usuario_id=<%= usuario_id %>" class="btn btn-outline-secondary">
+      <a href="/empresas/pular-cadastro?uid=<%= uid %>" class="btn btn-outline-secondary">
         <i class="bi bi-skip-forward-fill me-1"></i> Pular esta etapa
       </a>
     </div>

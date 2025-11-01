@@ -23,8 +23,8 @@
     <h1 class="mb-4">Para saber encontrar os melhores candidatos, digite sua região:</h1>
 
     <div class="form-container">
-    <form action="/empresa/localizacao" method="POST" id="formLocalizacao" novalidate>
-    <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
+    <form action="/empresas/localizacao" method="POST" id="formLocalizacao" novalidate>
+    <input type="hidden" name="uid" value="<%= uid %>">
 
     <div class="mb-3 text-start">
       <label for="localidade" class="form-label">Localidade</label>
@@ -49,7 +49,7 @@
         </div>
         <div class="text-center mt-3">
           <a class="btn btn-link text-decoration-none"
-            href="/empresa/pular-cadastro?usuario_id=<%= usuario_id %>">
+            href="/empresas/pular-cadastro?uid=<%= uid %>">
             Prefiro completar meu perfil depois
           </a>
         </div>
