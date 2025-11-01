@@ -1330,8 +1330,11 @@ exports.telaVagaDetalhe = async (req, res) => {
 
     const statusAtual = await obterStatusDaVaga(id);
 
+   
     const encId = encodeId(id);
-    const shareUrl = `${req.protocol}://${req.get('host')}/empresas/vaga/${encId}`;
+  const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const shareUrl = `${baseUrl}/candidatos/vagas/${encId}`;
+
 
     let perguntasLista = [];
     try {
@@ -1364,7 +1367,7 @@ exports.telaVagaDetalhe = async (req, res) => {
     return res.render('empresas/vaga-detalhe', {
       vaga,
       statusAtual,
-      shareUrl,      
+      shareUrl,
       perguntasLista,
       encId
     });
@@ -1373,6 +1376,7 @@ exports.telaVagaDetalhe = async (req, res) => {
     return res.status(500).render('shared/500', { erro: 'Falha ao carregar a vaga.' });
   }
 };
+
 
 exports.fecharVaga = async (req, res) => {
   const { encodeId, decodeId } = require('../utils/idEncoder');
