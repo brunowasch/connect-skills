@@ -188,25 +188,26 @@ async function redirecionarFluxoCandidato(usuarioId, res) {
 }
 
 async function redirecionarFluxoEmpresa(usuarioId, res) {
+  const uid = encodeId(usuarioId);
   const empresa = await empresaModel.obterEmpresaPorUsuarioId(Number(usuarioId));
 
   if (!empresa || !empresa.nome_empresa) {
-    return res.redirect(`/empresa/nome-empresa?usuario_id=${usuarioId}`);
+    return res.redirect(`/empresas/nome-empresa?uid=${uid}`);
   }
 
   if (!empresa.cidade || !empresa.pais) {
-    return res.redirect(`/empresa/localizacao?usuario_id=${usuarioId}`);
+    return res.redirect(`/empresas/localizacao?uid=${uid}`);
   }
 
   if (!empresa.telefone) {
-    return res.redirect(`/empresa/telefone?usuario_id=${usuarioId}`);
+    return res.redirect(`/empresas/telefone?uid=${uid}`);
   }
 
   if (!empresa.foto_perfil || empresa.foto_perfil.trim() === '') {
-    return res.redirect(`/empresa/foto-perfil?usuario_id=${usuarioId}`);
+    return res.redirect(`/empresas/foto-perfil?uid=${uid}`);
   }
 
-  return res.redirect('/empresa/home');
+  return res.redirect('/empresas/home');
 }
 
 
@@ -503,7 +504,8 @@ exports.verificarEmail = async (req, res) => {
       return res.redirect('/login');
     }
 
-    return res.redirect(`/usuarios/email-verificado?usuario_id=${usuario_id}&tipo=${usuario.tipo}`);
+    const uid = encodeId(usuario_id);
+    return res.redirect(`/usuarios/email-verificado?uid=${uid}&tipo=${usuario.tipo}`);
   } catch (error) {
     console.error('Erro ao verificar token:', error);
     req.session.erro = 'Link inválido ou expirado.';

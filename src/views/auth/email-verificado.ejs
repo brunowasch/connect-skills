@@ -14,29 +14,27 @@
     <h2 class="text-success fw-bold">E-mail verificado com sucesso!</h2>
     <p class="text-secondary">Você pode retornar à aba anterior para continuar seu cadastro e fechar esta.</p>
   </main>
-<script>
-  window.onload = () => {
-    const params = new URLSearchParams(window.location.search);
-    const usuario_id = params.get('usuario_id');
-    const tipo = params.get('tipo');
+  <script>
+    window.onload = () => {
+      const params = new URLSearchParams(window.location.search);
+      const uid  = params.get('uid');
+      const tipo = params.get('tipo');
 
-    // Fallback via localStorage (garante que a aba anterior vai saber)
-    if (usuario_id && tipo) {
-      localStorage.setItem('verificacaoEmailConcluida', JSON.stringify({ usuario_id, tipo }));
-    }
+      // Fallback via localStorage (garante que a aba anterior vai saber)
+      if (uid && tipo) {
+        localStorage.setItem('verificacaoEmailConcluida', JSON.stringify({ uid, tipo }));
+      }
 
-    // Se aberta como nova aba, envia postMessage
-    if (window.opener && usuario_id && tipo) {
-      window.opener.postMessage({
-        emailVerificado: true,
-        usuario_id,
-        tipo
-      }, "*");
-      window.close();
-    }
-  };
-</script>
-
-
-
+      // Se aberta como nova aba, envia postMessage
+      if (window.opener && uid && tipo) {
+        window.opener.postMessage({
+          emailVerificado: true,
+          uid,
+          tipo
+        }, "*");
+        window.close();
+      }
+    };
+  </script>
+</body>
 </html>
