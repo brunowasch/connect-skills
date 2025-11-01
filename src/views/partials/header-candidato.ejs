@@ -1,4 +1,38 @@
-<nav class="navbar navbar-expand-lg fixed-top mb-4 navbar-dark bg-primary" id="siteNavbar">
+<style>
+html, body { 
+  margin: 0; 
+  padding: 0; 
+}
+.navbar{
+  padding-top: 0.40rem !important; /* diminui o espaçamento vertical */
+  padding-bottom: 0.35rem !important;
+  min-height: 13vh !important; /* altura mínima menor */
+}
+
+.navbar {
+  background-color: var(--bs-primary);
+}
+
+.navbar-brand img.logo-header {
+  width: 4rem !important; /* logo menor */
+  height: auto !important;
+}
+
+.navbar-brand img[alt="Connect Skills"] {
+  width: 9rem !important; /* título menor */
+  height: auto !important;
+}
+
+.navbar-nav .nav-link {
+  font-size: 0.9rem !important; /* texto mais compacto */
+  padding: 0.25rem 0.75rem !important;
+}
+
+#siteNavbar .navbar-toggler {
+  padding: 0.2rem 0.4rem !important;
+}
+</style>
+<nav class="navbar navbar-expand-lg mb-4 navbar-dark bg-primary" id="siteNavbar">
   <div class="container-fluid d-flex align-items-center">
     <a class="navbar-brand d-flex align-items-center gap-2" href="/candidato/home" aria-label="Connect Skills - Início">
       <img src="/img/logo.png" class="logo-header" alt="Logo Connect Skills" width="36" height="36">
@@ -39,29 +73,6 @@
     </div>
   </div>
 </div>
-
-<script>
-(function () {
-  const header = document.querySelector('.navbar.fixed-top');
-  if (!header) return;
-
-  function apply() {
-    const h = Math.ceil(header.getBoundingClientRect().height) || 72;
-    document.documentElement.style.setProperty('--nav-h', h + 'px');
-    document.body.style.paddingTop = h + 'px';
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', apply);
-  } else {
-    apply();
-  }
-
-  window.addEventListener('resize', apply, { passive: true });
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(apply);
-  setTimeout(apply, 250);
-})();
-</script>
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {

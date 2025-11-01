@@ -9,7 +9,11 @@
   <link rel="stylesheet" href="/css/shared/style.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
-<body>
+  <style>
+    :root { --nav-h: 0px !important; }
+    body#cadastro { padding-top: 0 !important; margin: 0; }
+  </style>
+<body id="cadastro">
   <%- include('../partials/header') %>
 
 <main>
@@ -299,6 +303,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
-
+<script>document.body.style.paddingTop='';document.documentElement?.style?.removeProperty('--nav-h');</script>
 </body>
 </html>

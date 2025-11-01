@@ -10,7 +10,12 @@
   <link rel="stylesheet" href="/css/shared/localizacao-login.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
-<body class="d-flex flex-column min-vh-100">
+  <style>
+    :root { --nav-h: 0px !important; }
+    body#cadastro-localizacao { margin: 0; padding-top: 0 !important; }
+    .main-ajustado-header { margin-top: 0 !important; padding-top: 0 !important; }
+  </style>
+<body  id="cadastro-localizacao" class="d-flex flex-column min-vh-100">
 
   <%- include('../partials/header') %>
   <%- include('../partials/flash-messages') %>
@@ -18,8 +23,8 @@
     <h1 class="mb-4">Para saber as melhores oportunidades, digite sua região:</h1>
 
     <div class="form-container">
-      <form id="formLocalizacao" action="/candidato/localizacao" method="POST" novalidate>
-        <input type="hidden" name="usuario_id" value="<%= usuario_id %>">
+      <form id="formLocalizacao" action="/candidatos/localizacao" method="POST" novalidate>
+        <input type="hidden" name="uid" value="<%= uid %>">
 
         <div class="mb-3 text-start">
           <label for="localidade" class="form-label">Localidade</label>
@@ -49,7 +54,7 @@
         </div>
         <div class="text-center mt-3">
           <a class="btn btn-link text-decoration-none"
-            href="/candidato/pular-cadastro?usuario_id=<%= usuario_id %>">
+            href="/candidatos/pular-cadastro?uid=<%= uid %>">
             Prefiro completar meu perfil depois
           </a>
         </div>

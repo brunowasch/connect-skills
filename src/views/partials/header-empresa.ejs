@@ -1,4 +1,33 @@
-<nav class="navbar navbar-expand-lg fixed-top mb-4 navbar-dark bg-primary" id="siteNavbar">
+<style>
+  /* Header sem fixação */
+.navbar {
+  padding-top: 0.40rem !important;
+  padding-bottom: 0.35rem !important;
+  min-height: 13vh !important;
+  background-color: var(--bs-primary) !important;
+}
+
+.navbar-brand img.logo-header {
+  width: 4rem !important;
+  height: auto !important;
+}
+
+.navbar-brand img[alt="Connect Skills"] {
+  width: 9rem !important;
+  height: auto !important;
+}
+
+.navbar-nav .nav-link {
+  font-size: 0.9rem !important;
+  padding: 0.25rem 0.75rem !important;
+}
+
+#siteNavbar .navbar-toggler {
+  padding: 0.2rem 0.4rem !important;
+}
+</style>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary" id="siteNavbar">
   <div class="container-fluid d-flex align-items-center">
     <a class="navbar-brand d-flex align-items-center gap-2" href="/empresa/home" aria-label="Connect Skills - Início">
       <img src="/img/logo.png" class="logo-header" alt="Logo Connect Skills" width="36" height="36">
@@ -21,7 +50,7 @@
   </div>
 </nav>
 
-<!-- Modal -->
+<!-- Modal Logout -->
 <div class="modal fade" id="modalLogout" tabindex="-1" aria-labelledby="modalLogoutLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -41,37 +70,16 @@
 </div>
 
 <script>
-(function () {
-  const header = document.querySelector('.navbar.fixed-top');
-  if (!header) return;
-
-  function apply() {
-    const h = Math.ceil(header.getBoundingClientRect().height) || 72;
-    document.documentElement.style.setProperty('--nav-h', h + 'px');
-    document.body.style.paddingTop = h + 'px';
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', apply);
-  } else {
-    apply();
-  }
-
-  window.addEventListener('resize', apply, { passive: true });
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(apply);
-  setTimeout(apply, 250);
-})();
+  // Ativar link ativo
+  document.addEventListener('DOMContentLoaded', () => {
+    const path = window.location.pathname;
+    document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
+      const href = link.getAttribute('href');
+      if (href === path || (href !== '/' && path.startsWith(href))) {
+        link.classList.add('active');
+      }
+    });
+  });
 </script>
 
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const path = window.location.pathname;
-      document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
-        const href = link.getAttribute('href');
-        if (href === path || (href !== '/' && path.startsWith(href))) {
-          link.classList.add('active');
-        }
-      });
-    });
-  </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

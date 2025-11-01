@@ -10,6 +10,9 @@
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 
   <style>
+    :root { --nav-h: 0px !important; }
+  body#home { padding-top: 0 !important; }
+    main#content-main { margin-top: var(--header-h); }
     .perfil-foto { width: 160px; height: 160px; object-fit: cover; border-radius: 50%; }
     @media (max-width: 576px) { .perfil-foto { width: 120px; height: 120px; } }
     .icon-sm { font-size: 1.1rem; }
@@ -62,8 +65,8 @@
               </a>
               <button
                 class="btn btn-sm"
-                data-empresa-id="<%= empresa?.id %>"
                 title="Copiar link público do perfil da empresa"
+                data-share-url="<%= perfilPublicoUrl %>"
                 onclick="copiarLinkPerfilPublico(this)">
                 <i class="bi bi-link-45deg me-1"></i>
               </button>
@@ -197,6 +200,14 @@
           </tbody>
         </table>
       </div>
+      <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toastCopyPerfil" class="toast text-bg-success border-0" role="alert">
+          <div class="d-flex">
+            <div class="toast-body">Link do perfil público copiado com sucesso!</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -236,5 +247,25 @@
       setTimeout(() => (msg.style.display = 'none'), 1500);
     }
   </script>
+<script>
+  function copiarLinkPerfilPublico(btn) {
+    const url = btn.getAttribute('data-share-url');
+    if (!url) return;
+    const fullUrl = window.location.origin + url;
+
+    navigator.clipboard.writeText(fullUrl)
+      .then(() => {
+        const toastEl = document.getElementById('toastCopyPerfil');
+        if (toastEl) {
+          const t = new bootstrap.Toast(toastEl);
+          toastEl.style.display = 'block';
+          t.show();
+        }
+      })
+      .catch(() => {
+        prompt('Não foi possível copiar automaticamente. Copie o link abaixo:', fullUrl);
+      });
+  }
+</script>
 </body>
 </html>

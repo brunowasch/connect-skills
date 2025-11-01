@@ -16,6 +16,9 @@
     };
   %>
   <style>
+    :root { --nav-h: 0px !important; }
+    body#home { padding-top: 0 !important; }
+    main#content-main { margin-top: var(--header-h); }
     .badge-chip { font-weight: 500; }
     .pill { display:inline-block; padding:.25rem .6rem; border-radius: 999px; background:#f1f3f5; font-size:.85rem; margin:.15rem .25rem .15rem 0; }
     .section-title { font-size:1.05rem; font-weight:600; margin-bottom:.5rem; }
@@ -205,11 +208,19 @@
       <div class="col-lg-4">
         <div class="card card-shadow p-3 p-md-4">
           <div class="d-flex align-items-center gap-3">
-            <img
-              src="<%= vaga.empresa?.foto_perfil || '/img/empresa-padrao.png' %>"
-              alt="Foto da Empresa"
-              class="rounded-circle border"
-              style="width:56px;height:56px;object-fit:cover;">
+          <%
+            function empresaLogo(e) {
+              const s = String(e?.foto_perfil || '').trim();
+              if (!s || s === 'null' || s === 'undefined') return '/img/placeholder-empresa.png';
+              return s;
+            }
+          %>
+          <img
+            src="<%= empresaLogo(vaga.empresa) %>"
+            alt="Foto da Empresa"
+            class="rounded-circle border"
+            style="width:56px;height:56px;object-fit:cover;"
+            onerror="this.onerror=null;this.src='/img/placeholder-empresa.png';">
             <div>
               <div class="fw-semibold mb-1"><%= vaga.empresa?.nome_empresa || vaga.empresa?.nome || 'Empresa' %></div>
               <%
@@ -226,7 +237,7 @@
           <hr/>
 
           <div class="d-grid gap-2">
-            <a href="/empresa/perfil/<%= vaga.empresa?.id %>" class="btn btn-outline-primary">
+            <a href="/empresa/perfil/<%= encEmpresaId %>" class="btn btn-outline-primary">
               <i class="bi bi-box-arrow-up-right"></i> Ver perfil público
             </a>
             <% if (vaga.empresa?.usuario?.email) { %>

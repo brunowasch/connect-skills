@@ -10,14 +10,18 @@
   <link rel="stylesheet" href="/css/shared/telefone.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
-<body>
+  <style>
+    :root { --nav-h: 0px !important; }
+    body#cadastro-telefone { margin: 0; padding-top: 0 !important; }
+  </style>
+<body id="cadastro-telefone">
   <%- include('../partials/header') %>
   <%- include('../partials/flash-messages') %>
   <main class="d-flex flex-column align-items-center justify-content-center mt-5">
     <h3 class="text-center mb-4">Digite seu número de telefone:</h3>
 
-    <form action="/candidato/telefone" method="POST" id="formTelefone" novalidate>
-      <input type="hidden" name="usuario_id" value="<%= usuarioId %>">
+    <form action="/candidatos/telefone" method="POST" id="formTelefone" novalidate>
+      <input type="hidden" name="uid" value="<%= uid %>">
       <input type="hidden" name="ddi" value="+55">
 
       <% if (error) { %>
@@ -46,7 +50,7 @@
 
         <div class="text-center mt-3">
           <a class="btn btn-link text-decoration-none"
-             href="/candidato/pular-cadastro?usuario_id=<%= usuarioId %>">
+             href="/candidatos/pular-cadastro?uid=<%= uid %>">
             Prefiro completar meu perfil depois
           </a>
         </div>

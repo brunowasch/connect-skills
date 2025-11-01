@@ -9,6 +9,10 @@
   <link rel="stylesheet" href="/css/shared/style.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
+<style>
+    :root { --nav-h: 0px !important; }
+  body#home { padding-top: 0 !important; }
+</style>
 <body>
   <%- include('../partials/header-empresa') %>
   <% const moedaMap = { BRL:'R$', USD:'US$', EUR:'€', GBP:'£', JPY:'¥', ARS:'AR$', CAD:'C$', AUD:'A$', CHF:'CHF', CNY:'¥', INR:'₹', MXN:'MX$', ZAR:'R', KRW:'₩', SEK:'kr', RUB:'₽' }; %>
@@ -19,7 +23,7 @@
     </a>
     <h2 class="text-center text-primary fw-bold mb-4 mt-4">Editar Vaga</h2>
 
-    <form id="formEditarVaga" action="/empresa/editar-vaga/<%= vaga.id %>" method="POST" enctype="multipart/form-data">
+    <form id="formEditarVaga" action="/empresa/vaga/<%= encId %>/editar" method="POST" enctype="multipart/form-data">
       <div class="row mb-4">
         <div class="col-md-6">
           <label class="form-label">Cargo</label>

@@ -10,6 +10,9 @@
     <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2" />
   </head>
   <style>
+  :root { --nav-h: 0px !important; }
+  body#home { padding-top: 0 !important; }
+  
   body { background: #fff; }
    .banner-wrap{
     margin-top: 0;
@@ -77,6 +80,16 @@
     animation: ripple .6s ease-out forwards;
   }
   @keyframes ripple { to { width: 320px; height: 320px; opacity: 0; } }
+
+  .client-card {
+    background: #ffffff;
+    transition: all 0.3s ease;
+    border: 1px solid #eef1f6;
+  }
+  .client-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+  }
 
   @media (prefers-reduced-motion: reduce) {
     .cta-bar .btn-animated,
@@ -220,7 +233,20 @@
           </div>
         </div>
       </section>
+      <section class="container py-5" data-reveal="up">
+        <div class="text-center mb-5">
+          <h2 class="section-title h3 mb-2">Nosso primeiro cliente</h2>
+          <p class="text-secondary mb-0">Temos orgulho de colaborar com empresas que confiam na nossa tecnologia.</p>
+        </div>
 
+        <div class="d-flex justify-content-center align-items-center flex-column flex-md-row gap-4">
+          <div class="client-card shadow-soft rounded-2xl p-4 text-center">
+            <img src="/img/FOLK.png" alt="Logo da Folk Uniformes" class="img-fluid mb-3" style="max-height: 100px;">
+            <h5 class="fw-bold mb-1 text-dark">Folk Uniformes</h5>
+            <p class="text-secondary small mb-0">Parceira na inovação de contratações inteligentes e humanas.</p>
+          </div>
+        </div>
+      </section>
       <section class="py-5" data-reveal="zoom" data-reveal-delay="120">
         <div class="container">
           <div class="cta-bar p-4 p-md-5 shadow-soft d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3">

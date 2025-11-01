@@ -7,6 +7,7 @@ const { uploadVaga } = require('../middlewares/uploadVaga');
 const vagaArquivoController = require('../controllers/vagaArquivoController');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const withEncodedParam = require('../middlewares/withEncodedParam');
 
 let ensureEmpresa = null;
 try {
@@ -54,14 +55,14 @@ router.post('/publicar-vaga', ensureEmpresa, uploadVaga.array('anexosVaga'), emp
 router.get('/public/vaga/anexos/:id/abrir', vagaArquivoController.abrirAnexoPublico);
 
 router.get('/vagas', ensureEmpresa, remember, empresaController.mostrarVagas);
-router.get('/vaga/:id', ensureEmpresa, empresaController.telaVagaDetalhe);
 
-router.get('/vaga/:id/editar', ensureEmpresa, empresaController.telaEditarVaga);
-router.post('/vaga/:id/editar', ensureEmpresa, uploadVaga.array('anexosVaga'), empresaController.salvarEditarVaga);
+router.get('/vaga/:id', ensureEmpresa, withEncodedParam('id'), empresaController.telaVagaDetalhe);
+router.get('/vaga/:id/editar', ensureEmpresa, withEncodedParam('id'), empresaController.telaEditarVaga);
+router.post('/vaga/:id/editar', ensureEmpresa, withEncodedParam('id'), uploadVaga.array('anexosVaga'), empresaController.salvarEditarVaga);
 
-router.post('/vaga/:id/fechar', ensureEmpresa, empresaController.fecharVaga);
-router.post('/vaga/:id/reabrir', ensureEmpresa, empresaController.reabrirVaga);
-router.post('/vaga/:id/excluir', ensureEmpresa, empresaController.excluirVaga);
+router.post('/vaga/:id/fechar', ensureEmpresa, withEncodedParam('id'), empresaController.fecharVaga);
+router.post('/vaga/:id/reabrir', ensureEmpresa, withEncodedParam('id'), empresaController.reabrirVaga);
+router.post('/vaga/:id/excluir', ensureEmpresa, withEncodedParam('id'), empresaController.excluirVaga);
 
 router.get('/detalhes-da-vaga', ensureEmpresa, (req, res) =>
   res.render('empresas/detalhes-da-vaga')
@@ -70,27 +71,27 @@ router.get('/candidatos-encontrados', ensureEmpresa, (req, res) =>
   res.render('empresas/candidatos-encontrados')
 );
 
-router.get('/perfil/:id', empresaController.perfilPublico);
+router.get('/perfil/:id', withEncodedParam('id'), empresaController.perfilPublico);
 router.get('/ranking-candidatos/:vagaId', ensureEmpresa, empresaController.rankingCandidatos);
 
 router.post('/excluir-conta', ensureEmpresa, empresaController.excluirConta);
 
 router.get('/editar-vaga/:id', (req, res) =>
-  res.redirect(301, `/empresa/vaga/${req.params.id}/editar`)
+   res.redirect(301, `/empresas/vaga/${req.params.id}/editar`)
 );
 router.post('/editar-vaga/:id', (req, res) =>
-  res.redirect(307, `/empresa/vaga/${req.params.id}/editar`)
+   res.redirect(307, `/empresas/vaga/${req.params.id}/editar`)
 );
 
 router.get('/empresa/vaga/:id/editar', (req, res) =>
-  res.redirect(301, `/empresa/vaga/${req.params.id}/editar`)
+   res.redirect(301, `/empresas/vaga/${req.params.id}/editar`)
 );
 router.post('/empresa/vaga/:id/editar', (req, res) =>
-  res.redirect(307, `/empresa/vaga/${req.params.id}/editar`)
+   res.redirect(307, `/empresas/vaga/${req.params.id}/editar`)
 );
 
 router.post('/excluir-vaga/:id', ensureEmpresa, (req, res) =>
-  res.redirect(307, `/empresa/vaga/${req.params.id}/excluir`)
+   res.redirect(307, `/empresas/vaga/${req.params.id}/excluir`)
 );
 
 router.get('/pular-cadastro', empresaController.pularCadastroEmpresa);
@@ -103,7 +104,7 @@ router.post('/vaga/links/:id/delete', ensureEmpresa, async (req, res) => {
       where: { id },
       select: { vaga_id: true }
     });
-    if (!lk) return res.redirect('/empresa/meu-perfil');
+    if (!lk) return res.redirect('/empresas/meu-perfil');
 
     await prisma.vaga_link.delete({ where: { id } });
 
@@ -121,7 +122,7 @@ router.post('/vaga/anexos/:id/delete', ensureEmpresa, async (req, res) => {
       where: { id },
       select: { vaga_id: true }
     });
-    if (!ax) return res.redirect('/empresa/meu-perfil');
+    if (!ax) return res.redirect('/empresas/meu-perfil');
 
     await prisma.vaga_arquivo.delete({ where: { id } });
 

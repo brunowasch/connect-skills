@@ -11,7 +11,8 @@
   <link rel="stylesheet" href="/css/shared/style.css">
 
   <style>
-    :root { --header-h: 72px; }
+    :root { --nav-h: 0px !important; }
+    body#home { padding-top: 0 !important; }
     main#content-main { margin-top: var(--header-h); }
     .page-actions{position:sticky;top:0;z-index:1020;background:#fff;}
     .badge-status{font-weight:600;}
@@ -230,32 +231,32 @@
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
         <!-- RANQUEAMENTO (esquerda) -->
         <div>
-          <a href="/empresas/ranking-candidatos/<%= vaga.id %>" class="btn btn-outline-primary">
+          <a href="/empresa/ranking-candidatos/<%= encId %>" class="btn btn-outline-primary">
             <i class="bi bi-bar-chart-line me-1"></i> Ver ranqueamento
           </a>
         </div>
 
         <!-- AÇÕES PRINCIPAIS (direita) -->
         <div class="d-flex flex-wrap gap-2 justify-content-end">
-          <a href="/empresa/vaga/<%= vaga?.id %>/editar" class="btn btn-primary">
+          <a href="/empresa/vaga/<%= encId %>/editar" class="btn btn-primary">
             <i class="bi bi-pencil-square me-1"></i> Editar vaga
           </a>
 
           <% if (aberta) { %>
-            <form action="/empresa/vaga/<%= vaga?.id %>/fechar" method="POST" class="d-inline">
+            <form action="/empresa/vaga/<%= encId %>/fechar" method="POST" class="d-inline">
               <button type="submit" class="btn btn-outline-secondary">
                 <i class="bi bi-slash-circle me-1"></i> Fechar vaga
               </button>
             </form>
           <% } else { %>
-            <form action="/empresa/vaga/<%= vaga?.id %>/reabrir" method="POST" class="d-inline">
+            <form action="/empresa/vaga/<%= encId %>/reabrir" method="POST" class="d-inline">
               <button type="submit" class="btn btn-success">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Reabrir vaga
               </button>
             </form>
           <% } %>
 
-          <form id="formExcluir" action="/empresa/vaga/<%= vaga?.id %>/excluir" method="POST" class="d-inline"></form>
+          <form id="formExcluir" action="/empresa/vaga/<%= encId %>/excluir" method="POST" class="d-inline"></form>
           <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalExcluir">
             <i class="bi bi-trash3 me-1"></i> Excluir vaga
           </button>
@@ -320,9 +321,7 @@
       if (!btn) return;
 
       btn.addEventListener('click', async () => {
-        const id = body.getAttribute('data-vaga-id') || '';
-        const provided = (window.location.origin + '/candidatos/vagas/' + id) || '';
-        const publicUrl = provided || (window.location.origin + '/candidatos/vagas/' + id);
+        const publicUrl = document.body.getAttribute('data-share-url') || window.location.href;
 
         try {
           await navigator.clipboard.writeText(publicUrl);
