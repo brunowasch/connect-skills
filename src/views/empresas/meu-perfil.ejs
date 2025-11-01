@@ -185,9 +185,9 @@
                   <td><%= ax.criadoEm ? new Date(ax.criadoEm).toLocaleString('pt-BR') : '-' %></td>
                   <td class="text-end d-flex gap-2 justify-content-end">
                     <% if (isPdf || isImg) { %>
-                      <a href="/public/empresa/anexos/<%= ax.id %>/abrir" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                      <a href="/empresa/anexos/<%= ax.id %>/abrir" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-box-arrow-up-right"></i> Abrir
-                      </a>
+                      </a>  
                     <% } else { %>
                       <a href="<%= ax.url %>" class="btn btn-sm btn-outline-secondary" download>
                         Baixar
