@@ -278,7 +278,10 @@ exports.abrirAnexoPublico = async (req, res) => {
     const anexo = await prisma.candidato_arquivo.findUnique({ where: { id } });
     if (!anexo) return res.status(404).send('Anexo não encontrado.');
 
-    const url  = anexo.url;
+    const url = String(anexo.url || '').trim();
+    if (url && /^https?:\/\//i.test(url)) {
+      return res.redirect(302, url);
+    }
     const nome = (anexo.nome || 'arquivo.pdf').replace(/"/g, '');
     const mime = (anexo.mime || '').toLowerCase();
 
