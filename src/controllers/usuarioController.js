@@ -550,13 +550,19 @@ exports.statusVerificacao = async (req, res) => {
   if (!email) return res.status(400).json({ erro: 'E-mail não informado' });
 
   try {
-    const usuario = await usuarioModel.buscarPorEmail(email);
-    if (!usuario) return res.status(404).json({ verificado: false });
+      const usuario = await usuarioModel.buscarPorEmail(email);
+      if (!usuario) return res.status(404).json({ verificado: false });
 
-    if (usuario.email_verificado) {
-      return res.json({ verificado: true, usuario_id: usuario.id, tipo: usuario.tipo });
-    }
-    return res.json({ verificado: false });
+      if (usuario.email_verificado) {
+        const uid = encodeId(usuario.id); 
+        return res.json({
+          verificado: true,
+          usuario_id: usuario.id, 
+          uid,                    
+          tipo: usuario.tipo
+        });
+      }
+      return res.json({ verificado: false });
   } catch (erro) {
     console.error('Erro ao verificar status de verificação:', erro);
     return res.status(500).json({ erro: 'Erro interno' });
