@@ -58,10 +58,11 @@
     </form>
 
     <div class="text-center">
-      <a class="btn btn-link text-decoration-none"
-         href="/candidatos/pular-cadastro?uid=<%= uid %>">
-        Prefiro completar meu perfil depois
-      </a>
+      <form action="/usuarios/pular-cadastro" method="POST" class="d-inline">
+        <button type="submit" class="btn btn-link text-decoration-none">
+          Prefiro completar meu perfil depois
+        </button>
+      </form>
     </div>
   </main>
 
