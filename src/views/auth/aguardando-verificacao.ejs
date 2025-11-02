@@ -78,28 +78,26 @@
   </div>
 <script>
   // Já existente:
-  function redirecionarParaCadastro(tipo, usuario_id) {
+  function redirecionarParaCadastro(tipo, uid) {
     const rota = tipo === 'empresa'
-      ? `/empresa/nome-empresa?usuario_id=${usuario_id}`
-      : `/candidatos/cadastro/nome?usuario_id=${usuario_id}`;
+      ? `/empresas/nome-empresa?uid=${uid}`
+      : `/candidatos/cadastro/nome?uid=${uid}`;
     window.location.href = rota;
   }
 
-  // Já existente:
   window.addEventListener('message', (event) => {
-    const { emailVerificado, usuario_id, tipo } = event.data || {};
-    if (emailVerificado && usuario_id && tipo) {
-      redirecionarParaCadastro(tipo, usuario_id);
+    const { emailVerificado, uid, tipo } = event.data || {};
+    if (emailVerificado && uid && tipo) {
+      redirecionarParaCadastro(tipo, uid);
     }
   });
 
-  // Já existente:
   window.addEventListener('storage', (event) => {
     if (event.key === 'verificacaoEmailConcluida' && event.newValue) {
       try {
-        const { usuario_id, tipo } = JSON.parse(event.newValue);
+        const { uid, tipo } = JSON.parse(event.newValue);
         localStorage.removeItem('verificacaoEmailConcluida');
-        redirecionarParaCadastro(tipo, usuario_id);
+        redirecionarParaCadastro(tipo, uid);
       } catch (e) {
         console.error('Erro ao ler storage:', e);
       }
@@ -113,15 +111,13 @@
       const resposta = await fetch(`/usuarios/status-verificacao?email=${encodeURIComponent(email)}`);
       const json = await resposta.json();
 
-      if (json.verificado && json.usuario_id && json.tipo) {
-        redirecionarParaCadastro(json.tipo, json.usuario_id);
+      if (json.verificado && json.uid && json.tipo) {
+        redirecionarParaCadastro(json.tipo, json.uid);
       }
     } catch (e) {
       console.error('Erro ao verificar status do e-mail:', e);
     }
   }
-
-  // Inicia polling a cada 5 segundos
   setInterval(verificarStatusEmail, 5000);
 </script>
 </body>
