@@ -55,9 +55,12 @@
         <div class="text-center mt-3">
         </div>
       </form>
-        <a href="/candidatos/pular-cadastro" class="btn btn-link text-decoration-none">
+      <form action="/usuarios/pular-cadastro" method="POST" class="d-inline">
+        <input type="hidden" name="uid" value="<%= uid %>">
+        <button type="submit" class="btn btn-link text-decoration-none">
           Prefiro completar meu perfil depois
-        </a>
+        </button>
+      </form>
     </div>
   </main>
 
