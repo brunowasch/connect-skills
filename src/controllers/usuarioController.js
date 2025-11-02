@@ -776,6 +776,7 @@ exports.confirmarAcaoCadastro = async (req, res) => {
 exports.pularCadastro = async (req, res) => {
   try {
     const { uid } = req.body;
+
     if ((!req.session.usuario || !req.session.usuario.id) && uid) {
       const raw = String(uid);
       const dec = decodeId ? decodeId(raw) : NaN;
@@ -785,19 +786,44 @@ exports.pularCadastro = async (req, res) => {
         const usuario = await usuarioModel.buscarPorId(usuarioId);
         if (usuario) {
           req.session.usuario = { id: usuario.id, tipo: usuario.tipo };
-          if (usuario.tipo === 'candidato') {
-            req.session.candidato = { id: usuario.id, skipCadastro: true };
-          } else if (usuario.tipo === 'empresa') {
-            req.session.empresa = { id: usuario.id, skipCadastro: true };
-          }
         }
       }
     }
-
     if (!req.session.usuario) req.session.usuario = {};
     req.session.usuario.skipCadastro = true;
-    if (req.session.candidato) req.session.candidato.skipCadastro = true;
-    if (req.session.empresa)  req.session.empresa.skipCadastro  = true;
+
+    if (req.session.usuario?.tipo === 'candidato') {
+      const { PrismaClient } = require('@prisma/client');
+      const prisma = new PrismaClient();
+
+      let cand = await prisma.candidato.findUnique({
+        where: { usuario_id: Number(req.session.usuario.id) }
+      });
+
+      if (!cand) {
+        cand = await prisma.candidato.create({
+          data: {
+            usuario_id: Number(req.session.usuario.id),
+            nome: '',
+            sobrenome: '',
+            data_nascimento: null,
+            pais: '',
+            estado: '',
+            cidade: '',
+            telefone: '',
+            foto_perfil: ''
+          }
+        });
+      }
+      req.session.candidato = {
+        id: Number(cand.id),
+        skipCadastro: true
+      };
+    }
+
+    if (req.session.empresa) {
+      req.session.empresa.skipCadastro = true;
+    }
 
     res.cookie('cs_skipCadastro', '1', {
       httpOnly: false,
@@ -805,9 +831,10 @@ exports.pularCadastro = async (req, res) => {
       maxAge: 31536000000
     });
 
-    const tipo = req.session.usuario?.tipo ||
-                 (req.session.candidato && 'candidato') ||
-                 (req.session.empresa && 'empresa');
+    const tipo =
+      req.session.usuario?.tipo ||
+      (req.session.candidato && 'candidato') ||
+      (req.session.empresa && 'empresa');
 
     if (!tipo) {
       req.session.erro = 'Não foi possível pular o complemento agora.';
