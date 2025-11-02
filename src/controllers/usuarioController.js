@@ -6,7 +6,7 @@ const candidatoModel = require('../models/candidatoModel');
 const empresaModel = require('../models/empresaModel');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const { encodeId } = require('../utils/idEncoder');
+const { encodeId, decodeId } = require('../utils/idEncoder');
 
 const fromAddress = process.env.EMAIL_FROM || `Connect Skills <${process.env.EMAIL_USER || process.env.GMAIL_USER}>`;
 
@@ -773,22 +773,51 @@ exports.confirmarAcaoCadastro = async (req, res) => {
   }
 };
 
-exports.pularCadastro = (req, res) => {
-  if (!req.session.usuario) req.session.usuario = {};
-  req.session.usuario.skipCadastro = true;
+exports.pularCadastro = async (req, res) => {
+  try {
+    const { uid } = req.body;
+    if ((!req.session.usuario || !req.session.usuario.id) && uid) {
+      const raw = String(uid);
+      const dec = decodeId ? decodeId(raw) : NaN;
+      const usuarioId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
 
-  if (req.session.candidato) req.session.candidato.skipCadastro = true;
-  if (req.session.empresa) req.session.empresa.skipCadastro = true;
+      if (Number.isFinite(usuarioId)) {
+        const usuario = await usuarioModel.buscarPorId(usuarioId);
+        if (usuario) {
+          req.session.usuario = { id: usuario.id, tipo: usuario.tipo };
+          if (usuario.tipo === 'candidato') {
+            req.session.candidato = { id: usuario.id, skipCadastro: true };
+          } else if (usuario.tipo === 'empresa') {
+            req.session.empresa = { id: usuario.id, skipCadastro: true };
+          }
+        }
+      }
+    }
 
-  res.cookie('cs_skipCadastro', '1', {
-    httpOnly: false, 
-    sameSite: 'lax',
-    maxAge: 31536000000
-  });
+    if (!req.session.usuario) req.session.usuario = {};
+    req.session.usuario.skipCadastro = true;
+    if (req.session.candidato) req.session.candidato.skipCadastro = true;
+    if (req.session.empresa)  req.session.empresa.skipCadastro  = true;
 
-  const tipo = req.session.usuario?.tipo ||
-               (req.session.candidato && 'candidato') ||
-               (req.session.empresa && 'empresa');
+    res.cookie('cs_skipCadastro', '1', {
+      httpOnly: false,
+      sameSite: 'lax',
+      maxAge: 31536000000
+    });
 
-  return res.redirect(tipo === 'empresa' ? '/empresa/home' : '/candidatos/home');
+    const tipo = req.session.usuario?.tipo ||
+                 (req.session.candidato && 'candidato') ||
+                 (req.session.empresa && 'empresa');
+
+    if (!tipo) {
+      req.session.erro = 'Não foi possível pular o complemento agora.';
+      return res.redirect('/login');
+    }
+
+    return res.redirect(tipo === 'empresa' ? '/empresas/home' : '/candidatos/home');
+  } catch (err) {
+    console.error('Erro ao pular cadastro:', err);
+    req.session.erro = 'Não foi possível pular o complemento agora.';
+    return res.redirect('/login');
+  }
 };
