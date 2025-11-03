@@ -10,7 +10,7 @@ const compression = require('compression');
 const helmet = require('helmet');
 const nodemailer = require('nodemailer');
 const cookieParser = require('cookie-parser');
-const { encodeId, decodeId } = require('./src/utils/idEncoder');
+const { encodeId, decodeId } = require('./utils/idEncoder');
 
 // Configs e utils
 require('./config/passportGoogle');
@@ -120,6 +120,9 @@ app.use((req, res, next) => {
   res.locals.empresa   = req.session.empresa || null;
   res.locals.usuario   = req.session.usuario || res.locals.candidato || res.locals.empresa || null;
   res.locals.sessionRemember = Boolean(req.session?.remember);
+
+  res.locals.encodeId = encodeId;
+  res.locals.decodeId = decodeId;
   next();
 });
 
