@@ -72,6 +72,6 @@ router.use((err, req, res, next) => {
   next(err);
 });
 
-router.get('/public/empresa/anexos/:id/abrir', empresaArquivoController.abrirAnexoPublico);
+router.get('/open/empresa/anexos/:id/abrir', empresaArquivoController.abrirAnexoPublico);
 
 module.exports = router;
