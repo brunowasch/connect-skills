@@ -2,19 +2,25 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { cloudinary } = require('../config/cloudinary');
 const axios = require('axios');
+const path = require('path');
 
 function safeFilenameHeader(name) {
   if (!name) return 'arquivo.pdf';
-  // remove acentos e caracteres não ASCII
-  const base = name
+  const base = String(name)
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^\w.\- ]/g, '_')
     .trim();
-
-  // codifica segundo RFC 5987 (para UTF-8)
   const encoded = encodeURIComponent(base);
   return `${base}"; filename*=UTF-8''${encoded}`;
+}
+
+function fixMojibake(str) {
+  if (!str) return str;
+  if (/[Ã�]/.test(str)) {
+    try { return Buffer.from(str, 'latin1').toString('utf8'); } catch { return str; }
+  }
+  return str;
 }
 
 exports.uploadAnexos = async (req, res) => {
@@ -40,7 +46,6 @@ exports.uploadAnexos = async (req, res) => {
     for (const f of files) {
       const dataUri = `data:${f.mimetype};base64,${f.buffer.toString('base64')}`;
 
-      // Igual ao candidato: PDF => raw, imagem => image, restante => auto
       const isImage = /^image\//i.test(f.mimetype);
       const isPDF   = f.mimetype === 'application/pdf';
       const resourceType = isPDF ? 'raw' : (isImage ? 'image' : 'auto');
@@ -54,10 +59,15 @@ exports.uploadAnexos = async (req, res) => {
       const url = up?.secure_url || up?.url || null;
       if (!url) throw new Error('Falha ao obter secure_url do Cloudinary.');
 
+      const originalNameRaw = f.originalname || 'arquivo';
+      const parsed = path.parse(originalNameRaw);
+      const fixedBase = fixMojibake(parsed.name);
+      const finalName = (fixedBase + (parsed.ext || '')).slice(0, 255);
+
       await prisma.empresa_arquivo.create({
         data: {
           empresa_id: Number(emp.id),
-          nome: String(f.originalname || 'arquivo').slice(0, 255),
+          nome: finalName, 
           mime: String(f.mimetype || 'application/octet-stream').slice(0, 100),
           tamanho: Number(f.size || up.bytes || 0),
           url
@@ -127,15 +137,8 @@ exports.abrirAnexo = async (req, res) => {
     if (upstream.headers['etag'])           res.setHeader('ETag',           upstream.headers['etag']);
     if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
 
-    // Abrir inline no viewer do navegador (como no candidato)
     res.setHeader('Content-Disposition', `inline; filename="${safeFilenameHeader(nome)}`);
-
-    upstream.data.on('error', (e) => {
-      console.error('Stream upstream error:', e?.message || e);
-      if (!res.headersSent) res.status(502);
-      res.end();
-    });
-
+    upstream.data.on('error', (e) => { console.error('Stream upstream error:', e?.message || e); if (!res.headersSent) res.status(502); res.end(); });
     upstream.data.pipe(res);
   } catch (e) {
     console.error('[empresaArquivoController.abrirAnexo] erro:', e);
@@ -163,7 +166,6 @@ exports.deletarAnexo = async (req, res) => {
   }
 };
 
-/** Salva um link público como “anexo” (opcional, igual candidato). */
 exports.salvarLink = async (req, res) => {
   try {
     const emp = req.session?.empresa;
@@ -232,9 +234,7 @@ exports.abrirAnexoPublico = async (req, res) => {
     if (upstream.headers['etag'])           res.setHeader('ETag',           upstream.headers['etag']);
     if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
 
-    // Exibir inline no navegador
     res.setHeader('Content-Disposition', `inline; filename="${safeFilenameHeader(nome)}`);
-
     upstream.data.on('error', () => { if (!res.headersSent) res.status(502); res.end(); });
     upstream.data.pipe(res);
   } catch (e) {
