@@ -3,6 +3,20 @@ const prisma = new PrismaClient();
 const { cloudinary } = require('../config/cloudinary');
 const axios = require('axios');
 
+function safeFilenameHeader(name) {
+  if (!name) return 'arquivo.pdf';
+  // remove acentos e caracteres não ASCII
+  const base = name
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w.\- ]/g, '_')
+    .trim();
+
+  // codifica segundo RFC 5987 (para UTF-8)
+  const encoded = encodeURIComponent(base);
+  return `${base}"; filename*=UTF-8''${encoded}`;
+}
+
 exports.uploadAnexos = async (req, res) => {
   try {
     const emp = req.session?.empresa;
@@ -114,7 +128,7 @@ exports.abrirAnexo = async (req, res) => {
     if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
 
     // Abrir inline no viewer do navegador (como no candidato)
-    res.setHeader('Content-Disposition', `inline; filename="${nome}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${safeFilenameHeader(nome)}`);
 
     upstream.data.on('error', (e) => {
       console.error('Stream upstream error:', e?.message || e);
@@ -219,7 +233,7 @@ exports.abrirAnexoPublico = async (req, res) => {
     if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
 
     // Exibir inline no navegador
-    res.setHeader('Content-Disposition', `inline; filename="${nome}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${safeFilenameHeader(nome)}`);
 
     upstream.data.on('error', () => { if (!res.headersSent) res.status(502); res.end(); });
     upstream.data.pipe(res);
