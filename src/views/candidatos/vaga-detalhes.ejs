@@ -131,7 +131,7 @@
               <ul class="list-unstyled mb-0">
                 <% vaga.vaga_arquivo.forEach(ax => { %>
                   <li class="mb-2">
-                    <a href="/empresa/public/vaga/anexos/<%= ax.id %>/abrir" target="_blank" rel="noopener">
+                    <a href="/empresa/public/vaga/anexos/<%= encodeId(ax.id) %>/abrir" target="_blank" rel="noopener">
                       <i class="bi bi-file-earmark-text me-1"></i> <%= ax.nome %>
                     </a>
                   </li>

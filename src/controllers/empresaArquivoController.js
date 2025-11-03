@@ -3,6 +3,7 @@ const prisma = new PrismaClient();
 const { cloudinary } = require('../config/cloudinary');
 const axios = require('axios');
 const path = require('path');
+const { encodeId, decodeId } = require('../utils/idEncoder');
 
 function safeFilenameHeader(name) {
   if (!name) return 'arquivo.pdf';
@@ -91,9 +92,15 @@ exports.abrirAnexo = async (req, res) => {
     const emp = req.session?.empresa;
     if (!emp?.id) return res.redirect('/login');
 
+    // >>> adição para aceitar ID criptografado com fallback numérico
+    const raw = String(req.params.id || '');
+    const dec = decodeId(raw);
+    const realId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+    if (!Number.isFinite(realId) || realId <= 0) return res.status(400).send('ID inválido.');
+
     const id = Number(req.params.id);
     const ax = await prisma.empresa_arquivo.findFirst({
-      where: { id, empresa_id: Number(emp.id) },
+      where: { id: realId, empresa_id: Number(emp.id) },
       select: { url: true, nome: true, mime: true }
     });
 
@@ -199,11 +206,16 @@ exports.salvarLink = async (req, res) => {
 
 exports.abrirAnexoPublico = async (req, res) => {
   try {
+    // >>> adição para aceitar ID criptografado com fallback numérico
+    const raw = String(req.params.id || '');
+    const dec = decodeId(raw);
+    const realId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+    if (!Number.isFinite(realId) || realId <= 0) return res.status(400).send('ID inválido.');
+
     const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID inválido.');
 
     const ax = await prisma.empresa_arquivo.findUnique({
-      where: { id },
+      where: { id: realId },
       select: { url: true, nome: true, mime: true }
     });
     if (!ax || !ax.url) return res.status(404).send('Anexo não encontrado.');

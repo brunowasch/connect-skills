@@ -3,6 +3,7 @@ const prisma = new PrismaClient();
 const { cloudinary } = require('../config/cloudinary');
 const path = require('path');
 const axios = require('axios');
+const { encodeId, decodeId } = require('../utils/idEncoder');
 
 function safeFilenameHeader(name) {
   if (!name) return 'arquivo.pdf';
@@ -221,11 +222,14 @@ exports.deletarAnexo = async (req, res) => {
 exports.abrirAnexo = async (req, res) => {
   try {
     const candidato = await getCandidatoBySession(req);
+
+    const raw = String(req.params.id || '');
+    const dec = decodeId(raw);
+    const realId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+    if (!Number.isFinite(realId) || realId <= 0) return res.status(400).send('ID inválido.');
     const { id } = req.params;
 
-    const anexo = await prisma.candidato_arquivo.findUnique({
-      where: { id: Number(id) },
-    });
+    const anexo = await prisma.candidato_arquivo.findUnique({ where: { id: realId } });
     if (!anexo || anexo.candidato_id !== candidato.id) {
       return res.status(404).send('Anexo não encontrado.');
     }
@@ -286,10 +290,12 @@ exports.abrirAnexo = async (req, res) => {
 
 exports.abrirAnexoPublico = async (req, res) => {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID inválido.');
+    const raw = String(req.params.id || '');
+    const dec = decodeId(raw);
+    const realId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+    if (!Number.isFinite(realId) || realId <= 0) return res.status(400).send('ID inválido.');
 
-    const anexo = await prisma.candidato_arquivo.findUnique({ where: { id } });
+    const anexo = await prisma.candidato_arquivo.findUnique({ where: { id: realId } });
     if (!anexo) return res.status(404).send('Anexo não encontrado.');
 
     const url  = anexo.url;

@@ -3,6 +3,18 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const axios = require('axios');
 const { cloudinary } = require('../config/cloudinary');
+const { encodeId, decodeId } = require('../utils/idEncoder');
+
+function safeFilenameHeader(name) {
+  if (!name) return 'arquivo.pdf';
+  const base = String(name)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w.\- ]/g, '_')
+    .trim();
+  const encoded = encodeURIComponent(base);
+  return `${base}"; filename*=UTF-8''${encoded}`;
+}
 
 exports.uploadAnexosDaPublicacao = async (req, res, vagaId) => {
   const files = Array.isArray(req.files) ? req.files : [];
@@ -35,9 +47,15 @@ exports.uploadAnexosDaPublicacao = async (req, res, vagaId) => {
 
 exports.abrirAnexoPublico = async (req, res) => {
   try {
+    // Aceita ID criptografado com fallback para numérico legado
+    const raw = String(req.params.id || '');
+    const dec = decodeId(raw);
+    const realId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+    if (!Number.isFinite(realId) || realId <= 0) return res.status(400).send('ID inválido.');
+
     const id = Number(req.params.id);
     const ax = await prisma.vaga_arquivo.findUnique({
-      where: { id },
+      where: { id: realId },
       select: { url: true, nome: true, mime: true }
     });
     if (!ax?.url) return res.status(404).send('Anexo não encontrado.');
@@ -63,7 +81,7 @@ exports.abrirAnexoPublico = async (req, res) => {
     if (upstream.headers['accept-ranges'])  res.setHeader('Accept-Ranges',  upstream.headers['accept-ranges']);
 
     const nome = (ax.nome || 'arquivo').replace(/"/g,'');
-    res.setHeader('Content-Disposition', `inline; filename="${nome}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${safeFilenameHeader(nome)}`);
 
     upstream.data.pipe(res);
   } catch (e) {

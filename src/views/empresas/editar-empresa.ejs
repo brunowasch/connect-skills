@@ -241,7 +241,7 @@
                     <td><%= humanFileSize ? humanFileSize(a.tamanho) : ((a.tamanho||0) + ' B') %></td>
                     <td><%= new Date(a.criadoEm).toLocaleString('pt-BR') %></td>
                     <td class="text-end">
-                      <a href="/empresa/anexos/<%= a.id %>/abrir" target="_blank" rel="noopener"
+                      <a href="/empresa/anexos/<%= encodeId(f.id) %>/abrir" target="_blank" rel="noopener"
                         class="btn btn-sm btn-outline-primary">
                         Abrir
                       </a>
