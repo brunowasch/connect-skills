@@ -3,24 +3,6 @@ const prisma = new PrismaClient();
 const { cloudinary } = require('../config/cloudinary');
 const axios = require('axios');
 
-const sanitizeFilename = (name = 'arquivo') =>
-  String(name).replace(/[/\\?%*:|"<>]/g, '').trim() || 'arquivo';
-
-function normalizeViewUrl(u) {
-  let url = String(u || '').trim();
-  if (!url) return '';
-  url = url
-    .replace(/\/upload\/(?:[^/]*,)?fl_attachment(?:[^/]*,)?\//, '/upload/')
-    .replace(/(\?|&)fl_attachment(=[^&]*)?/gi, '')
-    .replace(/(\?|&)response-content-disposition=attachment/gi, '')
-    .replace(/(\?|&)download=1\b/gi, '$1');
-  url = url.replace(/\?dl=1\b/, '?raw=1').replace(/\?dl=0\b/, '?raw=1');
-  const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-  if (m && m[1]) url = `https://drive.google.com/uc?export=view&id=${m[1]}`;
-  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-  return url;
-}
-
 exports.uploadAnexos = async (req, res) => {
   try {
     const emp = req.session?.empresa;
@@ -82,25 +64,73 @@ exports.uploadAnexos = async (req, res) => {
 
 exports.abrirAnexo = async (req, res) => {
   try {
+    const emp = req.session?.empresa;
+    if (!emp?.id) return res.redirect('/login');
+
     const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID inválido.');
-
-    const ax = await prisma.empresa_arquivo.findUnique({
-      where: { id },
-      select: { url: true }
+    const ax = await prisma.empresa_arquivo.findFirst({
+      where: { id, empresa_id: Number(emp.id) },
+      select: { url: true, nome: true, mime: true }
     });
-    if (!ax?.url) return res.status(404).send('Anexo não encontrado.');
 
-    const url = normalizeViewUrl(ax.url);
-    if (!url) return res.status(400).send('URL inválida.');
+    if (!ax || !ax.url) {
+      req.flash?.('erro', 'Arquivo sem URL válida.');
+      return res.redirect('/empresa/editar-empresa');
+    }
 
-    return res.redirect(302, url);
-  } catch (err) {
-    console.error('[empresaArquivoController.abrirAnexo]', err);
-    return res.status(500).send('Falha ao abrir o anexo.');
+    const url  = String(ax.url).trim();
+    if (!/^https?:\/\//i.test(url)) {
+      req.flash?.('erro', 'URL do anexo inválida. Reenvie o arquivo.');
+      return res.redirect('/empresa/editar-empresa');
+    }
+
+    const nome = (ax.nome || 'arquivo.pdf').replace(/"/g, '');
+    const mime = (ax.mime || '').toLowerCase();
+
+    const upstream = await axios.get(url, {
+      responseType: 'stream',
+      headers: { ...(req.headers.range ? { Range: req.headers.range } : {}), Accept: 'application/pdf,*/*' },
+      maxRedirects: 5,
+      decompress: false,
+      validateStatus: () => true,
+    });
+
+    res.status(upstream.status === 206 ? 206 : 200);
+    res.removeHeader('X-Content-Type-Options');
+
+    if (mime === 'application/pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+    } else if (upstream.headers['content-type']) {
+      res.setHeader('Content-Type', upstream.headers['content-type']);
+    } else {
+      res.setHeader('Content-Type', 'application/pdf');
+    }
+
+    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+    if (upstream.headers['content-range'])  res.setHeader('Content-Range',  upstream.headers['content-range']);
+    if (upstream.headers['accept-ranges'])  res.setHeader('Accept-Ranges',  upstream.headers['accept-ranges']);
+    if (upstream.headers['last-modified'])  res.setHeader('Last-Modified',  upstream.headers['last-modified']);
+    if (upstream.headers['etag'])           res.setHeader('ETag',           upstream.headers['etag']);
+    if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
+
+    // Abrir inline no viewer do navegador (como no candidato)
+    res.setHeader('Content-Disposition', `inline; filename="${nome}"`);
+
+    upstream.data.on('error', (e) => {
+      console.error('Stream upstream error:', e?.message || e);
+      if (!res.headersSent) res.status(502);
+      res.end();
+    });
+
+    upstream.data.pipe(res);
+  } catch (e) {
+    console.error('[empresaArquivoController.abrirAnexo] erro:', e);
+    if (!res.headersSent) {
+      req.flash?.('erro', 'Falha ao abrir o anexo.');
+      return res.redirect('/empresa/editar-empresa');
+    }
   }
 };
-
 
 exports.deletarAnexo = async (req, res) => {
   try {
@@ -160,25 +190,41 @@ exports.abrirAnexoPublico = async (req, res) => {
       where: { id },
       select: { url: true, nome: true, mime: true }
     });
-    if (!ax?.url) return res.status(404).send('Anexo não encontrado.');
+    if (!ax || !ax.url) return res.status(404).send('Anexo não encontrado.');
 
-    const url = normalizeViewUrl(ax.url);
-    if (!url) return res.status(400).send('URL inválida.');
+    const url  = String(ax.url).trim();
+    const nome = (ax.nome || 'arquivo.pdf').replace(/"/g, '');
+    const mime = (ax.mime || '').toLowerCase();
 
-    const upstream = await axios.get(url, { responseType: 'stream', validateStatus: () => true });
-    if (upstream.status >= 400) return res.status(502).send('Falha ao obter o arquivo.');
+    const upstream = await axios.get(url, {
+      responseType: 'stream',
+      headers: { ...(req.headers.range ? { Range: req.headers.range } : {}), Accept: 'application/pdf,image/*,*/*' },
+      maxRedirects: 5,
+      decompress: false,
+      validateStatus: () => true
+    });
 
-    const mime = ax.mime || upstream.headers['content-type'] || 'application/octet-stream';
-    const name = sanitizeFilename(ax.nome || 'arquivo');
+    res.status(upstream.status === 206 ? 206 : 200);
+    res.removeHeader('X-Content-Type-Options');
 
-    res.setHeader('Content-Type', mime);
-    res.setHeader('Content-Disposition', `inline; filename="${name}"`);
-    res.setHeader('Cache-Control', 'public, max-age=300');
-    if (upstream.headers['accept-ranges']) res.setHeader('Accept-Ranges', upstream.headers['accept-ranges']);
+    if (mime) res.setHeader('Content-Type', mime);
+    else if (upstream.headers['content-type']) res.setHeader('Content-Type', upstream.headers['content-type']);
+    else res.setHeader('Content-Type', 'application/pdf');
 
+    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+    if (upstream.headers['content-range'])  res.setHeader('Content-Range',  upstream.headers['content-range']);
+    if (upstream.headers['accept-ranges'])  res.setHeader('Accept-Ranges',  upstream.headers['accept-ranges']);
+    if (upstream.headers['last-modified'])  res.setHeader('Last-Modified',  upstream.headers['last-modified']);
+    if (upstream.headers['etag'])           res.setHeader('ETag',           upstream.headers['etag']);
+    if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
+
+    // Exibir inline no navegador
+    res.setHeader('Content-Disposition', `inline; filename="${nome}"`);
+
+    upstream.data.on('error', () => { if (!res.headersSent) res.status(502); res.end(); });
     upstream.data.pipe(res);
-  } catch (err) {
-    console.error('[empresaArquivoController.abrirAnexoPublico]', err);
-    return res.status(500).send('Falha ao abrir o anexo.');
+  } catch (e) {
+    console.error('[empresaArquivoController.abrirAnexoPublico] erro:', e?.message || e);
+    if (!res.headersSent) res.status(500).send('Falha ao abrir o anexo.');
   }
 };

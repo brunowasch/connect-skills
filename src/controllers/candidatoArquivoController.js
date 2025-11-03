@@ -69,24 +69,6 @@ function slugify(s) {
     .toLowerCase();
 }
 
-const sanitizeFilename = (name = 'arquivo') =>
-  String(name).replace(/[/\\?%*:|"<>]/g, '').trim() || 'arquivo';
-
-function normalizeViewUrl(u) {
-  let url = String(u || '').trim();
-  if (!url) return '';
-  url = url
-    .replace(/\/upload\/(?:[^/]*,)?fl_attachment(?:[^/]*,)?\//, '/upload/')
-    .replace(/(\?|&)fl_attachment(=[^&]*)?/gi, '')
-    .replace(/(\?|&)response-content-disposition=attachment/gi, '')
-    .replace(/(\?|&)download=1\b/gi, '$1');
-  url = url.replace(/\?dl=1\b/, '?raw=1').replace(/\?dl=0\b/, '?raw=1');
-  const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-  if (m && m[1]) url = `https://drive.google.com/uc?export=view&id=${m[1]}`;
-  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-  return url;
-}
-
 exports.telaAnexos = async (req, res) => {
   return res.redirect('/candidato/editar-perfil');
 };
@@ -224,54 +206,113 @@ exports.deletarAnexo = async (req, res) => {
 
 exports.abrirAnexo = async (req, res) => {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID inválido.');
+    const candidato = await getCandidatoBySession(req);
+    const { id } = req.params;
 
-    const file = await prisma.candidato_arquivo.findUnique({
-      where: { id },
-      select: { url: true }
+    const anexo = await prisma.candidato_arquivo.findUnique({
+      where: { id: Number(id) },
     });
-    if (!file?.url) return res.status(404).send('Anexo não encontrado.');
+    if (!anexo || anexo.candidato_id !== candidato.id) {
+      return res.status(404).send('Anexo não encontrado.');
+    }
 
-    const url = normalizeViewUrl(file.url);
-    if (!url) return res.status(400).send('URL inválida.');
+    const url  = anexo.url;                         // URL do Cloudinary (raw)
+    const nome = (anexo.nome || 'arquivo.pdf').replace(/"/g, '');
+    const mime = (anexo.mime || '').toLowerCase();  // usamos o MIME salvo no upload
 
-    return res.redirect(302, url);
+    const upstream = await axios.get(url, {
+      responseType: 'stream',
+      headers: {
+        ...(req.headers.range ? { Range: req.headers.range } : {}),
+        Accept: 'application/pdf,*/*',
+      },
+      maxRedirects: 5,
+      decompress: false,
+      validateStatus: () => true,
+    });
+
+    // status 206 quando Range; senão 200
+    res.status(upstream.status === 206 ? 206 : 200);
+
+    // não deixe o helmet bloquear detecção do tipo
+    res.removeHeader('X-Content-Type-Options');
+
+    // Content-Type: se o banco diz que é PDF, fixamos como PDF (Cloudinary raw pode vir como octet-stream)
+    if (mime === 'application/pdf') {
+      res.setHeader('Content-Type', 'application/pdf');
+    } else if (upstream.headers['content-type']) {
+      res.setHeader('Content-Type', upstream.headers['content-type']);
+    } else {
+      res.setHeader('Content-Type', 'application/pdf');
+    }
+
+    // repassa cabeçalhos importantes para o viewer
+    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+    if (upstream.headers['content-range'])  res.setHeader('Content-Range',  upstream.headers['content-range']);
+    if (upstream.headers['accept-ranges'])  res.setHeader('Accept-Ranges',  upstream.headers['accept-ranges']);
+    if (upstream.headers['last-modified'])  res.setHeader('Last-Modified',  upstream.headers['last-modified']);
+    if (upstream.headers['etag'])           res.setHeader('ETag',           upstream.headers['etag']);
+    if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
+
+    // abrir inline (sem attachment)
+    res.setHeader('Content-Disposition', `inline; filename="${nome}"`);
+
+    upstream.data.on('error', (e) => {
+      console.error('Stream upstream error:', e?.message || e);
+      if (!res.headersSent) res.status(502);
+      res.end();
+    });
+
+    upstream.data.pipe(res);
   } catch (err) {
-    console.error('[candidatoArquivoController.abrirAnexo]', err);
-    return res.status(500).send('Falha ao abrir o anexo.');
+    console.error('abrirAnexo erro:', err?.message || err);
+    if (!res.headersSent) res.status(500).send('Falha ao abrir o anexo.');
   }
 };
-
 
 exports.abrirAnexoPublico = async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID inválido.');
 
-    const file = await prisma.candidato_arquivo.findUnique({
-      where: { id },
-      select: { url: true, nome: true, mime: true }
+    const anexo = await prisma.candidato_arquivo.findUnique({ where: { id } });
+    if (!anexo) return res.status(404).send('Anexo não encontrado.');
+
+    const url  = anexo.url;
+    const nome = (anexo.nome || 'arquivo.pdf').replace(/"/g, '');
+    const mime = (anexo.mime || '').toLowerCase();
+
+    const upstream = await axios.get(url, {
+      responseType: 'stream',
+      headers: {
+        ...(req.headers.range ? { Range: req.headers.range } : {}),
+        Accept: 'application/pdf,image/*,*/*',
+      },
+      maxRedirects: 5,
+      decompress: false,
+      validateStatus: () => true,
     });
-    if (!file?.url) return res.status(404).send('Anexo não encontrado.');
 
-    const url = normalizeViewUrl(file.url);
-    if (!url) return res.status(400).send('URL inválida.');
+    res.status(upstream.status === 206 ? 206 : 200);
+    res.removeHeader('X-Content-Type-Options');
 
-    const upstream = await axios.get(url, { responseType: 'stream', validateStatus: () => true });
-    if (upstream.status >= 400) return res.status(502).send('Falha ao obter o arquivo.');
+    if (mime) res.setHeader('Content-Type', mime);
+    else if (upstream.headers['content-type']) res.setHeader('Content-Type', upstream.headers['content-type']);
+    else res.setHeader('Content-Type', 'application/pdf');
 
-    const mime = file.mime || upstream.headers['content-type'] || 'application/octet-stream';
-    const name = sanitizeFilename(file.nome || 'arquivo');
+    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+    if (upstream.headers['content-range'])  res.setHeader('Content-Range', upstream.headers['content-range']);
+    if (upstream.headers['accept-ranges'])  res.setHeader('Accept-Ranges', upstream.headers['accept-ranges']);
+    if (upstream.headers['last-modified'])  res.setHeader('Last-Modified', upstream.headers['last-modified']);
+    if (upstream.headers['etag'])           res.setHeader('ETag', upstream.headers['etag']);
+    if (upstream.headers['cache-control'])  res.setHeader('Cache-Control', upstream.headers['cache-control']);
 
-    res.setHeader('Content-Type', mime);
-    res.setHeader('Content-Disposition', `inline; filename="${name}"`);
-    res.setHeader('Cache-Control', 'public, max-age=300');
-    if (upstream.headers['accept-ranges']) res.setHeader('Accept-Ranges', upstream.headers['accept-ranges']);
+    res.setHeader('Content-Disposition', `inline; filename="${nome}"`);
 
+    upstream.data.on('error', () => { if (!res.headersSent) res.status(502); res.end(); });
     upstream.data.pipe(res);
   } catch (err) {
-    console.error('[candidatoArquivoController.abrirAnexoPublico]', err);
-    return res.status(500).send('Falha ao abrir o anexo.');
+    console.error('abrirAnexoPublico erro:', err?.message || err);
+    if (!res.headersSent) res.status(500).send('Falha ao abrir o anexo.');
   }
 };
