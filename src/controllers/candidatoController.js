@@ -303,9 +303,19 @@ exports.telaFotoPerfil = (req, res) => {
 };
 
 exports.salvarFotoPerfil = async (req, res) => {
-  const rawUid = req.body.uid || req.query.uid || req.body.usuario_id || req.query.usuario_id;
+  const uidValue = req.body.uid || req.query.uid || req.body.usuario_id || req.query.usuario_id;
+  const rawUid = Array.isArray(uidValue) ? uidValue[0] : uidValue;
   const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
-  const uid = usuario_id ? encodeId(usuario_id) : '';
+
+  if (isNaN(usuario_id)) {
+    console.error('Erro ao salvar foto: ID do usuário inválido ou ausente.', { rawUid });
+    return res.render('candidatos/foto-perfil', {
+      uid: '',
+      error: 'Sessão inválida ou ID do usuário não fornecido. Tente fazer login novamente.'
+    });
+  }
+
+  const uid = usuario_id ? encodeId(usuario_id) : ''; 
 
   if (!req.file?.buffer) {
     return res.render('candidatos/foto-perfil', {
@@ -324,7 +334,8 @@ exports.salvarFotoPerfil = async (req, res) => {
 
     const caminhoFoto = result.secure_url;
 
-    const candidato = await prisma.candidato.findUnique({ where: { usuario_id: Number(usuario_id) } });
+    const candidato = await prisma.candidato.findUnique({ where: { usuario_id: usuario_id } });
+
     if (!candidato) throw new Error(`Candidato não existe (usuario_id ${usuario_id})`);
 
     await prisma.candidato.update({
