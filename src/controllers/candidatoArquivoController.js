@@ -206,69 +206,33 @@ exports.deletarAnexo = async (req, res) => {
 
 exports.abrirAnexo = async (req, res) => {
   try {
-    const candidato = await getCandidatoBySession(req);
-    const { id } = req.params;
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID inválido.');
 
     const anexo = await prisma.candidato_arquivo.findUnique({
-      where: { id: Number(id) },
+      where: { id },
+      select: { url: true }
     });
-    if (!anexo || anexo.candidato_id !== candidato.id) {
-      return res.status(404).send('Anexo não encontrado.');
-    }
+    if (!anexo || !anexo.url) return res.status(404).send('Anexo não encontrado.');
 
-    const url  = anexo.url;                         // URL do Cloudinary (raw)
-    const nome = (anexo.nome || 'arquivo.pdf').replace(/"/g, '');
-    const mime = (anexo.mime || '').toLowerCase();  // usamos o MIME salvo no upload
+    // Normaliza a url para evitar 'attachment' e forçar visualização inline
+    let url = String(anexo.url || '').trim();
+    url = url
+      .replace(/\/upload\/(?:[^/]*,)?fl_attachment(?:[^/]*,)?\//, '/upload/')
+      .replace(/(\?|&)fl_attachment(=[^&]*)?/gi, '')
+      .replace(/(\?|&)response-content-disposition=attachment/gi, '')
+      .replace(/(\?|&)download=1\b/gi, '$1');
 
-    const upstream = await axios.get(url, {
-      responseType: 'stream',
-      headers: {
-        ...(req.headers.range ? { Range: req.headers.range } : {}),
-        Accept: 'application/pdf,*/*',
-      },
-      maxRedirects: 5,
-      decompress: false,
-      validateStatus: () => true,
-    });
+    if (!/^https?:\/\//i.test(url)) return res.status(400).send('URL do anexo inválida.');
 
-    // status 206 quando Range; senão 200
-    res.status(upstream.status === 206 ? 206 : 200);
-
-    // não deixe o helmet bloquear detecção do tipo
-    res.removeHeader('X-Content-Type-Options');
-
-    // Content-Type: se o banco diz que é PDF, fixamos como PDF (Cloudinary raw pode vir como octet-stream)
-    if (mime === 'application/pdf') {
-      res.setHeader('Content-Type', 'application/pdf');
-    } else if (upstream.headers['content-type']) {
-      res.setHeader('Content-Type', upstream.headers['content-type']);
-    } else {
-      res.setHeader('Content-Type', 'application/pdf');
-    }
-
-    // repassa cabeçalhos importantes para o viewer
-    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
-    if (upstream.headers['content-range'])  res.setHeader('Content-Range',  upstream.headers['content-range']);
-    if (upstream.headers['accept-ranges'])  res.setHeader('Accept-Ranges',  upstream.headers['accept-ranges']);
-    if (upstream.headers['last-modified'])  res.setHeader('Last-Modified',  upstream.headers['last-modified']);
-    if (upstream.headers['etag'])           res.setHeader('ETag',           upstream.headers['etag']);
-    if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
-
-    // abrir inline (sem attachment)
-    res.setHeader('Content-Disposition', `inline; filename="${nome}"`);
-
-    upstream.data.on('error', (e) => {
-      console.error('Stream upstream error:', e?.message || e);
-      if (!res.headersSent) res.status(502);
-      res.end();
-    });
-
-    upstream.data.pipe(res);
+    // Redireciona sem stream (mais estável no domínio)
+    return res.redirect(302, url);
   } catch (err) {
-    console.error('abrirAnexo erro:', err?.message || err);
-    if (!res.headersSent) res.status(500).send('Falha ao abrir o anexo.');
+    console.error('[candidatoArquivoController.abrirAnexo] erro:', err?.message || err);
+    return res.status(500).send('Falha ao abrir o anexo.');
   }
 };
+
 
 exports.abrirAnexoPublico = async (req, res) => {
   try {
