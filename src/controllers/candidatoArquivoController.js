@@ -209,24 +209,48 @@ exports.abrirAnexo = async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID inválido.');
 
-    const anexo = await prisma.candidato_arquivo.findUnique({
+    const ax = await prisma.candidato_arquivo.findUnique({
       where: { id },
-      select: { url: true }
+      select: { url: true, nome: true, mime: true }
     });
-    if (!anexo || !anexo.url) return res.status(404).send('Anexo não encontrado.');
+    if (!ax || !ax.url) return res.status(404).send('Anexo não encontrado.');
 
-    // Normaliza a url para evitar 'attachment' e forçar visualização inline
-    let url = String(anexo.url || '').trim();
+    let url = String(ax.url || '').trim();
     url = url
       .replace(/\/upload\/(?:[^/]*,)?fl_attachment(?:[^/]*,)?\//, '/upload/')
       .replace(/(\?|&)fl_attachment(=[^&]*)?/gi, '')
       .replace(/(\?|&)response-content-disposition=attachment/gi, '')
-      .replace(/(\?|&)download=1\b/gi, '$1');
+      .replace(/(\?|&)download=1\b/gi, '$1')
+      .replace(/(\?|&)dl=1\b/gi, '$1')          
+      .replace(/(\?|&)export=download\b/gi, '$1'); 
 
-    if (!/^https?:\/\//i.test(url)) return res.status(400).send('URL do anexo inválida.');
+    if (/^https?:\/\//i.test(url) && /\.(pdf|png|jpe?g|gif|webp)(\?|$)/i.test(url)) {
+      return res.redirect(302, url);
+    }
 
-    // Redireciona sem stream (mais estável no domínio)
-    return res.redirect(302, url);
+    const upstream = await axios.get(url, {
+      responseType: 'stream',
+      headers: {
+        ...(req.headers.range ? { Range: req.headers.range } : {})
+      },
+      timeout: 60_000,
+      maxRedirects: 5
+    });
+
+    const filename = (ax.nome && ax.nome.replace(/"/g, '')) || 'arquivo';
+    const mime = (ax.mime || upstream.headers['content-type'] || 'application/octet-stream');
+
+    const status = upstream.status || (req.headers.range ? 206 : 200);
+
+    res.status(status);
+    res.set({
+      'Content-Type': mime,
+      'Content-Disposition': `inline; filename="${filename}"`,
+      'Accept-Ranges': 'bytes',
+      ...(upstream.headers['content-length'] ? { 'Content-Length': upstream.headers['content-length'] } : {}),
+    });
+
+    upstream.data.pipe(res);
   } catch (err) {
     console.error('[candidatoArquivoController.abrirAnexo] erro:', err?.message || err);
     return res.status(500).send('Falha ao abrir o anexo.');
