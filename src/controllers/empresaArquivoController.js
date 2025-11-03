@@ -3,6 +3,24 @@ const prisma = new PrismaClient();
 const { cloudinary } = require('../config/cloudinary');
 const axios = require('axios');
 
+const sanitizeFilename = (name = 'arquivo') =>
+  String(name).replace(/[/\\?%*:|"<>]/g, '').trim() || 'arquivo';
+
+function normalizeViewUrl(u) {
+  let url = String(u || '').trim();
+  if (!url) return '';
+  url = url
+    .replace(/\/upload\/(?:[^/]*,)?fl_attachment(?:[^/]*,)?\//, '/upload/')
+    .replace(/(\?|&)fl_attachment(=[^&]*)?/gi, '')
+    .replace(/(\?|&)response-content-disposition=attachment/gi, '')
+    .replace(/(\?|&)download=1\b/gi, '$1');
+  url = url.replace(/\?dl=1\b/, '?raw=1').replace(/\?dl=0\b/, '?raw=1');
+  const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  if (m && m[1]) url = `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  return url;
+}
+
 exports.uploadAnexos = async (req, res) => {
   try {
     const emp = req.session?.empresa;
@@ -64,53 +82,21 @@ exports.uploadAnexos = async (req, res) => {
 
 exports.abrirAnexo = async (req, res) => {
   try {
-    const emp = req.session?.empresa;
-    if (!emp?.id) return res.redirect('/login');
-
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID inválido.');
 
     const ax = await prisma.empresa_arquivo.findUnique({
       where: { id },
-      select: { url: true, nome: true, mime: true }
+      select: { url: true }
     });
-    if (!ax || !ax.url) return res.status(404).send('Anexo não encontrado.');
+    if (!ax?.url) return res.status(404).send('Anexo não encontrado.');
 
-    let url = String(ax.url || '').trim();
-    url = url
-      .replace(/\/upload\/(?:[^/]*,)?fl_attachment(?:[^/]*,)?\//, '/upload/')
-      .replace(/(\?|&)fl_attachment(=[^&]*)?/gi, '')
-      .replace(/(\?|&)response-content-disposition=attachment/gi, '')
-      .replace(/(\?|&)download=1\b/gi, '$1')
-      .replace(/(\?|&)dl=1\b/gi, '$1')
-      .replace(/(\?|&)export=download\b/gi, '$1');
+    const url = normalizeViewUrl(ax.url);
+    if (!url) return res.status(400).send('URL inválida.');
 
-    if (/^https?:\/\//i.test(url) && /\.(pdf|png|jpe?g|gif|webp)(\?|$)/i.test(url)) {
-      return res.redirect(302, url);
-    }
-
-    const upstream = await axios.get(url, {
-      responseType: 'stream',
-      headers: { ...(req.headers.range ? { Range: req.headers.range } : {}) },
-      timeout: 60_000,
-      maxRedirects: 5
-    });
-
-    const filename = (ax.nome && ax.nome.replace(/"/g, '')) || 'arquivo';
-    const mime = (ax.mime || upstream.headers['content-type'] || 'application/octet-stream');
-    const status = upstream.status || (req.headers.range ? 206 : 200);
-
-    res.status(status);
-    res.set({
-      'Content-Type': mime,
-      'Content-Disposition': `inline; filename="${filename}"`,
-      'Accept-Ranges': 'bytes',
-      ...(upstream.headers['content-length'] ? { 'Content-Length': upstream.headers['content-length'] } : {}),
-    });
-
-    upstream.data.pipe(res);
-  } catch (e) {
-    console.error('[empresaArquivoController.abrirAnexo] erro:', e?.message || e);
+    return res.redirect(302, url);
+  } catch (err) {
+    console.error('[empresaArquivoController.abrirAnexo]', err);
     return res.status(500).send('Falha ao abrir o anexo.');
   }
 };
@@ -168,34 +154,31 @@ exports.salvarLink = async (req, res) => {
 exports.abrirAnexoPublico = async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) {
-      return res.status(400).send('ID inválido.');
-    }
+    if (!Number.isFinite(id) || id <= 0) return res.status(400).send('ID inválido.');
 
     const ax = await prisma.empresa_arquivo.findUnique({
       where: { id },
       select: { url: true, nome: true, mime: true }
     });
-    if (!ax || !ax.url) {
-      return res.status(404).send('Anexo não encontrado.');
-    }
+    if (!ax?.url) return res.status(404).send('Anexo não encontrado.');
 
-    // 🔧 Normaliza a URL para visualização inline
-    let url = String(ax.url || '').trim();
-    url = url
-      .replace(/\/upload\/(?:[^/]*,)?fl_attachment(?:[^/]*,)?\//, '/upload/')
-      .replace(/(\?|&)fl_attachment(=[^&]*)?/gi, '')
-      .replace(/(\?|&)response-content-disposition=attachment/gi, '')
-      .replace(/(\?|&)download=1\b/gi, '$1');
+    const url = normalizeViewUrl(ax.url);
+    if (!url) return res.status(400).send('URL inválida.');
 
-    if (!/^https?:\/\//i.test(url)) {
-      return res.status(400).send('URL do anexo inválida.');
-    }
+    const upstream = await axios.get(url, { responseType: 'stream', validateStatus: () => true });
+    if (upstream.status >= 400) return res.status(502).send('Falha ao obter o arquivo.');
 
-    // ✅ Redireciona (sem streaming) — evita crash no Vercel
-    return res.redirect(302, url);
+    const mime = ax.mime || upstream.headers['content-type'] || 'application/octet-stream';
+    const name = sanitizeFilename(ax.nome || 'arquivo');
+
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `inline; filename="${name}"`);
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    if (upstream.headers['accept-ranges']) res.setHeader('Accept-Ranges', upstream.headers['accept-ranges']);
+
+    upstream.data.pipe(res);
   } catch (err) {
-    console.error('[empresaArquivoController.abrirAnexoPublico] erro:', err?.message || err);
+    console.error('[empresaArquivoController.abrirAnexoPublico]', err);
     return res.status(500).send('Falha ao abrir o anexo.');
   }
 };
