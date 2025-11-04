@@ -14,6 +14,10 @@
 <body>
   <%- include('../partials/header') %>
   <%- include('../partials/flash-messages') %>
+  <style>
+    :root { --nav-h: 0px !important; }
+    body#home { padding-top: 0 !important; }
+  </style>
   <main class="container text-center mt-5 pt-5">
     <h2 class="mb-4">Edite suas Áreas de Interesse</h2>
     <form action="/candidato/editar-areas" method="POST" id="formEditarAreas">
