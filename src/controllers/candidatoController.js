@@ -1212,8 +1212,11 @@ exports.telaEditarAreas = async (req, res) => {
 };
 
 exports.salvarEditarAreas = async (req, res) => {
-  const candidato_id = Number(req.body.candidato_id);
-  let nomesSelecionados;
+  const sess = req.session.candidato;
+  if (!sess) return res.redirect('/login');
+  const candidato_id = Number(sess.id);
+
+  let nomesSelecionados;
 
   try {
     nomesSelecionados = Array.isArray(req.body.areasSelecionadas)
@@ -1497,7 +1500,7 @@ exports.avaliarCompatibilidade = async (req, res) => {
     const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest';
     const axiosResp = await axios.post(url, payload, {
       headers: { 'Content-Type': 'application/json' },
-  g: 30000
+      timeout: 30000
     });
 
     const respData = (axiosResp && typeof axiosResp === 'object') ? axiosResp.data : axiosResp;
@@ -1901,82 +1904,82 @@ exports.vagaDetalhes = async (req, res) => {
 };
 
 exports.pularCadastroCandidato = async (req, res) => {
-  if (!req.session.usuario) req.session.usuario = {};
-  req.session.usuario.skipCadastro = true;
-  if (req.session.candidato) req.session.candidato.skipCadastro = true;
+  if (!req.session.usuario) req.session.usuario = {};
+  req.session.usuario.skipCadastro = true;
+  if (req.session.candidato) req.session.candidato.skipCadastro = true;
 
-  // cookie persistente (1 ano)
-  res.cookie('cs_skipCadastro', '1', {
-    httpOnly: false,
-    sameSite: 'lax',
-    maxAge: 31536000000
-  });
-  
-  try {
-    const usuarioId = Number(
-      req.query.usuario_id || req.body.usuario_id || req.session?.usuario?.id
-    );
-    if (!usuarioId) return res.redirect('/login');
-
-    // Garante que exista um registro de candidato (em muitos casos já existe)
-    let cand = await prisma.candidato.findUnique({
-      where: { usuario_id: usuarioId },
-      include: {
-        usuario: { select: { email: true, nome: true, sobrenome: true } },
-        candidato_area: { include: { area_interesse: true } }
-      }
-    });
-
-    if (!cand) {
-      // Cria com dados mínimos (nome/sobrenome se já tiver no usuario)
-      const usr = await prisma.usuario.findUnique({ where: { id: usuarioId } });
-      cand = await prisma.candidato.create({
-        data: {
-          usuario_id: usuarioId,
-          nome: usr?.nome || 'Candidato',
-          sobrenome: usr?.sobrenome || '',
-          data_nascimento: null,
-          pais: '', estado: '', cidade: '',
-          telefone: '',
-          foto_perfil: ''
-        },
-        include: {
-          usuario: { select: { email: true } },
-          candidato_area: { include: { area_interesse: true } }
-        }
-      });
+  res.cookie('cs_skipCadastro', '1', {
+    httpOnly: false,
+    sameSite: 'lax',
+    maxAge: 31536000000
+  });
+  
+  try {
+    const usuarioId = Number(req.session?.usuario?.id);
+    
+    if (!usuarioId) {
+      console.warn('[pularCadastroCandidato] Tentativa de pular cadastro sem sessão válida.');
+      return res.redirect('/login');
     }
 
-    // Salva sessão mínima e segue pra home
-    const localidade = [cand.cidade, cand.estado, cand.pais].filter(Boolean).join(', ');
-    const areas = (cand.candidato_area || []).map(r => r.area_interesse?.nome).filter(Boolean);
+    let cand = await prisma.candidato.findUnique({
+      where: { usuario_id: usuarioId }, // Agora usa o ID seguro
+      include: {
+        usuario: { select: { email: true, nome: true, sobrenome: true } },
+        candidato_area: { include: { area_interesse: true } }
+      }
+    });
 
-    req.session.usuario = {
-      id: usuarioId,
-      tipo: 'candidato',
-      nome: cand.nome,
-      sobrenome: cand.sobrenome
-    };
-    req.session.candidato = {
-      id: cand.id,
-      usuario_id: usuarioId,
-      nome: cand.nome,
-      sobrenome: cand.sobrenome,
-      email: cand.usuario?.email || '',
-      tipo: 'candidato',
-      telefone: cand.telefone || '',
-      dataNascimento: cand.data_nascimento || null,
-      foto_perfil: cand.foto_perfil || '',
-      localidade,
-      areas
-    };
+    if (!cand) {
+      // Cria com dados mínimos (nome/sobrenome se já tiver no usuario)
+      const usr = await prisma.usuario.findUnique({ where: { id: usuarioId } }); // Usa o ID seguro
+      cand = await prisma.candidato.create({
+        data: {
+          usuario_id: usuarioId, // Usa o ID seguro
+          nome: usr?.nome || 'Candidato',
+          sobrenome: usr?.sobrenome || '',
+          data_nascimento: null,
+          pais: '', estado: '', cidade: '',
+          telefone: '',
+          foto_perfil: ''
+        },
+        include: {
+          usuario: { select: { email: true } },
+          candidato_area: { include: { area_interesse: true } }
+        }
+      });
+    }
 
-    return req.session.save(() => res.redirect('/candidatos/home'));
-  } catch (err) {
-    console.error('[pularCadastroCandidato] erro:', err?.message || err);
-    req.session.erro = 'Não foi possível pular o complemento agora.';
-    return res.redirect('/login');
-  }
+    // Salva sessão mínima e segue pra home
+    const localidade = [cand.cidade, cand.estado, cand.pais].filter(Boolean).join(', ');
+    const areas = (cand.candidato_area || []).map(r => r.area_interesse?.nome).filter(Boolean);
+
+    req.session.usuario = {
+      id: usuarioId, // Usa o ID seguro
+      tipo: 'candidato',
+      nome: cand.nome,
+      sobrenome: cand.sobrenome
+    };
+    req.session.candidato = {
+      id: cand.id,
+      usuario_id: usuarioId, // Usa o ID seguro
+      nome: cand.nome,
+      sobrenome: cand.sobrenome,
+      email: cand.usuario?.email || '',
+      tipo: 'candidato',
+      telefone: cand.telefone || '',
+      dataNascimento: cand.data_nascimento || null,
+      foto_perfil: cand.foto_perfil || '',
+      localidade,
+      areas
+    };
+
+    return req.session.save(() => res.redirect('/candidatos/home'));
+  } catch (err) {
+    console.error('[pularCadastroCandidato] erro:', err?.message || err);
+    req.session.erro = 'Não foi possível pular o complemento agora.';
+    return res.redirect('/login');
+  }
 };
 
 exports.perfilPublicoCandidato = async (req, res) => {
@@ -2073,14 +2076,14 @@ exports.aplicarVaga = async (req, res) => {
     if (!Number.isFinite(vagaId)) {
       return res.status(400).send('ID de vaga inválido');
     }
-    // 1. Buscamos o status da vaga ANTES de aplicar
+    // 1. Buscamos o status da vaga ANTES de aplicar (Sua lógica está perfeita)
     const statusMaisRecente = await prisma.vaga_status.findFirst({
       where: { vaga_id: vagaId },
       orderBy: { criado_em: 'desc' },
       select: { situacao: true }
     });
 
-    // 2. Verificamos se a vaga está 'aberta'
+    // 2. Verificamos se a vaga está 'aberta' (Sua lógica está perfeita)
     const situacaoAtual = statusMaisRecente?.situacao || 'aberta';
     const STATUS_PERMITIDO_PARA_APLICAR = 'aberta'; 
 
@@ -2088,29 +2091,29 @@ exports.aplicarVaga = async (req, res) => {
       return res.redirect('/candidatos/vagas'); 
     }
 
+    // (Sua lógica de verificação está perfeita)
     const jaExiste = await prisma.vaga_candidato.findFirst({
       where: { vaga_id: vagaId, candidato_id: usuario.id }
     });
 
-    const encodedVagaId = encodeId(vagaId); // Codifica o ID para o redirect
-    const urlVaga = `/candidatos/vagas/${encodedVagaId}`; // Rota correta (plural)
+    const urlVaga = `/candidatos/vagas/${vagaId}`;
 
     if (jaExiste) {
       req.session.erro = 'Você já aplicou para esta vaga.';
-      return res.redirect(urlVaga); // Usa a nova URL segura
+      return res.redirect(urlVaga); // Agora usa a URL correta
     }
 
-    // Lógica original: Criar a aplicação
+    // Lógica original: Criar a aplicação (Perfeita)
     await prisma.vaga_candidato.create({
       data: {
         vaga_id: vagaId,
         candidato_id: usuario.id,
-        status: 'em_analise' // Assumindo que seu schema tem 'vaga_candidato'
+        status: 'em_analise' 
       }
     });
 
     req.session.sucesso = 'Aplicação realizada com sucesso!';
-    res.redirect(urlVaga); // Usa a nova URL segura
+    res.redirect(urlVaga); // Agora usa a URL correta
 
   } catch (err) {
     console.error('[aplicarVaga] erro:', err);
