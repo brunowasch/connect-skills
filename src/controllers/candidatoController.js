@@ -1243,128 +1243,100 @@ exports.salvarEditarAreas = async (req, res) => {
 };
 
 exports.exibirComplementarGoogle = async (req, res) => {
-  if (!req.session.usuario || req.session.usuario.tipo !== 'candidato') {
-    return res.redirect('/login');
-  }
+  if (!req.session.usuario || req.session.usuario.tipo !== 'candidato') {
+    return res.redirect('/login');
+  }
 
-  const usuario_id = req.session.usuario.id;
+  const usuario_id = req.session.usuario.id;
 
-  try {
-    const usuario = await prisma.usuario.findUnique({ where: { id: usuario_id } });
+  try {
+    const usuario = await prisma.usuario.findUnique({ where: { id: usuario_id } });
 
-    res.render('candidatos/cadastro-complementar-google', {
-      title: 'Completar Cadastro - Connect Skills',
-      erro: null,
-      nome: usuario?.nome || '',
-      sobrenome: usuario?.sobrenome || '',
-      usuario_id
-    });
-  } catch (error) {
-    console.error('Erro ao buscar usuário para complementar cadastro:', error);
-    res.render('candidatos/cadastro-complementar-google', {
-      title: 'Completar Cadastro - Connect Skills',
-      erro: 'Erro ao carregar os dados. Tente novamente.',
-      nome: '',
-      sobrenome: '',
-      usuario_id
-    });
-  }
+    res.render('candidatos/cadastro-complementar-google', {
+      title: 'Completar Cadastro - Connect Skills',
+      erro: null,
+      nome: usuario?.nome || '',
+      sobrenome: usuario?.sobrenome || ''
+    });
+  } catch (error) {
+    console.error('Erro ao buscar usuário para complementar cadastro:', error);
+    res.render('candidatos/cadastro-complementar-google', {
+      title: 'Completar Cadastro - Connect Skills',
+      erro: 'Erro ao carregar os dados. Tente novamente.',
+      nome: '',
+      sobrenome: ''
+    });
+  }
 };
 
 exports.complementarGoogle = async (req, res) => {
-  try {
-    const usuarioId = req.session.usuario?.id;
-    if (!usuarioId) return res.redirect('/login');
+  try {
+    const usuarioId = req.session.usuario?.id;
+    if (!usuarioId) return res.redirect('/login');
 
-    let { nome, sobrenome, data_nascimento, localidade, foto_perfil } = req.body;
-    const [cidade = '', estado = '', pais = ''] = (localidade || '').split(',').map(p => p.trim());
+    let { nome, sobrenome, data_nascimento, localidade, foto_perfil } = req.body;
+    const [cidade = '', estado = '', pais = ''] = (localidade || '').split(',').map(p => p.trim());
 
-    const { ddi, ddd, numero } = req.body;
-    const numeroLimpo = (numero || '').replace(/\D/g, '');
-    const numeroFormatado = numeroLimpo.length === 9
-      ? `${numeroLimpo.slice(0, 5)}-${numeroLimpo.slice(5)}`
-      : numeroLimpo.length === 8
-        ? `${numeroLimpo.slice(0, 4)}-${numeroLimpo.slice(4)}`
-        : numeroLimpo;
+    // ... (Sua lógica de formatação de telefone está ótima)
+    const { ddi, ddd, numero } = req.body;
+    const numeroLimpo = (numero || '').replace(/\D/g, '');
+    const numeroFormatado = numeroLimpo.length === 9
+      ? `${numeroLimpo.slice(0, 5)}-${numeroLimpo.slice(5)}`
+      : numeroLimpo.length === 8
+        ? `${numeroLimpo.slice(0, 4)}-${numeroLimpo.slice(4)}`
+        : numeroLimpo;
+    const telefoneFormatado = (ddd && numeroFormatado)
+      ? `${ddi || '+55'} (${ddd}) ${numeroFormatado}`
+      : '';
 
-    const telefoneFormatado = (ddd && numeroFormatado)
-      ? `${ddi || '+55'} (${ddd}) ${numeroFormatado}`
-      : '';
+    const dataNascimentoConvertida = new Date(data_nascimento);
 
-    const dataNascimentoConvertida = new Date(data_nascimento);
+    if (!foto_perfil || foto_perfil.trim() === '') {
+      const usuario = await prisma.usuario.findUnique({
+        where: { id: usuarioId },
+        select: { avatarUrl: true }
+      });
+      foto_perfil = usuario?.avatarUrl || null;
+    }
 
-    if (!foto_perfil || foto_perfil.trim() === '') {
-      const usuario = await prisma.usuario.findUnique({
-        where: { id: usuarioId },
-        select: { avatarUrl: true }
-      });
-      foto_perfil = usuario?.avatarUrl || null;
-    }
+    if (!nome || !sobrenome) {
+      req.session.erro = 'Nome e sobrenome são obrigatórios.';
+      return res.redirect('/candidatos/cadastro/google/complementar');
+    }
 
-    if (!nome || !sobrenome) {
-      req.session.erro = 'Nome e sobrenome são obrigatórios.';
-      return res.redirect('/candidatos/cadastro/google/complementar');
-    }
+    await candidatoModel.complementarCadastroGoogle(usuarioId, {
+      nome, sobrenome, data_nascimento: dataNascimentoConvertida,
+      pais, estado, cidade, telefone: telefoneFormatado, foto_perfil
+    });
 
-    await candidatoModel.complementarCadastroGoogle(usuarioId, {
-      nome, sobrenome, data_nascimento: dataNascimentoConvertida,
-      pais, estado, cidade, telefone: telefoneFormatado, foto_perfil
-    });
+    await prisma.usuario.update({ where: { id: usuarioId }, data: { nome, sobrenome } });
 
-    await prisma.usuario.update({ where: { id: usuarioId }, data: { nome, sobrenome } });
+    const [candidatoCompleto, usuarioCompleto] = await Promise.all([
+      candidatoModel.obterCandidatoPorUsuarioId(usuarioId),
+      prisma.usuario.findUnique({ where: { id: usuarioId }, select: { avatarUrl: true } })
+    ]);
 
-    const [candidatoCompleto, usuarioCompleto] = await Promise.all([
-      candidatoModel.obterCandidatoPorUsuarioId(usuarioId),
-      prisma.usuario.findUnique({ where: { id: usuarioId }, select: { avatarUrl: true } })
-    ]);
+    req.session.usuario = { id: usuarioId, nome, sobrenome, tipo: 'candidato' };
+    req.session.candidato = {
+      id: candidatoCompleto.id,
+      usuario_id: usuarioId,
+      nome: candidatoCompleto.nome,
+      sobrenome: candidatoCompleto.sobrenome,
+      email: candidatoCompleto.email,
+      tipo: 'candidato',
+      telefone: candidatoCompleto.telefone,
+      dataNascimento: candidatoCompleto.data_nascimento,
+      foto_perfil: candidatoCompleto.foto_perfil || usuarioCompleto.avatarUrl || null,
+      localidade: `${candidatoCompleto.cidade}, ${candidatoCompleto.estado}, ${candidatoCompleto.pais}`,
+      areas: []
+    };
 
-    req.session.usuario = { id: usuarioId, nome, sobrenome, tipo: 'candidato' };
-    req.session.candidato = {
-      id: candidatoCompleto.id,
-      usuario_id: usuarioId,
-      nome: candidatoCompleto.nome,
-      sobrenome: candidatoCompleto.sobrenome,
-      email: candidatoCompleto.email,
-      tipo: 'candidato',
-      telefone: candidatoCompleto.telefone,
-      dataNascimento: candidatoCompleto.data_nascimento,
-      foto_perfil: candidatoCompleto.foto_perfil || usuarioCompleto.avatarUrl || null,
-      localidade: `${candidatoCompleto.cidade}, ${candidatoCompleto.estado}, ${candidatoCompleto.pais}`,
-      areas: []
-    };
-
-    req.session.save(() => res.redirect(`/candidato/cadastro/areas?usuario_id=${usuarioId}`));
-  } catch (erro) {
-    console.error('Erro ao complementar cadastro com Google:', erro.message, erro);
-    req.session.erro = 'Erro ao salvar informações do candidato.';
-    res.redirect('/candidatos/cadastro/google/complementar');
-  }
-};
-
-exports.restaurarFotoGoogle = async (req, res) => {
-  const sess = req.session.candidato;
-  if (!sess) return res.redirect('/login');
-
-  const usuario = await prisma.usuario.findUnique({
-    where: { id: sess.usuario_id },
-    select: { avatarUrl: true }
-  });
-
-  if (!usuario || !usuario.avatarUrl) {
-    console.warn('Usuário não tem avatar do Google para restaurar.');
-    return res.redirect('/candidato/editar-perfil');
-  }
-
-  try {
-    await candidatoModel.atualizarFotoPerfil({ candidato_id: sess.id, foto_perfil: usuario.avatarUrl });
-    sess.foto_perfil = usuario.avatarUrl;
-    req.session.sucesso = 'Foto restaurada com sucesso!';
-    res.redirect('/candidato/editar-perfil');
-  } catch (err) {
-    console.error('Erro ao restaurar foto do Google:', err.message);
-    req.session.erro = 'Não foi possível restaurar a foto.';
-    res.redirect('/candidato/editar-perfil');
-  }
+    req.session.save(() => res.redirect(`/candidato/cadastro/areas`));
+   } catch (erro) {
+    console.error('Erro ao complementar cadastro com Google:', erro.message, erro);
+    req.session.erro = 'Erro ao salvar informações do candidato.';
+    res.redirect('/candidatos/cadastro/google/complementar');
+  }
 };
 
 exports.avaliarCompatibilidade = async (req, res) => {

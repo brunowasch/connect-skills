@@ -10,11 +10,14 @@
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
 <body>
+  <style>
+    :root { --nav-h: 0px !important; }
+    body#home { padding-top: 0 !important; }
+  </style>
   <%- include('../partials/header') %>
   <%- include('../partials/flash-messages') %>
   <main class="container d-flex flex-column justify-content-center align-items-center py-5" style="min-height: calc(80vh - 130px);">
     <h2 class="mb-5 mt-4 text-center">Complete o cadastro da sua empresa</h2>
-
     <% if (erro) { %>
       <div class="alert alert-danger text-center"><%= erro %></div>
     <% } %>
