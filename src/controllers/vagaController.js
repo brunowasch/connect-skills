@@ -51,17 +51,33 @@ exports.salvarVaga = async (req, res) => {
 
 exports.apiPerguntasDISC = async (req, res) => {
   try {
-    const vagaId = decodeId(req.params.id); // Substitui Number()
+    // O middleware 'withEncodedParam' já decodificou o ID para nós.
+    const vagaId = Number(req.params.id); 
 
-    if (!vagaId) return res.status(400).json({ ok: false, error: 'vaga_id inválido' });
+    if (!vagaId || vagaId <= 0) {
+      return res.status(400).json({ ok: false, error: 'vaga_id inválido' });
+    }
+    const statusMaisRecente = await prisma.vaga_status.findFirst({
+      where: { vaga_id: vagaId },
+      orderBy: { criado_em: 'desc' },
+      select: { situacao: true }
+    });
 
+    const situacaoAtual = statusMaisRecente?.situacao || 'aberta';
+
+    if (situacaoAtual !== 'aberta') {
+      return res.status(404).json({ ok: false, error: 'Vaga não encontrada ou não está aberta' });
+    }
     const vaga = await prisma.vaga.findUnique({
-      where: { id: vagaId }, // vagaId é o número correto
+      where: { id: vagaId }, 
       include: {
         vaga_soft_skill: { include: { soft_skill: true } },
       }
     });
-    if (!vaga) return res.status(404).json({ ok: false, error: 'Vaga não encontrada' });
+
+    if (!vaga) {
+      return res.status(404).json({ ok: false, error: 'Vaga não encontrada' });
+    }
 
     const skillNames = (vaga.vaga_soft_skill || [])
       .map(vs => vs.soft_skill?.nome)
@@ -69,24 +85,23 @@ exports.apiPerguntasDISC = async (req, res) => {
 
     const discQs = getDiscQuestionsForSkills(skillNames);
 
-    const extraRaw = String(vaga.pergunta || '').trim();
     const extraQs = (() => {
-    const raw = String(vaga.pergunta ?? '').trim();
+      const raw = String(vaga.pergunta ?? '').trim();
       if (!raw) return [];
-
       const normalized = raw
         .replace(/\r\n/g, '\n')
         .replace(/\\r\\n/g, '\n')
         .replace(/\\n/g, '\n')    
         .replace(/\r/g, '\n');    
-
       return normalized
         .split('\n')              
         .map(s => s.trim())
         .filter(Boolean);
     })();
+
     const questions = [...discQs, ...extraQs].slice(0, 50); 
     return res.json({ ok: true, vagaId, questions });
+
   } catch (err) {
     console.error('[apiPerguntasDISC] erro:', err);
     return res.status(500).json({ ok: false, error: 'Falha ao montar as perguntas' });

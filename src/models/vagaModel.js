@@ -2,52 +2,69 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 /**
- * Cria uma nova vaga e vincula áreas e soft skills.
+ * Cria uma nova vaga, vincula áreas, soft skills E o status inicial.
  * @param {Object} dados
  * @returns {Promise<Object>}
  */
 exports.criarVaga = async ({
-  empresa_id,
-  cargo,
-  tipo_local_trabalho,
-  escala_trabalho,
-  dias_presenciais,
-  dias_home_office,
-  salario,
-  moeda,
-  descricao,
-  areas_ids,
-  soft_skills_ids
+  empresa_id,
+  cargo,
+  tipo_local_trabalho,
+  escala_trabalho,
+  dias_presenciais,
+  dias_home_office,
+  salario,
+  moeda,
+  descricao,
+  areas_ids,
+  soft_skills_ids
 }) => {
-  return await prisma.vaga.create({
-    data: {
-      empresa_id: Number(empresa_id),
-      cargo: cargo || '',
-      tipo_local_trabalho: tipo_local_trabalho || '',
-      escala_trabalho: escala_trabalho || '',
-      dias_presenciais: dias_presenciais !== null ? Number(dias_presenciais) : null,
-      dias_home_office: dias_home_office !== null ? Number(dias_home_office) : null,
-      salario: salario
-        ? parseFloat(salario.replace(/\./g, '').replace(',', '.'))
-        : null,
-      moeda: moeda || '',
-      descricao: descricao || '',
-      vaga_area: {
-        create: (areas_ids || []).map((area_id) => ({
-          area_interesse: {
-            connect: { id: Number(area_id) }
-          }
-        }))
-      },
-      vaga_soft_skill: {
-        create: (soft_skills_ids || []).map((skill_id) => ({
-          soft_skill: {
-            connect: { id: Number(skill_id) }
-          }
-        }))
-      }
-    }
-  });
+  
+  // MUDANÇA: Usando $transaction para garantir a integridade dos dados
+  return await prisma.$transaction(async (tx) => {
+    
+    // 1. Crie a vaga (usando 'tx' em vez de 'prisma')
+    //    (Mantive sua lógica original de nested create, está ótima)
+    const vaga = await tx.vaga.create({
+      data: {
+        empresa_id: Number(empresa_id),
+        cargo: cargo || '',
+        tipo_local_trabalho: tipo_local_trabalho || '',
+        escala_trabalho: escala_trabalho || '',
+        dias_presenciais: dias_presenciais !== null ? Number(dias_presenciais) : null,
+        dias_home_office: dias_home_office !== null ? Number(dias_home_office) : null,
+        salario: salario
+          ? parseFloat(salario.replace(/\./g, '').replace(',', '.'))
+          : null,
+        moeda: moeda || '',
+        descricao: descricao || '',
+        vaga_area: {
+          create: (areas_ids || []).map((area_id) => ({
+            area_interesse: {
+              connect: { id: Number(area_id) }
+            }
+          }))
+        },
+        vaga_soft_skill: {
+          create: (soft_skills_ids || []).map((skill_id) => ({
+            soft_skill: {
+              connect: { id: Number(skill_id) }
+            }
+          }))
+        }
+      }
+    });
+
+    await tx.vaga_status.create({
+      data: {
+        vaga_id: vaga.id,
+        situacao: 'aberta'
+      }
+    });
+
+    // 3. Retorne a vaga criada
+    return vaga;
+  });
 };
 
 /**
