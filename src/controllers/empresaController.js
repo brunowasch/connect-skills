@@ -363,7 +363,6 @@ exports.homeEmpresa = async (req, res) => {
 };
 
 exports.telaPerfilEmpresa = async (req, res) => {
-  const { encodeId } = require('../utils/idEncoder');
 
   const sess = req.session.empresa;
   if (!sess) return res.redirect('/login');
@@ -390,18 +389,15 @@ exports.telaPerfilEmpresa = async (req, res) => {
       },
     });
 
-    // ID criptografado da empresa para links públicos
     const encEmpresaId = encodeId(Number(empresa.id));
     const perfilPublicoUrl = `/empresa/perfil/${encEmpresaId}`;
 
-    // (Opcional) versões das vagas com ID criptografado (_hid) para usar em links públicos
     const vagasComHid = vagasDaEmpresa.map(v => ({ ...v, _hid: encodeId(v.id) }));
 
     return res.render('empresas/meu-perfil', {
       empresa,
-      // mantém o mesmo nome que sua view já usa
       vagasPublicadas: vagasDaEmpresa,
-      // disponibiliza também a lista com _hid (use se quiser criar links públicos)
+      // disponibiliza também a lista com _hid
       vagasPublicadasEnc: vagasComHid,
 
       // links/arquivos
@@ -621,7 +617,6 @@ exports.salvarVaga = async (req, res) => {
       return vaga;
     });
 
-    // --- Anexos enviados na publicação (opcional) ---
     if (req.files?.length) {
       await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaCriada.id);
     }
@@ -690,23 +685,41 @@ exports.mostrarPerfil = async (req, res) => {
 };
 
 exports.excluirVaga = async (req, res) => {
-  try {
-    if (!req.session.empresa) return res.redirect('/login');
+  try {
+    const empresaId = req.session?.empresa?.id;
+    if (!empresaId) {
+      req.session.erro = 'Sessão expirada. Faça login novamente.';
+      return res.redirect('/login');
+    }
 
-    const { id } = req.params;
-    await vagaModel.excluirVaga(id);
+    // Use seu helper 'parseParamId' que já é ótimo
+    const vagaId = parseParamId(req.params.id);
+    if (!vagaId) {
+      req.session.erro = 'ID de vaga inválido.';
+      return res.redirect('/empresa/meu-perfil');
+    }
 
-    req.session.sucessoVaga = 'Vaga excluída com sucesso!';
-    res.redirect('/empresa/meu-perfil');
-  } catch (error) {
-    console.error('Erro ao excluir vaga:', error);
-    req.session.erro = 'Não foi possível excluir a vaga.';
-    res.redirect('/empresa/meu-perfil');
-  }
+    const vaga = await prisma.vaga.findUnique({
+      where: { id: vagaId },
+      select: { empresa_id: true }
+    });
+
+    if (!vaga || vaga.empresa_id !== empresaId) {
+      req.session.erro = 'Acesso negado. Você não pode excluir esta vaga.';
+      return res.redirect('/empresa/meu-perfil');
+    }
+    await vagaModel.excluirVaga(vagaId);
+
+    req.session.sucessoVaga = 'Vaga excluída com sucesso!';
+    res.redirect('/empresa/meu-perfil');
+  } catch (error) {
+    console.error('Erro ao excluir vaga:', error);
+    req.session.erro = 'Não foi possível excluir a vaga.';
+    res.redirect('/empresa/meu-perfil');
+  }
 };
 
 exports.telaEditarVaga = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
 
   try {
     // 1) Decodifica o ID vindo da URL
@@ -791,7 +804,6 @@ exports.telaEditarVaga = async (req, res) => {
 };
 
 exports.salvarEditarVaga = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
 
   try {
     // 1) Decodifica o ID vindo da URL (aceita codificado ou numérico cru)
@@ -967,7 +979,6 @@ exports.salvarEditarVaga = async (req, res) => {
 
 
 exports.rankingCandidatos = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
 
   try {
     // 1) Decodifica o param (aceita codificado ou numérico cru)
@@ -1201,7 +1212,6 @@ exports.telaAnexosEmpresa = async (req, res) => {
 };
 
 exports.telaVagaDetalhe = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
   const empresaSess = getEmpresaFromSession(req);
 
   // 1) Decodifica o param e canonicaliza se vier numérico "cru"
@@ -1291,7 +1301,6 @@ exports.telaVagaDetalhe = async (req, res) => {
 
 
 exports.fecharVaga = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
 
   // Aceita ID codificado ou numérico cru
   const raw = String(req.params.id || '');
@@ -1345,7 +1354,6 @@ exports.fecharVaga = async (req, res) => {
 };
 
 exports.reabrirVaga = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
 
   // Decodifica o ID (aceita codificado ou numérico cru)
   const raw = String(req.params.id || '');
@@ -1400,7 +1408,6 @@ exports.reabrirVaga = async (req, res) => {
 };
 
 exports.excluirVaga = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
   const empresaSess = getEmpresaFromSession(req);
 
   // 1) Decodifica o ID (aceita codificado ou numérico cru)
@@ -1462,7 +1469,6 @@ exports.excluirVaga = async (req, res) => {
 };
 
 exports.perfilPublico = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
 
   // 1) Decodifica o ID da empresa (aceita codificado ou numérico cru)
   const raw = String(req.params.id || '');
@@ -1629,119 +1635,123 @@ exports.telaEditarPerfil = async (req, res) => {
 };
 
 exports.salvarEdicaoPerfil = async (req, res) => {
-  try {
-    const sess = req.session.empresa;
-    if (!sess) return res.redirect('/login');
+  try {
+    const sess = req.session.empresa;
+    if (!sess) return res.redirect('/login');
 
-    const { nome, descricao, localidade, ddd, numero, removerFoto, fotoBase64 } = req.body;
+    const { nome, descricao, localidade, ddd, numero, removerFoto, fotoBase64 } = req.body;
 
-    // Localidade
-    let cidade = '', estado = '', pais = '';
-    if (localidade) {
-      const partes = String(localidade).split(',').map(p => p.trim());
-      [cidade, estado = '', pais = ''] = partes;
-    }
+    let cidade = '', estado = '', pais = '';
+    if (localidade) {
+      const partes = String(localidade).split(',').map(p => p.trim());
+      [cidade, estado = '', pais = ''] = partes;
+    }
 
-    // Telefone
-    let telefone = req.body.telefone || '';
-    const dddDigits = (ddd || '').replace(/\D/g, '');
-    const numDigits = (numero || '').replace(/\D/g, '');
-    if (dddDigits && numDigits) {
-      let numeroFmt;
-      if (numDigits.length >= 9) {
-        numeroFmt = `${numDigits.slice(0, 5)}-${numDigits.slice(5, 9)}`; // celular
-      } else if (numDigits.length >= 8) {
-        numeroFmt = `${numDigits.slice(0, 4)}-${numDigits.slice(4, 8)}`; // fixo
-      } else {
-        numeroFmt = numDigits;
-      }
-      telefone = `+55 (${dddDigits}) ${numeroFmt}`;
-    }
+    let telefone = req.body.telefone || '';
+    const dddDigits = (ddd || '').replace(/\D/g, '');
+    const numDigits = (numero || '').replace(/\D/g, '');
+    if (dddDigits && numDigits) {
+      let numeroFmt;
+      if (numDigits.length >= 9) {
+        numeroFmt = `${numDigits.slice(0, 5)}-${numDigits.slice(5, 9)}`; // celular
+      } else if (numDigits.length >= 8) {
+        numeroFmt = `${numDigits.slice(0, 4)}-${numDigits.slice(4, 8)}`; // fixo
+      } else {
+        numeroFmt = numDigits;
+      }
+      telefone = `+55 (${dddDigits}) ${numeroFmt}`;
+    }
 
-    let novaFotoUrl = null;
+    let novaFotoUrl = null;
 
-    if (String(removerFoto).toLowerCase() === 'true') {
-      novaFotoUrl = '';
-    }
+    if (String(removerFoto).toLowerCase() === 'true') {
+      novaFotoUrl = '';
+    }
 
-    if (!novaFotoUrl && fotoBase64 && /^data:image\/(png|jpe?g|webp);base64,/.test(fotoBase64)) {
-      try {
-        const mod = require('../config/cloudinary');
-        const cloud = mod?.cloudinary || mod;
-        const uploader = cloud?.uploader;
+    if (!novaFotoUrl && fotoBase64 && /^data:image\/(png|jpe?g|webp);base64,/.test(fotoBase64)) {
+      try {
+        // [MELHORIA DE ORGANIZAÇÃO]
+        // Esta linha deve ser movida para o topo do arquivo
+        const mod = require('../config/cloudinary'); 
+        const cloud = mod?.cloudinary || mod;
+        const uploader = cloud?.uploader;
 
-        if (uploader && typeof uploader.upload === 'function') {
-          const uploadRes = await uploader.upload(fotoBase64, {
-            folder: 'connect-skills/empresa',
-            overwrite: true,
-            invalidate: true,
-          });
-          novaFotoUrl = uploadRes.secure_url || uploadRes.url || '';
-        } else {
-          console.warn('[editar-empresa] Cloudinary não configurado ou sem uploader. Pulando upload.');
-        }
-      } catch (e) {
-        console.warn('[editar-empresa] Falha ao enviar foto para Cloudinary:', e.message);
-      }
-    }
+        if (uploader && typeof uploader.upload === 'function') {
+          const uploadRes = await uploader.upload(fotoBase64, {
+            folder: 'connect-skills/empresa',
+            overwrite: true,
+            invalidate: true,
+          });
+          novaFotoUrl = uploadRes.secure_url || uploadRes.url || '';
+        } else {
+          console.warn('[editar-empresa] Cloudinary não configurado ou sem uploader. Pulando upload.');
+        }
+      } catch (e) {
+        console.warn('[editar-empresa] Falha ao enviar foto para Cloudinary:', e.message);
+      }
+    }
 
-    const dataUpdate = {
-      nome_empresa: nome,
-      descricao,
-      cidade, estado, pais,
-      telefone
-    };
-    if (novaFotoUrl !== null) {
-      dataUpdate.foto_perfil = novaFotoUrl;
-    }
+    const dataUpdate = {
+      nome_empresa: nome,
+      descricao,
+      cidade, estado, pais,
+      telefone
+    };
+    if (novaFotoUrl !== null) {
+      dataUpdate.foto_perfil = novaFotoUrl;
+    }
 
-    const empresaAtualizada = await prisma.empresa.update({
-      where: { id: Number(sess.id) },
-      data: dataUpdate
-    });
+    const empresaAtualizada = await prisma.empresa.update({
+      where: { id: Number(sess.id) },
+      data: dataUpdate
+    });
 
-    const urls = Array.isArray(req.body['link_url[]']) ? req.body['link_url[]'] :
-                 Array.isArray(req.body.link_url) ? req.body.link_url :
-                 (req.body.link_url ? [req.body.link_url] : []);
-    const labels = Array.isArray(req.body['link_label[]']) ? req.body['link_label[]'] :
-                   Array.isArray(req.body.link_label) ? req.body.link_label :
-                   (req.body.link_label ? [req.body.link_label] : []);
+    const urls = Array.isArray(req.body['link_url[]']) ? req.body['link_url[]'] :
+                 Array.isArray(req.body.link_url) ? req.body.link_url :
+                 (req.body.link_url ? [req.body.link_url] : []);
+    const labels = Array.isArray(req.body['link_label[]']) ? req.body['link_label[]'] :
+                   Array.isArray(req.body.link_label) ? req.body.link_label :
+                   (req.body.link_label ? [req.body.link_label] : []);
 
-    await prisma.empresa_link.deleteMany({ where: { empresa_id: Number(sess.id) } });
+    await prisma.empresa_link.deleteMany({ where: { empresa_id: Number(sess.id) } });
 
-    const creates = [];
-    let ordem = 1;
-    for (let i = 0; i < urls.length; i++) {
-      const url = (urls[i] || '').trim();
-      if (!url) continue;
-      const label = (labels[i] || 'Link').toString().trim();
-      if (!/^https?:\/\//i.test(url)) continue;
-      creates.push({ empresa_id: Number(sess.id), label, url, ordem });
-      ordem++;
-    }
-    if (creates.length) {
-      await prisma.empresa_link.createMany({ data: creates });
-    }
+    const creates = [];
+    let ordem = 1;
+    for (let i = 0; i < urls.length; i++) {
+      let url = (urls[i] || '').trim(); // 'let' para podermos modificar
+      if (!url) continue;
+      const label = (labels[i] || 'Link').toString().trim();
 
-    req.session.empresa = {
-      ...req.session.empresa,
-      nome_empresa: empresaAtualizada.nome_empresa,
-      descricao: empresaAtualizada.descricao,
-      cidade: empresaAtualizada.cidade,
-      estado: empresaAtualizada.estado,
-      pais: empresaAtualizada.pais,
-      telefone: empresaAtualizada.telefone,
-      foto_perfil: empresaAtualizada.foto_perfil || req.session.empresa.foto_perfil
-    };
+      if (!/^https?:\/\//i.test(url)) {
+        url = 'https://' + url;
+      }
 
-    req.session.sucessoCadastro = 'Perfil atualizado com sucesso.';
-    res.redirect('/empresa/meu-perfil');
-  } catch (err) {
-    console.error('Erro ao salvar edição da empresa:', err);
-    req.session.erro = 'Erro ao salvar o perfil. Tente novamente.';
-    res.redirect('/empresa/editar-empresa');
-  }
-};
+      creates.push({ empresa_id: Number(sess.id), label, url, ordem });
+      ordem++;
+    }
+    if (creates.length) {
+      await prisma.empresa_link.createMany({ data: creates });
+    }
+
+    req.session.empresa = {
+      ...req.session.empresa,
+      nome_empresa: empresaAtualizada.nome_empresa,
+      descricao: empresaAtualizada.descricao,
+      cidade: empresaAtualizada.cidade,
+      estado: empresaAtualizada.estado,
+      pais: empresaAtualizada.pais,
+      telefone: empresaAtualizada.telefone,
+      foto_perfil: empresaAtualizada.foto_perfil || req.session.empresa.foto_perfil
+    };
+
+    req.session.sucessoCadastro = 'Perfil atualizado com sucesso.';
+    res.redirect('/empresa/meu-perfil');
+  } catch (err) {
+    console.error('Erro ao salvar edição da empresa:', err);
+    req.session.erro = 'Erro ao salvar o perfil. Tente novamente.';
+    res.redirect('/empresa/editar-empresa');
+  }
+};  
 
 exports.mostrarVagas = async (req, res) => {
   if (!req.session?.empresa) return res.redirect('/login');
@@ -1970,87 +1980,77 @@ exports.salvarComplementarGoogle = async (req, res) => {
 };
 
 exports.pularCadastroEmpresa = async (req, res) => {
-  if (!req.session.usuario) req.session.usuario = {};
-  req.session.usuario.skipCadastro = true;
-  if (req.session.candidato) req.session.candidato.skipCadastro = true;
+  if (!req.session.usuario) req.session.usuario = {};
+  req.session.usuario.skipCadastro = true;
+  if (req.session.candidato) req.session.candidato.skipCadastro = true; // (Nota: isto é do controller de candidato, talvez seja um typo?)
 
-  res.cookie('cs_skipCadastro', '1', {
-    httpOnly: false,
-    sameSite: 'lax',
-    maxAge: 31536000000 // 1 ano
-  });
+  res.cookie('cs_skipCadastro', '1', {
+    httpOnly: false,
+    sameSite: 'lax',
+    maxAge: 31536000000 // 1 ano
+  });
 
-  try {
-    // 1) Tenta via uid criptografado
-    const rawUid = req.query.uid || req.body.uid || null;
-    let usuarioId = null;
+  try {
+    // ================== [CORREÇÃO DE SEGURANÇA] ==================
+    // Usar APENAS o ID da sessão. Ignorar req.query e req.body.
+    const usuarioId = Number(req.session?.usuario?.id);
 
-    if (rawUid) {
-      const dec = decodeId(rawUid);
-      if (Number.isFinite(dec)) usuarioId = dec;
+    if (!usuarioId) {
+      console.warn('[pularCadastroEmpresa] Tentativa de pular sem sessão válida.');
+      return res.redirect('/login');
     }
+    // ================== [FIM DA CORREÇÃO] ==================
 
-    // 2) Fallback legado: ?usuario_id=... ou sessão
-    if (!usuarioId) {
-      const legacy = Number(req.query.usuario_id || req.body.usuario_id || req.session?.usuario?.id);
-      if (Number.isFinite(legacy) && legacy > 0) {
-        usuarioId = legacy;
-      }
-    }
+    // Garante que exista um registro de empresa
+    let emp = await prisma.empresa.findUnique({
+      where: { usuario_id: usuarioId }, // Agora usa o ID seguro
+      include: { usuario: { select: { email: true } } }
+    });
 
-    if (!usuarioId) return res.redirect('/login');
+    if (!emp) {
+      const usr = await prisma.usuario.findUnique({ where: { id: usuarioId } }); // Usa o ID seguro
+      emp = await prisma.empresa.create({
+        data: {
+          usuario_id: usuarioId, // Usa o ID seguro
+          nome_empresa: usr?.nome || 'Empresa',
+          // ... (resto dos seus dados padrão)
+          descricao: '',
+          pais: '', estado: '', cidade: '',
+          telefone: '',
+          foto_perfil: ''
+        },
+        include: { usuario: { select: { email: true } } }
+      });
+    }
 
-    // Garante que exista um registro de empresa
-    let emp = await prisma.empresa.findUnique({
-      where: { usuario_id: usuarioId },
-      include: { usuario: { select: { email: true } } }
-    });
+    const localidade = [emp.cidade, emp.estado, emp.pais].filter(Boolean).join(', ');
 
-    if (!emp) {
-      const usr = await prisma.usuario.findUnique({ where: { id: usuarioId } });
-      emp = await prisma.empresa.create({
-        data: {
-          usuario_id: usuarioId,
-          nome_empresa: usr?.nome || 'Empresa',
-          descricao: '',
-          pais: '', estado: '', cidade: '',
-          telefone: '',
-          foto_perfil: ''
-        },
-        include: { usuario: { select: { email: true } } }
-      });
-    }
+    req.session.usuario = {
+      id: usuarioId,
+      tipo: 'empresa',
+      nome: emp.nome_empresa,
+      email: emp.usuario?.email || ''
+    };
+    req.session.empresa = {
+      id: emp.id,
+      usuario_id: usuarioId,
+      nome_empresa: emp.nome_empresa,
+      descricao: emp.descricao,
+      email: emp.usuario?.email || '',
+      telefone: emp.telefone || '',
+      foto_perfil: emp.foto_perfil || '',
+      cidade: emp.cidade || '',
+      estado: emp.estado || '',
+      pais: emp.pais || '',
+      localidade
+    };
 
-    // Prepara localidade formatada
-    const localidade = [emp.cidade, emp.estado, emp.pais].filter(Boolean).join(', ');
-
-    // Salva na sessão
-    req.session.usuario = {
-      id: usuarioId,
-      tipo: 'empresa',
-      nome: emp.nome_empresa,
-      email: emp.usuario?.email || ''
-    };
-    req.session.empresa = {
-      id: emp.id,
-      usuario_id: usuarioId,
-      nome_empresa: emp.nome_empresa,
-      descricao: emp.descricao,
-      email: emp.usuario?.email || '',
-      telefone: emp.telefone || '',
-      foto_perfil: emp.foto_perfil || '',
-      cidade: emp.cidade || '',
-      estado: emp.estado || '',
-      pais: emp.pais || '',
-      localidade
-    };
-
-    return req.session.save(() => res.redirect('/empresas/home'));
-  } catch (err) {
-    console.error('[pularCadastroEmpresa] erro:', err?.message || err);
-    req.session.erro = 'Não foi possível pular o complemento agora.';
-    return res.redirect('/login');
-  }
+    return req.session.save(() => res.redirect('/empresas/home'));
+  } catch (err) {
+    console.error('[pularCadastroEmpresa] erro:', err?.message || err);
+    req.session.erro = 'Não foi possível pular o complemento agora.';
+    return res.redirect('/login');
+  }
 };
 
 exports.uploadAnexosEmpresa = async (req, res) => {
