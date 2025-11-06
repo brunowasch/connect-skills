@@ -1,7 +1,7 @@
-// routes/empresaArquivoRoutes.js
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const withEncodedParam = require('../middlewares/withEncodedParam');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -15,6 +15,7 @@ function requireEmpresaSession(req, res, next) {
 
 const empresaController = require('../controllers/empresaController');
 const empresaArquivoController = require('../controllers/empresaArquivoController');
+const { ensureEmpresa } = require('../middlewares/auth');
 
 /**
  * LISTA / TELA DE ANEXOS DA EMPRESA
@@ -48,7 +49,9 @@ router.post(
  */
 router.get(
   '/empresa/anexos/:id/abrir',
+  ensureEmpresa,
   requireEmpresaSession,
+  withEncodedParam('id'),
   empresaArquivoController.abrirAnexo
 );
 
@@ -58,6 +61,8 @@ router.get(
 router.post(
   '/empresa/anexos/:id/delete',
   requireEmpresaSession,
+  ensureEmpresa,
+  withEncodedParam('id'),
   empresaArquivoController.deletarAnexo
 );
 
@@ -72,6 +77,6 @@ router.use((err, req, res, next) => {
   next(err);
 });
 
-router.get('/public/empresa/anexos/:id/abrir', empresaArquivoController.abrirAnexoPublico);
+router.get('/public/empresa/anexos/:id/abrir', ensureEmpresa, withEncodedParam('id'), empresaArquivoController.abrirAnexoPublico);
 
 module.exports = router;

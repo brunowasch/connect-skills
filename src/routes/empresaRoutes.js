@@ -26,25 +26,22 @@ const remember = (req, _res, next) => {
   next();
 };
 
-router.get('/cadastro', empresaController.telaCadastro);
-router.post('/cadastro', empresaController.cadastrarEmpresa);
-
 router.get('/complementar', ensureEmpresa, empresaController.telaComplementarGoogle);
-router.post('/complementar', empresaController.salvarComplementarGoogle);
+router.post('/complementar', ensureEmpresa, empresaController.salvarComplementarGoogle);
 
-router.get('/nome-empresa', empresaController.telaNomeEmpresa);
-router.post('/nome-empresa', empresaController.salvarNomeEmpresa);
+router.get('/nome-empresa', ensureEmpresa, empresaController.telaNomeEmpresa);
+router.post('/nome-empresa', ensureEmpresa, empresaController.salvarNomeEmpresa);
 
-router.get('/localizacao', empresaController.telaLocalizacao);
-router.post('/localizacao', empresaController.salvarLocalizacao);
+router.get('/localizacao', ensureEmpresa, empresaController.telaLocalizacao);
+router.post('/localizacao', ensureEmpresa, empresaController.salvarLocalizacao);
 
-router.get('/telefone', empresaController.telaTelefone);
-router.post('/telefone', empresaController.salvarTelefone);
+router.get('/telefone', ensureEmpresa, empresaController.telaTelefone);
+router.post('/telefone', ensureEmpresa, empresaController.salvarTelefone);
 
-router.get('/foto-perfil', empresaController.telaFotoPerfil);
-router.post('/foto-perfil', uploadEmpresa.single('novaFoto'), empresaController.salvarFotoPerfil);
+router.get('/foto-perfil', ensureEmpresa, empresaController.telaFotoPerfil);
+router.post('/foto-perfil', ensureEmpresa, uploadEmpresa.single('novaFoto'), empresaController.salvarFotoPerfil);
 
-router.get('/home', remember, empresaController.homeEmpresa);
+router.get('/home', remember, ensureEmpresa, empresaController.homeEmpresa);
 router.get('/meu-perfil', ensureEmpresa, remember, empresaController.telaPerfilEmpresa);
 
 router.get('/editar-empresa', ensureEmpresa, empresaController.telaEditarPerfil);
@@ -52,7 +49,7 @@ router.post('/editar-empresa', ensureEmpresa, uploadEmpresa.single('novaFoto'), 
 
 router.get('/publicar-vaga', ensureEmpresa, empresaController.telaPublicarVaga);
 router.post('/publicar-vaga', ensureEmpresa, uploadVaga.array('anexosVaga'), empresaController.salvarVaga);
-router.get('/public/vaga/anexos/:id/abrir', vagaArquivoController.abrirAnexoPublico);
+router.get('/public/vaga/anexos/:id/abrir', ensureEmpresa, withEncodedParam('id'), vagaArquivoController.abrirAnexoPublico);
 
 router.get('/vagas', ensureEmpresa, remember, empresaController.mostrarVagas);
 
@@ -72,31 +69,31 @@ router.get('/candidatos-encontrados', ensureEmpresa, (req, res) =>
 );
 
 router.get('/perfil/:id', withEncodedParam('id'), empresaController.perfilPublico);
-router.get('/ranking-candidatos/:vagaId', ensureEmpresa, empresaController.rankingCandidatos);
+router.get('/ranking-candidatos/:vagaId', ensureEmpresa,  withEncodedParam('id'), empresaController.rankingCandidatos);
 
 router.post('/excluir-conta', ensureEmpresa, empresaController.excluirConta);
 
-router.get('/editar-vaga/:id', (req, res) =>
+router.get('/editar-vaga/:id', ensureEmpresa, withEncodedParam('id'), (req, res) =>
    res.redirect(301, `/empresas/vaga/${req.params.id}/editar`)
 );
-router.post('/editar-vaga/:id', (req, res) =>
+router.post('/editar-vaga/:id', ensureEmpresa, withEncodedParam('id'), (req, res) =>
    res.redirect(307, `/empresas/vaga/${req.params.id}/editar`)
 );
 
-router.get('/empresa/vaga/:id/editar', (req, res) =>
+router.get('/empresa/vaga/:id/editar',ensureEmpresa, withEncodedParam('id'), (req, res) =>
    res.redirect(301, `/empresas/vaga/${req.params.id}/editar`)
 );
-router.post('/empresa/vaga/:id/editar', (req, res) =>
+router.post('/empresa/vaga/:id/editar', ensureEmpresa, withEncodedParam('id'), (req, res) =>
    res.redirect(307, `/empresas/vaga/${req.params.id}/editar`)
 );
 
-router.post('/excluir-vaga/:id', ensureEmpresa, (req, res) =>
+router.post('/excluir-vaga/:id', ensureEmpresa, withEncodedParam('id'), (req, res) =>
    res.redirect(307, `/empresas/vaga/${req.params.id}/excluir`)
 );
 
 router.get('/pular-cadastro', empresaController.pularCadastroEmpresa);
 
-router.post('/vaga/links/:id/delete', ensureEmpresa, async (req, res) => {
+router.post('/vaga/links/:id/delete', ensureEmpresa, withEncodedParam('id'), async (req, res) => {
   try {
     const id = Number(req.params.id);
 
@@ -115,7 +112,7 @@ router.post('/vaga/links/:id/delete', ensureEmpresa, async (req, res) => {
   }
 });
 
-router.post('/vaga/anexos/:id/delete', ensureEmpresa, async (req, res) => {
+router.post('/vaga/anexos/:id/delete', ensureEmpresa,  withEncodedParam('id'), async (req, res) => {
   try {
     const id = Number(req.params.id);
     const ax = await prisma.vaga_arquivo.findUnique({
