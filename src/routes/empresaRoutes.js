@@ -69,7 +69,7 @@ router.get('/candidatos-encontrados', ensureEmpresa, (req, res) =>
 );
 
 router.get('/perfil/:id', withEncodedParam('id'), empresaController.perfilPublico);
-router.get('/ranking-candidatos/:vagaId', ensureEmpresa,  withEncodedParam('id'), empresaController.rankingCandidatos);
+router.get('/ranking-candidatos/:vagaId', ensureEmpresa, empresaController.rankingCandidatos);
 
 router.post('/excluir-conta', ensureEmpresa, empresaController.excluirConta);
 

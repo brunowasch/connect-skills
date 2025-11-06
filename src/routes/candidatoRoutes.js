@@ -35,9 +35,9 @@ router.get('/home', ensureCandidato, candidatoController.telaHomeCandidato);
 router.get('/meu-perfil', ensureCandidato, candidatoController.renderMeuPerfil);
 router.get('/vagas', ensureCandidato, candidatoController.mostrarVagas);
 router.get('/vagas/historico', ensureCandidato, candidatoController.historicoAplicacoes);
-router.get('/vagas/:id', ensureCandidato, withEncodedParam('id'), candidatoController.vagaDetalhes);
-router.get('/vagas/:id/perguntas-disc', ensureCandidato,  withEncodedParam('id'), vagaController.apiPerguntasDISC);
-router.post('/vagas/:id/aplicar', ensureCandidato, withEncodedParam('id'), candidatoController.aplicarVaga);
+router.get('/vagas/:id', ensureCandidato, candidatoController.vagaDetalhes);
+router.get('/vagas/:id/perguntas-disc', ensureCandidato, vagaController.apiPerguntasDISC);
+router.post('/vagas/:id/aplicar', ensureCandidato, candidatoController.aplicarVaga);
 
 // Edição de perfil
 router.get('/editar-perfil', ensureCandidato, candidatoController.telaEditarPerfil);
@@ -46,7 +46,7 @@ router.post('/editar-perfil', ensureCandidato, uploadCandidato.single('novaFoto'
 router.get('/editar-areas', ensureCandidato, candidatoController.telaEditarAreas);
 router.post('/editar-areas', candidatoController.salvarEditarAreas);
 
-router.post('/vaga/:id/avaliar',  withEncodedParam('id'), candidatoController.avaliarCompatibilidade);
+router.post('/vagas/:id/avaliar', ensureCandidato, candidatoController.avaliarCompatibilidade);
 router.post('/excluir-conta', ensureCandidato, candidatoController.excluirConta);
 
 router.get('/pular-cadastro', candidatoController.pularCadastroCandidato);
