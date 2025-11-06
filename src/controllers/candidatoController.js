@@ -595,7 +595,6 @@ exports.renderMeuPerfil = async (req, res) => {
     const arquivos = candidato.candidato_arquivo || [];
     const anexos = arquivos;
 
-    // ---------- TELEFONE (robusto) ----------
     function parseTelefoneBR(telRaw) {
       const tel = (telRaw || '').trim();
       if (!tel) return { ddi: '', ddd: '', numeroFormatado: '' };
@@ -656,7 +655,6 @@ exports.renderMeuPerfil = async (req, res) => {
     let { ddi, ddd, numeroFormatado } = parseTelefoneBR(candidato.telefone);
     ddi = sanitizeDdi(ddi);
 
-    // ---------- IDs/URL criptografados (para botão copiar link) ----------
     const encCandidatoId = encodeId(Number(candidato.id));
     const perfilShareUrl = `${req.protocol}://${req.get('host')}/candidatos/perfil/${encCandidatoId}`;
 
@@ -691,7 +689,6 @@ exports.mostrarVagas = async (req, res) => {
   const ordenar = (req.query.ordenar || 'recentes').trim();
 
   try {
-    // [INÍCIO DA SUA LÓGICA ORIGINAL - TUDO CORRETO]
     let vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
 
     vagas = await prisma.vaga.findMany({
@@ -768,7 +765,6 @@ exports.mostrarVagas = async (req, res) => {
     for (const vaga of vagas) {
       const texto = mapAval.get(vaga.id) || '';
       if (!texto) continue;
-      // ... (sua lógica de 'respostas_previas')
     }
 
     const cand = await prisma.candidato.findUnique({
@@ -778,12 +774,9 @@ exports.mostrarVagas = async (req, res) => {
   const areas = (cand?.candidato_area || [])
     .map(r => r.area_interesse?.nome)
     .filter(Boolean);
-    // [FIM DA SUA LÓGICA ORIGINAL]
 
 
-    // ==========================================================
-    // ⬇️ NOVO: Mapeando vagas para adicionar IDs codificados ⬇️
-    // ==========================================================
+
     const vagasParaView = vagas.map(vaga => {
       const empresa = vaga.empresa || {}; // Garante que empresa não é nula
       return {
@@ -795,9 +788,6 @@ exports.mostrarVagas = async (req, res) => {
         }
       };
     });
-    // ==========================================================
-    // ⬆️ FIM DO BLOCO NOVO ⬆️
-    // ==========================================================
 
 
   res.render('candidatos/vagas', {
@@ -1373,202 +1363,210 @@ exports.complementarGoogle = async (req, res) => {
 };
 
 exports.avaliarCompatibilidade = async (req, res) => {
-  try {
-    const sess = req.session?.candidato;
-    if (!sess) {
-      return res.status(401).json({ ok: false, error: 'Não autenticado' });
-    }
-    const candidato_id = Number(sess.id);
-    const vaga_id = Number(req.params.id);
+  try {
+    // 1. Verificação de Autenticação (Sua lógica original - Correta)
+    const sess = req.session?.candidato;
+    if (!sess) {
+      return res.status(401).json({ ok: false, error: 'Não autenticado' });
+    }
+    const candidato_id = Number(sess.id);
 
-    if (await isVagaFechada(vaga_id)) {
-      return res.status(403).json({ ok: false, error: 'Esta vaga está fechada no momento.' });
-    }
+    // 2. Lógica de ID (Sua lógica original - Correta)
+    // O middleware 'withEncodedParam' já decodificou o ID.
+    const vaga_id = Number(req.params.id);
+    if (!vaga_id || vaga_id <= 0) {
+       return res.status(400).json({ ok: false, error: 'ID de vaga inválido' });
+    }
 
-    const existente = await prisma.vaga_avaliacao.findFirst({
-      where: { vaga_id, candidato_id },
-      select: { id: true }
-    });
-    if (existente) {
-      return res.status(409).json({ ok: false, error: 'Você já realizou o teste desta vaga.' });
-    }
+    // 3. Verificação de Status (Substituindo 'isVagaFechada')
+    const statusMaisRecente = await prisma.vaga_status.findFirst({
+      where: { vaga_id: vaga_id },
+      orderBy: { criado_em: 'desc' },
+      select: { situacao: true }
+    });
 
-    const qaRaw = Array.isArray(req.body.qa) ? req.body.qa : [];
-    let itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
-    const skillsRaw = Array.isArray(req.body.skills) ? req.body.skills : [];
+    // Lógica para Vagas Antigas (Solução 1): Se 'null', considere 'aberta'
+    const situacaoAtual = statusMaisRecente?.situacao || 'aberta';
 
-    if (!itemsStr) {
-      const vagaDb = await prisma.vaga.findUnique({
-        where: { id: vaga_id },
-        select: { descricao: true }
-      });
-      if (vagaDb?.descricao?.trim()) {
-        itemsStr = vagaDb.descricao.trim();
-      }
-    }
+    if (situacaoAtual !== 'aberta') {
+      return res.status(403).json({ ok: false, error: 'Esta vaga está fechada no momento.' });
+    }
+    // ==========================================================
 
-    const qaNormalized = qaRaw
-      .map(x => ({
-        question: typeof x?.question === 'string' ? x.question.trim() : '',
-        answer:   typeof x?.answer   === 'string' ? x.answer.trim()   : ''
-      }))
-      .filter(x => x.question || x.answer);
+    // 4. Verificação de Duplicata (Sua lógica original - Correta)
+    const existente = await prisma.vaga_avaliacao.findFirst({
+      where: { vaga_id, candidato_id },
+      select: { id: true }
+    });
+    if (existente) {
+      return res.status(409).json({ ok: false, error: 'Você já realizou o teste desta vaga.' });
+    }
 
-    let skills = skillsRaw
-      .map(s => (typeof s === 'string' ? s.trim() : ''))
-      .filter(Boolean);
+    // 5. Busca consolidada (APÓS a verificação de segurança)
+    const vagaDb = await prisma.vaga.findUnique({
+      where: { id: vaga_id },
+      select: {
+        descricao: true,
+        vaga_soft_skill: { include: { soft_skill: true } }
+      }
+    });
 
-    if (!skills.length) {
-      const vagaDbSkills = await prisma.vaga.findUnique({
-        where: { id: vaga_id },
-        select: { vaga_soft_skill: { include: { soft_skill: true } } }
-      });
-      skills = (vagaDbSkills?.vaga_soft_skill || [])
-        .map(vs => vs.soft_skill?.nome)
-        .filter(Boolean);
-    }
+    if (!vagaDb) {
+      return res.status(404).json({ ok: false, error: 'Vaga não encontrada.' });
+    }
 
-    const discQuestions = (getDiscQuestionsForSkills(skills) || []).map(q =>
-      String(q || '').trim().toLowerCase()
-    );
+    // 6. Processamento de Dados (Usando dados da busca segura)
+    const qaRaw = Array.isArray(req.body.qa) ? req.body.qa : [];
+    let itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
+    const skillsRaw = Array.isArray(req.body.skills) ? req.body.skills : [];
 
-    const findAnswer = (question) => {
-      const qnorm = String(question || '').trim().toLowerCase();
-      const hit = qaNormalized.find(item => String(item.question || '').trim().toLowerCase() === qnorm);
-      return hit ? String(hit.answer || '').trim() : '';
-    };
+    // Usando 'vagaDb' (Removida a busca duplicada)
+    if (!itemsStr) {
+      if (vagaDb?.descricao?.trim()) {
+        itemsStr = vagaDb.descricao.trim();
+      }
+    }
 
-    const da = (getDiscQuestionsForSkills(skills) || []).map(q => ({
-      question: q,
-      answer: findAnswer(q)
-    }));
+    const qaNormalized = qaRaw
+      .map(x => ({
+        question: typeof x?.question === 'string' ? x.question.trim() : '',
+        answer:   typeof x?.answer   === 'string' ? x.answer.trim()   : ''
+      }))
+      .filter(x => x.question || x.answer);
 
-    const qa = qaNormalized.filter(item => {
-      const key = String(item.question || '').trim().toLowerCase();
-      return key && !discQuestions.includes(key);
-    });
+    let skills = skillsRaw
+      .map(s => (typeof s === 'string' ? s.trim() : ''))
+      .filter(Boolean);
 
-    if (!qa.length && !(da.some(x => (x.answer || '').trim()))) {
-      // exige pelo menos algo respondido em QA não-DISC ou em DA (DISC)
-      return res.status(400).json({ ok: false, error: 'É obrigatório enviar ao menos uma pergunta respondida.' });
-    }
-    if (!itemsStr) {
-      return res.status(400).json({ ok: false, error: 'Campo "items" (descrição do candidato ideal) é obrigatório.' });
-    }
+    // Usando 'vagaDb' (Removida a busca duplicada)
+    if (!skills.length) {
+      skills = (vagaDb?.vaga_soft_skill || [])
+        .map(vs => vs.soft_skill?.nome)
+        .filter(Boolean);
+    }
 
-    const ensureQmark = (s) => String(s||'').trim().replace(/\s*([?.!…:])?\s*$/, '?');
+    // 7. Restante da sua Lógica de Negócios (Tudo mantido)
+    const discQuestions = (getDiscQuestionsForSkills(skills) || []).map(q =>
+      String(q || '').trim().toLowerCase()
+    );
 
-    const toLine = ({ question, answer }) => {
-      const q = ensureQmark(question || '');
-      const a = (answer || '').trim();
-      return [q, a || '—'].join(' ');
-    };
+    const findAnswer = (question) => {
+      const qnorm = String(question || '').trim().toLowerCase();
+      const hit = qaNormalized.find(item => String(item.question || '').trim().toLowerCase() === qnorm);
+      return hit ? String(hit.answer || '').trim() : '';
+    };
 
+    const da = (getDiscQuestionsForSkills(skills) || []).map(q => ({
+      question: q,
+      answer: findAnswer(q)
+    }));
 
-    const linesDa = (da || [])
-      .filter(x => (x.question || '').trim())
-      .map(toLine);
+    const qa = qaNormalized.filter(item => {
+      const key = String(item.question || '').trim().toLowerCase();
+      return key && !discQuestions.includes(key);
+    });
 
-    const linesQa = (qa || [])
-      .filter(x => (x.question || '').trim())
-      .map(toLine);
+    if (!qa.length && !(da.some(x => (x.answer || '').trim()))) {
+      return res.status(400).json({ ok: false, error: 'É obrigatório enviar ao menos uma pergunta respondida.' });
+    }
+    if (!itemsStr) {
+      return res.status(400).json({ ok: false, error: 'Campo "items" (descrição do candidato ideal) é obrigatório.' });
+    }
 
-    // agora "resposta" inclui TUDO, garantindo que o modal liste todas as perguntas
-    const respostaFlattenAll = [...linesDa, ...linesQa].filter(Boolean).join('\n');
+    const ensureQmark = (s) => String(s||'').trim().replace(/\s*([?.!…:])?\s*$/, '?');
 
-    // --- ESCAPE APENAS PARA O PAYLOAD ENVIADO --- //
-    const payload = {
-      qa:     escapeQAArray(qa),
-      items:  escapeNL(itemsStr),
-      skills: skills,
-      da:     escapeDAArray(da)
-    };
+    const toLine = ({ question, answer }) => {
+      const q = ensureQmark(question || '');
+      const a = (answer || '').trim();
+      return [q, a || '—'].join(' ');
+    };
 
-    console.log('[Compat] Payload a enviar para /suggest:', JSON.stringify(payload, null, 2));
+    const linesDa = (da || []).filter(x => (x.question || '').trim()).map(toLine);
+    const linesQa = (qa || []).filter(x => (x.question || '').trim()).map(toLine);
+    const respostaFlattenAll = [...linesDa, ...linesQa].filter(Boolean).join('\n');
 
-    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest';
-    const axiosResp = await axios.post(url, payload, {
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 30000
-    });
+    const payload = {
+      qa:     escapeQAArray(qa),
+      items:  escapeNL(itemsStr),
+      skills: skills,
+      da:     escapeDAArray(da)
+    };
 
-    // ---------- NORMALIZAÇÃO DA RESPOSTA ----------
-    const respData = (axiosResp && typeof axiosResp === 'object') ? axiosResp.data : axiosResp;
-    const raw = safeParse(respData);
-    const results = normalizeResults(raw);
+    console.log('[Compat] Payload a enviar para /suggest:', JSON.stringify(payload, null, 2));
 
-    // 1) Novo formato DISC (score + score_D/I/S/C)
-    const isDisc =
-      raw && typeof raw === 'object' &&
-      typeof raw.score === 'number' &&
-      ['score_D', 'score_I', 'score_S', 'score_C'].every(k => typeof raw[k] === 'number');
+    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest';
+    const axiosResp = await axios.post(url, payload, {
+      headers: { 'Content-Type': 'application/json' },
+  g: 30000
+    });
 
-    if (!results.length && isDisc) {
-      const score = Math.max(0, Math.min(100, Number(raw.score) || 0));
+    const respData = (axiosResp && typeof axiosResp === 'object') ? axiosResp.data : axiosResp;
+    const raw = safeParse(respData);
+    const results = normalizeResults(raw);
 
-      await vagaAvaliacaoModel.upsertAvaliacao({
-        vaga_id,
-        candidato_id,
-        score,
-        // salva TODAS as perguntas no texto consolidado
-        resposta: respostaFlattenAll,
-        // guarda DISC + extras + as perguntas originais para renderização completa
-        breakdown: { ...raw, skills, qa, da }
-      });
+    const isDisc =
+      raw && typeof raw === 'object' &&
+      typeof raw.score === 'number' &&
+      ['score_D', 'score_I', 'score_S', 'score_C'].every(k => typeof raw[k] === 'number');
 
-      return res.json({
-        ok: true,
-        score,
-        score_D: Number(raw.score_D) || 0,
-        score_I: Number(raw.score_I) || 0,
-        score_S: Number(raw.score_S) || 0,
-        score_C: Number(raw.score_C) || 0,
-        matchedSkills: Array.isArray(raw.matchedSkills) ? raw.matchedSkills : [],
-        suggestions:  Array.isArray(raw.suggestions)  ? raw.suggestions  : [],
-        explanation:  raw.explanation || '',
-        skills
-      });
-    }
+    if (!results.length && isDisc) {
+      const score = Math.max(0, Math.min(100, Number(raw.score) || 0));
+      await vagaAvaliacaoModel.upsertAvaliacao({
+        vaga_id,
+        candidato_id,
+        score,
+        resposta: respostaFlattenAll,
+        breakdown: { ...raw, skills, qa, da }
+      });
+      return res.json({
+        ok: true,
+        score,
+        score_D: Number(raw.score_D) || 0,
+        score_I: Number(raw.score_I) || 0,
+        score_S: Number(raw.score_S) || 0,
+        score_C: Number(raw.score_C) || 0,
+        matchedSkills: Array.isArray(raw.matchedSkills) ? raw.matchedSkills : [],
+        suggestions:  Array.isArray(raw.suggestions)  ? raw.suggestions  : [],
+        explanation:  raw.explanation || '',
+        skills
+      });
+    }
 
-    // 2) Formato antigo baseado em results (mapPair + média)
-    if (results.length) {
-      const score = avgScore0to100(results);
+    if (results.length) {
+      const score = avgScore0to100(results);
+      await vagaAvaliacaoModel.upsertAvaliacao({
+        vaga_id,
+        candidato_id,
+        score,
+        resposta: respostaFlattenAll,
+        breakdown: { skills, results, qa, da }
+      });
+      return res.json({ ok: true, score, results, skills });
+    }
 
-      await vagaAvaliacaoModel.upsertAvaliacao({
-        vaga_id,
-        candidato_id,
-        score,
-        resposta: respostaFlattenAll,
-        breakdown: { skills, results, qa, da }
-      });
+    await vagaAvaliacaoModel.upsertAvaliacao({
+      vaga_id,
+      candidato_id,
+      score: 0,
+      resposta: respostaFlattenAll,
+      breakdown: { erro: '[IA] Formato inesperado', raw, payload, qa, da, skills }
+    });
 
-      return res.json({ ok: true, score, results, skills });
-    }
+    try {
+      console.warn('[IA] Formato inesperado:', JSON.stringify(raw).slice(0, 800));
+    } catch {
+      console.warn('[IA] Formato inesperado (string):', String(raw).slice(0, 800));
+    }
+    return res.status(422).json({ ok: false, error: '[IA] Formato inesperado', raw });
 
-    // 3) Nenhum formato reconhecido
-    await vagaAvaliacaoModel.upsertAvaliacao({
-      vaga_id,
-      candidato_id,
-      score: 0,
-      resposta: respostaFlattenAll,
-      breakdown: { erro: '[IA] Formato inesperado', raw, payload, qa, da, skills }
-    });
-
-    try {
-      console.warn('[IA] Formato inesperado:', JSON.stringify(raw).slice(0, 800));
-    } catch {
-      console.warn('[IA] Formato inesperado (string):', String(raw).slice(0, 800));
-    }
-    return res.status(422).json({ ok: false, error: '[IA] Formato inesperado', raw });
-
-  } catch (err) {
-    console.error('Erro ao avaliar compatibilidade:', err?.message || err);
-    const reason =
-      err?.code === 'ECONNABORTED'
-        ? 'Tempo limite excedido. Tente novamente.'
-        : 'Falha ao contatar o serviço de análise.';
-    return res.status(500).json({ ok: false, error: reason });
-  }
+  } catch (err) {
+    console.error('Erro ao avaliar compatibilidade:', err?.message || err);
+    const reason =
+      err?.code === 'ECONNABORTED'
+        ? 'Tempo limite excedido. Tente novamente.'
+        : 'Falha ao contatar o serviço de análise.';
+    return res.status(500).json({ ok: false, error: reason });
+  }
 };
 
 exports.avaliarVagaIa = async (req, res) => {
