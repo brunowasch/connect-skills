@@ -21,7 +21,6 @@
     <h3 class="text-center mb-4">Digite seu número de telefone:</h3>
 
     <form action="/empresas/telefone" method="POST" id="formTelefone" novalidate>
-      <input type="hidden" name="uid" value="<%= uid %>">
 
       <div class="form-card">
         <div class="mb-4">
@@ -48,7 +47,7 @@
         
         <div class="text-center mt-3">
           <a class="btn btn-link text-decoration-none"
-             href="/empresas/pular-cadastro?uid=<%= uid %>">
+             href="/empresas/pular-cadastro">
             Prefiro completar meu perfil depois
           </a>
         </div>

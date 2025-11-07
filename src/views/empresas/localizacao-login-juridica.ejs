@@ -24,7 +24,6 @@
 
     <div class="form-container">
     <form action="/empresas/localizacao" method="POST" id="formLocalizacao" novalidate>
-    <input type="hidden" name="uid" value="<%= uid %>">
 
     <div class="mb-3 text-start">
       <label for="localidade" class="form-label">Localidade</label>
@@ -49,7 +48,7 @@
         </div>
         <div class="text-center mt-3">
           <a class="btn btn-link text-decoration-none"
-            href="/empresas/pular-cadastro?uid=<%= uid %>">
+            href="/empresas/pular-cadastro">
             Prefiro completar meu perfil depois
           </a>
         </div>

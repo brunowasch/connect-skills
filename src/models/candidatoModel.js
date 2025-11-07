@@ -240,25 +240,37 @@ exports.upsertNovaArea = async (nome) => {
 };
 
 /**
- * Complementa o cadastro do candidato vindo do Google
+ * Complementa (ou cria) o cadastro do candidato vindo do Google
  * @param {number} usuario_id
  * @param {Object} dados
  */
 exports.complementarCadastroGoogle = async (usuario_id, dados) => {
-  return await prisma.candidato.update({
+  const norm = (v) => (typeof v === 'string' ? v.trim() : v);
+  const toStrOrEmpty = (v) => (norm(v) ? String(norm(v)) : '');
+  const toDateOrNull = (v) => {
+    if (!v) return null;
+    const d = v instanceof Date ? v : new Date(v);
+    return isNaN(d) ? null : d;
+  };
+
+  const payload = {
+    nome: toStrOrEmpty(dados.nome),
+    sobrenome: toStrOrEmpty(dados.sobrenome),
+    data_nascimento: toDateOrNull(dados.data_nascimento),
+    pais: toStrOrEmpty(dados.pais),
+    estado: toStrOrEmpty(dados.estado),
+    cidade: toStrOrEmpty(dados.cidade),
+    telefone: toStrOrEmpty(dados.telefone),
+    foto_perfil: norm(dados.foto_perfil) || ''
+  };
+
+  return await prisma.candidato.upsert({
     where: { usuario_id: Number(usuario_id) },
-    data: {
-      nome: dados.nome,
-      sobrenome: dados.sobrenome,
-      data_nascimento: dados.data_nascimento,
-      pais: dados.pais,
-      estado: dados.estado,
-      cidade: dados.cidade,
-      telefone: dados.telefone,
-      foto_perfil: dados.foto_perfil || null
-    }
+    update: payload,
+    create: { usuario_id: Number(usuario_id), ...payload }
   });
 };
+
 
 exports.listarLinksDoCandidato = async (candidato_id) => {
   return prisma.candidato_link.findMany({

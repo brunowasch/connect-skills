@@ -1,4 +1,3 @@
-// controllers/vagaArquivoController.js
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const axios = require('axios');
@@ -53,7 +52,6 @@ exports.abrirAnexoPublico = async (req, res) => {
     const realId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
     if (!Number.isFinite(realId) || realId <= 0) return res.status(400).send('ID inválido.');
 
-    const id = Number(req.params.id);
     const ax = await prisma.vaga_arquivo.findUnique({
       where: { id: realId },
       select: { url: true, nome: true, mime: true }

@@ -55,403 +55,333 @@ function parseParamId(raw) {
   return NaN;
 }
 
-exports.telaCadastro = (req, res) => {
-  res.render('empresas/cadastro-pessoa-juridica');
-};
-
-exports.cadastrarEmpresa = (req, res) => {
-  const { email, senha } = req.body;
-  req.session.empresa = { email, senha };
-  res.redirect('/empresas/nome-empresa');
-};
-
 exports.telaNomeEmpresa = (req, res) => {
-  const { uid, usuario_id } = req.query;
-
-  if (!uid && usuario_id && /^\d+$/.test(String(usuario_id))) {
-    const safeUid = encodeId(Number(usuario_id));
-    return res.redirect(`/empresas/nome-empresa?uid=${safeUid}`);
-  }
-
-  if (!uid) {
-    req.session.erro = 'ID do usuário não foi informado.';
-    return res.redirect('/cadastro');
-  }
-  const dec = decodeId(uid);
-  if (!Number.isFinite(dec)) {
-    req.session.erro = 'Link inválido.';
-    return res.redirect('/cadastro');
-  }
-
-  return res.render('empresas/nome-empresa', { uid });
+  res.render('empresas/nome-empresa');
 };
 
 exports.salvarNomeEmpresa = async (req, res) => {
-  try {
-    const rawUid = req.body.uid || req.query.uid;
-    const usuario_id = decodeId(rawUid);
-    if (!Number.isFinite(usuario_id)) {
-      req.session.erro = 'ID do usuário inválido.';
-      return res.redirect('/cadastro');
+  try {
+    const usuario_id = req.session.usuario.id;
+
+    const { nome_empresa, descricao } = req.body;
+
+    // Verificação de segurança (garante que a sessão existe)
+    if (!usuario_id) {
+        req.session.erro = 'Sessão inválida. Faça login novamente.';
+        return res.redirect('/login');
     }
 
-    const { nome_empresa, descricao } = req.body;
-    if (!nome_empresa || !descricao) {
-      req.session.erro = 'Todos os campos são obrigatórios.';
-      return res.redirect(`/empresas/nome-empresa?uid=${rawUid}`);
-    }
+    if (!nome_empresa || !descricao) {
+      req.session.erro = 'Todos os campos são obrigatórios.';
+      return res.redirect(`/empresas/nome-empresa`);
+    }
 
-    const empresaExistente = await empresaModel.obterEmpresaPorUsuarioId(usuario_id);
-    if (empresaExistente) {
-      req.session.erro = 'Empresa já cadastrada para esse usuário.';
-      return res.redirect('/empresas/home');
-    }
+    const empresaExistente = await empresaModel.obterEmpresaPorUsuarioId(usuario_id);
+    if (empresaExistente) {
+      req.session.erro = 'Perfil de empresa já cadastrado.';
+      return res.redirect('/empresas/home'); 
+    }
 
-    await empresaModel.criarEmpresa({ usuario_id, nome_empresa, descricao });
+    await empresaModel.criarEmpresa({ 
+        usuario_id: Number(usuario_id), 
+        nome_empresa, 
+        descricao 
+    });
 
-    const uid = encodeId(usuario_id);
-    return res.redirect(`/empresas/localizacao?uid=${uid}`);
-  } catch (err) {
-    console.error('Erro ao inserir empresa:', err);
-    req.session.erro = 'Erro ao salvar os dados da empresa.';
-    const rawUid = req.body.uid || req.query.uid || '';
-    return res.redirect(`/empresas/nome-empresa?uid=${rawUid}`);
-  }
+    return res.redirect(`/empresas/localizacao`);
+
+  } catch (err) {
+    console.error('Erro ao inserir empresa:', err);
+    req.session.erro = 'Erro ao salvar os dados da empresa.';
+    return res.redirect(`/empresas/nome-empresa`);
+  }
 };
 
 exports.telaLocalizacao = (req, res) => {
-  const { uid, usuario_id } = req.query;
-
-  if (!uid && usuario_id && /^\d+$/.test(String(usuario_id))) {
-    const safeUid = encodeId(Number(usuario_id));
-    return res.redirect(`/empresas/localizacao?uid=${safeUid}`);
-  }
-
-  if (!uid) {
-    req.session.erro = 'ID do usuário não informado.';
-    return res.redirect('/cadastro');
-  }
-
-  return res.render('empresas/localizacao-login-juridica', { uid });
+  return res.render('empresas/localizacao-login-juridica');
 };
 
 exports.salvarLocalizacao = async (req, res) => {
-  try {
-    const rawUid = req.body.uid || req.query.uid;
-    const usuario_id = decodeId(rawUid);
-    if (!Number.isFinite(usuario_id)) {
-      req.session.erro = 'ID do usuário inválido.';
-      return res.redirect('/cadastro');
+  try {
+    const usuario_id = req.session.usuario.id;
+    const { localidade } = req.body;
+
+    // Verificação de segurança (garante que a sessão existe)
+    if (!usuario_id) {
+        req.session.erro = 'Sessão inválida. Faça login novamente.';
+        return res.redirect('/login');
     }
 
-    const { localidade } = req.body;
-    if (!localidade) {
-      req.session.erro = 'Informe sua localidade.';
-      return res.redirect(`/empresas/localizacao?uid=${rawUid}`);
-    }
+    if (!localidade) {
+      req.session.erro = 'Informe sua localidade.';
+      return res.redirect(`/empresas/localizacao`);
+    }
 
-    const partes = localidade.split(',').map(p => p.trim());
-    if (partes.length < 2 || partes.length > 3) {
-      req.session.erro = 'Informe uma localidade válida. Ex: cidade e país, ou cidade, estado e país.';
-      return res.redirect(`/empresas/localizacao?uid=${rawUid}`);
-    }
+    const partes = localidade.split(',').map(p => p.trim());
+    if (partes.length < 2 || partes.length > 3) {
+      req.session.erro = 'Informe uma localidade válida. Ex: cidade e país, ou cidade, estado e país.';
+      return res.redirect(`/empresas/localizacao`);
+    }
 
-    const [cidade, estado = '', pais = ''] = partes;
+    const [cidade, estado = '', pais = ''] = partes;
 
-    await empresaModel.atualizarLocalizacao({ usuario_id, pais, estado, cidade });
+    await empresaModel.atualizarLocalizacao({ 
+        usuario_id: Number(usuario_id), 
+        pais, 
+        estado, 
+        cidade 
+    });
 
-    const uid = encodeId(usuario_id);
-    return res.redirect(`/empresas/telefone?uid=${uid}`);
-  } catch (err) {
-    console.error('Erro ao salvar localização:', err);
-    req.session.erro = 'Erro ao salvar localização.';
-    const rawUid = req.body.uid || req.query.uid || '';
-    return res.redirect(`/empresas/localizacao?uid=${rawUid}`);
-  }
+    return res.redirect(`/empresas/telefone`);
+
+  } catch (err) {
+    console.error('Erro ao salvar localização:', err);
+    req.session.erro = 'Erro ao salvar localização.';
+    return res.redirect(`/empresas/localizacao`);
+  }
 };
 
 exports.telaTelefone = (req, res) => {
-  const { uid, usuario_id } = req.query;
-
-  if (!uid && usuario_id && /^\d+$/.test(String(usuario_id))) {
-    const safeUid = encodeId(Number(usuario_id));
-    return res.redirect(`/empresas/telefone?uid=${safeUid}`);
-  }
-
-  if (!uid) {
-    req.session.erro = 'ID do usuário não informado.';
-    return res.redirect('/cadastro');
-  }
-
-  return res.render('empresas/telefone-empresa', { uid, error: null, telefoneData: {} });
+  return res.render('empresas/telefone-empresa', { error: null, telefoneData: {} });
 };
 
 exports.salvarTelefone = async (req, res) => {
-  try {
-    const rawUid = req.body.uid || req.query.uid;
-    const usuario_id = decodeId(rawUid);
-    if (!Number.isFinite(usuario_id)) {
-      req.session.erro = 'ID do usuário inválido.';
-      return res.redirect('/cadastro');
+  try {
+    const usuario_id = req.session.usuario.id;
+    const { ddi, ddd, telefone } = req.body;
+
+    if (!usuario_id || isNaN(usuario_id)) {
+        req.session.erro = 'Sessão inválida. Faça login novamente.';
+        return res.redirect('/login');
     }
 
-    const { ddi, ddd, telefone } = req.body;
-    if (!ddi || !ddd || !telefone) {
-      return res.render('empresas/telefone-empresa', {
-        uid: rawUid,
-        error: 'Preencha todos os campos de telefone.',
-        telefoneData: { ddi, ddd, telefone }
-      });
-    }
+    if (!ddi || !ddd || !telefone) {
+      return res.render('empresas/telefone-empresa', {
+        error: 'Preencha todos os campos de telefone.',
+        telefoneData: { ddi, ddd, telefone }
+      });
+    }
 
-    const telefoneCompleto = `${ddi} (${ddd}) ${telefone}`;
-    await empresaModel.atualizarTelefone({ usuario_id, telefone: telefoneCompleto });
-
-    const uid = encodeId(usuario_id);
-    return res.redirect(`/empresas/foto-perfil?uid=${uid}`);
-  } catch (err) {
-    console.error('Erro ao salvar telefone:', err);
-    return res.render('empresas/telefone-empresa', {
-      uid: req.body.uid || req.query.uid,
-      error: 'Erro ao salvar telefone.',
-      telefoneData: { ddi: req.body.ddi, ddd: req.body.ddd, telefone: req.body.telefone }
+    const telefoneCompleto = `${ddi} (${ddd}) ${telefone}`;
+    
+    await empresaModel.atualizarTelefone({ 
+        usuario_id: Number(usuario_id), 
+        telefone: telefoneCompleto 
     });
+
+    return res.redirect(`/empresas/foto-perfil`);
+
+  } catch (err) {
+    console.error('Erro ao salvar telefone:', err);
+    return res.render('empresas/telefone-empresa', {
+      error: 'Erro ao salvar telefone.',
+      telefoneData: { ddi: req.body.ddi, ddd: req.body.ddd, telefone: req.body.telefone }
+    });
+  }
+};
+
+exports.telaFotoPerfil = async (req, res) => {
+  try {
+    const usuarioId = req.session?.usuario?.id;
+    if (!usuarioId) return res.redirect('/login');
+
+    const empresa = await prisma.empresa.findUnique({
+      where: { usuario_id: Number(usuarioId) },
+      select: { foto_perfil: true }
+    });
+
+    if (empresa?.foto_perfil && empresa.foto_perfil.trim() !== '') {
+      console.log('[telaFotoPerfil] Empresa já possui foto, pulando etapa.');
+      return res.redirect('/empresas/home');
+    }
+
+    return res.render('empresas/foto-perfil-empresa', { error: null });
+  } catch (e) {
+    console.error('[telaFotoPerfil][empresa] erro:', e);
+    return res.redirect('/empresas/home');
   }
 };
 
-exports.telaFotoPerfil = (req, res) => {
-  const { uid, usuario_id } = req.query;
-
-  if (!uid && usuario_id && /^\d+$/.test(String(usuario_id))) {
-    const safeUid = encodeId(Number(usuario_id));
-    return res.redirect(`/empresas/foto-perfil?uid=${safeUid}`);
-  }
-
-  if (!uid) {
-    req.session.erro = 'ID do usuário não informado.';
-    return res.redirect('/cadastro');
-  }
-
-  return res.render('empresas/foto-perfil-empresa', { uid, error: null });
-};
 
 exports.salvarFotoPerfil = async (req, res) => {
-  const rawUid = req.body.uid || req.query.uid;
-  const usuario_id = decodeId(rawUid);
-  if (!Number.isFinite(usuario_id)) {
-    req.session.erro = 'ID do usuário inválido.';
-    return res.redirect('/cadastro');
-  }
-  const uid = encodeId(usuario_id);
+  const usuario_id = req.session.usuario.id;
 
-  if (!req.file) {
-    return res.render('empresas/foto-perfil-empresa', {
-      uid,
-      error: 'Selecione ou capture uma foto antes de continuar.'
-    });
+  if (isNaN(usuario_id)) {
+      req.session.erro = 'Sessão inválida. Faça login novamente.';
+      return res.redirect('/login');
   }
 
-  try {
-    const empresa = await prisma.empresa.findUnique({ where: { usuario_id: Number(usuario_id) } });
-    if (!empresa) {
-      req.session.erro = 'Empresa não encontrada.';
-      return res.redirect(`/empresas/foto-perfil?uid=${uid}`);
-    }
+  if (!req.file) {
+    return res.render('empresas/foto-perfil-empresa', {
+      error: 'Selecione ou capture uma foto antes de continuar.'
+    });
+  }
 
-    const file = req.file;
-    let urlImagem = null;
+  try {
+    const empresa = await prisma.empresa.findUnique({ where: { usuario_id: Number(usuario_id) } });
+    if (!empresa) {
+      req.session.erro = 'Empresa não encontrada.';
+      return res.redirect(`/empresas/foto-perfil`);
+    }
 
-    if (file.path && /^https?:\/\//i.test(String(file.path))) {
-      urlImagem = file.path;
-    } else if (Buffer.isBuffer(file.buffer)) {
-      const up = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            folder: 'connect-skills/empresas',
-            public_id: `empresa_${empresa.id}_foto_perfil`,
-            overwrite: true,
-            resource_type: 'image'
-          },
-          (err, result) => (err ? reject(err) : resolve(result))
-        );
-        stream.end(file.buffer);
-      });
-      urlImagem = up.secure_url || up.url;
-    } else if (file.path) {
-      const up = await cloudinary.uploader.upload(file.path, {
-        folder: 'connect-skills/empresas',
-        public_id: `empresa_${empresa.id}_foto_perfil`,
-        overwrite: true,
-        resource_type: 'image'
-      });
-      urlImagem = up.secure_url || up.url;
-    }
+    const file = req.file;
+    let urlImagem = null;
 
-    if (!urlImagem) {
-      return res.render('empresas/foto-perfil-empresa', {
-        uid,
-        error: 'Não foi possível processar a imagem. Tente novamente.'
-      });
-    }
+    if (file.path && /^https?:\/\//i.test(String(file.path))) {
+      urlImagem = file.path;
+    } else if (Buffer.isBuffer(file.buffer)) {
+      const up = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'connect-skills/empresas',
+            public_id: `empresa_${empresa.id}_foto_perfil`,
+            overwrite: true,
+            resource_type: 'image'
+          },
+          (err, result) => (err ? reject(err) : resolve(result))
+        );
+        stream.end(file.buffer);
+      });
+      urlImagem = up.secure_url || up.url;
+    } else if (file.path) {
+      const up = await cloudinary.uploader.upload(file.path, {
+        folder: 'connect-skills/empresas',
+        public_id: `empresa_${empresa.id}_foto_perfil`,
+        overwrite: true,
+        resource_type: 'image'
+      });
+      urlImagem = up.secure_url || up.url;
+    }
 
-    await prisma.empresa.update({
-      where: { id: empresa.id },
-      data: { foto_perfil: urlImagem }
-    });
+    if (!urlImagem) {
+      return res.render('empresas/foto-perfil-empresa', {
+        error: 'Não foi possível processar a imagem. Tente novamente.'
+      });
+    }
 
-    req.session.empresa = {
-      id: empresa.id,
-      usuario_id: empresa.usuario_id,
-      nome_empresa: empresa.nome_empresa,
-      descricao: empresa.descricao,
-      cidade: empresa.cidade,
-      estado: empresa.estado,
-      pais: empresa.pais,
-      telefone: empresa.telefone,
-      foto_perfil: urlImagem
-    };
-    req.session.usuario = { id: empresa.usuario_id, tipo: 'empresa', nome: empresa.nome_empresa };
+    await prisma.empresa.update({
+      where: { id: empresa.id },
+      data: { foto_perfil: urlImagem }
+    });
 
-    req.session.sucessoCadastro = 'Foto de perfil salva com sucesso!';
-    req.session.save(() => res.redirect('/empresas/home')); // plural
-  } catch (err) {
-    console.error('Erro ao salvar foto de perfil da empresa:', err);
-    return res.render('empresas/foto-perfil-empresa', {
-      uid,
-      error: 'Erro interno ao salvar a foto. Tente novamente.'
-    });
-  }
+    req.session.empresa = {
+      id: empresa.id,
+      usuario_id: empresa.usuario_id,
+      nome_empresa: empresa.nome_empresa,
+      descricao: empresa.descricao,
+      cidade: empresa.cidade,
+      estado: empresa.estado,
+      pais: empresa.pais,
+      telefone: empresa.telefone,
+      foto_perfil: urlImagem
+    };
+    req.session.usuario = { id: empresa.usuario_id, tipo: 'empresa', nome: empresa.nome_empresa };
+
+    req.session.sucessoCadastro = 'Foto de perfil salva com sucesso!';
+    req.session.save(() => res.redirect('/empresas/home'));
+  } catch (err) {
+    console.error('Erro ao salvar foto de perfil da empresa:', err);
+    return res.render('empresas/foto-perfil-empresa', {
+      error: 'Erro interno ao salvar a foto. Tente novamente.'
+    });
+  }
 };
 
 exports.homeEmpresa = async (req, res) => {
-  try {
-    let empresa = req.session.empresa;
+  try {
+    let empresa = req.session.empresa;
+    let usuario = req.session.usuario;
 
-    if (!empresa) {
-      const usuario_id = parseInt(req.query.usuario_id, 10);
-      if (isNaN(usuario_id)) return res.redirect('/login');
+    if (!empresa || !usuario || usuario.tipo !== 'empresa') {
+      console.error('Sessão de empresa inválida ou ausente na home.');
+      req.session.erro = 'Sessão inválida. Faça login novamente.';
+      return res.redirect('/login');
+    }
 
-      const empDb = await prisma.empresa.findUnique({ where: { usuario_id } });
-      if (!empDb) return res.redirect('/login');
+    const localidade = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', ') || 'Localidade não informada';
 
-      const usuario = await prisma.usuario.findUnique({
-        where: { id: usuario_id },
-        select: { email: true, nome: true }
-      });
+    const empresaId = Number(empresa.id);
 
-      req.session.empresa = {
-        id: empDb.id,
-        usuario_id: empDb.usuario_id,
-        nome_empresa: empDb.nome_empresa,
-        descricao: empDb.descricao,
-        cidade: empDb.cidade,
-        estado: empDb.estado,
-        pais: empDb.pais,
-        telefone: empDb.telefone,
-        foto_perfil: empDb.foto_perfil || '',
-        email: usuario?.email || ''
-      };
-      empresa = req.session.empresa;
-    }
+    const vagasAll = await prisma.vaga.findMany({
+      where: { empresa_id: empresaId },
+      include: {
+        vaga_area:       { include: { area_interesse: true } },
+        vaga_soft_skill: { include: { soft_skill: true } },
+        empresa: { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } },
+        vaga_link: true,
+      },
+      orderBy: { created_at: 'desc' }
+    });
 
-    const usuario = await prisma.usuario.findUnique({
-      where: { id: req.session.empresa.usuario_id },
-      select: { email: true }
-    });
+    const vagaIds = vagasAll.map(v => v.id);
 
-    req.session.empresa.email = usuario?.email || '';
-    req.session.usuario = {
-      id: req.session.empresa.usuario_id,
-      tipo: 'empresa',
-      nome: req.session.empresa.nome_empresa,
-      email: usuario?.email || ''
-    };
+    let countsMap = new Map();
+    if (vagaIds.length) {
+      const grouped = await prisma.vaga_avaliacao.groupBy({
+        by: ['vaga_id'],
+        where: { vaga_id: { in: vagaIds } },
+        _count: { vaga_id: true }
+      });
+      countsMap = new Map(grouped.map(g => [g.vaga_id, g._count.vaga_id]));
+    }
 
-    const localidade = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', ') || 'Localidade não informada';
+    let statusMap = new Map();
+    if (vagaIds.length) {
+      const statusList = await prisma.vaga_status.findMany({
+        where: { vaga_id: { in: vagaIds } },
+        orderBy: { criado_em: 'desc' },
+        select: { vaga_id: true, situacao: true }
+      });
+      for (const s of statusList) {
+        if (!statusMap.has(s.vaga_id)) statusMap.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
+      }
+    }
 
-    const empresaId = Number(empresa.id);
+    const vagasDecoradas = vagasAll.map(v => ({
+      ...v,
+      total_candidatos: countsMap.get(v.id) || 0,
+      status: statusMap.get(v.id) || 'aberta'
+    }));
 
-    const vagasAll = await prisma.vaga.findMany({
-      where: { empresa_id: empresaId },
-      include: {
-        vaga_area:       { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } },
-        empresa: { select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true } },
-        vaga_link: true,
-      },
-      orderBy: { created_at: 'desc' }
-    });
+    const totalVagas = vagasDecoradas.length;
+    const totalCandidatos = vagasDecoradas.reduce((acc, v) => acc + (v.total_candidatos || 0), 0);
 
-    const vagaIds = vagasAll.map(v => v.id);
+    // ===== Avatar padrão e Progress =====
+    const fotoPerfil =
+      empresa.foto_perfil && empresa.foto_perfil.trim() !== ''
+        ? empresa.foto_perfil
+        : '/img/avatar.png'; // (Você tinha avatar.png, talvez seja /img/placeholder-empresa.png?)
 
-    let countsMap = new Map();
-    if (vagaIds.length) {
-      const grouped = await prisma.vaga_avaliacao.groupBy({
-        by: ['vaga_id'],
-        where: { vaga_id: { in: vagaIds } },
-        _count: { vaga_id: true }
-      });
-      countsMap = new Map(grouped.map(g => [g.vaga_id, g._count.vaga_id]));
-    }
+    const checklistEmp = [
+      !!(empresa.nome_empresa && empresa.nome_empresa.trim() !== ''),
+      !!(empresa.descricao && empresa.descricao.trim() !== ''),
+      localidade !== 'Localidade não informada',
+      !!(empresa.telefone && empresa.telefone.trim() !== ''),
+      !!(empresa.foto_perfil && empresa.foto_perfil.trim() !== '')
+    ];
+    const profileCompletion = Math.round((checklistEmp.filter(Boolean).length / checklistEmp.length) * 100);
 
-    let statusMap = new Map();
-    if (vagaIds.length) {
-      const statusList = await prisma.vaga_status.findMany({
-        where: { vaga_id: { in: vagaIds } },
-        orderBy: { criado_em: 'desc' },
-        select: { vaga_id: true, situacao: true }
-      });
-      for (const s of statusList) {
-        if (!statusMap.has(s.vaga_id)) statusMap.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
-      }
-    }
-
-    const vagasDecoradas = vagasAll.map(v => ({
-      ...v,
-      total_candidatos: countsMap.get(v.id) || 0,
-      status: statusMap.get(v.id) || 'aberta'
-    }));
-
-    const totalVagas = vagasDecoradas.length;
-    const totalCandidatos = vagasDecoradas.reduce((acc, v) => acc + (v.total_candidatos || 0), 0);
-
-    // ===== Avatar padrão e Progress =====
-    const fotoPerfil =
-      empresa.foto_perfil && empresa.foto_perfil.trim() !== ''
-        ? empresa.foto_perfil
-        : '/img/avatar.png';
-
-    const checklistEmp = [
-      !!(empresa.nome_empresa && empresa.nome_empresa.trim() !== ''),
-      !!(empresa.descricao && empresa.descricao.trim() !== ''),
-      localidade !== 'Localidade não informada',
-      !!(empresa.telefone && empresa.telefone.trim() !== ''),
-      !!(empresa.foto_perfil && empresa.foto_perfil.trim() !== '')
-    ];
-    const profileCompletion = Math.round((checklistEmp.filter(Boolean).length / checklistEmp.length) * 100);
-
-    res.render('empresas/home-empresas', {
-      nome: empresa.nome_empresa,
-      descricao: empresa.descricao,
-      telefone: empresa.telefone,
-      localidade,
-      fotoPerfil,                  // <- usa avatar se vazio
-      usuario: req.session.usuario,
-      empresa,
-      vagasRecentes: vagasDecoradas,
-      totais: { totalVagas, totalCandidatos },
-      activePage: 'home',
-      profileCompletion           // <- para a view mostrar condicionalmente
-    });
-  } catch (err) {
-    console.error('Erro ao exibir home da empresa:', err);
-    req.session.erro = 'Erro ao carregar home.';
-    res.redirect('/login');
-  }
+    res.render('empresas/home-empresas', {
+      nome: empresa.nome_empresa,
+      descricao: empresa.descricao,
+      telefone: empresa.telefone,
+      localidade,
+      fotoPerfil,
+      usuario: req.session.usuario,
+      empresa,
+      vagasRecentes: vagasDecoradas,
+      totais: { totalVagas, totalCandidatos },
+      activePage: 'home',
+      profileCompletion
+    });
+  } catch (err) {
+    console.error('Erro ao exibir home da empresa:', err);
+    req.session.erro = 'Erro ao carregar home.';
+    res.redirect('/login');
+  }
 };
 
 exports.telaPerfilEmpresa = async (req, res) => {
-  const { encodeId } = require('../utils/idEncoder');
 
   const sess = req.session.empresa;
   if (!sess) return res.redirect('/login');
@@ -478,18 +408,15 @@ exports.telaPerfilEmpresa = async (req, res) => {
       },
     });
 
-    // ID criptografado da empresa para links públicos
     const encEmpresaId = encodeId(Number(empresa.id));
     const perfilPublicoUrl = `/empresa/perfil/${encEmpresaId}`;
 
-    // (Opcional) versões das vagas com ID criptografado (_hid) para usar em links públicos
     const vagasComHid = vagasDaEmpresa.map(v => ({ ...v, _hid: encodeId(v.id) }));
 
     return res.render('empresas/meu-perfil', {
       empresa,
-      // mantém o mesmo nome que sua view já usa
       vagasPublicadas: vagasDaEmpresa,
-      // disponibiliza também a lista com _hid (use se quiser criar links públicos)
+      // disponibiliza também a lista com _hid
       vagasPublicadasEnc: vagasComHid,
 
       // links/arquivos
@@ -709,7 +636,6 @@ exports.salvarVaga = async (req, res) => {
       return vaga;
     });
 
-    // --- Anexos enviados na publicação (opcional) ---
     if (req.files?.length) {
       await vagaArquivoController.uploadAnexosDaPublicacao(req, res, vagaCriada.id);
     }
@@ -778,23 +704,41 @@ exports.mostrarPerfil = async (req, res) => {
 };
 
 exports.excluirVaga = async (req, res) => {
-  try {
-    if (!req.session.empresa) return res.redirect('/login');
+  try {
+    const empresaId = req.session?.empresa?.id;
+    if (!empresaId) {
+      req.session.erro = 'Sessão expirada. Faça login novamente.';
+      return res.redirect('/login');
+    }
 
-    const { id } = req.params;
-    await vagaModel.excluirVaga(id);
+    // Use seu helper 'parseParamId' que já é ótimo
+    const vagaId = parseParamId(req.params.id);
+    if (!vagaId) {
+      req.session.erro = 'ID de vaga inválido.';
+      return res.redirect('/empresa/meu-perfil');
+    }
 
-    req.session.sucessoVaga = 'Vaga excluída com sucesso!';
-    res.redirect('/empresa/meu-perfil');
-  } catch (error) {
-    console.error('Erro ao excluir vaga:', error);
-    req.session.erro = 'Não foi possível excluir a vaga.';
-    res.redirect('/empresa/meu-perfil');
-  }
+    const vaga = await prisma.vaga.findUnique({
+      where: { id: vagaId },
+      select: { empresa_id: true }
+    });
+
+    if (!vaga || vaga.empresa_id !== empresaId) {
+      req.session.erro = 'Acesso negado. Você não pode excluir esta vaga.';
+      return res.redirect('/empresa/meu-perfil');
+    }
+    await vagaModel.excluirVaga(vagaId);
+
+    req.session.sucessoVaga = 'Vaga excluída com sucesso!';
+    res.redirect('/empresa/meu-perfil');
+  } catch (error) {
+    console.error('Erro ao excluir vaga:', error);
+    req.session.erro = 'Não foi possível excluir a vaga.';
+    res.redirect('/empresa/meu-perfil');
+  }
 };
 
 exports.telaEditarVaga = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
 
   try {
     // 1) Decodifica o ID vindo da URL
@@ -879,7 +823,6 @@ exports.telaEditarVaga = async (req, res) => {
 };
 
 exports.salvarEditarVaga = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
 
   try {
     // 1) Decodifica o ID vindo da URL (aceita codificado ou numérico cru)
@@ -1055,7 +998,6 @@ exports.salvarEditarVaga = async (req, res) => {
 
 
 exports.rankingCandidatos = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
 
   try {
     // 1) Decodifica o param (aceita codificado ou numérico cru)
@@ -1289,7 +1231,6 @@ exports.telaAnexosEmpresa = async (req, res) => {
 };
 
 exports.telaVagaDetalhe = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
   const empresaSess = getEmpresaFromSession(req);
 
   // 1) Decodifica o param e canonicaliza se vier numérico "cru"
@@ -1379,7 +1320,6 @@ exports.telaVagaDetalhe = async (req, res) => {
 
 
 exports.fecharVaga = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
 
   // Aceita ID codificado ou numérico cru
   const raw = String(req.params.id || '');
@@ -1433,7 +1373,6 @@ exports.fecharVaga = async (req, res) => {
 };
 
 exports.reabrirVaga = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
 
   // Decodifica o ID (aceita codificado ou numérico cru)
   const raw = String(req.params.id || '');
@@ -1488,7 +1427,6 @@ exports.reabrirVaga = async (req, res) => {
 };
 
 exports.excluirVaga = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
   const empresaSess = getEmpresaFromSession(req);
 
   // 1) Decodifica o ID (aceita codificado ou numérico cru)
@@ -1550,7 +1488,6 @@ exports.excluirVaga = async (req, res) => {
 };
 
 exports.perfilPublico = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
 
   // 1) Decodifica o ID da empresa (aceita codificado ou numérico cru)
   const raw = String(req.params.id || '');
@@ -1717,119 +1654,123 @@ exports.telaEditarPerfil = async (req, res) => {
 };
 
 exports.salvarEdicaoPerfil = async (req, res) => {
-  try {
-    const sess = req.session.empresa;
-    if (!sess) return res.redirect('/login');
+  try {
+    const sess = req.session.empresa;
+    if (!sess) return res.redirect('/login');
 
-    const { nome, descricao, localidade, ddd, numero, removerFoto, fotoBase64 } = req.body;
+    const { nome, descricao, localidade, ddd, numero, removerFoto, fotoBase64 } = req.body;
 
-    // Localidade
-    let cidade = '', estado = '', pais = '';
-    if (localidade) {
-      const partes = String(localidade).split(',').map(p => p.trim());
-      [cidade, estado = '', pais = ''] = partes;
-    }
+    let cidade = '', estado = '', pais = '';
+    if (localidade) {
+      const partes = String(localidade).split(',').map(p => p.trim());
+      [cidade, estado = '', pais = ''] = partes;
+    }
 
-    // Telefone
-    let telefone = req.body.telefone || '';
-    const dddDigits = (ddd || '').replace(/\D/g, '');
-    const numDigits = (numero || '').replace(/\D/g, '');
-    if (dddDigits && numDigits) {
-      let numeroFmt;
-      if (numDigits.length >= 9) {
-        numeroFmt = `${numDigits.slice(0, 5)}-${numDigits.slice(5, 9)}`; // celular
-      } else if (numDigits.length >= 8) {
-        numeroFmt = `${numDigits.slice(0, 4)}-${numDigits.slice(4, 8)}`; // fixo
-      } else {
-        numeroFmt = numDigits;
-      }
-      telefone = `+55 (${dddDigits}) ${numeroFmt}`;
-    }
+    let telefone = req.body.telefone || '';
+    const dddDigits = (ddd || '').replace(/\D/g, '');
+    const numDigits = (numero || '').replace(/\D/g, '');
+    if (dddDigits && numDigits) {
+      let numeroFmt;
+      if (numDigits.length >= 9) {
+        numeroFmt = `${numDigits.slice(0, 5)}-${numDigits.slice(5, 9)}`; // celular
+      } else if (numDigits.length >= 8) {
+        numeroFmt = `${numDigits.slice(0, 4)}-${numDigits.slice(4, 8)}`; // fixo
+      } else {
+        numeroFmt = numDigits;
+      }
+      telefone = `+55 (${dddDigits}) ${numeroFmt}`;
+    }
 
-    let novaFotoUrl = null;
+    let novaFotoUrl = null;
 
-    if (String(removerFoto).toLowerCase() === 'true') {
-      novaFotoUrl = '';
-    }
+    if (String(removerFoto).toLowerCase() === 'true') {
+      novaFotoUrl = '';
+    }
 
-    if (!novaFotoUrl && fotoBase64 && /^data:image\/(png|jpe?g|webp);base64,/.test(fotoBase64)) {
-      try {
-        const mod = require('../config/cloudinary');
-        const cloud = mod?.cloudinary || mod;
-        const uploader = cloud?.uploader;
+    if (!novaFotoUrl && fotoBase64 && /^data:image\/(png|jpe?g|webp);base64,/.test(fotoBase64)) {
+      try {
+        // [MELHORIA DE ORGANIZAÇÃO]
+        // Esta linha deve ser movida para o topo do arquivo
+        const mod = require('../config/cloudinary'); 
+        const cloud = mod?.cloudinary || mod;
+        const uploader = cloud?.uploader;
 
-        if (uploader && typeof uploader.upload === 'function') {
-          const uploadRes = await uploader.upload(fotoBase64, {
-            folder: 'connect-skills/empresa',
-            overwrite: true,
-            invalidate: true,
-          });
-          novaFotoUrl = uploadRes.secure_url || uploadRes.url || '';
-        } else {
-          console.warn('[editar-empresa] Cloudinary não configurado ou sem uploader. Pulando upload.');
-        }
-      } catch (e) {
-        console.warn('[editar-empresa] Falha ao enviar foto para Cloudinary:', e.message);
-      }
-    }
+        if (uploader && typeof uploader.upload === 'function') {
+          const uploadRes = await uploader.upload(fotoBase64, {
+            folder: 'connect-skills/empresa',
+            overwrite: true,
+            invalidate: true,
+          });
+          novaFotoUrl = uploadRes.secure_url || uploadRes.url || '';
+        } else {
+          console.warn('[editar-empresa] Cloudinary não configurado ou sem uploader. Pulando upload.');
+        }
+      } catch (e) {
+        console.warn('[editar-empresa] Falha ao enviar foto para Cloudinary:', e.message);
+      }
+    }
 
-    const dataUpdate = {
-      nome_empresa: nome,
-      descricao,
-      cidade, estado, pais,
-      telefone
-    };
-    if (novaFotoUrl !== null) {
-      dataUpdate.foto_perfil = novaFotoUrl;
-    }
+    const dataUpdate = {
+      nome_empresa: nome,
+      descricao,
+      cidade, estado, pais,
+      telefone
+    };
+    if (novaFotoUrl !== null) {
+      dataUpdate.foto_perfil = novaFotoUrl;
+    }
 
-    const empresaAtualizada = await prisma.empresa.update({
-      where: { id: Number(sess.id) },
-      data: dataUpdate
-    });
+    const empresaAtualizada = await prisma.empresa.update({
+      where: { id: Number(sess.id) },
+      data: dataUpdate
+    });
 
-    const urls = Array.isArray(req.body['link_url[]']) ? req.body['link_url[]'] :
-                 Array.isArray(req.body.link_url) ? req.body.link_url :
-                 (req.body.link_url ? [req.body.link_url] : []);
-    const labels = Array.isArray(req.body['link_label[]']) ? req.body['link_label[]'] :
-                   Array.isArray(req.body.link_label) ? req.body.link_label :
-                   (req.body.link_label ? [req.body.link_label] : []);
+    const urls = Array.isArray(req.body['link_url[]']) ? req.body['link_url[]'] :
+                 Array.isArray(req.body.link_url) ? req.body.link_url :
+                 (req.body.link_url ? [req.body.link_url] : []);
+    const labels = Array.isArray(req.body['link_label[]']) ? req.body['link_label[]'] :
+                   Array.isArray(req.body.link_label) ? req.body.link_label :
+                   (req.body.link_label ? [req.body.link_label] : []);
 
-    await prisma.empresa_link.deleteMany({ where: { empresa_id: Number(sess.id) } });
+    await prisma.empresa_link.deleteMany({ where: { empresa_id: Number(sess.id) } });
 
-    const creates = [];
-    let ordem = 1;
-    for (let i = 0; i < urls.length; i++) {
-      const url = (urls[i] || '').trim();
-      if (!url) continue;
-      const label = (labels[i] || 'Link').toString().trim();
-      if (!/^https?:\/\//i.test(url)) continue;
-      creates.push({ empresa_id: Number(sess.id), label, url, ordem });
-      ordem++;
-    }
-    if (creates.length) {
-      await prisma.empresa_link.createMany({ data: creates });
-    }
+    const creates = [];
+    let ordem = 1;
+    for (let i = 0; i < urls.length; i++) {
+      let url = (urls[i] || '').trim(); // 'let' para podermos modificar
+      if (!url) continue;
+      const label = (labels[i] || 'Link').toString().trim();
 
-    req.session.empresa = {
-      ...req.session.empresa,
-      nome_empresa: empresaAtualizada.nome_empresa,
-      descricao: empresaAtualizada.descricao,
-      cidade: empresaAtualizada.cidade,
-      estado: empresaAtualizada.estado,
-      pais: empresaAtualizada.pais,
-      telefone: empresaAtualizada.telefone,
-      foto_perfil: empresaAtualizada.foto_perfil || req.session.empresa.foto_perfil
-    };
+      if (!/^https?:\/\//i.test(url)) {
+        url = 'https://' + url;
+      }
 
-    req.session.sucessoCadastro = 'Perfil atualizado com sucesso.';
-    res.redirect('/empresa/meu-perfil');
-  } catch (err) {
-    console.error('Erro ao salvar edição da empresa:', err);
-    req.session.erro = 'Erro ao salvar o perfil. Tente novamente.';
-    res.redirect('/empresa/editar-empresa');
-  }
-};
+      creates.push({ empresa_id: Number(sess.id), label, url, ordem });
+      ordem++;
+    }
+    if (creates.length) {
+      await prisma.empresa_link.createMany({ data: creates });
+    }
+
+    req.session.empresa = {
+      ...req.session.empresa,
+      nome_empresa: empresaAtualizada.nome_empresa,
+      descricao: empresaAtualizada.descricao,
+      cidade: empresaAtualizada.cidade,
+      estado: empresaAtualizada.estado,
+      pais: empresaAtualizada.pais,
+      telefone: empresaAtualizada.telefone,
+      foto_perfil: empresaAtualizada.foto_perfil || req.session.empresa.foto_perfil
+    };
+
+    req.session.sucessoCadastro = 'Perfil atualizado com sucesso.';
+    res.redirect('/empresa/meu-perfil');
+  } catch (err) {
+    console.error('Erro ao salvar edição da empresa:', err);
+    req.session.erro = 'Erro ao salvar o perfil. Tente novamente.';
+    res.redirect('/empresa/editar-empresa');
+  }
+};  
 
 exports.mostrarVagas = async (req, res) => {
   if (!req.session?.empresa) return res.redirect('/login');
@@ -1934,103 +1875,197 @@ exports.mostrarVagas = async (req, res) => {
 };
 
 
-exports.telaComplementarGoogle = (req, res) => {
-  const usuarioId = req.session?.usuario?.id;
-  if (!usuarioId) return res.redirect('/login');
-  return res.redirect(`/empresas/nome-empresa?usuario_id=${usuarioId}`);
+// (No seu empresaController.js)
+
+/**
+ * ✅ [NOVO] GET: Mostra o formulário para completar o cadastro (o .ejs que você criou)
+ */
+exports.telaComplementarGoogle = async (req, res) => {
+  try {
+    const usuario = req.session?.usuario || {};
+    if (!usuario?.id || req.session?.usuario?.tipo !== 'empresa') {
+      return res.redirect('/login');
+    }
+
+    const emp = await prisma.empresa.findFirst({
+      where: { usuario_id: Number(usuario.id) },
+      select: { nome_empresa: true, descricao: true, cidade: true, estado: true, pais: true, telefone: true }
+    });
+
+    // extrai os últimos 8/9 dígitos para preencher o campo de telefone (sem DDI/DDD)
+    const somenteDigitos = (emp?.telefone || '').replace(/\D/g, '');
+    const numero = somenteDigitos ? somenteDigitos.slice(-9) : '';
+
+    return res.render('empresas/cadastro-complementar-empresa', {
+      title: 'Completar Cadastro - Empresa',
+      erro: null,
+      // nomes simples para a view
+      nome: emp?.nome_empresa || '',
+      descricao: emp?.descricao || '',
+      localidade: [emp?.cidade, emp?.estado, emp?.pais].filter(Boolean).join(', '),
+      ddi: '+55',
+      ddd: '',
+      numero
+    });
+  } catch (e) {
+    console.error('[telaComplementarGoogle][empresa] erro:', e);
+    return res.render('empresas/cadastro-complementar-empresa', {
+      title: 'Completar Cadastro - Empresa',
+      erro: 'Erro ao carregar dados. Tente novamente.',
+      nome: '',
+      descricao: '',
+      localidade: '',
+      ddi: '+55',
+      ddd: '',
+      numero: ''
+    });
+  }
 };
 
-exports.salvarComplementarGoogle = (req, res) => {
-  const usuarioId = req.session?.usuario?.id;
-  if (!usuarioId) return res.redirect('/login');
-  return res.redirect(`/empresas/nome-empresa?usuario_id=${usuarioId}`);
+exports.salvarComplementarGoogle = async (req, res) => {
+  try {
+    const usuario_id = req.session?.usuario?.id;
+    if (!usuario_id) return res.redirect('/login');
+
+    const norm = (s) => (s ? String(s).trim() : '');
+    const nomeForm = norm(req.body.nome_empresa) || norm(req.body.nome);
+    const { descricao, localidade, ddi, ddd } = req.body;
+    const telefoneForm = norm(req.body.telefone) || norm(req.body.numero);
+
+    if (!nomeForm || !norm(descricao)) {
+      req.session.erro = 'Preencha nome da empresa e descrição.';
+      return res.redirect('/empresas/complementar');
+    }
+
+    const partes = (localidade || '').split(',').map(p => norm(p));
+    const [cidade = '', estado = '', pais = ''] =
+      partes.length === 3 ? partes : (partes.length === 2 ? [partes[0], '', partes[1]] : ['', '', '']);
+
+    const digitos = (telefoneForm || '').replace(/\D/g, '');
+    const numFmt = digitos.length === 9
+      ? `${digitos.slice(0,5)}-${digitos.slice(5)}`
+      : (digitos.length === 8 ? `${digitos.slice(0,4)}-${digitos.slice(4)}` : digitos);
+    const telefoneFmt = (norm(ddd) && numFmt) ? `${norm(ddi) || '+55'} (${norm(ddd)}) ${numFmt}` : '';
+
+    const user = await prisma.usuario.findUnique({
+      where: { id: Number(usuario_id) },
+      select: { avatarUrl: true }
+    });
+
+    const empresa = await prisma.empresa.upsert({
+      where: { usuario_id: Number(usuario_id) },
+      update: {
+        nome_empresa: nomeForm,
+        descricao: norm(descricao),
+        cidade, estado, pais,
+        telefone: telefoneFmt || '',
+        foto_perfil: user?.avatarUrl || undefined
+      },
+      create: {
+        usuario_id: Number(usuario_id),
+        nome_empresa: nomeForm,
+        descricao: norm(descricao),
+        cidade, estado, pais,
+        telefone: telefoneFmt || '',
+        foto_perfil: user?.avatarUrl || ''
+      }
+    });
+
+    req.session.empresa = {
+      id: empresa.id,
+      usuario_id,
+      nome_empresa: empresa.nome_empresa,
+      descricao: empresa.descricao,
+      cidade: empresa.cidade,
+      estado: empresa.estado,
+      pais: empresa.pais,
+      telefone: empresa.telefone,
+      foto_perfil: empresa.foto_perfil
+    };
+    req.session.usuario = {
+      id: usuario_id,
+      tipo: 'empresa',
+      nome: empresa.nome_empresa
+    };
+
+    const temFoto = Boolean(empresa.foto_perfil && empresa.foto_perfil.trim() !== '');
+
+    await new Promise(r => req.session.save(r));
+    return res.redirect('/empresas/foto-perfil');
+  } catch (e) {
+    console.error('[salvarComplementarGoogle][empresa] erro:', e);
+    req.session.erro = 'Erro ao salvar informações da empresa.';
+    return res.redirect('/empresas/complementar');
+  }
 };
 
 exports.pularCadastroEmpresa = async (req, res) => {
-  if (!req.session.usuario) req.session.usuario = {};
-  req.session.usuario.skipCadastro = true;
-  if (req.session.candidato) req.session.candidato.skipCadastro = true;
+  if (!req.session.usuario) req.session.usuario = {};
+  req.session.usuario.skipCadastro = true;
+  if (req.session.candidato) req.session.candidato.skipCadastro = true; 
 
-  res.cookie('cs_skipCadastro', '1', {
-    httpOnly: false,
-    sameSite: 'lax',
-    maxAge: 31536000000 // 1 ano
-  });
+  res.cookie('cs_skipCadastro', '1', {
+    httpOnly: false,
+    sameSite: 'lax',
+    maxAge: 31536000000 
+  });
 
-  try {
-    // 1) Tenta via uid criptografado
-    const rawUid = req.query.uid || req.body.uid || null;
-    let usuarioId = null;
+  try {
+    const usuarioId = Number(req.session?.usuario?.id);
 
-    if (rawUid) {
-      const dec = decodeId(rawUid);
-      if (Number.isFinite(dec)) usuarioId = dec;
+    if (!usuarioId) {
+      console.warn('[pularCadastroEmpresa] Tentativa de pular sem sessão válida.');
+      return res.redirect('/login');
     }
 
-    // 2) Fallback legado: ?usuario_id=... ou sessão
-    if (!usuarioId) {
-      const legacy = Number(req.query.usuario_id || req.body.usuario_id || req.session?.usuario?.id);
-      if (Number.isFinite(legacy) && legacy > 0) {
-        usuarioId = legacy;
-        // (Opcional) Poderia normalizar a URL com uid:
-        // const uid = encodeId(legacy);
-        // return res.redirect(`/empresas/pular-cadastro?uid=${uid}`);
-      }
-    }
+    let emp = await prisma.empresa.findUnique({
+      where: { usuario_id: usuarioId }, 
+      include: { usuario: { select: { email: true } } }
+    });
 
-    if (!usuarioId) return res.redirect('/login');
+    if (!emp) {
+      const usr = await prisma.usuario.findUnique({ where: { id: usuarioId } }); // Usa o ID seguro
+      emp = await prisma.empresa.create({
+        data: {
+          usuario_id: usuarioId, // Usa o ID seguro
+          nome_empresa: usr?.nome || 'Empresa',
+          descricao: '',
+          pais: '', estado: '', cidade: '',
+          telefone: '',
+          foto_perfil: ''
+        },
+        include: { usuario: { select: { email: true } } }
+      });
+    }
 
-    // Garante que exista um registro de empresa
-    let emp = await prisma.empresa.findUnique({
-      where: { usuario_id: usuarioId },
-      include: { usuario: { select: { email: true } } }
-    });
+    const localidade = [emp.cidade, emp.estado, emp.pais].filter(Boolean).join(', ');
 
-    if (!emp) {
-      const usr = await prisma.usuario.findUnique({ where: { id: usuarioId } });
-      emp = await prisma.empresa.create({
-        data: {
-          usuario_id: usuarioId,
-          nome_empresa: usr?.nome || 'Empresa',
-          descricao: '',
-          pais: '', estado: '', cidade: '',
-          telefone: '',
-          foto_perfil: ''
-        },
-        include: { usuario: { select: { email: true } } }
-      });
-    }
+    req.session.usuario = {
+      id: usuarioId,
+      tipo: 'empresa',
+      nome: emp.nome_empresa,
+      email: emp.usuario?.email || ''
+    };
+    req.session.empresa = {
+      id: emp.id,
+      usuario_id: usuarioId,
+      nome_empresa: emp.nome_empresa,
+      descricao: emp.descricao,
+      email: emp.usuario?.email || '',
+      telefone: emp.telefone || '',
+      foto_perfil: emp.foto_perfil || '',
+      cidade: emp.cidade || '',
+      estado: emp.estado || '',
+      pais: emp.pais || '',
+      localidade
+    };
 
-    // Prepara localidade formatada
-    const localidade = [emp.cidade, emp.estado, emp.pais].filter(Boolean).join(', ');
-
-    // Salva na sessão
-    req.session.usuario = {
-      id: usuarioId,
-      tipo: 'empresa',
-      nome: emp.nome_empresa,
-      email: emp.usuario?.email || ''
-    };
-    req.session.empresa = {
-      id: emp.id,
-      usuario_id: usuarioId,
-      nome_empresa: emp.nome_empresa,
-      descricao: emp.descricao,
-      email: emp.usuario?.email || '',
-      telefone: emp.telefone || '',
-      foto_perfil: emp.foto_perfil || '',
-      cidade: emp.cidade || '',
-      estado: emp.estado || '',
-      pais: emp.pais || '',
-      localidade
-    };
-
-    return req.session.save(() => res.redirect('/empresas/home'));
-  } catch (err) {
-    console.error('[pularCadastroEmpresa] erro:', err?.message || err);
-    req.session.erro = 'Não foi possível pular o complemento agora.';
-    return res.redirect('/login');
-  }
+    return req.session.save(() => res.redirect('/empresas/home'));
+  } catch (err) {
+    console.error('[pularCadastroEmpresa] erro:', err?.message || err);
+    req.session.erro = 'Não foi possível pular o complemento agora.';
+    return res.redirect('/login');
+  }
 };
 
 exports.uploadAnexosEmpresa = async (req, res) => {
@@ -2041,7 +2076,6 @@ exports.uploadAnexosEmpresa = async (req, res) => {
   }
 
   try {
-    // Cloudinary é obrigatório para anexos (guarda a URL pública)
     if (!cloudinary?.uploader) {
       req.session.erro = 'Storage não configurado para anexos (Cloudinary).';
       return res.redirect('/empresa/editar-empresa');
@@ -2055,7 +2089,6 @@ exports.uploadAnexosEmpresa = async (req, res) => {
 
     let enviados = 0;
     for (const f of files) {
-      // Faz upload (aceita imagens, PDFs, DOCX, etc.)
       const opts = { folder: 'connect-skills/empresa/anexos', resource_type: 'auto' };
 
       // suporta tanto storage em disco (f.path) quanto em memória (f.buffer)
