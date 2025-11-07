@@ -170,382 +170,386 @@ async function isVagaFechada(vaga_id) {
 }
 
 exports.telaNomeCandidato = (req, res) => {
-  const { uid, usuario_id } = req.query;
-
-  if (!uid && usuario_id && /^\d+$/.test(usuario_id)) {
-    const safeUid = encodeId(Number(usuario_id));
-    return res.redirect(`/candidatos/cadastro/nome?uid=${safeUid}`);
-  }
-
-  if (!uid) {
-    req.session.erro = 'Identificador inválido.';
-    return res.redirect('/cadastro');
-  }
-
-  try {
-    const id = decodeId(uid);
-    if (!id || !Number.isFinite(id)) throw new Error('uid inválido');
-  } catch (err) {
-    console.error('Erro ao decodificar UID:', err);
-    req.session.erro = 'Link inválido.';
-    return res.redirect('/cadastro');
-  }
-
-  return res.render('candidatos/cadastro-de-nome-e-sobrenome-candidatos', { uid });
+  return res.render('candidatos/cadastro-de-nome-e-sobrenome-candidatos');
 };
 
 exports.salvarNomeCandidato = async (req, res) => {
-  const rawUid = req.body.uid || req.body.usuario_id || req.query.uid || req.query.usuario_id;
-  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
+  const usuario_id = req.session.usuario.id; 
+  const { nome, sobrenome, data_nascimento } = req.body;
 
-  const { nome, sobrenome, data_nascimento } = req.body;
-
-  try {
-    await candidatoModel.criarCandidato({
-      usuario_id: Number(usuario_id),
-      nome,
-      sobrenome,
-      data_nascimento: new Date(data_nascimento),
-    });
-
-    const uid = encodeId(usuario_id);
-    return res.redirect(`/candidato/localizacao?uid=${uid}`);
-  } catch (err) {
-    console.error('Erro ao salvar nome e sobrenome:', err);
-    const uid = encodeId(usuario_id);
-    req.session.erro = 'Erro ao salvar seus dados iniciais. Tente novamente.';
-    return res.redirect(`/candidato/nome?uid=${uid}`);
+  // Verificação de segurança
+  if (!usuario_id) {
+    req.session.erro = 'Sua sessão expirou. Faça login novamente.';
+    return res.redirect('/login');
   }
+
+  try {
+    // Agora esta chamada vai funcionar!
+    await candidatoModel.criarCandidato({
+      usuario_id: Number(usuario_id),
+      nome,
+      sobrenome,
+      data_nascimento: new Date(data_nascimento),
+    });
+
+    // E o redirecionamento seguro vai funcionar
+    return res.redirect(`/candidato/localizacao`);
+
+  } catch (err) {
+    console.error('Erro ao salvar nome e sobrenome:', err);
+    req.session.erro = 'Erro ao salvar seus dados iniciais. Tente novamente.';
+    return res.redirect(`/candidato/nome`);
+  }
 };
 
 exports.telaLocalizacao = (req, res) => {
-  const uid = req.query.uid || null;
-  res.render('candidatos/localizacao-login-candidato', { uid });
+  res.render('candidatos/localizacao-login-candidato');
 };
 
 exports.salvarLocalizacao = async (req, res) => {
-  const rawUid = req.body.uid || req.body.usuario_id || req.query.uid || req.query.usuario_id;
-  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
-  const uid = usuario_id ? encodeId(usuario_id) : '';
+  const usuario_id = req.session.usuario.id; 
+  const { localidade } = req.body;
 
-  const { localidade } = req.body;
+  if (!usuario_id) {
+    req.session.erro = 'Sessão inválida. Faça login novamente.';
+    return res.redirect('/login');
+  }
 
-  if (!usuario_id || !localidade) {
-    req.session.erro = 'ID ou localidade ausente.';
-    return res.redirect(`/candidato/localizacao?uid=${uid}`);
-  }
+  // Validação dos dados do formulário
+  if (!localidade) {
+    req.session.erro = 'Localidade ausente.';
+    return res.redirect(`/candidato/localizacao`);
+  }
 
-  const partes = localidade.split(',').map(p => p.trim());
-  if (partes.length < 2 || partes.length > 3) {
-    req.session.erro = 'Informe uma localidade válida. Ex: cidade e país, ou cidade, estado e país.';
-    return res.redirect(`/candidato/localizacao?uid=${uid}`);
-  }
+  const partes = localidade.split(',').map(p => p.trim());
+  if (partes.length < 2 || partes.length > 3) {
+    req.session.erro = 'Informe uma localidade válida. Ex: cidade e país, ou cidade, estado e país.';
+    return res.redirect(`/candidato/localizacao`);
+  }
 
-  const [cidade, estado = '', pais = ''] = partes;
+  const [cidade, estado = '', pais = ''] = partes;
 
-  try {
-    await candidatoModel.atualizarLocalizacao({
-      usuario_id: Number(usuario_id),
-      cidade,
-      estado,
-      pais,
-    });
+  try {
+    await candidatoModel.atualizarLocalizacao({
+      usuario_id: Number(usuario_id), 
+      cidade,
+      estado,
+      pais,
+    });
 
-    return res.redirect(`/candidato/telefone?uid=${uid}`);
-  } catch (err) {
-    console.error('Erro ao salvar localização:', err);
-    req.session.erro = 'Erro ao salvar localização. Tente novamente.';
-    return res.redirect(`/candidato/localizacao?uid=${uid}`);
-  }
+    return res.redirect(`/candidato/telefone`);
+
+  } catch (err) {
+    console.error('Erro ao salvar localização:', err);
+    req.session.erro = 'Erro ao salvar localização. Tente novamente.';
+    return res.redirect(`/candidato/localizacao`);
+  }
 };
 
 exports.telaTelefone = (req, res) => {
-  const uid = req.query.uid || req.body.uid || null;
-  res.render('candidatos/telefone', { uid, error: null, telefoneData: {} });
+  res.render('candidatos/telefone', { error: null, telefoneData: {} });
 };
 
 exports.salvarTelefone = async (req, res) => {
-  const rawUid = req.body.uid || req.query.uid || req.body.usuario_id || req.query.usuario_id;
-  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
-  const uid = usuario_id ? encodeId(usuario_id) : '';
+  const usuario_id = req.session.usuario.id; 
+  const { ddi, ddd, telefone } = req.body;
 
-  const { ddi, ddd, telefone } = req.body;
-  if (!usuario_id || !ddi || !ddd || !telefone) {
-    return res.render('candidatos/telefone', {
-      uid,
-      error: 'Preencha todos os campos de telefone.',
-      telefoneData: { ddi, ddd, telefone }
-    });
+  // Verificação de segurança (garante que a sessão existe)
+  if (!usuario_id) {
+    req.session.erro = 'Sessão inválida. Faça login novamente.';
+    return res.redirect('/login');
   }
 
-  const telefoneSemHifen = telefone.replace(/-/g, '');
-  const telefoneFormatado = `${ddi}-${ddd}-${telefoneSemHifen}`;
+  if (!ddi || !ddd || !telefone) {
+    return res.render('candidatos/telefone', {
+      error: 'Preencha todos os campos de telefone.',
+      telefoneData: { ddi, ddd, telefone }
+    });
+  }
 
-  try {
-    await candidatoModel.atualizarTelefone({
-      usuario_id: Number(usuario_id),
-      telefone: telefoneFormatado
-    });
-    return res.redirect(`/candidato/cadastro/foto-perfil?uid=${uid}`);
-  } catch (err) {
-    console.error('Erro ao salvar telefone:', err);
-    return res.render('candidatos/telefone', {
-      uid,
-      error: 'Erro ao salvar telefone. Tente novamente.',
-      telefoneData: { ddi, ddd, telefone }
-    });
-  }
+  const telefoneSemHifen = telefone.replace(/-/g, '');
+  const telefoneFormatado = `${ddi}-${ddd}-${telefoneSemHifen}`;
+
+  try {
+    await candidatoModel.atualizarTelefone({
+      usuario_id: Number(usuario_id),
+      telefone: telefoneFormatado
+    });
+
+    return res.redirect(`/candidato/cadastro/foto-perfil`);
+
+  } catch (err) {
+    console.error('Erro ao salvar telefone:', err);
+    return res.render('candidatos/telefone', {
+      error: 'Erro ao salvar telefone. Tente novamente.',
+      telefoneData: { ddi, ddd, telefone }
+    });
+  }
 };
 
 exports.telaFotoPerfil = (req, res) => {
-  const uid = req.query.uid || req.body.uid || null;
-  return res.render('candidatos/foto-perfil', { uid, error: null });
+  return res.render('candidatos/foto-perfil', { error: null });
 };
 
 exports.salvarFotoPerfil = async (req, res) => {
-  const uidValue = req.body.uid || req.query.uid || req.body.usuario_id || req.query.usuario_id;
-  const rawUid = Array.isArray(uidValue) ? uidValue[0] : uidValue;
-  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
+  const usuario_id = req.session.usuario.id;
 
-  if (isNaN(usuario_id)) {
-    console.error('Erro ao salvar foto: ID do usuário inválido ou ausente.', { rawUid });
-    return res.render('candidatos/foto-perfil', {
-      uid: '',
-      error: 'Sessão inválida ou ID do usuário não fornecido. Tente fazer login novamente.'
-    });
-  }
+  if (isNaN(usuario_id)) {
+    console.error('Erro ao salvar foto: ID da sessão inválido.');
+    return res.render('candidatos/foto-perfil', {
+      error: 'Sessão inválida. Tente fazer login novamente.'
+    });
+  }
 
-  const uid = usuario_id ? encodeId(usuario_id) : ''; 
+  if (!req.file?.buffer) {
+    return res.render('candidatos/foto-perfil', {
+      error: 'Selecione uma foto antes de continuar.'
+    });
+  }
 
-  if (!req.file?.buffer) {
-    return res.render('candidatos/foto-perfil', {
-      uid,
-      error: 'Selecione uma foto antes de continuar.'
-    });
-  }
+  try {
+    const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    const result = await cloudinary.uploader.upload(dataUri, {
+      folder: 'connect-skills/candidatos',
+      public_id: `foto_candidato_${usuario_id}`,
+      overwrite: true
+    });
 
-  try {
-    const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-    const result = await cloudinary.uploader.upload(dataUri, {
-      folder: 'connect-skills/candidatos',
-      public_id: `foto_candidato_${usuario_id}`,
-      overwrite: true
-    });
+    const caminhoFoto = result.secure_url;
 
-    const caminhoFoto = result.secure_url;
+    const candidato = await prisma.candidato.findUnique({ where: { usuario_id: Number(usuario_id) } });
 
-    const candidato = await prisma.candidato.findUnique({ where: { usuario_id: usuario_id } });
-
-    if (!candidato) throw new Error(`Candidato não existe (usuario_id ${usuario_id})`);
-
-    await prisma.candidato.update({
-      where: { id: candidato.id },
-      data: { foto_perfil: caminhoFoto }
-    });
-
-    if (req.session.candidato) {
-      req.session.candidato.foto_perfil = caminhoFoto;
+    if (!candidato) {
+      // Isso não deve acontecer se o 'salvarNome' funcionou.
+      throw new Error(`Candidato não existe (usuario_id ${usuario_id})`);
     }
 
-    return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
-  } catch (err) {
-    console.error('Erro ao salvar foto de perfil:', err);
-    return res.render('candidatos/foto-perfil', {
-      uid,
-      error: 'Erro interno ao salvar a foto. Tente novamente.'
-    });
-  }
+    await prisma.candidato.update({
+      where: { id: candidato.id },
+      data: { foto_perfil: caminhoFoto }
+    });
+
+    // Atualiza a foto na sessão para aparecer no header
+    if (req.session.candidato) {
+      req.session.candidato.foto_perfil = caminhoFoto;
+    }
+
+    return res.redirect(`/candidato/cadastro/areas`);
+
+  } catch (err) {
+    console.error('Erro ao salvar foto de perfil:', err);
+    return res.render('candidatos/foto-perfil', {
+      error: 'Erro interno ao salvar a foto. Tente novamente.'
+    });
+  }
 };
 
 exports.telaSelecionarAreas = async (req, res) => {
-  try {
-    const uid = req.query.uid || req.query.usuario_id || null; 
-    const usuario_id = typeof uid === 'string' && !/^\d+$/.test(uid) ? decodeId(uid) : Number(uid);
-    const safeUid = usuario_id ? encodeId(usuario_id) : '';
+  try {
+    // O 'ensureCandidato' já protege a rota, não precisamos de 'uid'.
+    const areas = await prisma.area_interesse.findMany({
+      where: { padrao: true },
+      orderBy: { nome: 'asc' }
+    });
 
-    const areas = await prisma.area_interesse.findMany({
-      where: { padrao: true },
-      orderBy: { nome: 'asc' }
-    });
+    res.render('candidatos/selecionar-areas', { areas });
 
-    res.render('candidatos/selecionar-areas', { uid: safeUid, areas });
-  } catch (erro) {
-    console.error('Erro ao carregar áreas:', erro);
-    const backUid = req.query.uid || '';
-    req.session.erro = 'Erro ao carregar áreas. Tente novamente.';
-    res.redirect(`/candidato/cadastro/areas?uid=${backUid}`);
-  }
+  } catch (erro) {
+    console.error('Erro ao carregar áreas:', erro);
+    req.session.erro = 'Erro ao carregar áreas. Tente novamente.';
+    res.redirect(`/candidato/cadastro/areas`);
+  }
 };
 
 exports.salvarAreas = async (req, res) => {
-  const rawUid = req.body.uid || req.query.uid || req.body.usuario_id || req.query.usuario_id;
-  const usuario_id = typeof rawUid === 'string' && !/^\d+$/.test(rawUid) ? decodeId(rawUid) : Number(rawUid);
-  const uid = usuario_id ? encodeId(usuario_id) : '';
+  const usuario_id = req.session.usuario.id;
+  const { areasSelecionadas, outra_area_input } = req.body;
+  const nomes = JSON.parse(areasSelecionadas || '[]');
 
-  const { areasSelecionadas, outra_area_input } = req.body;
-  const nomes = JSON.parse(areasSelecionadas || '[]');
-
-  if (nomes.length !== 3) {
-    req.session.erro = 'Selecione exatamente 3 áreas válidas.';
-    return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
+  // Verificação de segurança
+  if (!usuario_id) {
+    req.session.erro = 'Sessão inválida. Faça login novamente.';
+    return res.redirect('/login');
   }
 
-  try {
-    const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
-    if (!candidato) {
-      req.session.erro = 'Candidato não encontrado.';
-      return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
-    }
+  if (nomes.length !== 3) {
+    req.session.erro = 'Selecione exatamente 3 áreas válidas.';
+    return res.redirect(`/candidato/cadastro/areas`);
+  }
 
-    const nomesFinal = [...nomes];
-    if (nomes.includes('Outro')) {
-      if (!outra_area_input || outra_area_input.trim() === '') {
-        req.session.erro = "Você selecionou 'Outro', mas não preencheu a nova área.";
-        return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
-      }
-      const novaArea = await candidatoModel.upsertNovaArea(outra_area_input.trim());
-      const index = nomesFinal.indexOf('Outro');
-      nomesFinal.splice(index, 1, novaArea.nome);
-    }
+  try {
+    const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
+    if (!candidato) {
+      req.session.erro = 'Candidato não encontrado.';
+      return res.redirect(`/candidato/cadastro/areas`);
+    }
 
-    const ids = await candidatoModel.buscarIdsDasAreas({ nomes: nomesFinal });
-    if (ids.length !== 3) {
-      req.session.erro = 'Erro ao localizar todas as áreas selecionadas.';
-      return res.redirect(`/candidato/cadastro/areas?uid=${uid}`);
-    }
+    const nomesFinal = [...nomes];
+    if (nomes.includes('Outro')) {
+      if (!outra_area_input || outra_area_input.trim() === '') {
+        req.session.erro = "Você selecionou 'Outro', mas não preencheu a nova área.";
+        return res.redirect(`/candidato/cadastro/areas`);
+      }
+      const novaArea = await candidatoModel.upsertNovaArea(outra_area_input.trim());
+      const index = nomesFinal.indexOf('Outro');
+      nomesFinal.splice(index, 1, novaArea.nome);
+    }
 
-    await candidatoModel.salvarAreasDeInteresse({ candidato_id: candidato.id, areas: ids });
+    const ids = await candidatoModel.buscarIdsDasAreas({ nomes: nomesFinal });
+    if (ids.length !== 3) {
+      req.session.erro = 'Erro ao localizar todas as áreas selecionadas.';
+      return res.redirect(`/candidato/cadastro/areas`);
+    }
 
-    const cAtual = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
+    await candidatoModel.salvarAreasDeInteresse({ candidato_id: candidato.id, areas: ids });
 
-    req.session.usuario = {
-      id: cAtual.usuario_id, nome: cAtual.nome, sobrenome: cAtual.sobrenome, tipo: 'candidato'
-    };
-    req.session.candidato = {
-      id: cAtual.id,
-      nome: cAtual.nome,
-      sobrenome: cAtual.sobrenome,
-      email: cAtual.usuario?.email || '',
-      tipo: 'candidato',
-      telefone: cAtual.telefone,
-      dataNascimento: cAtual.data_nascimento,
-      foto_perfil: cAtual.foto_perfil,
-      localidade: `${cAtual.cidade}, ${cAtual.estado}, ${cAtual.pais}`,
-      areas: cAtual.candidato_area.map(r => r.area_interesse.nome)
-    };
+    const cAtual = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuario_id));
 
-    req.session.sucessoCadastro = 'Áreas de interesse salvas com sucesso!';
-    req.session.save(() => res.redirect('/candidatos/home'));
-  } catch (error) {
-    console.error('Erro ao salvar áreas de interesse:', error);
-    req.session.erro = 'Erro ao salvar áreas de interesse. Tente novamente.';
-    res.redirect(`/candidatos/cadastro/areas?uid=${uid}`);
-  }
+    req.session.usuario = {
+      id: cAtual.usuario_id, nome: cAtual.nome, sobrenome: cAtual.sobrenome, tipo: 'candidato'
+    };
+    req.session.candidato = {
+      id: cAtual.id,
+      nome: cAtual.nome,
+      sobrenome: cAtual.sobrenome,
+      email: cAtual.usuario?.email || '',
+      tipo: 'candidato',
+      telefone: cAtual.telefone,
+      dataNascimento: cAtual.data_nascimento,
+      foto_perfil: cAtual.foto_perfil,
+      localidade: `${cAtual.cidade}, ${cAtual.estado}, ${cAtual.pais}`,
+      areas: cAtual.candidato_area.map(r => r.area_interesse.nome)
+    };
+
+    req.session.sucessoCadastro = 'Áreas de interesse salvas com sucesso!';
+   req.session.save(() => res.redirect('/candidatos/home')); // Redirecionamento final para a Home!
+
+  } catch (error) {
+    console.error('Erro ao salvar áreas de interesse:', error);
+    req.session.erro = 'Erro ao salvar áreas de interesse. Tente novamente.';
+    res.redirect(`/candidato/cadastro/areas`);
+  }
 };
 
+
 exports.telaHomeCandidato = async (req, res) => {
-  const usuario = req.session.candidato;
-  if (!usuario) return res.redirect('/login');
+  const usuario = req.session.candidato;
+  if (!usuario) return res.redirect('/login');
 
-  try {
-    // 1) Carrega o candidato do banco com as áreas (garante dados frescos)
-    const candDb = await prisma.candidato.findUnique({
-      where: { id: Number(usuario.id) }, // aqui é o ID do candidato (não usuario_id)
-      include: {
-        candidato_area: { include: { area_interesse: true } }
-      }
-    });
+  try {
+    // 1) Carrega o candidato do banco (Lógica existente)
+    const candDb = await prisma.candidato.findUnique({
+      where: { id: Number(usuario.id) },
+      include: {
+        candidato_area: { include: { area_interesse: true } }
+      }
+    });
 
-    const areas = (candDb?.candidato_area || [])
-      .map(r => r?.area_interesse?.nome)
-      .filter(Boolean);
+    const areas = (candDb?.candidato_area || [])
+      .map(r => r?.area_interesse?.nome)
+      .filter(Boolean);
 
-    // 2) Sincroniza sessão (opcional, mas ajuda outras telas)
-    try {
-      req.session.candidato = {
-        ...req.session.candidato,
-        // mantém o que já existe…
-        nome: candDb?.nome ?? req.session.candidato.nome,
-        sobrenome: candDb?.sobrenome ?? req.session.candidato.sobrenome,
-        telefone: candDb?.telefone ?? req.session.candidato.telefone,
-        data_nascimento: candDb?.data_nascimento ?? req.session.candidato.data_nascimento,
-        foto_perfil: candDb?.foto_perfil ?? req.session.candidato.foto_perfil,
-        localidade:
-          req.session.candidato.localidade ||
-          [candDb?.cidade, candDb?.estado, candDb?.pais].filter(Boolean).join(', '),
-        areas // <- importante para a view e para outras páginas
-      };
-    } catch (e) {
-      // segue o baile mesmo se não conseguir salvar sessão agora
-      console.warn('[home] não foi possível atualizar sessão do candidato:', e?.message || e);
-    }
+    // 2) Sincroniza sessão (Lógica existente)
+    try {
+      req.session.candidato = {
+        ...req.session.candidato,
+        nome: candDb?.nome ?? req.session.candidato.nome,
+        sobrenome: candDb?.sobrenome ?? req.session.candidato.sobrenome,
+        telefone: candDb?.telefone ?? req.session.candidato.telefone,
+        data_nascimento: candDb?.data_nascimento ?? req.session.candidato.data_nascimento,
+        foto_perfil: candDb?.foto_perfil ?? req.session.candidato.foto_perfil,
+        localidade:
+          req.session.candidato.localidade ||
+         [candDb?.cidade, candDb?.estado, candDb?.pais].filter(Boolean).join(', '),
+        areas
+      };
+    } catch (e) {
+      console.warn('[home] não foi possível atualizar sessão do candidato:', e?.message || e);
+    }
 
-    // 3) Vagas recomendadas
-    let vagas = [];
-    try {
-      // usa o ID do candidato (não usuario_id)
-      vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(Number(usuario.id));
-    } catch (e) {
-      console.warn('[home] falha ao buscar vagas recomendadas:', e.message);
-      vagas = [];
-    }
+    // 3) Vagas recomendadas (Lógica existente)
+    let vagas = [];
+    try {
+      vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(Number(usuario.id));
+    } catch (e) {
+      console.warn('[home] falha ao buscar vagas recomendadas:', e.message);
+      vagas = [];
+    }
 
-    // 4) Histórico (aplicações do candidato)
-    const avaliacoes = await prisma.vaga_avaliacao.findMany({
-      where: { candidato_id: Number(usuario.id) },
-      orderBy: { id: 'desc' },
-      include: {
-        vaga: {
-          include: {
-            empresa: {
-              select: { id: true, nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true }
-            }
-          }
-        }
-      }
-    });
+    // Bloco de filtragem de vagas fechadas (o mesmo da página /vagas)
+    const vagaIds = vagas.map(v => v.id);
+    let abertasSet = new Set(vagaIds);
+    if (vagaIds.length) {
+      const statusList = await prisma.vaga_status.findMany({
+        where: { vaga_id: { in: vagaIds } },
+        orderBy: { criado_em: 'desc' },
+        select: { vaga_id: true, situacao: true }
+      });
+      const latest = new Map();
+      for (const s of statusList) {
+        if (!latest.has(s.vaga_id)) latest.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
+      }
+      abertasSet = new Set(
+        vagaIds.filter(id => (latest.get(id) || 'aberta') !== 'fechada')
+      );
+    }
+    // Aplica o filtro
+    vagas = vagas.filter(v => abertasSet.has(v.id));
+    // Fim da correção
 
-    // Simplifica para o widget da home (usa os campos que a view espera)
-    const historico = (avaliacoes || [])
-      .filter(a => a.vaga) // evita órfãos
-      .map(a => {
-        const v = a.vaga;
-        const emp = v.empresa || {};
-        return {
-          vaga: { id: v.id, cargo: v.cargo },
-          empresa: { id: emp.id, nome: emp.nome_empresa, nome_empresa: emp.nome_empresa },
-          created_at: a.created_at || a.criado_em || new Date().toISOString(),
-          status: a.status || 'em_analise'
-        };
-      });
 
-      const appliedIds = new Set(historico.map(h => h.vaga.id));
-      vagas = (vagas || []).filter(v => !appliedIds.has(v.id));
+    // 4) Histórico (Lógica existente)
+    const avaliacoes = await prisma.vaga_avaliacao.findMany({
+      where: { candidato_id: Number(usuario.id) },
+      orderBy: { id: 'desc' },
+      include: {
+        vaga: {
+          include: {
+            empresa: {
+              select: { id: true, nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true }
+            }
+          }
+        }
+      }
+    });
 
-    // 5) Render da home — agora passando 'areas' para a view
-    res.render('candidatos/home-candidatos', {
-      nome: req.session.candidato.nome,
-      sobrenome: req.session.candidato.sobrenome,
-      localidade:
-        req.session.candidato.localidade ||
-        [candDb?.cidade, candDb?.estado, candDb?.pais].filter(Boolean).join(', '),
-      activePage: 'home',
+    // (Lógica existente de 'historico' e 'appliedIds')
+    const historico = (avaliacoes || [])
+      .filter(a => a.vaga)
+      .map(a => {
+        const v = a.vaga;
+        const emp = v.empresa || {};
+        return {
+          vaga: { id: v.id, cargo: v.cargo },
+          empresa: { id: emp.id, nome: emp.nome_empresa, nome_empresa: emp.nome_empresa },
+          created_at: a.created_at || a.criado_em || new Date().toISOString(),
+          status: a.status || 'em_analise'
+        };
+      });
 
-      // objetos que a view já usa
-      usuario: req.session.usuario || req.session.candidato, // mantém compatibilidade com includes
-      candidato: req.session.candidato, // contém .areas atualizadas
-      vagas,
-      historico,
-      candidaturasAplicadasCount: historico.length,
+    const appliedIds = new Set(historico.map(h => h.vaga.id));
+    vagas = (vagas || []).filter(v => !appliedIds.has(v.id));
 
-      // chave ESSENCIAL para a barra de progresso reconhecer as áreas
-      areas
-    });
-  } catch (err) {
-    console.error('[telaHomeCandidato] erro:', err?.message || err);
-    req.session.erro = 'Não foi possível carregar sua home.';
-    return res.redirect('/login');
-  }
+    // 5) Render da home (Lógica existente)
+    res.render('candidatos/home-candidatos', {
+      nome: req.session.candidato.nome,
+      sobrenome: req.session.candidato.sobrenome,
+      localidade:
+        req.session.candidato.localidade ||
+        [candDb?.cidade, candDb?.estado, candDb?.pais].filter(Boolean).join(', '),
+      activePage: 'home',
+      usuario: req.session.usuario || req.session.candidato,
+      candidato: req.session.candidato,
+      vagas, // Agora 'vagas' só conterá vagas ABERTAS e NÃO APLICADAS
+      historico,
+      candidaturasAplicadasCount: historico.length,
+      areas
+    });
+  } catch (err) {
+    console.error('[telaHomeCandidato] erro:', err?.message || err);
+    req.session.erro = 'Não foi possível carregar sua home.';
+    return res.redirect('/login');
+  }
 };
 
 exports.renderMeuPerfil = async (req, res) => {
@@ -591,7 +595,6 @@ exports.renderMeuPerfil = async (req, res) => {
     const arquivos = candidato.candidato_arquivo || [];
     const anexos = arquivos;
 
-    // ---------- TELEFONE (robusto) ----------
     function parseTelefoneBR(telRaw) {
       const tel = (telRaw || '').trim();
       if (!tel) return { ddi: '', ddd: '', numeroFormatado: '' };
@@ -652,7 +655,6 @@ exports.renderMeuPerfil = async (req, res) => {
     let { ddi, ddd, numeroFormatado } = parseTelefoneBR(candidato.telefone);
     ddi = sanitizeDdi(ddi);
 
-    // ---------- IDs/URL criptografados (para botão copiar link) ----------
     const encCandidatoId = encodeId(Number(candidato.id));
     const perfilShareUrl = `${req.protocol}://${req.get('host')}/candidatos/perfil/${encCandidatoId}`;
 
@@ -680,118 +682,127 @@ exports.renderMeuPerfil = async (req, res) => {
 
 
 exports.mostrarVagas = async (req, res) => {
-  const usuario = req.session.candidato;
-  if (!usuario) return res.redirect('/login');
+  const usuario = req.session.candidato;
+  if (!usuario) return res.redirect('/login');
 
-  const q = (req.query.q || '').trim();
-  const ordenar = (req.query.ordenar || 'recentes').trim();
+  const q = (req.query.q || '').trim();
+  const ordenar = (req.query.ordenar || 'recentes').trim();
 
-  try {
-    let vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
+  try {
+    let vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
 
-    vagas = await prisma.vaga.findMany({
-      where: { id: { in: vagas.map(v => v.id) } },
-      include: {
-        empresa: true,
-        vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } },
-        vaga_arquivo: true,
-        vaga_link: true,
-      }
-    });
+    vagas = await prisma.vaga.findMany({
+      where: { id: { in: vagas.map(v => v.id) } },
+      include: {
+        empresa: true,
+        vaga_area: { include: { area_interesse: true } },
+        vaga_soft_skill: { include: { soft_skill: true } },
+        vaga_arquivo: true,
+        vaga_link: true,
+      }
+    });
 
-    // filtra somente vagas abertas
-    const vagaIds = vagas.map(v => v.id);
-    let abertasSet = new Set(vagaIds);
-    if (vagaIds.length) {
-      const statusList = await prisma.vaga_status.findMany({
-        where: { vaga_id: { in: vagaIds } },
-        orderBy: { criado_em: 'desc' },
-        select: { vaga_id: true, situacao: true }
-      });
-      const latest = new Map();
-      for (const s of statusList) {
-        if (!latest.has(s.vaga_id)) latest.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
-      }
-      abertasSet = new Set(
-        vagaIds.filter(id => (latest.get(id) || 'aberta') !== 'fechada')
-      );
-    }
-    vagas = vagas.filter(v => abertasSet.has(v.id));
+    // filtra somente vagas abertas
+    const vagaIds = vagas.map(v => v.id);
+    let abertasSet = new Set(vagaIds);
+    if (vagaIds.length) {
+      const statusList = await prisma.vaga_status.findMany({
+        where: { vaga_id: { in: vagaIds } },
+        orderBy: { criado_em: 'desc' },
+        select: { vaga_id: true, situacao: true }
+      });
+      const latest = new Map();
+      for (const s of statusList) {
+        if (!latest.has(s.vaga_id)) latest.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
+      }
+      abertasSet = new Set(
+        vagaIds.filter(id => (latest.get(id) || 'aberta') !== 'fechada')
+      );
+    }
+    vagas = vagas.filter(v => abertasSet.has(v.id));
 
-    // filtro por busca (cargo, descrição, empresa ou áreas)
-    if (q) {
-      const termo = q.toLowerCase();
-      vagas = vagas.filter(v =>
-        v.cargo?.toLowerCase().includes(termo) ||
-        v.descricao?.toLowerCase().includes(termo) ||
-        v.empresa?.nome_empresa?.toLowerCase().includes(termo) ||
-        v.vaga_area?.some(rel => rel.area_interesse?.nome?.toLowerCase().includes(termo))
-      );
-    }
+    // filtro por busca (cargo, descrição, empresa ou áreas)
+    if (q) {
+      const termo = q.toLowerCase();
+      vagas = vagas.filter(v =>
+        v.cargo?.toLowerCase().includes(termo) ||
+        v.descricao?.toLowerCase().includes(termo) ||
+        v.empresa?.nome_empresa?.toLowerCase().includes(termo) ||
+        v.vaga_area?.some(rel => rel.area_interesse?.nome?.toLowerCase().includes(termo))
+      );
+    }
 
-    const aplicadas = await prisma.vaga_avaliacao.findMany({
-    where: { candidato_id: Number(usuario.id) },
-    select: { vaga_id: true }
-    });
+    const aplicadas = await prisma.vaga_avaliacao.findMany({
+    where: { candidato_id: Number(usuario.id) },
+    select: { vaga_id: true }
+    });
 
-    const appliedSet = new Set(aplicadas.map(a => a.vaga_id));
-    vagas = (vagas || []).filter(v => !appliedSet.has(v.id));
+    const appliedSet = new Set(aplicadas.map(a => a.vaga_id));
+    vagas = (vagas || []).filter(v => !appliedSet.has(v.id));
 
-    switch (ordenar) {
-      case 'antigos':
-        vagas.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-        break;
-      case 'mais_salario':
-        vagas.sort((a, b) => (b.salario || 0) - (a.salario || 0));
-        break;
-      case 'menos_salario':
-        vagas.sort((a, b) => (a.salario || 0) - (b.salario || 0));
-        break;
-      default:
-        vagas.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    }
+    switch (ordenar) {
+      case 'antigos':
+        vagas.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        break;
+      case 'mais_salario':
+        vagas.sort((a, b) => (b.salario || 0) - (a.salario || 0));
+        break;
+      case 'menos_salario':
+        vagas.sort((a, b) => (a.salario || 0) - (b.salario || 0));
+        break;
+      default:
+        vagas.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
 
-    const vagaIdsAbertas = vagas.map(v => v.id);
-    const avaliacoes = vagaIdsAbertas.length
-      ? await prisma.vaga_avaliacao.findMany({
-          where: { candidato_id: Number(usuario.id), vaga_id: { in: vagaIdsAbertas } },
-          select: { vaga_id: true, resposta: true }
-        })
-      : [];
-    const mapAval = new Map(avaliacoes.map(a => [a.vaga_id, a.resposta || '']));
-    for (const vaga of vagas) {
-      const texto = mapAval.get(vaga.id) || '';
-      if (!texto) continue;
-      const linhas = texto.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-      const apenasRespostas = linhas.map(l => {
-        const m = l.match(/\?\s*(.*)$/);
-        return m ? m[1].trim() : '';
-      }).filter(Boolean);
-      vaga.respostas_previas = apenasRespostas;
-      vaga.resposta_unica = apenasRespostas[0] || '';
-    }
+    const vagaIdsAbertas = vagas.map(v => v.id);
+    const avaliacoes = vagaIdsAbertas.length
+      ? await prisma.vaga_avaliacao.findMany({
+          where: { candidato_id: Number(usuario.id), vaga_id: { in: vagaIdsAbertas } },
+          select: { vaga_id: true, resposta: true }
+        })
+      : [];
+    const mapAval = new Map(avaliacoes.map(a => [a.vaga_id, a.resposta || '']));
+    for (const vaga of vagas) {
+      const texto = mapAval.get(vaga.id) || '';
+      if (!texto) continue;
+    }
 
-    const cand = await prisma.candidato.findUnique({
-    where: { id: Number(usuario.id) },
-    include: { candidato_area: { include: { area_interesse: true } } }
-  });
-  const areas = (cand?.candidato_area || [])
-    .map(r => r.area_interesse?.nome)
-    .filter(Boolean);
+    const cand = await prisma.candidato.findUnique({
+    where: { id: Number(usuario.id) },
+    include: { candidato_area: { include: { area_interesse: true } } }
+  });
+  const areas = (cand?.candidato_area || [])
+    .map(r => r.area_interesse?.nome)
+    .filter(Boolean);
 
-  res.render('candidatos/vagas', {
-    vagas,
-    filtros: { q, ordenar },
-    activePage: 'vagas',
-    candidato: req.session.candidato,
-    areas
-  });
-  } catch (err) {
-    console.error('Erro ao buscar vagas para candidato:', err);
-    req.session.erro = 'Erro ao buscar vagas. Tente novamente.';
-    res.redirect('/candidatos/home');
-  }
+
+
+    const vagasParaView = vagas.map(vaga => {
+      const empresa = vaga.empresa || {}; // Garante que empresa não é nula
+      return {
+        ...vaga,
+        encId: encodeId(vaga.id), // ID da vaga codificado
+        empresa: {
+          ...empresa,
+          encId: encodeId(empresa.id) // ID da empresa codificado
+        }
+      };
+    });
+
+
+  res.render('candidatos/vagas', {
+    vagas: vagasParaView, // MUDANÇA: Passando o array modificado
+    filtros: { q, ordenar },
+    activePage: 'vagas',
+    candidato: req.session.candidato,
+    areas
+  });
+
+  } catch (err) {
+    console.error('Erro ao buscar vagas para candidato:', err);
+    req.session.erro = 'Erro ao buscar vagas. Tente novamente.';
+    res.redirect('/candidatos/home');
+  }
 };
 
 exports.historicoAplicacoes = async (req, res) => {
@@ -1201,8 +1212,11 @@ exports.telaEditarAreas = async (req, res) => {
 };
 
 exports.salvarEditarAreas = async (req, res) => {
-  const candidato_id = Number(req.body.candidato_id);
-  let nomesSelecionados;
+  const sess = req.session.candidato;
+  if (!sess) return res.redirect('/login');
+  const candidato_id = Number(sess.id);
+
+  let nomesSelecionados;
 
   try {
     nomesSelecionados = Array.isArray(req.body.areasSelecionadas)
@@ -1255,327 +1269,311 @@ exports.salvarEditarAreas = async (req, res) => {
 };
 
 exports.exibirComplementarGoogle = async (req, res) => {
-  if (!req.session.usuario || req.session.usuario.tipo !== 'candidato') {
-    return res.redirect('/login');
-  }
+  if (!req.session.usuario || req.session.usuario.tipo !== 'candidato') {
+    return res.redirect('/login');
+  }
 
-  const usuario_id = req.session.usuario.id;
+  const usuario_id = req.session.usuario.id;
 
-  try {
-    const usuario = await prisma.usuario.findUnique({ where: { id: usuario_id } });
+  try {
+    const usuario = await prisma.usuario.findUnique({ where: { id: usuario_id } });
 
-    res.render('candidatos/cadastro-complementar-google', {
-      title: 'Completar Cadastro - Connect Skills',
-      erro: null,
-      nome: usuario?.nome || '',
-      sobrenome: usuario?.sobrenome || '',
-      usuario_id
-    });
-  } catch (error) {
-    console.error('Erro ao buscar usuário para complementar cadastro:', error);
-    res.render('candidatos/cadastro-complementar-google', {
-      title: 'Completar Cadastro - Connect Skills',
-      erro: 'Erro ao carregar os dados. Tente novamente.',
-      nome: '',
-      sobrenome: '',
-      usuario_id
-    });
-  }
+    res.render('candidatos/cadastro-complementar-google', {
+      title: 'Completar Cadastro - Connect Skills',
+      erro: null,
+      nome: usuario?.nome || '',
+      sobrenome: usuario?.sobrenome || ''
+    });
+  } catch (error) {
+    console.error('Erro ao buscar usuário para complementar cadastro:', error);
+    res.render('candidatos/cadastro-complementar-google', {
+      title: 'Completar Cadastro - Connect Skills',
+      erro: 'Erro ao carregar os dados. Tente novamente.',
+      nome: '',
+      sobrenome: ''
+    });
+  }
 };
 
 exports.complementarGoogle = async (req, res) => {
-  try {
-    const usuarioId = req.session.usuario?.id;
-    if (!usuarioId) return res.redirect('/login');
+  try {
+    const usuarioId = req.session.usuario?.id;
+    if (!usuarioId) return res.redirect('/login');
 
-    let { nome, sobrenome, data_nascimento, localidade, foto_perfil } = req.body;
-    const [cidade = '', estado = '', pais = ''] = (localidade || '').split(',').map(p => p.trim());
+    let { nome, sobrenome, data_nascimento, localidade, foto_perfil } = req.body;
+    const [cidade = '', estado = '', pais = ''] = (localidade || '').split(',').map(p => p.trim());
 
-    const { ddi, ddd, numero } = req.body;
-    const numeroLimpo = (numero || '').replace(/\D/g, '');
-    const numeroFormatado = numeroLimpo.length === 9
-      ? `${numeroLimpo.slice(0, 5)}-${numeroLimpo.slice(5)}`
-      : numeroLimpo.length === 8
-        ? `${numeroLimpo.slice(0, 4)}-${numeroLimpo.slice(4)}`
-        : numeroLimpo;
+    // ... (Sua lógica de formatação de telefone está ótima)
+    const { ddi, ddd, numero } = req.body;
+    const numeroLimpo = (numero || '').replace(/\D/g, '');
+    const numeroFormatado = numeroLimpo.length === 9
+      ? `${numeroLimpo.slice(0, 5)}-${numeroLimpo.slice(5)}`
+      : numeroLimpo.length === 8
+        ? `${numeroLimpo.slice(0, 4)}-${numeroLimpo.slice(4)}`
+        : numeroLimpo;
+    const telefoneFormatado = (ddd && numeroFormatado)
+      ? `${ddi || '+55'} (${ddd}) ${numeroFormatado}`
+      : '';
 
-    const telefoneFormatado = (ddd && numeroFormatado)
-      ? `${ddi || '+55'} (${ddd}) ${numeroFormatado}`
-      : '';
+    const dataNascimentoConvertida = new Date(data_nascimento);
 
-    const dataNascimentoConvertida = new Date(data_nascimento);
+    if (!foto_perfil || foto_perfil.trim() === '') {
+      const usuario = await prisma.usuario.findUnique({
+        where: { id: usuarioId },
+        select: { avatarUrl: true }
+      });
+      foto_perfil = usuario?.avatarUrl || null;
+    }
 
-    if (!foto_perfil || foto_perfil.trim() === '') {
-      const usuario = await prisma.usuario.findUnique({
-        where: { id: usuarioId },
-        select: { avatarUrl: true }
-      });
-      foto_perfil = usuario?.avatarUrl || null;
+    if (!nome || !sobrenome) {
+      req.session.erro = 'Nome e sobrenome são obrigatórios.';
+      return res.redirect('/candidatos/cadastro/google/complementar');
+    }
+
+    if (!data_nascimento || isNaN(new Date(data_nascimento))) {
+      req.session.erro = 'Informe uma data de nascimento válida (AAAA-MM-DD).';
+      return res.redirect('/candidatos/cadastro/google/complementar');
     }
-
-    if (!nome || !sobrenome) {
-      req.session.erro = 'Nome e sobrenome são obrigatórios.';
+    if (!cidade || !pais) {
+      req.session.erro = 'Informe a localidade no formato "Cidade, Estado, País".';
       return res.redirect('/candidatos/cadastro/google/complementar');
     }
 
-    await candidatoModel.complementarCadastroGoogle(usuarioId, {
-      nome, sobrenome, data_nascimento: dataNascimentoConvertida,
-      pais, estado, cidade, telefone: telefoneFormatado, foto_perfil
-    });
+    await candidatoModel.complementarCadastroGoogle(usuarioId, {
+      nome, sobrenome, data_nascimento: dataNascimentoConvertida,
+      pais, estado, cidade, telefone: telefoneFormatado, foto_perfil
+    });
 
-    await prisma.usuario.update({ where: { id: usuarioId }, data: { nome, sobrenome } });
+    await prisma.usuario.update({ where: { id: usuarioId }, data: { nome, sobrenome } });
 
-    const [candidatoCompleto, usuarioCompleto] = await Promise.all([
-      candidatoModel.obterCandidatoPorUsuarioId(usuarioId),
-      prisma.usuario.findUnique({ where: { id: usuarioId }, select: { avatarUrl: true } })
-    ]);
+    const [candidatoCompleto, usuarioCompleto] = await Promise.all([
+      candidatoModel.obterCandidatoPorUsuarioId(usuarioId),
+      prisma.usuario.findUnique({ where: { id: usuarioId }, select: { avatarUrl: true } })
+    ]);
 
-    req.session.usuario = { id: usuarioId, nome, sobrenome, tipo: 'candidato' };
-    req.session.candidato = {
-      id: candidatoCompleto.id,
-      usuario_id: usuarioId,
-      nome: candidatoCompleto.nome,
-      sobrenome: candidatoCompleto.sobrenome,
-      email: candidatoCompleto.email,
-      tipo: 'candidato',
-      telefone: candidatoCompleto.telefone,
-      dataNascimento: candidatoCompleto.data_nascimento,
-      foto_perfil: candidatoCompleto.foto_perfil || usuarioCompleto.avatarUrl || null,
-      localidade: `${candidatoCompleto.cidade}, ${candidatoCompleto.estado}, ${candidatoCompleto.pais}`,
-      areas: []
-    };
+    req.session.usuario = { id: usuarioId, nome, sobrenome, tipo: 'candidato' };
+    req.session.candidato = {
+      id: candidatoCompleto.id,
+      usuario_id: usuarioId,
+      nome: candidatoCompleto.nome,
+      sobrenome: candidatoCompleto.sobrenome,
+      email: candidatoCompleto.usuario?.email,
+      tipo: 'candidato',
+      telefone: candidatoCompleto.telefone,
+      dataNascimento: candidatoCompleto.data_nascimento,
+      foto_perfil: candidatoCompleto.foto_perfil || usuarioCompleto.avatarUrl || null,
+      localidade: `${candidatoCompleto.cidade}, ${candidatoCompleto.estado}, ${candidatoCompleto.pais}`,
+      areas: []
+    };
 
-    req.session.save(() => res.redirect(`/candidato/cadastro/areas?usuario_id=${usuarioId}`));
-  } catch (erro) {
-    console.error('Erro ao complementar cadastro com Google:', erro.message, erro);
-    req.session.erro = 'Erro ao salvar informações do candidato.';
-    res.redirect('/candidatos/cadastro/google/complementar');
-  }
-};
-
-exports.restaurarFotoGoogle = async (req, res) => {
-  const sess = req.session.candidato;
-  if (!sess) return res.redirect('/login');
-
-  const usuario = await prisma.usuario.findUnique({
-    where: { id: sess.usuario_id },
-    select: { avatarUrl: true }
-  });
-
-  if (!usuario || !usuario.avatarUrl) {
-    console.warn('Usuário não tem avatar do Google para restaurar.');
-    return res.redirect('/candidato/editar-perfil');
-  }
-
-  try {
-    await candidatoModel.atualizarFotoPerfil({ candidato_id: sess.id, foto_perfil: usuario.avatarUrl });
-    sess.foto_perfil = usuario.avatarUrl;
-    req.session.sucesso = 'Foto restaurada com sucesso!';
-    res.redirect('/candidato/editar-perfil');
-  } catch (err) {
-    console.error('Erro ao restaurar foto do Google:', err.message);
-    req.session.erro = 'Não foi possível restaurar a foto.';
-    res.redirect('/candidato/editar-perfil');
-  }
+    req.session.save(() => res.redirect(`/candidatos/cadastro/areas`));
+   } catch (erro) {
+    console.error('Erro ao complementar cadastro com Google:', erro.message, erro);
+    req.session.erro = 'Erro ao salvar informações do candidato.';
+    res.redirect('/candidatos/cadastro/google/complementar');
+  }
 };
 
 exports.avaliarCompatibilidade = async (req, res) => {
-  try {
-    const sess = req.session?.candidato;
-    if (!sess) {
-      return res.status(401).json({ ok: false, error: 'Não autenticado' });
-    }
-    const candidato_id = Number(sess.id);
-    const vaga_id = Number(req.params.id);
+  try {
+    const sess = req.session?.candidato;
+    if (!sess) {
+      return res.status(401).json({ ok: false, error: 'Não autenticado' });
+    }
+    const candidato_id = Number(sess.id);
 
-    if (await isVagaFechada(vaga_id)) {
-      return res.status(403).json({ ok: false, error: 'Esta vaga está fechada no momento.' });
-    }
+    // 2. Lógica de ID (Sua lógica original - Correta)
+    const vaga_id = Number(req.params.id);
+    if (!vaga_id || vaga_id <= 0) {
+       return res.status(400).json({ ok: false, error: 'ID de vaga inválido' });
+    }
 
-    const existente = await prisma.vaga_avaliacao.findFirst({
-      where: { vaga_id, candidato_id },
-      select: { id: true }
-    });
-    if (existente) {
-      return res.status(409).json({ ok: false, error: 'Você já realizou o teste desta vaga.' });
-    }
+    // 3. Verificação de Status (Substituindo 'isVagaFechada')
+    const statusMaisRecente = await prisma.vaga_status.findFirst({
+      where: { vaga_id: vaga_id },
+      orderBy: { criado_em: 'desc' },
+      select: { situacao: true }
+    });
 
-    const qaRaw = Array.isArray(req.body.qa) ? req.body.qa : [];
-    let itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
-    const skillsRaw = Array.isArray(req.body.skills) ? req.body.skills : [];
+    // Lógica para Vagas Antigas (Solução 1): Se 'null', considere 'aberta'
+    const situacaoAtual = statusMaisRecente?.situacao || 'aberta';
 
-    if (!itemsStr) {
-      const vagaDb = await prisma.vaga.findUnique({
-        where: { id: vaga_id },
-        select: { descricao: true }
-      });
-      if (vagaDb?.descricao?.trim()) {
-        itemsStr = vagaDb.descricao.trim();
-      }
-    }
+    if (situacaoAtual !== 'aberta') {
+      return res.status(403).json({ ok: false, error: 'Esta vaga está fechada no momento.' });
+    }
 
-    const qaNormalized = qaRaw
-      .map(x => ({
-        question: typeof x?.question === 'string' ? x.question.trim() : '',
-        answer:   typeof x?.answer   === 'string' ? x.answer.trim()   : ''
-      }))
-      .filter(x => x.question || x.answer);
+    // 4. Verificação de Duplicata (Sua lógica original - Correta)
+    const existente = await prisma.vaga_avaliacao.findFirst({
+      where: { vaga_id, candidato_id },
+      select: { id: true }
+    });
+    if (existente) {
+      return res.status(409).json({ ok: false, error: 'Você já realizou o teste desta vaga.' });
+    }
 
-    let skills = skillsRaw
-      .map(s => (typeof s === 'string' ? s.trim() : ''))
-      .filter(Boolean);
+    // 5. Busca consolidada (APÓS a verificação de segurança)
+    const vagaDb = await prisma.vaga.findUnique({
+      where: { id: vaga_id },
+      select: {
+        descricao: true,
+        vaga_soft_skill: { include: { soft_skill: true } }
+      }
+    });
 
-    if (!skills.length) {
-      const vagaDbSkills = await prisma.vaga.findUnique({
-        where: { id: vaga_id },
-        select: { vaga_soft_skill: { include: { soft_skill: true } } }
-      });
-      skills = (vagaDbSkills?.vaga_soft_skill || [])
-        .map(vs => vs.soft_skill?.nome)
-        .filter(Boolean);
-    }
+    if (!vagaDb) {
+      return res.status(404).json({ ok: false, error: 'Vaga não encontrada.' });
+    }
 
-    const discQuestions = (getDiscQuestionsForSkills(skills) || []).map(q =>
-      String(q || '').trim().toLowerCase()
-    );
+    const qaRaw = Array.isArray(req.body.qa) ? req.body.qa : [];
+    let itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
+    const skillsRaw = Array.isArray(req.body.skills) ? req.body.skills : [];
 
-    const findAnswer = (question) => {
-      const qnorm = String(question || '').trim().toLowerCase();
-      const hit = qaNormalized.find(item => String(item.question || '').trim().toLowerCase() === qnorm);
-      return hit ? String(hit.answer || '').trim() : '';
-    };
+    if (!itemsStr) {
+      if (vagaDb?.descricao?.trim()) {
+        itemsStr = vagaDb.descricao.trim();
+      }
+    }
 
-    const da = (getDiscQuestionsForSkills(skills) || []).map(q => ({
-      question: q,
-      answer: findAnswer(q)
-    }));
+    const qaNormalized = qaRaw
+      .map(x => ({
+        question: typeof x?.question === 'string' ? x.question.trim() : '',
+        answer:   typeof x?.answer   === 'string' ? x.answer.trim()   : ''
+      }))
+      .filter(x => x.question || x.answer);
 
-    const qa = qaNormalized.filter(item => {
-      const key = String(item.question || '').trim().toLowerCase();
-      return key && !discQuestions.includes(key);
-    });
+    let skills = skillsRaw
+      .map(s => (typeof s === 'string' ? s.trim() : ''))
+      .filter(Boolean);
 
-    if (!qa.length && !(da.some(x => (x.answer || '').trim()))) {
-      // exige pelo menos algo respondido em QA não-DISC ou em DA (DISC)
-      return res.status(400).json({ ok: false, error: 'É obrigatório enviar ao menos uma pergunta respondida.' });
-    }
-    if (!itemsStr) {
-      return res.status(400).json({ ok: false, error: 'Campo "items" (descrição do candidato ideal) é obrigatório.' });
-    }
+    // Usando 'vagaDb' (Removida a busca duplicada)
+    if (!skills.length) {
+      skills = (vagaDb?.vaga_soft_skill || [])
+        .map(vs => vs.soft_skill?.nome)
+        .filter(Boolean);
+    }
 
-    const ensureQmark = (s) => String(s||'').trim().replace(/\s*([?.!…:])?\s*$/, '?');
+    // 7. Restante da sua Lógica de Negócios (Tudo mantido)
+    const discQuestions = (getDiscQuestionsForSkills(skills) || []).map(q =>
+      String(q || '').trim().toLowerCase()
+    );
 
-    const toLine = ({ question, answer }) => {
-      const q = ensureQmark(question || '');
-      const a = (answer || '').trim();
-      return [q, a || '—'].join(' ');
-    };
+    const findAnswer = (question) => {
+      const qnorm = String(question || '').trim().toLowerCase();
+      const hit = qaNormalized.find(item => String(item.question || '').trim().toLowerCase() === qnorm);
+      return hit ? String(hit.answer || '').trim() : '';
+    };
 
+    const da = (getDiscQuestionsForSkills(skills) || []).map(q => ({
+      question: q,
+      answer: findAnswer(q)
+    }));
 
-    const linesDa = (da || [])
-      .filter(x => (x.question || '').trim())
-      .map(toLine);
+    const qa = qaNormalized.filter(item => {
+      const key = String(item.question || '').trim().toLowerCase();
+      return key && !discQuestions.includes(key);
+    });
 
-    const linesQa = (qa || [])
-      .filter(x => (x.question || '').trim())
-      .map(toLine);
+    if (!qa.length && !(da.some(x => (x.answer || '').trim()))) {
+      return res.status(400).json({ ok: false, error: 'É obrigatório enviar ao menos uma pergunta respondida.' });
+    }
+    if (!itemsStr) {
+      return res.status(400).json({ ok: false, error: 'Campo "items" (descrição do candidato ideal) é obrigatório.' });
+    }
 
-    // agora "resposta" inclui TUDO, garantindo que o modal liste todas as perguntas
-    const respostaFlattenAll = [...linesDa, ...linesQa].filter(Boolean).join('\n');
+    const ensureQmark = (s) => String(s||'').trim().replace(/\s*([?.!…:])?\s*$/, '?');
 
-    // --- ESCAPE APENAS PARA O PAYLOAD ENVIADO --- //
-    const payload = {
-      qa:     escapeQAArray(qa),
-      items:  escapeNL(itemsStr),
-      skills: skills,
-      da:     escapeDAArray(da)
-    };
+    const toLine = ({ question, answer }) => {
+      const q = ensureQmark(question || '');
+      const a = (answer || '').trim();
+      return [q, a || '—'].join(' ');
+    };
 
-    console.log('[Compat] Payload a enviar para /suggest:', JSON.stringify(payload, null, 2));
+    const linesDa = (da || []).filter(x => (x.question || '').trim()).map(toLine);
+    const linesQa = (qa || []).filter(x => (x.question || '').trim()).map(toLine);
+    const respostaFlattenAll = [...linesDa, ...linesQa].filter(Boolean).join('\n');
 
-    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest';
-    const axiosResp = await axios.post(url, payload, {
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 30000
-    });
+    const payload = {
+      qa:     escapeQAArray(qa),
+      items:  escapeNL(itemsStr),
+      skills: skills,
+      da:     escapeDAArray(da)
+    };
 
-    // ---------- NORMALIZAÇÃO DA RESPOSTA ----------
-    const respData = (axiosResp && typeof axiosResp === 'object') ? axiosResp.data : axiosResp;
-    const raw = safeParse(respData);
-    const results = normalizeResults(raw);
+    console.log('[Compat] Payload a enviar para /suggest:', JSON.stringify(payload, null, 2));
 
-    // 1) Novo formato DISC (score + score_D/I/S/C)
-    const isDisc =
-      raw && typeof raw === 'object' &&
-      typeof raw.score === 'number' &&
-      ['score_D', 'score_I', 'score_S', 'score_C'].every(k => typeof raw[k] === 'number');
+    const url = process.env.IA_SUGGEST_URL || 'http://159.203.185.226:4000/suggest';
+    const axiosResp = await axios.post(url, payload, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 30000
+    });
 
-    if (!results.length && isDisc) {
-      const score = Math.max(0, Math.min(100, Number(raw.score) || 0));
+    const respData = (axiosResp && typeof axiosResp === 'object') ? axiosResp.data : axiosResp;
+    const raw = safeParse(respData);
+    const results = normalizeResults(raw);
 
-      await vagaAvaliacaoModel.upsertAvaliacao({
-        vaga_id,
-        candidato_id,
-        score,
-        // salva TODAS as perguntas no texto consolidado
-        resposta: respostaFlattenAll,
-        // guarda DISC + extras + as perguntas originais para renderização completa
-        breakdown: { ...raw, skills, qa, da }
-      });
+    const isDisc =
+      raw && typeof raw === 'object' &&
+      typeof raw.score === 'number' &&
+      ['score_D', 'score_I', 'score_S', 'score_C'].every(k => typeof raw[k] === 'number');
 
-      return res.json({
-        ok: true,
-        score,
-        score_D: Number(raw.score_D) || 0,
-        score_I: Number(raw.score_I) || 0,
-        score_S: Number(raw.score_S) || 0,
-        score_C: Number(raw.score_C) || 0,
-        matchedSkills: Array.isArray(raw.matchedSkills) ? raw.matchedSkills : [],
-        suggestions:  Array.isArray(raw.suggestions)  ? raw.suggestions  : [],
-        explanation:  raw.explanation || '',
-        skills
-      });
-    }
+    if (!results.length && isDisc) {
+      const score = Math.max(0, Math.min(100, Number(raw.score) || 0));
+      await vagaAvaliacaoModel.upsertAvaliacao({
+        vaga_id,
+        candidato_id,
+        score,
+        resposta: respostaFlattenAll,
+        breakdown: { ...raw, skills, qa, da }
+      });
+      return res.json({
+        ok: true,
+        score,
+        score_D: Number(raw.score_D) || 0,
+        score_I: Number(raw.score_I) || 0,
+        score_S: Number(raw.score_S) || 0,
+        score_C: Number(raw.score_C) || 0,
+        matchedSkills: Array.isArray(raw.matchedSkills) ? raw.matchedSkills : [],
+        suggestions:  Array.isArray(raw.suggestions)  ? raw.suggestions  : [],
+        explanation:  raw.explanation || '',
+        skills
+      });
+    }
 
-    // 2) Formato antigo baseado em results (mapPair + média)
-    if (results.length) {
-      const score = avgScore0to100(results);
+    if (results.length) {
+      const score = avgScore0to100(results);
+      await vagaAvaliacaoModel.upsertAvaliacao({
+        vaga_id,
+        candidato_id,
+        score,
+        resposta: respostaFlattenAll,
+        breakdown: { skills, results, qa, da }
+      });
+      return res.json({ ok: true, score, results, skills });
+    }
 
-      await vagaAvaliacaoModel.upsertAvaliacao({
-        vaga_id,
-        candidato_id,
-        score,
-        resposta: respostaFlattenAll,
-        breakdown: { skills, results, qa, da }
-      });
+    await vagaAvaliacaoModel.upsertAvaliacao({
+      vaga_id,
+      candidato_id,
+      score: 0,
+      resposta: respostaFlattenAll,
+      breakdown: { erro: '[IA] Formato inesperado', raw, payload, qa, da, skills }
+    });
 
-      return res.json({ ok: true, score, results, skills });
-    }
+    try {
+      console.warn('[IA] Formato inesperado:', JSON.stringify(raw).slice(0, 800));
+    } catch {
+      console.warn('[IA] Formato inesperado (string):', String(raw).slice(0, 800));
+    }
+    return res.status(422).json({ ok: false, error: '[IA] Formato inesperado', raw });
 
-    // 3) Nenhum formato reconhecido
-    await vagaAvaliacaoModel.upsertAvaliacao({
-      vaga_id,
-      candidato_id,
-      score: 0,
-      resposta: respostaFlattenAll,
-      breakdown: { erro: '[IA] Formato inesperado', raw, payload, qa, da, skills }
-    });
-
-    try {
-      console.warn('[IA] Formato inesperado:', JSON.stringify(raw).slice(0, 800));
-    } catch {
-      console.warn('[IA] Formato inesperado (string):', String(raw).slice(0, 800));
-    }
-    return res.status(422).json({ ok: false, error: '[IA] Formato inesperado', raw });
-
-  } catch (err) {
-    console.error('Erro ao avaliar compatibilidade:', err?.message || err);
-    const reason =
-      err?.code === 'ECONNABORTED'
-        ? 'Tempo limite excedido. Tente novamente.'
-        : 'Falha ao contatar o serviço de análise.';
-    return res.status(500).json({ ok: false, error: reason });
-  }
+  } catch (err) {
+    console.error('Erro ao avaliar compatibilidade:', err?.message || err);
+    const reason =
+      err?.code === 'ECONNABORTED'
+        ? 'Tempo limite excedido. Tente novamente.'
+        : 'Falha ao contatar o serviço de análise.';
+    return res.status(500).json({ ok: false, error: reason });
+  }
 };
 
 exports.avaliarVagaIa = async (req, res) => {
@@ -1783,191 +1781,212 @@ exports.excluirConta = async (req, res) => {
 };
 
 exports.vagaDetalhes = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
+  try {
+    // Seu código de ID está ótimo
+    const id = Number(req.params.id);
+    if (!id || id <= 0) {
+      return res.status(400).send('ID de vaga inválido');
+    }
 
-  try {
-    // ID seguro: aceita hash ou numérico (middleware já canonicaliza GET)
-    const raw = String(req.params.id || '');
-    const dec = decodeId(raw);
-    const id = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
-    if (!Number.isFinite(id)) return res.status(400).send('ID inválido');
+    // 1. Buscamos a vaga
+    const vaga = await prisma.vaga.findUnique({
+      where: { id: id },
+      include: {
+        empresa: {
+          include: {
+            usuario: { select: { id: true, nome: true, sobrenome: true, email: true } }
+          }
+        },
+        vaga_area:       { include: { area_interesse: { select: { id: true, nome: true } } } },
+        vaga_soft_skill: { include: { soft_skill: { select: { id: true, nome: true } } } },
+        vaga_arquivo: true,
+        vaga_link: true
+      }
+    });
 
-    const vaga = await prisma.vaga.findUnique({
-      where: { id },
-      include: {
-        empresa: {
-          include: {
-            usuario: { select: { id: true, nome: true, sobrenome: true, email: true } }
-          }
-        },
-        vaga_area:       { include: { area_interesse: { select: { id: true, nome: true } } } },
-        vaga_soft_skill: { include: { soft_skill: { select: { id: true, nome: true } } } },
-        vaga_arquivo: true,
-        vaga_link: true,
-      }
-    });
+    // Verificação 1: A vaga existe?
+    if (!vaga) {
+      return res.status(404).send('Vaga não encontrada');
+    }
 
-    if (!vaga) return res.status(404).send('Vaga não encontrada');
+    const statusMaisRecente = await prisma.vaga_status.findFirst({
+      where: { vaga_id: id },
+      orderBy: { criado_em: 'desc' },
+      select: { situacao: true }
+    });
 
-    const publicadoEm = vaga.created_at ? new Date(vaga.created_at) : null;
-    const publicadoEmBR = publicadoEm
-      ? publicadoEm.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-      : '-';
+    
+    const situacaoAtual = statusMaisRecente?.situacao || 'aberta'; 
+    const STATUS_PERMITIDO = 'aberta';
+    
+    if (situacaoAtual !== STATUS_PERMITIDO) {
+      return res.status(404).send('Vaga não encontrada');
+    }
+    
+    console.log('===== DEBUG DE SEGURANÇA =====');
+    console.log('ID da Vaga:', id);
+    console.log('Status encontrado no banco:', statusMaisRecente);
+    console.log('Status esperado:', STATUS_PERMITIDO);
+    console.log('O status é o permitido?', statusMaisRecente?.situacao === STATUS_PERMITIDO);
+    console.log('================================');
+  
+    const publicadoEm = vaga.created_at ? new Date(vaga.created_at) : null;
+    const publicadoEmBR = publicadoEm
+      ? publicadoEm.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : '-';
 
-    const beneficios = Array.isArray(vaga.beneficio)
-      ? vaga.beneficio
-      : (vaga.beneficio ? String(vaga.beneficio).split('|').map(s => s.trim()).filter(Boolean) : []);
+    const beneficios = Array.isArray(vaga.beneficio)
+      ? vaga.beneficio
+      : (vaga.beneficio ? String(vaga.beneficio).split('|').map(s => s.trim()).filter(Boolean) : []);
 
-    const areas  = (vaga.vaga_area || []).map(va => va.area_interesse?.nome).filter(Boolean);
-    const skills = (vaga.vaga_soft_skill || []).map(vs => vs.soft_skill?.nome).filter(Boolean);
+    const areas  = (vaga.vaga_area || []).map(va => va.area_interesse?.nome).filter(Boolean);
+    const skills = (vaga.vaga_soft_skill || []).map(vs => vs.soft_skill?.nome).filter(Boolean);
 
-    const diasPresenciais = vaga.dias_presenciais || '';
-    const diasHomeOffice  = vaga.dias_home_office  || '';
+    const diasPresenciais = vaga.dias_presenciais || '';
+    const diasHomeOffice  = vaga.dias_home_office  || '';
 
-    const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
-    const discQs = (typeof getDiscQuestionsForSkills === 'function'
-      ? (getDiscQuestionsForSkills(skills) || [])
-      : []);
+    const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank'); 
+    const discQs = (typeof getDiscQuestionsForSkills === 'function'
+      ? (getDiscQuestionsForSkills(skills) || [])
+      : []);
 
-    const extraRaw = String(vaga.pergunta || '').trim();
-    const extraQs = extraRaw
-      ? extraRaw
-          .replace(/\r\n/g, '\n')
-          .replace(/\\r\\n/g, '\n')
-          .replace(/\\n/g, '\n')
-          .split('\n')
-          .map(s => s.trim())
-          .filter(Boolean)
-      : [];
+    const extraRaw = String(vaga.pergunta || '').trim();
+    const extraQs = extraRaw
+      ? extraRaw
+          .replace(/\r\n/g, '\n')
+          .replace(/\\r\\n/g, '\n')
+          .replace(/\\n/g, '\n')
+          .split('\n')
+          .map(s => s.trim())
+          .filter(Boolean)
+      : [];
 
-    const perguntasLista = Array.from(new Set([...discQs, ...extraQs]));
+    const perguntasLista = Array.from(new Set([...discQs, ...extraQs]));
 
-    // ID do candidato (prioriza sessão do candidato)
-    const candId = Number(req.session?.candidato?.id || req.session?.usuario?.id || 0);
+    const candId = Number(req.session?.candidato?.id || req.session?.usuario?.id || 0);
 
-    // Verifica se já aplicou (candidatura) OU já tem avaliação (fallback)
-    let jaAplicou = false;
-    if (candId && vaga?.id) {
-      const [candidatura, avaliacao] = await Promise.all([
-        prisma.vaga_candidato?.findFirst?.({
-          where: { candidato_id: candId, vaga_id: id },
-          select: { id: true }
-        }) ?? null,
-        prisma.vaga_avaliacao?.findFirst?.({
-          where: { candidato_id: candId, vaga_id: id },
-          select: { id: true }
-        }) ?? null
-      ]);
-      jaAplicou = !!(candidatura || avaliacao);
-    }
+    // Verifica se já aplicou
+    let jaAplicou = false;
+    if (candId && vaga?.id) {
+      const [candidatura, avaliacao] = await Promise.all([
+        prisma.vaga_candidato?.findFirst?.({
+          where: { candidato_id: candId, vaga_id: id },
+          select: { id: true }
+        }) ?? null,
+        prisma.vaga_avaliacao?.findFirst?.({
+          where: { candidato_id: candId, vaga_id: id },
+          select: { id: true }
+        }) ?? null
+      ]);
+      jaAplicou = !!(candidatura || avaliacao);
+    }
 
-    // IDs codificados para usar nos hrefs da view
-    const encId = encodeId(id);
-    const encEmpresaId = encodeId(Number(vaga?.empresa?.id || 0));
+    // IDs codificados
+    const encId = encodeId(id);
+    const encEmpresaId = encodeId(Number(vaga?.empresa?.id || 0));
 
-    return res.render('candidatos/vaga-detalhes', {
-      tituloPagina: 'Detalhes da vaga',
-      vaga,
-      publicadoEmBR,
-      beneficios,
-      areas,
-      skills,
-      diasPresenciais,
-      diasHomeOffice,
-      perguntasLista,
-      jaAplicou,
-      usuarioSessao: req.session?.usuario || null,
-      encId,
-      encEmpresaId,
-    });
+    return res.render('candidatos/vaga-detalhes', {
+      tituloPagina: 'Detalhes da vaga',
+      vaga,
+      publicadoEmBR,
+      beneficios,
+      areas,
+      skills,
+      diasPresenciais,
+      diasHomeOffice,
+      perguntasLista,
+      jaAplicou,
+      usuarioSessao: req.session?.usuario || null,
+      encId,
+      encEmpresaId,
+    });
 
-  } catch (err) {
-    console.error('Erro ao carregar detalhes da vaga:', err);
-    return res.status(500).send('Erro interno ao carregar a vaga');
-  }
+  } catch (err) {
+    console.error('Erro ao carregar detalhes da vaga:', err);
+    return res.status(500).send('Erro interno ao carregar a vaga');
+  }
 };
 
 exports.pularCadastroCandidato = async (req, res) => {
-  if (!req.session.usuario) req.session.usuario = {};
-  req.session.usuario.skipCadastro = true;
-  if (req.session.candidato) req.session.candidato.skipCadastro = true;
+  if (!req.session.usuario) req.session.usuario = {};
+  req.session.usuario.skipCadastro = true;
+  if (req.session.candidato) req.session.candidato.skipCadastro = true;
 
-  // cookie persistente (1 ano)
-  res.cookie('cs_skipCadastro', '1', {
-    httpOnly: false,
-    sameSite: 'lax',
-    maxAge: 31536000000
-  });
-  
-  try {
-    const usuarioId = Number(
-      req.query.usuario_id || req.body.usuario_id || req.session?.usuario?.id
-    );
-    if (!usuarioId) return res.redirect('/login');
-
-    // Garante que exista um registro de candidato (em muitos casos já existe)
-    let cand = await prisma.candidato.findUnique({
-      where: { usuario_id: usuarioId },
-      include: {
-        usuario: { select: { email: true, nome: true, sobrenome: true } },
-        candidato_area: { include: { area_interesse: true } }
-      }
-    });
-
-    if (!cand) {
-      // Cria com dados mínimos (nome/sobrenome se já tiver no usuario)
-      const usr = await prisma.usuario.findUnique({ where: { id: usuarioId } });
-      cand = await prisma.candidato.create({
-        data: {
-          usuario_id: usuarioId,
-          nome: usr?.nome || 'Candidato',
-          sobrenome: usr?.sobrenome || '',
-          data_nascimento: null,
-          pais: '', estado: '', cidade: '',
-          telefone: '',
-          foto_perfil: ''
-        },
-        include: {
-          usuario: { select: { email: true } },
-          candidato_area: { include: { area_interesse: true } }
-        }
-      });
+  res.cookie('cs_skipCadastro', '1', {
+    httpOnly: false,
+    sameSite: 'lax',
+    maxAge: 31536000000
+  });
+  
+  try {
+    const usuarioId = Number(req.session?.usuario?.id);
+    
+    if (!usuarioId) {
+      console.warn('[pularCadastroCandidato] Tentativa de pular cadastro sem sessão válida.');
+      return res.redirect('/login');
     }
 
-    // Salva sessão mínima e segue pra home
-    const localidade = [cand.cidade, cand.estado, cand.pais].filter(Boolean).join(', ');
-    const areas = (cand.candidato_area || []).map(r => r.area_interesse?.nome).filter(Boolean);
+    let cand = await prisma.candidato.findUnique({
+      where: { usuario_id: usuarioId }, // Agora usa o ID seguro
+      include: {
+        usuario: { select: { email: true, nome: true, sobrenome: true } },
+        candidato_area: { include: { area_interesse: true } }
+      }
+    });
 
-    req.session.usuario = {
-      id: usuarioId,
-      tipo: 'candidato',
-      nome: cand.nome,
-      sobrenome: cand.sobrenome
-    };
-    req.session.candidato = {
-      id: cand.id,
-      usuario_id: usuarioId,
-      nome: cand.nome,
-      sobrenome: cand.sobrenome,
-      email: cand.usuario?.email || '',
-      tipo: 'candidato',
-      telefone: cand.telefone || '',
-      dataNascimento: cand.data_nascimento || null,
-      foto_perfil: cand.foto_perfil || '',
-      localidade,
-      areas
-    };
+    if (!cand) {
+      // Cria com dados mínimos (nome/sobrenome se já tiver no usuario)
+      const usr = await prisma.usuario.findUnique({ where: { id: usuarioId } }); // Usa o ID seguro
+      cand = await prisma.candidato.create({
+        data: {
+          usuario_id: usuarioId, // Usa o ID seguro
+          nome: usr?.nome || 'Candidato',
+          sobrenome: usr?.sobrenome || '',
+          data_nascimento: null,
+          pais: '', estado: '', cidade: '',
+          telefone: '',
+          foto_perfil: ''
+        },
+        include: {
+          usuario: { select: { email: true } },
+          candidato_area: { include: { area_interesse: true } }
+        }
+      });
+    }
 
-    return req.session.save(() => res.redirect('/candidatos/home'));
-  } catch (err) {
-    console.error('[pularCadastroCandidato] erro:', err?.message || err);
-    req.session.erro = 'Não foi possível pular o complemento agora.';
-    return res.redirect('/login');
-  }
+    // Salva sessão mínima e segue pra home
+    const localidade = [cand.cidade, cand.estado, cand.pais].filter(Boolean).join(', ');
+    const areas = (cand.candidato_area || []).map(r => r.area_interesse?.nome).filter(Boolean);
+
+    req.session.usuario = {
+      id: usuarioId, // Usa o ID seguro
+      tipo: 'candidato',
+      nome: cand.nome,
+      sobrenome: cand.sobrenome
+    };
+    req.session.candidato = {
+      id: cand.id,
+      usuario_id: usuarioId, // Usa o ID seguro
+      nome: cand.nome,
+      sobrenome: cand.sobrenome,
+      email: cand.usuario?.email || '',
+      tipo: 'candidato',
+      telefone: cand.telefone || '',
+      dataNascimento: cand.data_nascimento || null,
+      foto_perfil: cand.foto_perfil || '',
+      localidade,
+      areas
+    };
+
+    return req.session.save(() => res.redirect('/candidatos/home'));
+  } catch (err) {
+    console.error('[pularCadastroCandidato] erro:', err?.message || err);
+    req.session.erro = 'Não foi possível pular o complemento agora.';
+    return res.redirect('/login');
+  }
 };
 
 exports.perfilPublicoCandidato = async (req, res) => {
-  const { encodeId, decodeId } = require('../utils/idEncoder');
 
   try {
     // 1) ID seguro (aceita hash ou numérico); GET numérico -> 301 p/ hash
@@ -2047,37 +2066,62 @@ exports.perfilPublicoCandidato = async (req, res) => {
 };
 
 exports.aplicarVaga = async (req, res) => {
-  try {
-    const usuario = req.session?.candidato;
-    if (!usuario?.id) {
-      req.session.erro = 'Você precisa estar logado como candidato para aplicar.';
-      return res.redirect('/login');
-    }
+  try {
+    const usuario = req.session?.candidato;
+    if (!usuario?.id) {
+      req.session.erro = 'Você precisa estar logado como candidato para aplicar.';
+      return res.redirect('/login');
+    }
+    const vagaId = Number(req.params.id);
+    if (!vagaId || vagaId <= 0) {
+      return res.status(400).send('ID de vaga inválido');
+    }
 
-    const vagaId = Number(req.params.id);
+    if (!Number.isFinite(vagaId)) {
+      return res.status(400).send('ID de vaga inválido');
+    }
+    // 1. Buscamos o status da vaga ANTES de aplicar (Sua lógica está perfeita)
+    const statusMaisRecente = await prisma.vaga_status.findFirst({
+      where: { vaga_id: vagaId },
+      orderBy: { criado_em: 'desc' },
+      select: { situacao: true }
+    });
 
-    // Evita duplicadas
-    const jaExiste = await prisma.vaga_candidato.findFirst({
-      where: { vaga_id: vagaId, candidato_id: usuario.id }
-    });
-    if (jaExiste) {
-      req.session.erro = 'Você já aplicou para esta vaga.';
-      return res.redirect(`/candidatos/vaga/${vagaId}`);
-    }
+    // 2. Verificamos se a vaga está 'aberta' (Sua lógica está perfeita)
+    const situacaoAtual = statusMaisRecente?.situacao || 'aberta';
+    const STATUS_PERMITIDO_PARA_APLICAR = 'aberta'; 
 
-    await prisma.vaga_candidato.create({
-      data: {
-        vaga_id: vagaId,
-        candidato_id: usuario.id,
-        status: 'em_analise'
-      }
-    });
+    if (situacaoAtual !== STATUS_PERMITIDO_PARA_APLICAR) {
+      return res.redirect('/candidatos/vagas'); 
+    }
 
-    req.session.sucesso = 'Aplicação realizada com sucesso!';
-    res.redirect(`/candidatos/vaga/${vagaId}`);
-  } catch (err) {
-    console.error('[aplicarVaga] erro:', err);
-    req.session.erro = 'Não foi possível aplicar à vaga. Tente novamente.';
-    res.redirect('/candidatos/vagas');
-  }
+    // (Sua lógica de verificação está perfeita)
+    const jaExiste = await prisma.vaga_candidato.findFirst({
+      where: { vaga_id: vagaId, candidato_id: usuario.id }
+    });
+
+    const urlVaga = `/candidatos/vagas/${vagaId}`;
+
+    if (jaExiste) {
+      req.session.erro = 'Você já aplicou para esta vaga.';
+      return res.redirect(urlVaga); // Agora usa a URL correta
+    }
+
+    // Lógica original: Criar a aplicação (Perfeita)
+    await prisma.vaga_candidato.create({
+      data: {
+        vaga_id: vagaId,
+        candidato_id: usuario.id,
+        status: 'em_analise' 
+      }
+    });
+
+    req.session.sucesso = 'Aplicação realizada com sucesso!';
+    res.redirect(urlVaga); // Agora usa a URL correta
+
+  } catch (err) {
+    console.error('[aplicarVaga] erro:', err);
+    req.session.erro = 'Não foi possível aplicar à vaga. Tente novamente.';
+    res.redirect('/candidatos/vagas'); // Página neutra em caso de erro
+  }
 };

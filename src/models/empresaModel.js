@@ -79,3 +79,22 @@ exports.obterEmpresaPorUsuarioId = async (usuario_id) => {
     where: { usuario_id: Number(usuario_id) }
   });
 };
+
+exports.complementarCadastroGoogle = async (usuario_id, dados) => {
+  const norm = (s) => (s ? String(s).trim() : '');
+  const payload = {
+    nome_empresa: norm(dados.nome_empresa),
+    descricao: norm(dados.descricao),
+    cidade: norm(dados.cidade),
+    estado: norm(dados.estado),
+    pais: norm(dados.pais),
+    telefone: norm(dados.telefone),
+    foto_perfil: norm(dados.foto_perfil || '')
+  };
+
+  return prisma.empresa.upsert({
+    where: { usuario_id: Number(usuario_id) },
+    update: payload,
+    create: { usuario_id: Number(usuario_id), ...payload }
+  });
+};

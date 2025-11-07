@@ -18,10 +18,9 @@
   <%- include('../partials/header') %>
   <%- include('../partials/flash-messages') %>
   <main class="container text-center mt-5 pt-5">
-    <h2 class="mb-4">Selecione a seguir três áreas a quais você deseja trabalhar:</h2>
+    <h2 class="mb-4">Selecione a seguir três áreas nas quais você deseja trabalhar:</h2>
 
-    <form action="/candidatos/cadastro/areas?uid=<%= uid %>" method="POST" id="formAreas">
-      <input type="hidden" name="uid" value="<%= uid %>">
+    <form action="/candidatos/cadastro/areas" method="POST" id="formAreas">
       <input type="hidden" name="areasSelecionadas" id="areasSelecionadas">
 
       <div id="botoes" class="d-flex flex-wrap justify-content-center">
@@ -59,7 +58,6 @@
 
     <div class="text-center">
     <form action="/usuarios/pular-cadastro" method="POST" class="d-inline">
-      <input type="hidden" name="uid" value="<%= uid %>">
       <button type="submit" class="btn btn-link text-decoration-none">
         Prefiro completar meu perfil depois
       </button>

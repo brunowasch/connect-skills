@@ -21,8 +21,7 @@
   <main class="main-ajustado-header d-flex flex-column align-items-center justify-content-center px-3 text-center">
     <h3 class="text-center mt-4 mb-3">Adicione uma foto de perfil</h3>
 
-  <form action="/candidatos/cadastro/foto-perfil?uid=<%= uid %>" method="POST" enctype="multipart/form-data" id="formFoto" class="text-center">
-       <input type="hidden" name="uid" value="<%= uid %>">
+  <form action="/candidatos/cadastro/foto-perfil" method="POST" enctype="multipart/form-data" id="formFoto" class="text-center">
 
       <% if (error) { %>
         <div class="alert alert-danger w-100 mb-3"><%= error %></div>
@@ -64,13 +63,12 @@
         </button>
       </div>
 
-      <a href="/candidatos/cadastro/areas?uid=<%= uid %>" class="btn btn-outline-secondary mt-3">
+      <a href="/candidatos/cadastro/areas" class="btn btn-outline-secondary mt-3">
         <i class="bi bi-skip-forward-fill me-1"></i> Pular esta etapa
       </a>
 
       <div class="text-center mt-2">
       <form action="/usuarios/pular-cadastro" method="POST" class="d-inline">
-        <input type="hidden" name="uid" value="<%= uid %>">
         <button type="submit" class="btn btn-link text-decoration-none">
           Prefiro completar meu perfil depois
         </button>

@@ -77,48 +77,42 @@
     </a>
   </div>
 <script>
-  // Já existente:
-  function redirecionarParaCadastro(tipo, uid) {
-    const rota = tipo === 'empresa'
-      ? `/empresas/nome-empresa?uid=${uid}`
-      : `/candidatos/cadastro/nome?uid=${uid}`;
-    window.location.href = rota;
-  }
+  // Pega os elementos do HTML (ajuste os seletores/IDs se necessário)
+  const titulo = document.querySelector('h2'); 
+  const subtitulo = document.querySelector('.email-destino');
+  const formBox = document.querySelector('.verificacao-box form');
+  const linksBox = document.querySelector('.verificacao-box .btn-link');
 
-  window.addEventListener('message', (event) => {
-    const { emailVerificado, uid, tipo } = event.data || {};
-    if (emailVerificado && uid && tipo) {
-      redirecionarParaCadastro(tipo, uid);
-    }
-  });
-
-  window.addEventListener('storage', (event) => {
-    if (event.key === 'verificacaoEmailConcluida' && event.newValue) {
-      try {
-        const { uid, tipo } = JSON.parse(event.newValue);
-        localStorage.removeItem('verificacaoEmailConcluida');
-        redirecionarParaCadastro(tipo, uid);
-      } catch (e) {
-        console.error('Erro ao ler storage:', e);
-      }
-    }
-  });
-
-  // NOVO: polling para casos entre dispositivos
-  const email = "<%= email %>";
-  async function verificarStatusEmail() {
+  const poll = setInterval(async () => {
     try {
-      const resposta = await fetch(`/usuarios/status-verificacao?email=${encodeURIComponent(email)}`);
-      const json = await resposta.json();
+      // Pergunta ao servidor (usando o email do EJS)
+      const response = await fetch('/usuarios/status-verificacao?email=<%= email %>');
+      const data = await response.json();
 
-      if (json.verificado && json.uid && json.tipo) {
-        redirecionarParaCadastro(json.tipo, json.uid);
+      // ✅ O Servidor fez o login e nos deu a URL segura
+      if (data.verificado && data.redirectTo) {
+        clearInterval(poll);
+        
+        // Atualiza a tela para "Redirecionando..."
+        if (titulo) titulo.innerText = 'Verificado! Redirecionando...';
+        if (subtitulo) subtitulo.style.display = 'none';
+        if (formBox) formBox.style.display = 'none';
+        if (linksBox) linksBox.style.display = 'none';
+
+        // ✅ Redireciona com segurança (sem UID)
+        window.location.href = data.redirectTo; 
       }
-    } catch (e) {
-      console.error('Erro ao verificar status do e-mail:', e);
+      // (Se 'data.verificado' for true mas não tiver 'redirectTo', só para o loop)
+      else if (data.verificado) {
+         clearInterval(poll);
+         if (titulo) titulo.innerText = 'E-mail verificado!';
+      }
+
+    } catch (err) {
+      console.error('Erro no polling', err);
+      clearInterval(poll);
     }
-  }
-  setInterval(verificarStatusEmail, 5000);
+  }, 3000); // Pergunta a cada 3 segundos
 </script>
 </body>
 </html>

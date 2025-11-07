@@ -26,7 +26,6 @@
 
       <!-- FORM PRINCIPAL -->
       <form action="/candidatos/telefone" method="POST" id="formTelefone" novalidate>
-        <input type="hidden" name="uid" value="<%= uid %>">
         <input type="hidden" name="ddi" value="+55">
 
         <% if (error) { %>
@@ -56,7 +55,6 @@
         </div>
       </form>
       <form action="/usuarios/pular-cadastro" method="POST" class="text-center mt-3">
-        <input type="hidden" name="uid" value="<%= uid %>">
         <button type="submit" class="btn btn-link text-decoration-none">
           Prefiro completar meu perfil depois
         </button>

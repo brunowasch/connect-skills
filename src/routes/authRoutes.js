@@ -51,20 +51,15 @@ router.get('/auth/google/callback', (req, res, next) => {
       const erro = req.session.erro || null;
       req.session.erro = null;
 
-      const veioDoCadastro = req.query.state?.startsWith('cadastro_');
+      const state = req.query.state || '';
+      const veioDoCadastro = state.startsWith('cadastro_');
+      const tipo = state.replace('cadastro_', '') || 'candidato';
 
-      if (veioDoCadastro) {
-        return res.render('auth/cadastro', {
-          title: 'Cadastro - Connect Skills',
-          erro,
-          sucesso: null
-        });
-      }
-
-      return res.render('auth/login', {
-        title: 'Login - Connect Skills',
+      return res.render('auth/cadastro', {
+        title: 'Cadastro - Connect Skills',
         erro,
-        sucesso: null
+        sucesso: null,
+        tipo
       });
     }
 

@@ -7,7 +7,7 @@ const candidatoRoutes = require('./candidatoRoutes');
 const empresaRoutes = require('./empresaRoutes');
 
 router.get('/', (req, res) => {
-  console.log('🔍 Sessão recebida na /:', req.session);
+  console.log('Sessão recebida na /:', req.session);
 
   if (req.session.candidato) {
     return res.redirect('/candidatos/home');

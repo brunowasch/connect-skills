@@ -171,11 +171,11 @@
             </div>
 
             <button class="btn btn-secondary" type="button" disabled title="Você já aplicou a esta vaga">
-              <i class="bi bi-send me-1"></i> Iniciar entrevista com IA
+              <i class="bi bi-robot"></i>  Iniciar entrevista com IA
             </button>
           <% } else { %>
             <button class="btn btn-primary btn-entrevista" type="button" id="btn-abrir-ia">
-              <i class="bi bi-send me-1"></i> Iniciar entrevista com IA
+              <i class="bi bi-robot"></i>  Iniciar entrevista com IA
             </button>
 
             <div id="bloco-ia" class="bloco-ia border rounded p-3 bg-light mt-3">
@@ -195,7 +195,7 @@
               <% } %>
               <div class="d-flex gap-2 mt-3">
                 <button id="btn-analisar" class="btn btn-success" type="button">
-                  <i class="bi bi-clipboard2-check"></i> Analisar compatibilidade
+                  <i class="bi bi-send me-1"></i> Enviar respostas
                 </button>
                 <button id="btn-fechar-ia" class="btn btn-outline-secondary" type="button">Ocultar</button>
               </div>
@@ -299,7 +299,7 @@
         }
 
         try {
-          const resp = await fetch(`/candidatos/vaga/${vagaId}/avaliar`, {
+          const resp = await fetch(`/candidatos/vagas/${vagaId}/avaliar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ qa, items, skills })
