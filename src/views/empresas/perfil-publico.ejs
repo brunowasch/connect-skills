@@ -236,10 +236,10 @@
 
           <div class="mt-3 text-end">
             <button
-              class="btn <%= somentePreview ? 'btn-outline-secondary' : (desabilitarIa ? 'btn-secondary' : 'btn-outline-primary') %> fw-bold btn-entrevista"
+              class="btn <%= somentePreview ? 'btn-secondary' : (desabilitarIa ? 'btn-secondary' : 'btn-primary') %> btn-entrevista"
               type="button"
               <%= desabilitarIa ? 'disabled aria-disabled="true" title="Você já se candidatou a esta vaga. A entrevista com IA está desabilitada."' : '' %>>
-              <i class="bi bi-send me-1"></i>
+              <i class="bi bi-robot"></i>
               <%= desabilitarIa ? 'Entrevista com IA indisponível' : ((vaga.respostas_previas && vaga.respostas_previas.length) ? 'Ver teste da IA' : 'Iniciar teste com a IA') %>
             </button>
 
@@ -297,7 +297,7 @@
         bloco.classList.remove('d-none');
         conteudo.innerHTML = '<div class="text-muted">Carregando perguntas...</div>';
 
-        fetch('/candidato/vagas/' + vagaId + '/perguntas-disc', { credentials: 'same-origin' })
+        fetch('/candidatos/vagas/' + vagaId + '/perguntas-disc', { credentials: 'same-origin' })
           .then(function(resp){
             var ct = resp.headers.get('content-type') || '';
             if (ct.indexOf('application/json') === -1) {
@@ -323,7 +323,7 @@
             }
             html += '<div class="d-flex gap-2 mt-3">';
             html +=   '<button class="btn btn-success btn-avaliar" type="submit">';
-            html +=     '<i class="bi bi-clipboard2-check"></i> Analisar compatibilidade';
+            html +=     '<i class="bi bi-send me-1"></i> Enviar respostas';
             html +=   '</button>';
             html +=   '<button class="btn btn-outline-secondary fechar-ia" type="button">Ocultar</button>';
             html += '</div>';
@@ -367,7 +367,7 @@
         btn.disabled = true;
         out.innerHTML = '<div class="text-muted">Analisando compatibilidade...</div>';
 
-        fetch('/candidato/vaga/' + vagaId + '/avaliar', {
+        fetch('/candidatos/vagas/' + vagaId + '/avaliar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',

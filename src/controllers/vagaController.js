@@ -2,14 +2,8 @@ const vagaModel = require('../models/vagaModel');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
-const { decodeId } = require('../utils/idEncoder'); // Deixe a importação, ela não atrapalha
+const { decodeId } = require('../utils/idEncoder');
 
-/*
- * NOTA: Esta função 'salvarVaga' parece não estar sendo usada.
- * A rota 'POST /empresa/publicar-vaga' está sendo gerenciada
- * pelo 'empresaController.salvarVaga'.
- * Considere remover esta função se ela for realmente código morto.
- */
 exports.salvarVaga = async (req, res) => {
   try {
     if (!req.session.empresa) return res.redirect('/login');
