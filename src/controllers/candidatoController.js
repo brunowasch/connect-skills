@@ -1330,6 +1330,15 @@ exports.complementarGoogle = async (req, res) => {
       return res.redirect('/candidatos/cadastro/google/complementar');
     }
 
+    if (!data_nascimento || isNaN(new Date(data_nascimento))) {
+      req.session.erro = 'Informe uma data de nascimento válida (AAAA-MM-DD).';
+      return res.redirect('/candidatos/cadastro/google/complementar');
+    }
+    if (!cidade || !pais) {
+      req.session.erro = 'Informe a localidade no formato "Cidade, Estado, País".';
+      return res.redirect('/candidatos/cadastro/google/complementar');
+    }
+
     await candidatoModel.complementarCadastroGoogle(usuarioId, {
       nome, sobrenome, data_nascimento: dataNascimentoConvertida,
       pais, estado, cidade, telefone: telefoneFormatado, foto_perfil
@@ -1348,7 +1357,7 @@ exports.complementarGoogle = async (req, res) => {
       usuario_id: usuarioId,
       nome: candidatoCompleto.nome,
       sobrenome: candidatoCompleto.sobrenome,
-      email: candidatoCompleto.email,
+      email: candidatoCompleto.usuario?.email,
       tipo: 'candidato',
       telefone: candidatoCompleto.telefone,
       dataNascimento: candidatoCompleto.data_nascimento,
@@ -1357,7 +1366,7 @@ exports.complementarGoogle = async (req, res) => {
       areas: []
     };
 
-    req.session.save(() => res.redirect(`/candidato/cadastro/areas`));
+    req.session.save(() => res.redirect(`/candidatos/cadastro/areas`));
    } catch (erro) {
     console.error('Erro ao complementar cadastro com Google:', erro.message, erro);
     req.session.erro = 'Erro ao salvar informações do candidato.';
@@ -1367,7 +1376,6 @@ exports.complementarGoogle = async (req, res) => {
 
 exports.avaliarCompatibilidade = async (req, res) => {
   try {
-    // 1. Verificação de Autenticação (Sua lógica original - Correta)
     const sess = req.session?.candidato;
     if (!sess) {
       return res.status(401).json({ ok: false, error: 'Não autenticado' });
@@ -1375,7 +1383,6 @@ exports.avaliarCompatibilidade = async (req, res) => {
     const candidato_id = Number(sess.id);
 
     // 2. Lógica de ID (Sua lógica original - Correta)
-    // O middleware 'withEncodedParam' já decodificou o ID.
     const vaga_id = Number(req.params.id);
     if (!vaga_id || vaga_id <= 0) {
        return res.status(400).json({ ok: false, error: 'ID de vaga inválido' });
@@ -1394,7 +1401,6 @@ exports.avaliarCompatibilidade = async (req, res) => {
     if (situacaoAtual !== 'aberta') {
       return res.status(403).json({ ok: false, error: 'Esta vaga está fechada no momento.' });
     }
-    // ==========================================================
 
     // 4. Verificação de Duplicata (Sua lógica original - Correta)
     const existente = await prisma.vaga_avaliacao.findFirst({
@@ -1418,12 +1424,10 @@ exports.avaliarCompatibilidade = async (req, res) => {
       return res.status(404).json({ ok: false, error: 'Vaga não encontrada.' });
     }
 
-    // 6. Processamento de Dados (Usando dados da busca segura)
     const qaRaw = Array.isArray(req.body.qa) ? req.body.qa : [];
     let itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
     const skillsRaw = Array.isArray(req.body.skills) ? req.body.skills : [];
 
-    // Usando 'vagaDb' (Removida a busca duplicada)
     if (!itemsStr) {
       if (vagaDb?.descricao?.trim()) {
         itemsStr = vagaDb.descricao.trim();

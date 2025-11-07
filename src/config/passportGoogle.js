@@ -12,8 +12,6 @@ const APP_URL =
     ? 'https://connectskills.com.br'
     : `http://localhost:${process.env.PORT || 3000}`);
 
-// Se ainda quiser permitir override direto, pode manter GOOGLE_CALLBACK_URL,
-// mas priorizando APP_URL (evita confusão).
 const CALLBACK_URL =
   `${APP_URL.replace(/\/+$/, '')}/auth/google/callback`;
 
@@ -26,12 +24,10 @@ passport.use(new GoogleStrategy(
   },
   async (req, accessToken, refreshToken, profile, done) => {
     try {
-      // state esperado: "cadastro_candidato" ou "cadastro_empresa"
       const state = (req.query.state || '').trim();
       const isCadastro = state.startsWith('cadastro_');
       const tipoSolicitado = state.replace('cadastro_', '') || 'candidato'; // candidato|empresa
 
-      // Normaliza e extrai dados
       const googleId = profile.id;
       const rawEmail = profile.emails && profile.emails[0] && profile.emails[0].value
         ? profile.emails[0].value
@@ -41,32 +37,42 @@ passport.use(new GoogleStrategy(
       const nome = profile.name?.givenName || '';
       const sobrenome = profile.name?.familyName || '';
 
-      // Busca por email (unicidade global) e por googleId
-      const usuarioPorEmail = email
-        ? await prisma.usuario.findUnique({ where: { email } })
-        : null;
+      const isConnError = (e) =>
+        e?.name === 'PrismaClientInitializationError' ||
+        /Can't reach database server/i.test(e?.message || '');
 
-      const usuarioPorGoogleId = googleId
-        ? await prisma.usuario.findUnique({ where: { googleId } })
-        : null;
+      let usuarioPorEmail = null;
+      let usuarioPorGoogleId = null;
+      try {
+        if (email) {
+          usuarioPorEmail = await prisma.usuario.findUnique({ where: { email } });
+        }
+        if (googleId) {
+          usuarioPorGoogleId = await prisma.usuario.findUnique({ where: { googleId } });
+        }
+      } catch (e) {
+        if (isConnError(e)) {
+          req.session.erro = 'Estamos com instabilidade no banco de dados. Tente novamente em instantes.';
+          await new Promise(r => req.session.save(r));
+          return done(null, false);
+        }
+        throw e;
+      }
 
       // FLUXO CADASTRO
       if (isCadastro) {
-        // 1) E-mail já existe? Bloqueia duplicidade.
         if (usuarioPorEmail) {
           req.session.erro = 'Já existe uma conta com este e-mail. <a href="/login">Clique aqui para fazer login</a>.';
           await new Promise(resolve => req.session.save(resolve));
           return done(null, false);
         }
 
-        // 2) googleId já usado? Bloqueia duplicidade.
         if (usuarioPorGoogleId) {
           req.session.erro = 'Esta conta do Google já está vinculada a um usuário.';
           await new Promise(resolve => req.session.save(resolve));
           return done(null, false);
         }
 
-        // 3) Cria usuário
         const senhaGerada = crypto.randomBytes(16).toString('hex');
         const novoUsuario = await prisma.usuario.create({
           data: {
@@ -76,28 +82,27 @@ passport.use(new GoogleStrategy(
             nome,
             sobrenome,
             avatarUrl,
-            tipo: tipoSolicitado,
+            tipo: tipoSolicitado, 
           }
         });
 
-        // Perfil mínimo
-        if (tipoSolicitado === 'candidato') {
-          await prisma.candidato.create({ data: { usuario_id: novoUsuario.id } });
-        } else if (tipoSolicitado === 'empresa') {
-          // se quiser criar registro mínimo de empresa, faça aqui
-        }
-
+        const tipo = novoUsuario.tipo || tipoSolicitado || 'candidato';
         req.session.usuario = {
           id: novoUsuario.id,
           nome: novoUsuario.nome,
           sobrenome: novoUsuario.sobrenome,
-          tipo: novoUsuario.tipo,
+          tipo,
           foto: novoUsuario.avatarUrl,
           email: novoUsuario.email
         };
+        
+        if (tipoSolicitado === 'candidato') {
+          await prisma.candidato.create({ data: { usuario_id: novoUsuario.id } });
+        } else if (tipoSolicitado === 'empresa') {
+        }
 
         await new Promise(resolve => req.session.save(resolve));
-        return done(null, novoUsuario);
+        return done(null, { ...novoUsuario, tipo });
       }
 
       // FLUXO LOGIN
@@ -107,7 +112,6 @@ passport.use(new GoogleStrategy(
         return done(null, false);
       }
 
-      // Vincula googleId se achou por e-mail
       let usuario = usuarioPorGoogleId || usuarioPorEmail;
       if (usuario && !usuario.googleId && googleId) {
         usuario = await prisma.usuario.update({
@@ -116,18 +120,19 @@ passport.use(new GoogleStrategy(
         });
       }
 
-      // Preenche sessão
+      const tipo = (usuario && usuario.tipo) || tipoSolicitado || 'candidato';
+
       req.session.usuario = {
         id: usuario.id,
         nome: usuario.nome,
         sobrenome: usuario.sobrenome,
-        tipo: usuario.tipo,
+        tipo, 
         foto: usuario.avatarUrl,
         email: usuario.email
       };
 
       await new Promise(resolve => req.session.save(resolve));
-      return done(null, usuario);
+      return done(null, { ...usuario, tipo });
     } catch (err) {
       console.error('Erro no login/cadastro com Google:', err);
       return done(err, null);

@@ -4,7 +4,7 @@ const express = require('express');
 const router = express.Router();
 const candidatoController = require('../controllers/candidatoController');
 const uploadCandidato = require('../middlewares/upload');
-const { ensureCandidato } = require('../middlewares/auth');
+const { ensureUsuarioCandidato, ensureCandidato } = require('../middlewares/auth');
 const withEncodedParam = require('../middlewares/withEncodedParam');
 const vagaController = require('../controllers/vagaController');
 
@@ -12,8 +12,8 @@ const vagaController = require('../controllers/vagaController');
 router.get('/cadastro/nome', ensureCandidato, candidatoController.telaNomeCandidato);
 router.post('/cadastro/nome', ensureCandidato,candidatoController.salvarNomeCandidato);
 
-router.get('/cadastro/google/complementar', ensureCandidato, candidatoController.exibirComplementarGoogle);
-router.post('/complementar', ensureCandidato, candidatoController.complementarGoogle);
+router.get('/cadastro/google/complementar', ensureUsuarioCandidato, candidatoController.exibirComplementarGoogle);
+router.post('/complementar', ensureUsuarioCandidato, candidatoController.complementarGoogle);
 
 // Outras etapas do cadastro padrão
 router.get('/localizacao', ensureCandidato, candidatoController.telaLocalizacao);

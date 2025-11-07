@@ -180,9 +180,28 @@ exports.salvarTelefone = async (req, res) => {
   }
 };
 
-exports.telaFotoPerfil = (req, res) => {
-  return res.render('empresas/foto-perfil-empresa', { error: null });
+exports.telaFotoPerfil = async (req, res) => {
+  try {
+    const usuarioId = req.session?.usuario?.id;
+    if (!usuarioId) return res.redirect('/login');
+
+    const empresa = await prisma.empresa.findUnique({
+      where: { usuario_id: Number(usuarioId) },
+      select: { foto_perfil: true }
+    });
+
+    if (empresa?.foto_perfil && empresa.foto_perfil.trim() !== '') {
+      console.log('[telaFotoPerfil] Empresa já possui foto, pulando etapa.');
+      return res.redirect('/empresas/home');
+    }
+
+    return res.render('empresas/foto-perfil-empresa', { error: null });
+  } catch (e) {
+    console.error('[telaFotoPerfil][empresa] erro:', e);
+    return res.redirect('/empresas/home');
+  }
 };
+
 
 exports.salvarFotoPerfil = async (req, res) => {
   const usuario_id = req.session.usuario.id;
@@ -1862,148 +1881,145 @@ exports.mostrarVagas = async (req, res) => {
  * ✅ [NOVO] GET: Mostra o formulário para completar o cadastro (o .ejs que você criou)
  */
 exports.telaComplementarGoogle = async (req, res) => {
-  if (!req.session.usuario || req.session.usuario.tipo !== 'empresa') {
-    return res.redirect('/login');
-  }
+  try {
+    const usuario = req.session?.usuario || {};
+    if (!usuario?.id || req.session?.usuario?.tipo !== 'empresa') {
+      return res.redirect('/login');
+    }
 
-  const usuario_id = req.session.usuario.id;
+    const emp = await prisma.empresa.findFirst({
+      where: { usuario_id: Number(usuario.id) },
+      select: { nome_empresa: true, descricao: true, cidade: true, estado: true, pais: true, telefone: true }
+    });
 
-  try {
-    // Busca o usuário para preencher o nome que veio do Google
-    const usuario = await prisma.usuario.findUnique({ where: { id: usuario_id } });
+    // extrai os últimos 8/9 dígitos para preencher o campo de telefone (sem DDI/DDD)
+    const somenteDigitos = (emp?.telefone || '').replace(/\D/g, '');
+    const numero = somenteDigitos ? somenteDigitos.slice(-9) : '';
 
-    res.render('empresas/cadastro-complementar-empresa', {
-      title: 'Completar Cadastro - Connect Skills',
-      erro: null,
-      nome: usuario?.nome || '' // Pré-popula o nome da empresa com o nome do Google
-    });
-  } catch (error) {
-    console.error('Erro ao buscar usuário para complementar cadastro:', error);
-    req.session.erro = 'Erro ao carregar seus dados. Tente novamente.';
-    res.redirect('/login');
-  }
+    return res.render('empresas/cadastro-complementar-empresa', {
+      title: 'Completar Cadastro - Empresa',
+      erro: null,
+      // nomes simples para a view
+      nome: emp?.nome_empresa || '',
+      descricao: emp?.descricao || '',
+      localidade: [emp?.cidade, emp?.estado, emp?.pais].filter(Boolean).join(', '),
+      ddi: '+55',
+      ddd: '',
+      numero
+    });
+  } catch (e) {
+    console.error('[telaComplementarGoogle][empresa] erro:', e);
+    return res.render('empresas/cadastro-complementar-empresa', {
+      title: 'Completar Cadastro - Empresa',
+      erro: 'Erro ao carregar dados. Tente novamente.',
+      nome: '',
+      descricao: '',
+      localidade: '',
+      ddi: '+55',
+      ddd: '',
+      numero: ''
+    });
+  }
 };
 
 exports.salvarComplementarGoogle = async (req, res) => {
-  try {
-    // 1. Pega o ID seguro da sessão
-    const usuarioId = req.session.usuario?.id;
-    if (!usuarioId) return res.redirect('/login');
+  try {
+    const usuario_id = req.session?.usuario?.id;
+    if (!usuario_id) return res.redirect('/login');
 
-    // 2. Pega os dados do formulário que você criou
-    let { nome, descricao, localidade, ddi, ddd, numero } = req.body;
+    const norm = (s) => (s ? String(s).trim() : '');
+    const nomeForm = norm(req.body.nome_empresa) || norm(req.body.nome);
+    const { descricao, localidade, ddi, ddd } = req.body;
+    const telefoneForm = norm(req.body.telefone) || norm(req.body.numero);
 
-    // 3. Validação (simples, ajuste conforme necessário)
-    if (!nome || !descricao || !localidade || !ddd || !numero) {
-        req.session.erro = 'Todos os campos são obrigatórios.';
-        // Retorna os dados digitados para o EJS
-        return res.render('empresas/cadastro-complementar-empresa', {
-            title: 'Completar Cadastro - Connect Skills',
-            erro: req.session.erro,
-            nome: nome || ''
-        });
+    if (!nomeForm || !norm(descricao)) {
+      req.session.erro = 'Preencha nome da empresa e descrição.';
+      return res.redirect('/empresas/complementar');
     }
 
-    // 4. Formata os dados (igual ao fluxo de candidato)
-    const [cidade = '', estado = '', pais = ''] = (localidade || '').split(',').map(p => p.trim());
-    const telefoneFormatado = (ddd && numero)
-      ? `${ddi || '+55'} (${ddd}) ${numero.replace(/\D/g, '')}`
-      : '';
+    const partes = (localidade || '').split(',').map(p => norm(p));
+    const [cidade = '', estado = '', pais = ''] =
+      partes.length === 3 ? partes : (partes.length === 2 ? [partes[0], '', partes[1]] : ['', '', '']);
 
-    // 5. Pega a foto de perfil do Google (que o Passport salvou)
-    const usuario = await prisma.usuario.findUnique({
-        where: { id: usuarioId },
-        select: { avatarUrl: true }
+    const digitos = (telefoneForm || '').replace(/\D/g, '');
+    const numFmt = digitos.length === 9
+      ? `${digitos.slice(0,5)}-${digitos.slice(5)}`
+      : (digitos.length === 8 ? `${digitos.slice(0,4)}-${digitos.slice(4)}` : digitos);
+    const telefoneFmt = (norm(ddd) && numFmt) ? `${norm(ddi) || '+55'} (${norm(ddd)}) ${numFmt}` : '';
+
+    const user = await prisma.usuario.findUnique({
+      where: { id: Number(usuario_id) },
+      select: { avatarUrl: true }
     });
-    const foto_perfil = usuario?.avatarUrl || null;
 
-    // 6. Cria o perfil da empresa (o 'passport.js' só criou o 'usuario')
-    // Usamos 'upsert' para segurança: cria se não existe, atualiza se existir.
     const empresa = await prisma.empresa.upsert({
-        where: { usuario_id: usuarioId },
-        update: { // Se já existir (ex: F5), atualiza
-            nome_empresa: nome,
-            descricao: descricao,
-            telefone: telefoneFormatado,
-            cidade: cidade,
-            estado: estado,
-            pais: pais,
-            foto_perfil: foto_perfil
-        },
-        create: { // Cria o novo registro de empresa
-            usuario_id: usuarioId,
-            nome_empresa: nome,
-            descricao: descricao,
-            telefone: telefoneFormatado,
-            cidade: cidade,
-            estado: estado,
-            pais: pais,
-            foto_perfil: foto_perfil
-        }
+      where: { usuario_id: Number(usuario_id) },
+      update: {
+        nome_empresa: nomeForm,
+        descricao: norm(descricao),
+        cidade, estado, pais,
+        telefone: telefoneFmt || '',
+        foto_perfil: user?.avatarUrl || undefined
+      },
+      create: {
+        usuario_id: Number(usuario_id),
+        nome_empresa: nomeForm,
+        descricao: norm(descricao),
+        cidade, estado, pais,
+        telefone: telefoneFmt || '',
+        foto_perfil: user?.avatarUrl || ''
+      }
     });
 
-    // 7. Atualiza o 'nome' no registro 'usuario' (caso ele tenha alterado o padrão do Google)
-    await prisma.usuario.update({
-        where: { id: usuarioId },
-        data: { nome: nome }
-    });
-
-    // 8. Cria a sessão completa (igual ao 'login')
-    req.session.usuario = { 
-        id: usuarioId, 
-        nome: nome, 
-        tipo: 'empresa', 
-        email: req.session.usuario.email // Preserva o email da sessão
+    req.session.empresa = {
+      id: empresa.id,
+      usuario_id,
+      nome_empresa: empresa.nome_empresa,
+      descricao: empresa.descricao,
+      cidade: empresa.cidade,
+      estado: empresa.estado,
+      pais: empresa.pais,
+      telefone: empresa.telefone,
+      foto_perfil: empresa.foto_perfil
     };
-    req.session.empresa = {
-      id: empresa.id,
-      usuario_id: usuarioId,
-      nome_empresa: empresa.nome_empresa,
-      descricao: empresa.descricao,
-      telefone: empresa.telefone,
-      cidade: empresa.cidade,
-      estado: empresa.estado,
-      pais: empresa.pais,
-      foto_perfil: empresa.foto_perfil,
-      email: req.session.usuario.email
-    };
+    req.session.usuario = {
+      id: usuario_id,
+      tipo: 'empresa',
+      nome: empresa.nome_empresa
+    };
 
-    // 9. Redireciona para a próxima etapa (Home), 100% seguro e sem ID na URL.
-    // (Opcional: redirecione para /empresas/foto-perfil se quiser que eles confirmem a foto)
-    req.session.save(() => res.redirect('/empresas/home'));
+    const temFoto = Boolean(empresa.foto_perfil && empresa.foto_perfil.trim() !== '');
 
-  } catch (erro) {
-    console.error('Erro ao complementar cadastro de empresa com Google:', erro);
-    req.session.erro = 'Erro ao salvar informações da empresa.';
-    res.redirect('/empresas/complementar');
-  }
+    await new Promise(r => req.session.save(r));
+    return res.redirect('/empresas/foto-perfil');
+  } catch (e) {
+    console.error('[salvarComplementarGoogle][empresa] erro:', e);
+    req.session.erro = 'Erro ao salvar informações da empresa.';
+    return res.redirect('/empresas/complementar');
+  }
 };
 
 exports.pularCadastroEmpresa = async (req, res) => {
   if (!req.session.usuario) req.session.usuario = {};
   req.session.usuario.skipCadastro = true;
-  if (req.session.candidato) req.session.candidato.skipCadastro = true; // (Nota: isto é do controller de candidato, talvez seja um typo?)
+  if (req.session.candidato) req.session.candidato.skipCadastro = true; 
 
   res.cookie('cs_skipCadastro', '1', {
     httpOnly: false,
     sameSite: 'lax',
-    maxAge: 31536000000 // 1 ano
+    maxAge: 31536000000 
   });
 
   try {
-    // ================== [CORREÇÃO DE SEGURANÇA] ==================
-    // Usar APENAS o ID da sessão. Ignorar req.query e req.body.
     const usuarioId = Number(req.session?.usuario?.id);
 
     if (!usuarioId) {
       console.warn('[pularCadastroEmpresa] Tentativa de pular sem sessão válida.');
       return res.redirect('/login');
     }
-    // ================== [FIM DA CORREÇÃO] ==================
 
-    // Garante que exista um registro de empresa
     let emp = await prisma.empresa.findUnique({
-      where: { usuario_id: usuarioId }, // Agora usa o ID seguro
+      where: { usuario_id: usuarioId }, 
       include: { usuario: { select: { email: true } } }
     });
 
@@ -2013,7 +2029,6 @@ exports.pularCadastroEmpresa = async (req, res) => {
         data: {
           usuario_id: usuarioId, // Usa o ID seguro
           nome_empresa: usr?.nome || 'Empresa',
-          // ... (resto dos seus dados padrão)
           descricao: '',
           pais: '', estado: '', cidade: '',
           telefone: '',
@@ -2061,7 +2076,6 @@ exports.uploadAnexosEmpresa = async (req, res) => {
   }
 
   try {
-    // Cloudinary é obrigatório para anexos (guarda a URL pública)
     if (!cloudinary?.uploader) {
       req.session.erro = 'Storage não configurado para anexos (Cloudinary).';
       return res.redirect('/empresa/editar-empresa');
@@ -2075,7 +2089,6 @@ exports.uploadAnexosEmpresa = async (req, res) => {
 
     let enviados = 0;
     for (const f of files) {
-      // Faz upload (aceita imagens, PDFs, DOCX, etc.)
       const opts = { folder: 'connect-skills/empresa/anexos', resource_type: 'auto' };
 
       // suporta tanto storage em disco (f.path) quanto em memória (f.buffer)

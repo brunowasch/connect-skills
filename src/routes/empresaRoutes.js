@@ -10,13 +10,22 @@ const prisma = new PrismaClient();
 const withEncodedParam = require('../middlewares/withEncodedParam');
 
 let ensureEmpresa = null;
+let ensureUsuarioEmpresa = null;
+
 try {
-  const maybe = require('../middlewares/auth');
-  ensureEmpresa = (maybe && typeof maybe.ensureEmpresa === 'function')
-    ? maybe.ensureEmpresa
-    : (req, res, next) => next();
+  const auth = require('../middlewares/auth');
+
+  ensureEmpresa = (auth && typeof auth.ensureEmpresa === 'function')
+    ? auth.ensureEmpresa
+    : (req, res, next) => next();
+
+  ensureUsuarioEmpresa = (auth && typeof auth.ensureUsuarioEmpresa === 'function')
+    ? auth.ensureUsuarioEmpresa
+    : (req, res, next) => next();
+
 } catch {
-  ensureEmpresa = (req, res, next) => next();
+  ensureEmpresa = (req, res, next) => next();
+  ensureUsuarioEmpresa = (req, res, next) => next();
 }
 
 const remember = (req, _res, next) => {
@@ -26,8 +35,8 @@ const remember = (req, _res, next) => {
   next();
 };
 
-router.get('/complementar', ensureEmpresa, empresaController.telaComplementarGoogle);
-router.post('/complementar', ensureEmpresa, empresaController.salvarComplementarGoogle);
+router.get('/complementar', ensureUsuarioEmpresa, empresaController.telaComplementarGoogle);
+router.post('/complementar', ensureUsuarioEmpresa, empresaController.salvarComplementarGoogle);
 router.get('/nome-empresa', ensureEmpresa, empresaController.telaNomeEmpresa);
 router.post('/nome-empresa', ensureEmpresa, empresaController.salvarNomeEmpresa);
 router.get('/localizacao', ensureEmpresa, empresaController.telaLocalizacao);
