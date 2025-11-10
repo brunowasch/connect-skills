@@ -30,7 +30,6 @@ const empresaArquivoRoutes = require('./routes/empresaArquivoRoutes');
 const app = express();
 const port = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
-const multer = require('multer'); 
 
 app.set('trust proxy', 1);
 app.use(helmet({
@@ -204,18 +203,6 @@ app.use((req, res) => {
   } catch {
     res.status(404).type('html').send(`<!doctype html><title>404</title><h1>404 – Página não encontrada</h1><p>${req.originalUrl}</p>`);
   }
-});
-
-app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
-    return res.status(400).render('candidatos/foto-perfil', {
-      error: 'A imagem excede 4 MB. Reduza a resolução e tente de novo.'
-    });
-  }
-  if (err && /Unexpected field/i.test(err.message || '')) {
-    return res.status(400).render('shared/500', { erro: 'Campo de arquivo inesperado. Atualize a página e tente novamente.' });
-  }
-  next(err);
 });
 
 app.use((err, req, res, _next) => {

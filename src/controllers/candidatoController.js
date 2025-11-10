@@ -307,41 +307,41 @@ exports.salvarFotoPerfil = async (req, res) => {
     });
   }
 
-  try {
-    const uploadResult = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'connect-skills/candidatos',
-          public_id: `foto_candidato_${usuario_id}`,
-          overwrite: true,
-          resource_type: 'image'
-        },
-        (err, result) => (err ? reject(err) : resolve(result))
-      );
-      stream.end(req.file.buffer); 
-    });
+  try {
+    const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    const result = await cloudinary.uploader.upload(dataUri, {
+      folder: 'connect-skills/candidatos',
+      public_id: `foto_candidato_${usuario_id}`,
+      overwrite: true
+    });
 
-    const caminhoFoto = uploadResult.secure_url;
+    const caminhoFoto = result.secure_url;
 
-    const candidato = await prisma.candidato.findUnique({ where: { usuario_id: Number(usuario_id) } });
-    if (!candidato) throw new Error(`Candidato não existe (usuario_id ${usuario_id})`);
+    const candidato = await prisma.candidato.findUnique({ where: { usuario_id: Number(usuario_id) } });
 
-    await prisma.candidato.update({
-      where: { id: candidato.id },
-      data: { foto_perfil: caminhoFoto }
-    });
-
-    if (req.session.candidato) {
-      req.session.candidato.foto_perfil = caminhoFoto;
+    if (!candidato) {
+      // Isso não deve acontecer se o 'salvarNome' funcionou.
+      throw new Error(`Candidato não existe (usuario_id ${usuario_id})`);
     }
 
-    return res.redirect(`/candidato/cadastro/areas`);
-  } catch (err) {
-    console.error('Erro ao salvar foto de perfil:', err);
-    return res.render('candidatos/foto-perfil', {
-      error: 'A imagem é muito grande ou inválida. Use JPG/PNG/WebP até 4 MB.'
-    });
-  }
+    await prisma.candidato.update({
+      where: { id: candidato.id },
+      data: { foto_perfil: caminhoFoto }
+    });
+
+    // Atualiza a foto na sessão para aparecer no header
+    if (req.session.candidato) {
+      req.session.candidato.foto_perfil = caminhoFoto;
+    }
+
+    return res.redirect(`/candidato/cadastro/areas`);
+
+  } catch (err) {
+    console.error('Erro ao salvar foto de perfil:', err);
+    return res.render('candidatos/foto-perfil', {
+      error: 'Erro interno ao salvar a foto. Tente novamente.'
+    });
+  }
 };
 
 exports.telaSelecionarAreas = async (req, res) => {

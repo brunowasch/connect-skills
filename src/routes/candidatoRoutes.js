@@ -23,7 +23,7 @@ router.get('/telefone', ensureCandidato, candidatoController.telaTelefone);
 router.post('/telefone', ensureCandidato, candidatoController.salvarTelefone);
 
 router.get('/cadastro/foto-perfil', ensureCandidato, candidatoController.telaFotoPerfil);
-router.post('/cadastro/foto-perfil', ensureCandidato, uploadCandidato.single('foto'), candidatoController.salvarFotoPerfil);
+router.post('/cadastro/foto-perfil', ensureCandidato, uploadCandidato.single('novaFoto'), candidatoController.salvarFotoPerfil);
 
 router.get('/cadastro/areas', ensureCandidato, candidatoController.telaSelecionarAreas);
 router.post('/cadastro/areas', ensureCandidato, candidatoController.salvarAreas);
@@ -41,7 +41,7 @@ router.post('/vagas/:id/aplicar', ensureCandidato, candidatoController.aplicarVa
 
 // Edição de perfil
 router.get('/editar-perfil', ensureCandidato, candidatoController.telaEditarPerfil);
-router.post('/editar-perfil', ensureCandidato, uploadCandidato.single('foto'), candidatoController.salvarEditarPerfil);
+router.post('/editar-perfil', ensureCandidato, uploadCandidato.single('novaFoto'), candidatoController.salvarEditarPerfil);
 
 router.get('/editar-areas', ensureCandidato, candidatoController.telaEditarAreas);
 router.post('/editar-areas', candidatoController.salvarEditarAreas);

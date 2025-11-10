@@ -37,10 +37,10 @@
       >
 
       <div id="opcoesFoto" class="d-flex gap-4 flex-wrap justify-content-center mb-3">
-        <label class="upload-btn" for="foto">
+        <label class="upload-btn" for="novaFoto">
            <i class="bi bi-upload"></i> Fazer upload
         </label>
-        <input type="file" name="foto" id="foto" accept="image/*" class="hidden-input" required>
+        <input type="file" name="novaFoto" id="novaFoto" accept="image/*" class="hidden-input">
 
         <button type="button" class="upload-btn" id="tirarFotoBtn">
            <i class="bi bi-camera-fill"></i> Capturar agora
@@ -68,12 +68,12 @@
       </a>
 
       <div class="text-center mt-2">
+      <form action="/usuarios/pular-cadastro" method="POST" class="d-inline">
+        <button type="submit" class="btn btn-link text-decoration-none">
+          Prefiro completar meu perfil depois
+        </button>
+      </form>
       </div>
-    </form>
-    <form action="/usuarios/pular-cadastro" method="POST" class="d-inline">
-      <button type="submit" class="btn btn-link text-decoration-none">
-        Prefiro completar meu perfil depois
-      </button>
     </form>
   </main>
 
