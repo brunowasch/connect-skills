@@ -1274,7 +1274,7 @@ exports.telaVagaDetalhe = async (req, res) => {
    
     const encId = encodeId(id);
   const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
-  const shareUrl = `${baseUrl}/candidatos/vagas/${encId}`;
+  const shareUrl = `${baseUrl}/empresa/public/vaga/${encId}`;
 
 
     let perguntasLista = [];
