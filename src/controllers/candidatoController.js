@@ -1782,7 +1782,6 @@ exports.excluirConta = async (req, res) => {
 
 exports.vagaDetalhes = async (req, res) => {
   try {
-    // Seu código de ID está ótimo
     const id = Number(req.params.id);
     if (!id || id <= 0) {
       return res.status(400).send('ID de vaga inválido');
@@ -1804,7 +1803,6 @@ exports.vagaDetalhes = async (req, res) => {
       }
     });
 
-    // Verificação 1: A vaga existe?
     if (!vaga) {
       return res.status(404).send('Vaga não encontrada');
     }
@@ -1884,6 +1882,7 @@ exports.vagaDetalhes = async (req, res) => {
     // IDs codificados
     const encId = encodeId(id);
     const encEmpresaId = encodeId(Number(vaga?.empresa?.id || 0));
+    const podeTestar = !!req.session?.candidato;
 
     return res.render('candidatos/vaga-detalhes', {
       tituloPagina: 'Detalhes da vaga',
@@ -1899,6 +1898,7 @@ exports.vagaDetalhes = async (req, res) => {
       usuarioSessao: req.session?.usuario || null,
       encId,
       encEmpresaId,
+      podeTestar,
     });
 
   } catch (err) {

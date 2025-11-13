@@ -8,6 +8,7 @@ const vagaArquivoController = require('../controllers/vagaArquivoController');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const withEncodedParam = require('../middlewares/withEncodedParam');
+const candidatoController = require('../controllers/candidatoController');
 
 let ensureEmpresa = null;
 let ensureUsuarioEmpresa = null;
@@ -54,10 +55,8 @@ router.post('/editar-empresa', ensureEmpresa, uploadEmpresa.single('novaFoto'), 
 router.get('/publicar-vaga', ensureEmpresa, empresaController.telaPublicarVaga);
 router.post('/publicar-vaga', ensureEmpresa, uploadVaga.array('anexosVaga'), empresaController.salvarVaga);
 
-router.get(
-  '/public/vaga/anexos/:id/abrir', 
-  vagaArquivoController.abrirAnexoPublico
-);
+router.get('/public/vaga/anexos/:id/abrir', vagaArquivoController.abrirAnexoPublico);
+router.get('/public/vaga/:id', withEncodedParam('id'), candidatoController.vagaDetalhes);
 
 router.get('/vagas', ensureEmpresa, remember, empresaController.mostrarVagas);
 
