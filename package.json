@@ -1,12 +1,13 @@
 {
   "name": "connect-skills",
   "version": "1.0.0",
-  "main": "app.js",
+  "main": "src/app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "delete-user": "ts-node scripts/deleteUsuario.ts",
-    "start": "npx prisma --version && nodemon src/app.js",
-    "postinstall": "npx prisma generate"
+    "dev": "nodemon src/app.js",
+    "start": "node src/app.js",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy"
   },
   "keywords": [],
   "author": "",
