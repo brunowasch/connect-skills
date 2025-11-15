@@ -151,7 +151,7 @@
         <div class="container">
           <div class="row align-items-center g-4">
             <div class="col-lg-7">
-              <h3 class="mb-2 text-secondary-emphasis fw-semibold">Bem-vindo ao Connect Skills</h3>
+              <h3 class="mb-2 text-secondary-emphasis fw-semibold">Bem-vindo(a) ao Connect Skills</h3>
               <h3 class="display-6 mb-3">
                 Conecte-se ao mercado de trabalho
                 <span class="text-primary fs-3">com inteligência e praticidade</span>
@@ -234,17 +234,57 @@
         </div>
       </section>
       <section class="container py-5" data-reveal="up">
-        <div class="text-center mb-5">
-          <h2 class="section-title h3 mb-2">Nosso primeiro cliente</h2>
-          <p class="text-secondary mb-0">Temos orgulho de colaborar com empresas que confiam na nossa tecnologia.</p>
-        </div>
+        <div class="row align-items-stretch client-row">
 
-        <div class="d-flex justify-content-center align-items-center flex-column flex-md-row gap-4">
-          <div class="client-card shadow-soft rounded-2xl p-4 text-center">
-            <img src="/img/FOLK.png" alt="Logo da Folk Uniformes" class="img-fluid mb-3" style="max-height: 100px;">
-            <h5 class="fw-bold mb-1 text-dark">Folk Uniformes</h5>
-            <p class="text-secondary small mb-0">Parceira na inovação de contratações inteligentes e humanas.</p>
+
+          <!-- CARD GRANDE À ESQUERDA -->
+          <div class="col-12 col-lg-4">
+            <div class="h-100 p-4 shadow-soft rounded-2xl client-info-card">
+              <h2 id="clientInfoName" class="section-title h3 mb-2">Nossos clientes</h2>
+              <p id="clientInfoText" class="text-secondary mb-3">
+                Empresas que acreditam na nossa tecnologia e crescem com soluções de contratação mais humanas, rápidas e inteligentes.
+              </p>
+
+              <hr>
+              <p class="mt-3 mb-1 fw-semibold text-dark">Quer ser nosso cliente?</p>
+              <a href="https://wa.me/5551992179330"
+              target="_blank"
+              class="text-primary fw-semibold text-decoration-none d-flex align-items-center gap-2">
+
+              <i class="bi bi-whatsapp" style="font-size: 1.3rem; color: #25d366;"></i>
+              +55 51 99217-9330
+            </a>
+            </div>
           </div>
+
+          <!-- LOGOS DOS CLIENTES À DIREITA -->
+          <div class="col-6 col-lg-4">
+            <div class="d-flex flex-wrap justify-content-center gap-4">
+
+              <!-- CLIENTE 1 -->
+              <div
+                class="client-logo-card shadow-soft rounded-2xl p-4 text-center"
+                data-client-name="Folk Uniformes"
+                data-client-text="Parceira na inovação de contratações humanas e inteligentes."
+              >
+                <img src="/img/FOLK.png" class="img-fluid mb-2" style="max-height: 100px; cursor: pointer;">
+                <h6 class="fw-bold text-dark mb-0" style="cursor: pointer;">Folk Uniformes</h6>
+              </div>
+
+              <!-- Cliente futuro:
+              <div
+                class="client-logo-card shadow-soft rounded-2xl p-4 text-center"
+                data-client-name="Cliente Exemplo"
+                data-client-text="Descrição curta e impactante sobre o cliente."
+              >
+                <img src="/img/cliente2.png" class="img-fluid mb-2" style="max-height: 100px;">
+                <h6 class="fw-bold text-dark mb-0">Cliente Exemplo</h6>
+              </div>
+              -->
+
+            </div>
+          </div>
+
         </div>
       </section>
       <section class="py-5" data-reveal="zoom" data-reveal-delay="120">
@@ -285,5 +325,35 @@
         }, { passive: true });
       });
     </script>
+    <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const infoName = document.getElementById('clientInfoName');
+    const infoText = document.getElementById('clientInfoText');
+
+    const defaultName = infoName.textContent;
+    const defaultText = infoText.textContent;
+
+    document.querySelectorAll('.client-logo-card').forEach(card => {
+      const name = card.dataset.clientName;
+      const text = card.dataset.clientText;
+
+      const show = () => {
+        infoName.textContent = name;
+        infoText.textContent = text;
+      };
+
+      const reset = () => {
+        infoName.textContent = defaultName;
+        infoText.textContent = defaultText;
+      };
+
+      card.addEventListener('mouseenter', show);
+      card.addEventListener('mouseleave', reset);
+      card.addEventListener('click', show); // mobile
+    });
+  });
+</script>
+
+
   </body>
 </html>
