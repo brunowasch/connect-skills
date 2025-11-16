@@ -8,7 +8,27 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { encodeId, decodeId } = require('../utils/idEncoder');
 
-const fromAddress = process.env.EMAIL_FROM || `Connect Skills <${process.env.EMAIL_USER || process.env.GMAIL_USER}>`;
+const fromAddress =
+  process.env.EMAIL_FROM ||
+  (process.env.SMTP_USER
+    ? `Connect Skills <${process.env.SMTP_USER}>`
+    : 'Connect Skills <no-reply@connectskills.com.br>');
+
+function createTransporter() {
+  const host = process.env.SMTP_HOST || 'mail.connectskills.com.br';
+  const port = Number(process.env.SMTP_PORT || 587);
+  const secure = port === 465;
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+}
 
 function baseUrl() {
   const isProd = process.env.NODE_ENV === 'production';
@@ -21,18 +41,12 @@ function skipFlagAtivo(req) {
 }
 
 async function enviarEmailVerificacao(email, usuario_id) {
-  const token = jwt.sign({ id: usuario_id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-  const link = `${baseUrl()}/usuarios/verificar-email?token=${token}`;
+  const token = jwt.sign({ id: usuario_id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+  const link = `${baseUrl()}/usuarios/verificar-email?token=${token}`;
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER || process.env.GMAIL_USER,
-      pass: process.env.EMAIL_PASS || process.env.GMAIL_PASS,
-    },
-  });
+  const transporter = createTransporter();
 
-  await transporter.sendMail({
+  await transporter.sendMail({
     from: fromAddress,
     to: email,
     subject: 'Confirmação de e-mail',
@@ -57,18 +71,12 @@ async function enviarEmailVerificacao(email, usuario_id) {
         <p>Se você não solicitou este cadastro, pode ignorar este e-mail com segurança.</p>
         <p>Atenciosamente,<br><strong>Equipe Connect Skills</strong></p>
       </div>
-    `
+    `,
   });
 }
 
 async function enviarEmailConfirmacaoAcao(email, usuario_id, tipo) {
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER || process.env.GMAIL_USER,
-      pass: process.env.EMAIL_PASS || process.env.GMAIL_PASS,
-    },
-  });
+  const transporter = createTransporter();
 
   const continuarToken = jwt.sign(
     { id: usuario_id, tipo, acao: 'continuar' },
@@ -626,13 +634,7 @@ exports.recuperarSenha = async (req, res) => {
       return res.redirect('/usuarios/recuperar-senha');
     }
     const token = jwt.sign({ id: usuario.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER || process.env.GMAIL_USER,
-        pass: process.env.EMAIL_PASS || process.env.GMAIL_PASS,
-      },
-    });
+    const transporter = createTransporter();
     const resetLink = `${baseUrl()}/usuarios/redefinir-senha?token=${token}`;
     await transporter.sendMail({
       from: fromAddress,
