@@ -31,6 +31,29 @@ const app = express();
 const port = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 
+const fromAddress =
+  process.env.EMAIL_FROM ||
+  (process.env.SMTP_USER
+    ? `Connect Skills <${process.env.SMTP_USER}>`
+    : 'Connect Skills <no-reply@connectskills.com.br>');
+
+
+function createTransporter() {
+  const host = process.env.SMTP_HOST || 'mail.connectskills.com.br';
+  const port = Number(process.env.SMTP_PORT || 587);
+  const secure = port === 465;
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+}
+
 app.set('trust proxy', 1);
 app.use(helmet({
    contentSecurityPolicy: false,
@@ -111,8 +134,8 @@ passport.deserializeUser((payload, done) => done(null, payload));
 app.use(flashMessage);
 
 app.use((req, res, next) => {
-  res.locals.sucessoContato = req.session.sucessoContato || null;
-  res.locals.erroContato     = req.session.erroContato || null;
+  res.locals.sucesso = req.session.sucessoContato || false;
+  res.locals.erro    = req.session.erroContato || false;
   delete req.session.sucessoContato;
   delete req.session.erroContato;
 
@@ -158,32 +181,29 @@ app.get('/contato', (req, res) => {
   res.render('shared/contato');
 });
 
-app.post('/enviar-contato', async (req, res) => {
-  const { nome, email, mensagem } = req.body || {};
-  const destino = req.session.candidato ? '/candidatos/home' : '/empresas/home';
+app.post('/enviar-contato', (req, res) => {
+  const { nome, email, mensagem } = req.body;
+
+  let destino = '/#contact';
+  if (req.session.candidato) destino = '/candidatos/home#contact';
+  if (req.session.empresa)   destino = '/empresas/home#contact';
 
   if (!nome || !email || !mensagem) {
-    req.session.erroContato = 'Por favor, preencha nome, e-mail e mensagem.';
+    req.session.erroContato = 'Por favor, preencha todos os campos.';
     return res.redirect(destino);
   }
 
-  req.session.sucessoContato = 'Mensagem recebida! Em instantes, enviaremos a confirmação por e-mail.';
+  req.session.sucessoContato = 'Mensagem enviada!';
   res.redirect(destino);
 
   setImmediate(async () => {
     try {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER || process.env.GMAIL_USER,
-          pass: process.env.EMAIL_PASS || process.env.GMAIL_PASS,
-        },
-      });
+      const transporter = createTransporter();
 
       await transporter.sendMail({
-        from: process.env.EMAIL_FROM || 'Connect Skills <no-reply@connectskills.com>',
-        to: process.env.CONTACT_TARGET || process.env.EMAIL_USER || process.env.GMAIL_USER,
-        subject: `Mensagem de Contato - ${nome}`,
+        from: fromAddress,
+        to: process.env.CONTACT_TARGET || process.env.SMTP_USER,
+        subject: `Contato - ${nome}`,
         html: `
           <p><strong>Nome:</strong> ${nome}</p>
           <p><strong>E-mail:</strong> ${email}</p>
@@ -191,8 +211,8 @@ app.post('/enviar-contato', async (req, res) => {
           <p>${mensagem}</p>
         `,
       });
-    } catch (e) {
-      console.error('Erro ao enviar contato (background):', e);
+    } catch (error) {
+      console.error('Erro ao enviar contato:', error);
     }
   });
 });
