@@ -181,8 +181,8 @@ app.get('/contato', (req, res) => {
   res.render('shared/contato');
 });
 
-app.post('/enviar-contato', (req, res) => {
-  const { nome, email, mensagem } = req.body;
+app.post('/enviar-contato', async (req, res) => {
+  const { nome, email, mensagem } = req.body || {};
 
   let destino = '/#contact';
   if (req.session.candidato) destino = '/candidatos/home#contact';
@@ -193,15 +193,31 @@ app.post('/enviar-contato', (req, res) => {
     return res.redirect(destino);
   }
 
+  // sempre mostra sucesso pro usuário
   req.session.sucessoContato = 'Mensagem enviada!';
   res.redirect(destino);
 
+  // envio em background + logs BEM explícitos
   setImmediate(async () => {
     try {
+      console.log('[CONTATO] Tentando enviar e-mail...');
+      console.log('[CONTATO] SMTP_HOST:', process.env.SMTP_HOST);
+      console.log('[CONTATO] SMTP_USER:', process.env.SMTP_USER);
+      console.log('[CONTATO] CONTACT_TARGET:', process.env.CONTACT_TARGET);
+
       const transporter = createTransporter();
 
-      await transporter.sendMail({
-        from: fromAddress,
+      // opcional, mas ajuda a debugar
+      transporter.verify((err, success) => {
+        if (err) {
+          console.error('[CONTATO] SMTP verify falhou:', err);
+        } else {
+          console.log('[CONTATO] SMTP pronto para enviar:', success);
+        }
+      });
+
+      const info = await transporter.sendMail({
+        from: process.env.EMAIL_FROM,
         to: process.env.CONTACT_TARGET || process.env.SMTP_USER,
         subject: `Contato - ${nome}`,
         html: `
@@ -211,8 +227,10 @@ app.post('/enviar-contato', (req, res) => {
           <p>${mensagem}</p>
         `,
       });
+
+      console.log('[CONTATO] E-mail enviado. MessageId:', info.messageId);
     } catch (error) {
-      console.error('Erro ao enviar contato:', error);
+      console.error('[CONTATO] Erro ao enviar contato:', error);
     }
   });
 });
