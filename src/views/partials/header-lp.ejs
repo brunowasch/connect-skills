@@ -1,0 +1,53 @@
+<style>
+  html, body { 
+    margin: 0; 
+    padding: 0; 
+  }
+  .navbar {
+    padding-top: 0.40rem !important;
+    padding-bottom: 0.35rem !important;
+    min-height: 13vh !important;
+  }
+  .navbar {
+    background-color: var(--bs-primary);
+  }
+  .navbar-brand img.logo-header {
+    width: 4rem !important;
+    height: auto !important;
+  }
+  .navbar-nav .nav-link {
+    font-size: 0.9rem !important;
+    padding: 0.25rem 0.75rem !important;
+  }
+  #siteNavbar .navbar-toggler {
+    padding: 0.2rem 0.4rem !important;
+  }
+</style>
+
+<nav class="navbar navbar-expand-lg fixed-top" id="navbar">
+  <div class="container-fluid" id="navbar-container">
+    
+    <a class="navbar-brand d-flex align-items-center gap-2" href="/" aria-label="Connect Skills - Início" id="logo-titulo">
+      <img src="/img/logo.png" class="logo-header" alt="Logo Connect Skills" width="36" height="36" id="logo-image">
+      <img src="/img/titulo-connect-skills.png" alt="Connect Skills" width="180" height="20" id="titulo-image">
+    </a>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navContent" aria-controls="navContent" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navContent">
+      
+      <ul class="navbar-nav ms-auto" id="menu-navegacao">
+        <li class="nav-item"><a class="nav-link" href="#">Início</a></li>
+        <li class="nav-item"><a class="nav-link" href="#about">Sobre</a></li>
+        <li class="nav-item"><a class="nav-link" href="#contact">Contato</a></li>
+      </ul>
+
+      <a href="https://wa.me/5551992179330" target="_blank" class="d-flex align-items-center gap-2 text-decoration-none ms-lg-3 mt-3 mt-lg-0" id="whatsapp-contato">
+        <i class="bi bi-whatsapp" style="font-size: 1.3rem; color: #25d366;" id="whatsapp-icon"></i>
+        <span class="text-white text-decoration-none" id="whatsapp-texto">WhatsApp</span>
+      </a>
+
+    </div> </div>
+</nav>
