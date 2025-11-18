@@ -476,7 +476,13 @@ exports.verificarEmail = async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const usuario_id = decoded.id;
     await usuarioModel.marcarEmailComoVerificado(usuario_id);
-    return res.render('auth/email-verificado');
+
+    const usuario = await usuarioModel.buscarPorId(usuario_id);
+    if (!usuario) {
+        throw new Error("Usuário não encontrado após verificação.");
+    }
+    return res.redirect(`/usuarios/email-verificado?uid=${usuario.id}&tipo=${usuario.tipo}`);
+
   } catch (error) {
     console.error('Erro ao verificar token:', error);
     req.session.erro = 'Link inválido ou expirado.';
