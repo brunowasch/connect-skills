@@ -12,11 +12,13 @@
 <body>
   <style>
     :root { --nav-h: 0px !important; }
-  body#home { padding-top: 0 !important; }
+    body#home { padding-top: 0 !important; }
     main#content-main { margin-top: var(--header-h); }
   </style>
+
   <%- include('../partials/header-empresa') %>
   <%- include('../partials/flash-messages') %>
+
   <main class="container py-5 mt-4" style="max-width: 800px;">
     <a href="<%= backUrl %>" class="text-decoration-none" title="Voltar">
       <i class="bi bi-x fs-3"></i>
@@ -89,10 +91,28 @@
           </select>
         </div>
 
+        <!-- Descrição da vaga + botão IA -->
         <div class="col-12 mt-4 mb-4">
-          <label for="descricao" class="form-label">Descrição da vaga</label>
-          <textarea id="descricao" name="descricao" class="form-control"
-                    rows="5" style="resize:none;" placeholder="Diga um pouco sobre a vaga..." required></textarea>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label for="descricao" class="form-label mb-0">Descrição da vaga</label>
+
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary btn-ia-helper"
+              data-target="descricao"
+              data-label="descrição da vaga"
+            >
+              <i class="bi bi-stars me-1"></i> IA
+            </button>
+          </div>
+
+          <textarea
+            id="descricao"
+            name="descricao"
+            class="form-control"
+            rows="5"
+            placeholder="Diga um pouco sobre a vaga..."
+          ></textarea>
         </div>
       </div>
 
@@ -116,16 +136,34 @@
         </div>
       </div>
 
-      <div class="mb-4">
+      <!-- Pergunta para IA + botão IA -->
+      <div class="mb-4 position-relative">
         <label for="pergunta" class="form-label mt-3">Pergunta para IA</label>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 btn-ia-helper"
+          data-target="pergunta"
+          data-label="perguntas para IA"
+        >
+          <i class="bi bi-stars me-1"></i> IA
+        </button>
         <small class="d-block text-muted">
           Crie perguntas que avaliem o conhecimento, as experiências e as competências do candidato em relação a sua empresa e ao cargo oferecido.
         </small>
         <textarea name="pergunta" id="pergunta" class="form-control mt-2" rows="4" placeholder="Digite as perguntas que deseja fazer ao candidato" required></textarea>
       </div>
 
-      <div class="mb-4">
+      <!-- Perfil de candidato ideal + botão IA -->
+      <div class="mb-4 position-relative">
         <label for="opcao" class="form-label mt-3">Perfil de candidato ideal</label>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 btn-ia-helper"
+          data-target="opcao"
+          data-label="perfil de candidato ideal"
+        >
+          <i class="bi bi-stars me-1"></i> IA
+        </button>
         <small class="d-block text-muted">
           Descreva como seria o candidato ideal para esta vaga. A IA usará essa descrição, junto das respostas do candidato, para calcular o nível de compatibilidade.
         </small>
@@ -167,8 +205,16 @@
         </button>
       </div>
 
-      <div class="mb-4">
+      <!-- Áreas de atuação + botão IA -->
+      <div class="mb-4 position-relative">
         <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 btn-ia-helper"
+          data-label="áreas de interesse"
+        >
+          <i class="bi bi-stars me-1"></i> IA
+        </button>
         <div id="area-buttons" class="d-flex flex-wrap gap-2 justify-content-center">
           <% areas.forEach(a => { %>
             <button type="button" class="btn btn-outline-primary area-btn" data-id="<%=a.id%>"><%=a.nome%></button>
@@ -183,13 +229,38 @@
         <input type="hidden" id="areasSelecionadas" name="areasSelecionadas">
         <div id="erroAreas" class="text-danger small mt-1"></div>
       </div>
-      <div class="mb-4">
-        <h5 class="fw-bold text-center">Habilidades comportamentais que mais se encaixam à vaga (máx. 3):</h5>
-        <div class="d-flex flex-wrap gap-2 justify-content-center">
+
+      <!-- Habilidades + botão IA -->
+      <div class="mb-4 position-relative">
+
+        <!-- título centralizado, mas com largura limitada -->
+        <div class="mx-auto text-center" style="max-width: 560px;">
+          <h5 class="fw-bold mb-3">
+            Habilidades comportamentais que mais se encaixam à vaga (máx. 3):
+          </h5>
+        </div>
+
+        <!-- botão realmente no canto superior direito do bloco -->
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary btn-ia-helper position-absolute top-0 end-0 mt-1 me-1"
+          data-label="habilidades comportamentais"
+        >
+          <i class="bi bi-stars me-1"></i> IA
+        </button>
+
+        <div class="d-flex flex-wrap gap-2 justify-content-center mt-2">
           <% habilidades.forEach(h => { %>
-            <button type="button" class="btn btn-outline-primary skill-btn" data-id="<%=h.id%>"><%=h.nome%></button>
+            <button
+              type="button"
+              class="btn btn-outline-primary skill-btn"
+              data-id="<%= h.id %>"
+            >
+              <%= h.nome %>
+            </button>
           <% }) %>
         </div>
+
         <input type="hidden" id="habilidadesSelecionadas" name="habilidadesSelecionadas">
         <div id="erroHabilidades" class="text-danger small mt-1"></div>
       </div>
@@ -201,127 +272,187 @@
     </form>
   </main>
 
+  <!-- Modal para prompt da IA -->
+  <div class="modal fade" id="iaPromptModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="iaModalLabel">Gerar conteúdo com IA</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted" id="iaModalDescription">
+            Digite um breve contexto para que a IA possa gerar o conteúdo automaticamente.
+          </p>
+          <textarea id="iaPromptInput" class="form-control" rows="4"
+                    placeholder="Ex: Crie uma descrição de vaga para analista de dados júnior, com foco em..."></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="iaApplyButton">Aplicar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <%- include('../partials/footer') %>
-<script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
-<script>
-  (function(){
-    const wrap = document.getElementById('links-container');
-    document.getElementById('btnAddLink').addEventListener('click', () => {
-      const row = document.createElement('div');
-      row.className = 'row g-2 align-items-end mb-2 link-row';
-      row.innerHTML = `
-        <div class="col-md-5">
-          <input type="text" name="linksTitulo[]" class="form-control" placeholder="Ex: Portfólio da empresa">
-        </div>
-        <div class="col-md-6">
-          <input type="url" name="linksUrl[]" class="form-control" placeholder="https://...">
-        </div>
-        <div class="col-md-1">
-          <button type="button" class="btn btn-outline-danger w-100 btn-remover-link">
-            <i class="bi bi-trash"></i>
-          </button>
-        </div>`;
-      wrap.appendChild(row);
-    });
-    wrap.addEventListener('click', e => {
-      if (e.target.closest('.btn-remover-link')) {
-        const row = e.target.closest('.link-row');
-        if (row) row.remove();
-      }
-    });
-  })();
-  (function(){
-  const input = document.getElementById('anexosVaga');
-  const lista = document.getElementById('lista-anexos');
 
-  input.addEventListener('change', () => {
-    lista.innerHTML = ''; // limpa antes de renderizar de novo
-    if (input.files.length) {
-      const ul = document.createElement('ul');
-      ul.className = 'list-group';
-      [...input.files].forEach(file => {
-        const li = document.createElement('li');
-        li.className = 'list-group-item d-flex align-items-center justify-content-between';
-        li.innerHTML = `
-          <span><i class="bi bi-paperclip me-2"></i>${file.name}</span>
-          <small class="text-muted">${(file.size / 1024).toFixed(1)} KB</small>
-        `;
-        ul.appendChild(li);
-      });
-      lista.appendChild(ul);
-    }
-  });
-})();
-</script>
-<script>
-(function () {
-  const wrapper = document.getElementById('anexos-wrapper');
-  const hidden  = document.getElementById('anexos-hidden');
-  const lista   = document.getElementById('lista-anexos');
+  <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
 
-  function criaInputNovo() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.name = 'anexosVaga';
-    input.className = 'form-control';
-    input.multiple = true;
-    input.addEventListener('change', onChangeInput);
-    wrapper.innerHTML = '';
-    wrapper.appendChild(input);
-    return input;
-  }
-
-  function renderLista() {
-    lista.innerHTML = '';
-    const grupos = hidden.querySelectorAll('input[type="file"][name="anexosVaga"], #anexos-wrapper input[type="file"][name="anexosVaga"]');
-
-    let count = 0;
-    grupos.forEach((inp, idx) => {
-      const files = Array.from(inp.files || []);
-      if (!files.length) return;
-
-      files.forEach((f, i) => {
-        count++;
-        const li = document.createElement('div');
-        li.className = 'list-group-item d-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2';
-        li.innerHTML = `
-          <span><i class="bi bi-paperclip me-2"></i>${f.name}</span>
-          <div class="d-flex align-items-center gap-2">
-            <small class="text-muted">${(f.size / 1024).toFixed(1)} KB</small>
-            <button type="button" class="btn btn-sm btn-outline-danger">Remover</button>
+  <!-- links dinâmicos -->
+  <script>
+    (function(){
+      const wrap = document.getElementById('links-container');
+      document.getElementById('btnAddLink').addEventListener('click', () => {
+        const row = document.createElement('div');
+        row.className = 'row g-2 align-items-end mb-2 link-row';
+        row.innerHTML = `
+          <div class="col-md-5">
+            <input type="text" name="linksTitulo[]" class="form-control" placeholder="Ex: Portfólio da empresa">
           </div>
-        `;
-        li.querySelector('button').addEventListener('click', () => {
-          inp.remove();       
-          li.remove();        
-          renderLista();      
-        });
-        lista.appendChild(li);
+          <div class="col-md-6">
+            <input type="url" name="linksUrl[]" class="form-control" placeholder="https://...">
+          </div>
+          <div class="col-md-1">
+            <button type="button" class="btn btn-outline-danger w-100 btn-remover-link">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>`;
+        wrap.appendChild(row);
       });
-    });
+      wrap.addEventListener('click', e => {
+        if (e.target.closest('.btn-remover-link')) {
+          const row = e.target.closest('.link-row');
+          if (row) row.remove();
+        }
+      });
+    })();
+  </script>
 
-    if (!count) {
-      const vazio = document.createElement('div');
-      vazio.className = 'text-muted small';
-      vazio.textContent = 'Nenhum arquivo selecionado ainda.';
-      lista.appendChild(vazio);
-    }
-  }
-  function onChangeInput(e) {
-    const input = e.target;
-    if (!input.files || !input.files.length) return;
+  <!-- lista de anexos (visual) -->
+  <script>
+    (function(){
+      const input = document.getElementById('anexosVaga');
+      const lista = document.getElementById('lista-anexos');
 
-    hidden.appendChild(input);
+      input.addEventListener('change', () => {
+        lista.innerHTML = '';
+        if (input.files.length) {
+          const ul = document.createElement('ul');
+          ul.className = 'list-group';
+          [...input.files].forEach(file => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex align-items-center justify-content-between';
+            li.innerHTML = `
+              <span><i class="bi bi-paperclip me-2"></i>${file.name}</span>
+              <small class="text-muted">${(file.size / 1024).toFixed(1)} KB</small>
+            `;
+            ul.appendChild(li);
+          });
+          lista.appendChild(ul);
+        }
+      });
+    })();
+  </script>
 
-    criaInputNovo();
+  <!-- múltiplos inputs de anexo com remoção -->
+  <script>
+    (function () {
+      const wrapper = document.getElementById('anexos-wrapper');
+      const hidden  = document.getElementById('anexos-hidden');
+      const lista   = document.getElementById('lista-anexos');
 
-    renderLista();
-  }
-  const initial = document.querySelector('#anexos-wrapper input[type="file"]');
-  initial.addEventListener('change', onChangeInput);
-  renderLista();
-})();
-</script>
+      function criaInputNovo() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.name = 'anexosVaga';
+        input.className = 'form-control';
+        input.multiple = true;
+        input.addEventListener('change', onChangeInput);
+        wrapper.innerHTML = '';
+        wrapper.appendChild(input);
+        return input;
+      }
+
+      function renderLista() {
+        lista.innerHTML = '';
+        const grupos = hidden.querySelectorAll('input[type="file"][name="anexosVaga"], #anexos-wrapper input[type="file"][name="anexosVaga"]');
+
+        let count = 0;
+        grupos.forEach((inp) => {
+          const files = Array.from(inp.files || []);
+          if (!files.length) return;
+
+          files.forEach((f) => {
+            count++;
+            const li = document.createElement('div');
+            li.className = 'list-group-item d-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2';
+            li.innerHTML = `
+              <span><i class="bi bi-paperclip me-2"></i>${f.name}</span>
+              <div class="d-flex align-items-center gap-2">
+                <small class="text-muted">${(f.size / 1024).toFixed(1)} KB</small>
+                <button type="button" class="btn btn-sm btn-outline-danger">Remover</button>
+              </div>
+            `;
+            li.querySelector('button').addEventListener('click', () => {
+              inp.remove();
+              li.remove();
+              renderLista();
+            });
+            lista.appendChild(li);
+          });
+        });
+
+        if (!count) {
+          const vazio = document.createElement('div');
+          vazio.className = 'text-muted small';
+          vazio.textContent = 'Nenhum arquivo selecionado ainda.';
+          lista.appendChild(vazio);
+        }
+      }
+
+      function onChangeInput(e) {
+        const input = e.target;
+        if (!input.files || !input.files.length) return;
+
+        hidden.appendChild(input);
+        criaInputNovo();
+        renderLista();
+      }
+
+      const initial = document.querySelector('#anexos-wrapper input[type="file"]');
+      initial.addEventListener('change', onChangeInput);
+      renderLista();
+    })();
+  </script>
+
+  <!-- Botões de IA + modal (stub) -->
+  <script>
+    (function () {
+      const modalEl = document.getElementById('iaPromptModal');
+      if (!modalEl || !window.bootstrap) return;
+
+      const modal = new bootstrap.Modal(modalEl);
+      const promptInput = document.getElementById('iaPromptInput');
+      const modalLabel = document.getElementById('iaModalLabel');
+      const modalDesc  = document.getElementById('iaModalDescription');
+
+      document.querySelectorAll('.btn-ia-helper').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const label = btn.dataset.label || 'conteúdo';
+          modalLabel.textContent = `Gerar ${label} com IA`;
+          modalDesc.textContent = 'Digite um breve contexto para que a IA possa gerar o conteúdo automaticamente.';
+          promptInput.value = '';
+          modal.show();
+        });
+      });
+
+      document.getElementById('iaApplyButton').addEventListener('click', () => {
+        // Futuro: aqui vamos integrar com a IA e preencher o campo alvo.
+        modal.hide();
+      });
+    })();
+  </script>
 
 </body>
 </html>
