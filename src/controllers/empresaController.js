@@ -577,8 +577,8 @@ exports.salvarVaga = async (req, res) => {
       }
     }
 
-    // Transação: cria a vaga, vincula áreas (máx. 3), cria novas áreas se necessário,
-    // e cria os vínculos de soft skills, além de gravar perguntas/opções e vínculo.
+    // Transação: cria a vaga, vincula até 3 áreas (existentes + novas),
+    // cria áreas novas se necessário, e vincula soft skills
     const vagaCriada = await prisma.$transaction(async (tx) => {
       const vaga = await tx.vaga.create({
         data: {
@@ -598,8 +598,41 @@ exports.salvarVaga = async (req, res) => {
         },
       });
 
-      // Relaciona áreas existentes (máx. 3)
-      const limitIds = idsAreas.slice(0, 3);
+      // --- monta lista de áreas (existentes + novas), até 3 ---
+      const limitIds = [];
+
+      // 1) áreas existentes
+      for (const id of idsAreas) {
+        if (limitIds.length >= 3) break;
+        if (!Number.isFinite(id)) continue;
+        if (!limitIds.includes(id)) {
+          limitIds.push(id);
+        }
+      }
+
+      // 2) áreas novas
+      for (const nome of novasAreas) {
+        if (limitIds.length >= 3) break;
+
+        const nomeLimpo = norm(nome);
+        if (!nomeLimpo) continue;
+
+        let area = await tx.area_interesse.findFirst({
+          where: { nome: nomeLimpo },
+        });
+
+        if (!area) {
+          area = await tx.area_interesse.create({
+            data: { nome: nomeLimpo, padrao: false },
+          });
+        }
+
+        if (!limitIds.includes(area.id)) {
+          limitIds.push(area.id);
+        }
+      }
+
+      // 3) cria vínculos das áreas (uma única vez)
       if (limitIds.length) {
         await tx.vaga_area.createMany({
           data: limitIds.map((areaId) => ({
@@ -610,25 +643,13 @@ exports.salvarVaga = async (req, res) => {
         });
       }
 
-      // Cria áreas novas e relaciona (respeitando o teto de 3 no total)
-      for (const nome of novasAreas) {
-        if (limitIds.length >= 3) break;
-        let area = await tx.area_interesse.findFirst({ where: { nome } });
-        if (!area) {
-          area = await tx.area_interesse.create({ data: { nome, padrao: false } });
-        }
-        await tx.vaga_area.upsert({
-          where: { vaga_id_area_id: { vaga_id: vaga.id, area_id: area.id } },
-          create: { vaga_id: vaga.id, area_interesse_id: area.id },
-          update: {},
-        });
-        limitIds.push(area.id); // conta no limite
-      }
-
       // Relaciona SOFT SKILLS selecionadas (se houver)
       if (softSkillIds.length) {
         await tx.vaga_soft_skill.createMany({
-          data: softSkillIds.map((id) => ({ vaga_id: vaga.id, soft_skill_id: id })),
+          data: softSkillIds.map((id) => ({
+            vaga_id: vaga.id,
+            soft_skill_id: id,
+          })),
           skipDuplicates: true,
         });
       }
@@ -661,6 +682,7 @@ exports.salvarVaga = async (req, res) => {
         ordem: i + 1,
       });
     }
+
     if (linksData.length) {
       await prisma.vaga_link.createMany({ data: linksData });
     }
