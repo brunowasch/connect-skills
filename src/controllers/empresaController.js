@@ -2450,14 +2450,39 @@ exports.gerarDescricaoIA = async (req, res) => {
       shortdesc: shortdesc
     });
 
-    // AJUSTE AQUI: A API retorna um JSON com a chave "longDescription"
-    // Usamos response.data.response porque, pelo seu exemplo, a resposta vem aninhada
-    const dadosIA = JSON.parse(response.data.response); 
-    const textoFinal = dadosIA.longDescription;
+    let dadosIA = {};
 
-    return res.json({ texto: textoFinal });
+    // Tratamento robusto para extrair o JSON da resposta da API
+    // Cenário 1: A API retorna { response: "{ json_string }" }
+    if (response.data && response.data.response) {
+      dadosIA = typeof response.data.response === 'string' 
+        ? JSON.parse(response.data.response) 
+        : response.data.response;
+    } 
+    // Cenário 2: A API retorna o objeto direto { jobTitle: ..., questions: ... }
+    else if (response.data && response.data.questions) {
+      dadosIA = response.data;
+    }
+
+    // Processa as perguntas (se vier array, transforma em texto com quebras de linha)
+    let perguntasTexto = '';
+    if (Array.isArray(dadosIA.questions)) {
+      perguntasTexto = dadosIA.questions.join('\n');
+    } else {
+      perguntasTexto = dadosIA.questions || '';
+    }
+
+    // Retorna todos os dados mapeados para o frontend
+    return res.json({
+      sucesso: true,
+      longDescription: dadosIA.longDescription || '',
+      bestCandidate: dadosIA.bestCandidate || '', // Mapeia para o campo de Perfil
+      questions: perguntasTexto                   // Mapeia para o campo de Perguntas
+    });
+
   } catch (error) {
     console.error('Erro ao processar IA:', error.message);
-    return res.status(500).json({ erro: 'Falha ao obter resposta da IA.' });
+    // Se falhar o parse do JSON, retorna erro amigável
+    return res.status(500).json({ erro: 'A IA não retornou um formato válido. Tente novamente.' });
   }
 };

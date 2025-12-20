@@ -137,38 +137,64 @@
       </div>
 
       <!-- Pergunta para IA + botão IA -->
-      <div class="mb-4 position-relative">
-        <label for="pergunta" class="form-label mt-3">Pergunta para IA</label>
-        <button
-          type="button"
-          class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 btn-ia-helper"
-          data-target="pergunta"
-          data-label="perguntas para IA"
-        >
-          <i class="bi bi-stars me-1"></i> IA
-        </button>
+      <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <label for="pergunta" class="form-label mb-0">Pergunta para IA</label>
+          
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary btn-ia-helper"
+            data-target="pergunta"
+            data-label="perguntas para o candidato"
+            data-placeholder="Ex: Crie perguntas técnicas sobre Node.js e React..."
+          >
+            <i class="bi bi-stars me-1"></i> IA
+          </button>
+        </div>
+
         <small class="d-block text-muted">
-          Crie perguntas que avaliem o conhecimento, as experiências e as competências do candidato em relação a sua empresa e ao cargo oferecido.
+          Crie perguntas que avaliem o conhecimento...
         </small>
-        <textarea name="pergunta" id="pergunta" class="form-control mt-2" rows="4" placeholder="Digite as perguntas que deseja fazer ao candidato" required></textarea>
+
+        <textarea
+          name="pergunta"
+          id="pergunta"
+          class="form-control mt-2"
+          rows="4"
+          placeholder="Digite as perguntas que deseja fazer ao candidato"
+          required
+        ></textarea>
       </div>
 
       <!-- Perfil de candidato ideal + botão IA -->
-      <div class="mb-4 position-relative">
-        <label for="opcao" class="form-label mt-3">Perfil de candidato ideal</label>
+    <div class="mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <label for="opcao" class="form-label mb-0">Perfil de candidato ideal</label>
+
         <button
           type="button"
-          class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 btn-ia-helper"
+          class="btn btn-sm btn-outline-secondary btn-ia-helper"
           data-target="opcao"
-          data-label="perfil de candidato ideal"
+          data-label="perfil do candidato ideal"
+          data-placeholder="Ex: Descreva um profissional proativo, com experiência em liderança..."
         >
           <i class="bi bi-stars me-1"></i> IA
         </button>
-        <small class="d-block text-muted">
-          Descreva como seria o candidato ideal para esta vaga. A IA usará essa descrição, junto das respostas do candidato, para calcular o nível de compatibilidade.
-        </small>
-        <textarea name="opcao" id="opcao" class="form-control mt-2" rows="4" placeholder="Exemplo: O candidato ideal deve ser comunicativo, com facilidade para trabalho em equipe e domínio em ferramentas de análise de dados" required></textarea>
       </div>
+
+      <small class="d-block text-muted">
+        Descreva como seria o candidato ideal para esta vaga... 
+      </small>
+
+      <textarea
+        name="opcao"
+        id="opcao"
+        class="form-control mt-2"
+        rows="4"
+        placeholder="Exemplo: O candidato ideal deve ser..."
+        required
+      ></textarea>
+    </div>
 
       <div class="mb-4">
         <label for="anexosVaga" class="form-label">Anexos da vaga (PDF, imagens, etc.)</label>
@@ -210,8 +236,9 @@
         <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
         <button
           type="button"
-          class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 btn-ia-helper"
-          data-label="áreas de interesse"
+          class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0"
+          data-bs-toggle="modal"
+          data-bs-target="#modalAreasIA"
         >
           <i class="bi bi-stars me-1"></i> IA
         </button>
@@ -243,8 +270,9 @@
         <!-- botão realmente no canto superior direito do bloco -->
         <button
           type="button"
-          class="btn btn-sm btn-outline-secondary btn-ia-helper position-absolute top-0 end-0 mt-1 me-1"
-          data-label="habilidades comportamentais"
+          class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0"
+          data-bs-toggle="modal"
+          data-bs-target="#modalHabilidadesIA"
         >
           <i class="bi bi-stars me-1"></i> IA
         </button>
@@ -294,6 +322,121 @@
       </div>
     </div>
   </div>
+
+  <div class="modal fade" id="modalPerguntaIA" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Gerar perguntas para o candidato</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="small text-muted">
+          A IA criará perguntas técnicas e comportamentais.
+        </p>
+        <textarea id="promptPerguntaIA" class="form-control" rows="4"
+          placeholder="Ex: Crie perguntas para avaliar experiência, trabalho em equipe e conhecimentos técnicos..."></textarea>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="gerarPerguntasIA()">Gerar Perguntas</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+  <div class="modal fade" id="modalPerfilIA" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+
+        <div class="modal-header">
+          <h5 class="modal-title">Gerar perfil do candidato ideal</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <p class="small text-muted">
+            Descreva o tipo de profissional esperado para a vaga.
+          </p>
+          <textarea id="promptPerfilIA" class="form-control" rows="4"
+            placeholder="Ex: Profissional proativo, comunicativo, com experiência na área..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" onclick="gerarPerfilIA()">Gerar Perfil</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalAreasIA" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Sugerir áreas de atuação</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="small text-muted">
+          Descreva a vaga para que a IA sugira até 3 áreas de atuação.
+        </p>
+
+        <textarea
+          id="promptAreasIA"
+          class="form-control"
+          rows="4"
+          placeholder="Ex: Vaga para desenvolvedor backend com foco em APIs e bancos de dados..."
+        ></textarea>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="gerarAreasIA()">Gerar áreas</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+  <div class="modal fade" id="modalHabilidadesIA" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+
+        <div class="modal-header">
+          <h5 class="modal-title">Sugerir habilidades comportamentais</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <p class="small text-muted">
+            Explique o perfil desejado para a vaga.
+          </p>
+
+          <textarea
+            id="promptHabilidadesIA"
+            class="form-control"
+            rows="4"
+            placeholder="Ex: Profissional proativo, que trabalhe bem em equipe e tenha foco em resultados..."
+          ></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" onclick="gerarHabilidadesIA()">Gerar habilidades</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
 
   <%- include('../partials/footer') %>
 
@@ -434,53 +577,88 @@
     const modal = new bootstrap.Modal(modalEl);
     const promptInput = document.getElementById('iaPromptInput');
     const modalLabel = document.getElementById('iaModalLabel');
+    const modalDesc = document.getElementById('iaModalDescription');
     const applyBtn = document.getElementById('iaApplyButton');
     let activeTargetId = '';
 
+    // Configura o modal ao clicar em qualquer botão "IA"
     document.querySelectorAll('.btn-ia-helper').forEach((btn) => {
       btn.addEventListener('click', () => {
         activeTargetId = btn.getAttribute('data-target');
         
-        if (!activeTargetId) {
-          alert("A IA para seleção de tags está em desenvolvimento. Use a IA nos campos de texto.");
-          return;
-        }
+        if (!activeTargetId) return;
 
-        modalLabel.textContent = `Gerar ${btn.dataset.label || 'conteúdo'} com IA`;
-        promptInput.value = '';
+        // Configura textos do modal dinamicamente
+        const label = btn.dataset.label || 'conteúdo';
+        modalLabel.textContent = `Gerar ${label} com IA`;
+        modalDesc.textContent = `Forneça um contexto para gerar ${label}.`;
+        promptInput.placeholder = btn.dataset.placeholder || 'Digite um contexto...';
+        promptInput.value = ''; // Limpa input anterior
+        
         modal.show();
       });
     });
 
+    // Ação ao clicar em "Gerar Texto"
     applyBtn.addEventListener('click', async () => {
-  const contexto = promptInput.value.trim();
-  if (!contexto) return alert('Digite um contexto.');
+      const contexto = promptInput.value.trim();
+      if (!contexto) return alert('Digite um contexto.');
 
-  applyBtn.disabled = true;
-  applyBtn.innerHTML = 'Gerando...';
+      applyBtn.disabled = true;
+      applyBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Gerando...';
 
-  try {
-    const response = await fetch('/empresa/vaga/gerar-ia', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shortdesc: contexto })
+      try {
+        const response = await fetch('/empresa/vaga/gerar-ia', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shortdesc: contexto })
+        });
+        
+        const data = await response.json();
+
+        if (response.ok && data.sucesso) {
+          const targetEl = document.getElementById(activeTargetId);
+
+          // LÓGICA INTELIGENTE DE PREENCHIMENTO
+          if (targetEl) {
+            
+            // 1. Se clicou na DESCRIÇÃO: Preenche Descrição + Perguntas + Perfil (se estiverem vazios)
+            if (activeTargetId === 'descricao') {
+              targetEl.value = data.longDescription || '';
+              
+              const campoPerguntas = document.getElementById('pergunta');
+              const campoPerfil = document.getElementById('opcao'); // ID do campo "Perfil" é 'opcao'
+              
+              if (campoPerguntas && !campoPerguntas.value) campoPerguntas.value = data.questions || '';
+              if (campoPerfil && !campoPerfil.value) campoPerfil.value = data.bestCandidate || '';
+
+            } 
+            // 2. Se clicou especificamente em PERGUNTA
+            else if (activeTargetId === 'pergunta') {
+              targetEl.value = data.questions || '';
+            } 
+            // 3. Se clicou especificamente em PERFIL (campo id="opcao")
+            else if (activeTargetId === 'opcao') {
+              targetEl.value = data.bestCandidate || '';
+            } 
+            // 4. Fallback genérico
+            else {
+              targetEl.value = data.longDescription || '';
+            }
+          }
+
+          modal.hide();
+        } else {
+          alert('Erro: ' + (data.erro || 'A IA não retornou dados válidos.'));
+        }
+      } catch (error) {
+        console.error(error);
+        alert('Erro de conexão com o servidor local.');
+      } finally {
+        applyBtn.disabled = false;
+        applyBtn.innerHTML = 'Gerar Texto';
+      }
     });
-
-    const data = await response.json();
-
-    if (response.ok && data.texto) {
-      document.getElementById(activeTargetId).value = data.texto;
-      modal.hide();
-    } else {
-      alert('Erro: ' + (data.erro || 'A IA não retornou dados.'));
-    }
-  } catch (error) {
-    alert('Erro de conexão com o servidor local.');
-  } finally {
-    applyBtn.disabled = false;
-    applyBtn.innerHTML = 'Gerar Texto';
-  }
-});
   })();
 </script>
 </body>
