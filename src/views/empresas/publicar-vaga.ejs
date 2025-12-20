@@ -215,14 +215,6 @@
       <!-- Áreas de atuação + botão IA -->
       <div class="mb-4 position-relative">
         <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
-        <button
-          type="button"
-          class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0"
-          data-bs-toggle="modal"
-          data-bs-target="#modalAreasIA"
-        >
-          <i class="bi bi-stars me-1"></i> IA
-        </button>
         <div id="area-buttons" class="d-flex flex-wrap gap-2 justify-content-center">
           <% areas.forEach(a => { %>
             <button type="button" class="btn btn-outline-primary area-btn" data-id="<%=a.id%>"><%=a.nome%></button>
@@ -247,16 +239,6 @@
             Habilidades comportamentais que mais se encaixam à vaga (máx. 3):
           </h5>
         </div>
-
-        <!-- botão realmente no canto superior direito do bloco -->
-        <button
-          type="button"
-          class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0"
-          data-bs-toggle="modal"
-          data-bs-target="#modalHabilidadesIA"
-        >
-          <i class="bi bi-stars me-1"></i> IA
-        </button>
 
         <div class="d-flex flex-wrap gap-2 justify-content-center mt-2">
           <% habilidades.forEach(h => { %>
@@ -562,20 +544,39 @@
     const applyBtn = document.getElementById('iaApplyButton');
     let activeTargetId = '';
 
-    // Configura o modal ao clicar em qualquer botão "IA"
+    // Helper para selecionar botões baseados no texto
+    function selecionarBotoesPorTexto(classeBotao, listaTextosIA) {
+      if (!listaTextosIA || !Array.isArray(listaTextosIA)) return;
+
+      const botoes = document.querySelectorAll(classeBotao);
+      
+      // Normaliza os textos da IA para comparação (remove espaços extras, minúsculas)
+      const textosAlvo = listaTextosIA.map(t => t.trim().toLowerCase());
+
+      botoes.forEach(btn => {
+        const btnTexto = btn.textContent.trim().toLowerCase();
+        const jaSelecionado = btn.classList.contains('btn-primary'); // Assume que btn-primary indica ativo
+        const deveSelecionar = textosAlvo.includes(btnTexto);
+
+        // Se a IA sugeriu e não está selecionado -> clica para selecionar
+        // Nota: O limite de 3 será controlado pelo seu script externo (publicacaoVagasRequisitos.js)
+        if (deveSelecionar && !jaSelecionado) {
+          btn.click();
+        }
+      });
+    }
+
+    // Configura o modal
     document.querySelectorAll('.btn-ia-helper').forEach((btn) => {
       btn.addEventListener('click', () => {
         activeTargetId = btn.getAttribute('data-target');
-        
         if (!activeTargetId) return;
 
-        // Configura textos do modal dinamicamente
         const label = btn.dataset.label || 'conteúdo';
         modalLabel.textContent = `Gerar ${label} com IA`;
         modalDesc.textContent = `Forneça um contexto para gerar ${label}.`;
         promptInput.placeholder = btn.dataset.placeholder || 'Digite um contexto...';
-        promptInput.value = ''; // Limpa input anterior
-        
+        promptInput.value = '';
         modal.show();
       });
     });
@@ -586,7 +587,7 @@
       if (!contexto) return alert('Digite um contexto.');
 
       applyBtn.disabled = true;
-      applyBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Gerando...';
+      applyBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Gerando...';
 
       try {
         const response = await fetch('/empresa/vaga/gerar-ia', {
@@ -600,30 +601,40 @@
         if (response.ok && data.sucesso) {
           const targetEl = document.getElementById(activeTargetId);
 
-          // LÓGICA INTELIGENTE DE PREENCHIMENTO
           if (targetEl) {
-            
-            // 1. Se clicou na DESCRIÇÃO: Preenche Descrição + Perguntas + Perfil (se estiverem vazios)
+            // 1. GERAÇÃO COMPLETA (Botão da Descrição)
             if (activeTargetId === 'descricao') {
               targetEl.value = data.longDescription || '';
               
+              // Preenche perguntas e perfil se vazios
               const campoPerguntas = document.getElementById('pergunta');
-              const campoPerfil = document.getElementById('opcao'); // ID do campo "Perfil" é 'opcao'
+              const campoPerfil = document.getElementById('opcao');
               
               if (campoPerguntas && !campoPerguntas.value) campoPerguntas.value = data.questions || '';
               if (campoPerfil && !campoPerfil.value) campoPerfil.value = data.bestCandidate || '';
 
-            } 
-            // 2. Se clicou especificamente em PERGUNTA
-            else if (activeTargetId === 'pergunta') {
+              // --- SELEÇÃO AUTOMÁTICA DE BOTÕES ---
+              // Seleciona Áreas de Atuação (requiredSkills)
+              if (data.areas && data.areas.length > 0) {
+                 // Reseta seleções anteriores (opcional, remova se quiser apenas adicionar)
+                 document.querySelectorAll('.area-btn.btn-primary').forEach(b => b.click());
+                 // Seleciona as novas
+                 selecionarBotoesPorTexto('.area-btn', data.areas);
+              }
+
+              // Seleciona Habilidades (behaviouralSkills)
+              if (data.skills && data.skills.length > 0) {
+                 // Reseta seleções anteriores
+                 document.querySelectorAll('.skill-btn.btn-primary').forEach(b => b.click());
+                 // Seleciona as novas
+                 selecionarBotoesPorTexto('.skill-btn', data.skills);
+              }
+
+            } else if (activeTargetId === 'pergunta') {
               targetEl.value = data.questions || '';
-            } 
-            // 3. Se clicou especificamente em PERFIL (campo id="opcao")
-            else if (activeTargetId === 'opcao') {
+            } else if (activeTargetId === 'opcao') {
               targetEl.value = data.bestCandidate || '';
-            } 
-            // 4. Fallback genérico
-            else {
+            } else {
               targetEl.value = data.longDescription || '';
             }
           }

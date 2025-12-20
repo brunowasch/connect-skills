@@ -2453,18 +2453,16 @@ exports.gerarDescricaoIA = async (req, res) => {
     let dadosIA = {};
 
     // Tratamento robusto para extrair o JSON da resposta da API
-    // Cenário 1: A API retorna { response: "{ json_string }" }
     if (response.data && response.data.response) {
       dadosIA = typeof response.data.response === 'string' 
         ? JSON.parse(response.data.response) 
         : response.data.response;
     } 
-    // Cenário 2: A API retorna o objeto direto { jobTitle: ..., questions: ... }
-    else if (response.data && response.data.questions) {
+    else if (response.data && (response.data.questions || response.data.requiredSkills)) {
       dadosIA = response.data;
     }
 
-    // Processa as perguntas (se vier array, transforma em texto com quebras de linha)
+    // 1. Processa as perguntas (questions)
     let perguntasTexto = '';
     if (Array.isArray(dadosIA.questions)) {
       perguntasTexto = dadosIA.questions.join('\n');
@@ -2472,17 +2470,19 @@ exports.gerarDescricaoIA = async (req, res) => {
       perguntasTexto = dadosIA.questions || '';
     }
 
-    // Retorna todos os dados mapeados para o frontend
+    // 2. Retorna todos os dados mapeados para o frontend
+    // Incluindo agora as áreas e habilidades para o 1º botão (Descrição)
     return res.json({
       sucesso: true,
       longDescription: dadosIA.longDescription || '',
-      bestCandidate: dadosIA.bestCandidate || '', // Mapeia para o campo de Perfil
-      questions: perguntasTexto                   // Mapeia para o campo de Perguntas
+      bestCandidate: dadosIA.bestCandidate || '', // Perfil do candidato
+      questions: perguntasTexto,                   // Perguntas para IA
+      areas: dadosIA.requiredSkills || [],        // Áreas de Atuação (requiredSkills do JSON)
+      skills: dadosIA.behaviouralSkills || []     // Habilidades (behaviouralSkills do JSON)
     });
 
   } catch (error) {
     console.error('Erro ao processar IA:', error.message);
-    // Se falhar o parse do JSON, retorna erro amigável
-    return res.status(500).json({ erro: 'A IA não retornou um formato válido. Tente novamente.' });
+    return res.status(500).json({ erro: 'A IA não retornou um formato válido ou houve erro na conexão.' });
   }
 };
