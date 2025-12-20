@@ -161,4 +161,6 @@ router.post('/vaga/anexos/:id/delete', ensureEmpresa,  withEncodedParam('id'), 
   }
 });
 
+router.post('/vaga/gerar-ia', ensureEmpresa, empresaController.gerarDescricaoIA);
+
 module.exports = router;

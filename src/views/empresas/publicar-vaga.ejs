@@ -288,8 +288,8 @@
                     placeholder="Ex: Crie uma descrição de vaga para analista de dados júnior, com foco em..."></textarea>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="button" class="btn btn-primary" id="iaApplyButton">Aplicar</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" id="iaApplyButton" class="btn btn-primary">Gerar Texto</button>
         </div>
       </div>
     </div>
@@ -426,33 +426,62 @@
     })();
   </script>
 
-  <!-- Botões de IA + modal (stub) -->
-  <script>
-    (function () {
-      const modalEl = document.getElementById('iaPromptModal');
-      if (!modalEl || !window.bootstrap) return;
+<script>
+  (function () {
+    const modalEl = document.getElementById('iaPromptModal');
+    if (!modalEl || !window.bootstrap) return;
 
-      const modal = new bootstrap.Modal(modalEl);
-      const promptInput = document.getElementById('iaPromptInput');
-      const modalLabel = document.getElementById('iaModalLabel');
-      const modalDesc  = document.getElementById('iaModalDescription');
+    const modal = new bootstrap.Modal(modalEl);
+    const promptInput = document.getElementById('iaPromptInput');
+    const modalLabel = document.getElementById('iaModalLabel');
+    const applyBtn = document.getElementById('iaApplyButton');
+    let activeTargetId = '';
 
-      document.querySelectorAll('.btn-ia-helper').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const label = btn.dataset.label || 'conteúdo';
-          modalLabel.textContent = `Gerar ${label} com IA`;
-          modalDesc.textContent = 'Digite um breve contexto para que a IA possa gerar o conteúdo automaticamente.';
-          promptInput.value = '';
-          modal.show();
-        });
+    document.querySelectorAll('.btn-ia-helper').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeTargetId = btn.getAttribute('data-target');
+        
+        if (!activeTargetId) {
+          alert("A IA para seleção de tags está em desenvolvimento. Use a IA nos campos de texto.");
+          return;
+        }
+
+        modalLabel.textContent = `Gerar ${btn.dataset.label || 'conteúdo'} com IA`;
+        promptInput.value = '';
+        modal.show();
       });
+    });
 
-      document.getElementById('iaApplyButton').addEventListener('click', () => {
-        // Futuro: aqui vamos integrar com a IA e preencher o campo alvo.
-        modal.hide();
-      });
-    })();
-  </script>
+    applyBtn.addEventListener('click', async () => {
+  const contexto = promptInput.value.trim();
+  if (!contexto) return alert('Digite um contexto.');
 
+  applyBtn.disabled = true;
+  applyBtn.innerHTML = 'Gerando...';
+
+  try {
+    const response = await fetch('/empresa/vaga/gerar-ia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shortdesc: contexto })
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.texto) {
+      document.getElementById(activeTargetId).value = data.texto;
+      modal.hide();
+    } else {
+      alert('Erro: ' + (data.erro || 'A IA não retornou dados.'));
+    }
+  } catch (error) {
+    alert('Erro de conexão com o servidor local.');
+  } finally {
+    applyBtn.disabled = false;
+    applyBtn.innerHTML = 'Gerar Texto';
+  }
+});
+  })();
+</script>
 </body>
 </html>
