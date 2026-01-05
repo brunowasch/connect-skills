@@ -598,123 +598,124 @@ exports.salvarAreas = async (req, res) => {
 
 
 exports.telaHomeCandidato = async (req, res) => {
-  const usuario = req.session.candidato;
-  if (!usuario) return res.redirect('/login');
+  // Pegamos o ID da conta (tabela Usuario)
+  const userId = req.session.usuario?.id;
+  if (!userId) return res.redirect('/login');
 
-  try {
-    // 1) Carrega o candidato do banco (Lógica existente)
-    const candDb = await prisma.candidato.findUnique({
-      where: { id: Number(usuario.id) },
-      include: {
-        candidato_area: { include: { area_interesse: true } }
-      }
-    });
+  try {
+    // 1) Carrega o candidato do banco usando USUARIO_ID
+    const candDb = await prisma.candidato.findUnique({
+      where: { usuario_id: Number(userId) }, // Busca pela relação com o usuário
+      include: {
+        candidato_area: { include: { area_interesse: true } }
+      }
+    });
 
-    const areas = (candDb?.candidato_area || [])
-      .map(r => r?.area_interesse?.nome)
-      .filter(Boolean);
+    // Se não encontrar o perfil do candidato, redireciona para criar um
+    if (!candDb) {
+      console.warn('Perfil de candidato não encontrado para o usuário:', userId);
+      return res.redirect('/candidatos/cadastro/nome'); 
+    }
 
-    // 2) Sincroniza sessão (Lógica existente)
-    try {
-      req.session.candidato = {
-        ...req.session.candidato,
-        nome: candDb?.nome ?? req.session.candidato.nome,
-        sobrenome: candDb?.sobrenome ?? req.session.candidato.sobrenome,
-        telefone: candDb?.telefone ?? req.session.candidato.telefone,
-        data_nascimento: candDb?.data_nascimento ?? req.session.candidato.data_nascimento,
-        foto_perfil: candDb?.foto_perfil ?? req.session.candidato.foto_perfil,
-        localidade:
-          req.session.candidato.localidade ||
-         [candDb?.cidade, candDb?.estado, candDb?.pais].filter(Boolean).join(', '),
-        areas
-      };
-    } catch (e) {
-      console.warn('[home] não foi possível atualizar sessão do candidato:', e?.message || e);
-    }
+    // Mapeia os nomes das áreas
+    const areasNomes = (candDb.candidato_area || [])
+      .map(r => r?.area_interesse?.nome)
+      .filter(Boolean);
 
-    // 3) Vagas recomendadas (Lógica existente)
-    let vagas = [];
-    try {
-      vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(Number(usuario.id));
-    } catch (e) {
-      console.warn('[home] falha ao buscar vagas recomendadas:', e.message);
-      vagas = [];
-    }
+    // 2) Sincroniza a sessão do candidato com os dados do banco
+    const localidadeBanco = [candDb.cidade, candDb.estado, candDb.pais]
+      .filter(Boolean)
+      .join(', ') || "Local não informado";
 
-    // Bloco de filtragem de vagas fechadas (o mesmo da página /vagas)
-    const vagaIds = vagas.map(v => v.id);
-    let abertasSet = new Set(vagaIds);
-    if (vagaIds.length) {
-      const statusList = await prisma.vaga_status.findMany({
-        where: { vaga_id: { in: vagaIds } },
-        orderBy: { criado_em: 'desc' },
-        select: { vaga_id: true, situacao: true }
-      });
-      const latest = new Map();
-      for (const s of statusList) {
-        if (!latest.has(s.vaga_id)) latest.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
-      }
-      abertasSet = new Set(
-        vagaIds.filter(id => (latest.get(id) || 'aberta') !== 'fechada')
-      );
-    }
-    // Aplica o filtro
-    vagas = vagas.filter(v => abertasSet.has(v.id));
-    // Fim da correção
+    req.session.candidato = {
+      id: candDb.id,
+      usuario_id: candDb.usuario_id,
+      nome: candDb.nome || "Candidato",
+      sobrenome: candDb.sobrenome || "",
+      telefone: candDb.telefone,
+      foto_perfil: candDb.foto_perfil || "/img/avatar.png",
+      localidade: localidadeBanco,
+      areas: areasNomes 
+    };
 
+    // 3) Vagas recomendadas (usa o ID do CANDIDATO para buscar)
+    let vagas = [];
+    try {
+      vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(Number(candDb.id));
+    } catch (e) {
+      console.warn('[home] falha ao buscar vagas recomendadas:', e.message);
+    }
 
-    // 4) Histórico (Lógica existente)
-    const avaliacoes = await prisma.vaga_avaliacao.findMany({
-      where: { candidato_id: Number(usuario.id) },
-      orderBy: { id: 'desc' },
-      include: {
-        vaga: {
-          include: {
-            empresa: {
-              select: { id: true, nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true }
-            }
-          }
-        }
-      }
-    });
+    // --- Filtro de Vagas Abertas ---
+    const vagaIds = vagas.map(v => v.id);
+    if (vagaIds.length > 0) {
+      const statusList = await prisma.vaga_status.findMany({
+        where: { vaga_id: { in: vagaIds } },
+        orderBy: { criado_em: 'desc' },
+        select: { vaga_id: true, situacao: true }
+      });
+      
+      const latestStatusMap = new Map();
+      statusList.forEach(s => {
+        if (!latestStatusMap.has(s.vaga_id)) {
+          latestStatusMap.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
+        }
+      });
+      
+      vagas = vagas.filter(v => (latestStatusMap.get(v.id) || 'aberta') !== 'fechada');
+    }
 
-    // (Lógica existente de 'historico' e 'appliedIds')
-    const historico = (avaliacoes || [])
-      .filter(a => a.vaga)
-      .map(a => {
-        const v = a.vaga;
-        const emp = v.empresa || {};
-        return {
-          vaga: { id: v.id, cargo: v.cargo },
-          empresa: { id: emp.id, nome: emp.nome_empresa, nome_empresa: emp.nome_empresa },
-          created_at: a.created_at || a.criado_em || new Date().toISOString(),
-          status: a.status || 'em_analise'
-        };
-      });
+    // 4) Histórico de candidaturas
+    const avaliacoes = await prisma.vaga_avaliacao.findMany({
+      where: { candidato_id: Number(candDb.id) },
+      orderBy: { id: 'desc' },
+      include: {
+        vaga: {
+          include: {
+            empresa: {
+              select: { id: true, nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true }
+            }
+          }
+        }
+      }
+    });
 
-    const appliedIds = new Set(historico.map(h => h.vaga.id));
-    vagas = (vagas || []).filter(v => !appliedIds.has(v.id));
+    const historico = (avaliacoes || [])
+      .filter(a => a.vaga)
+      .map(a => ({
+        vaga: { id: a.vaga.id, cargo: a.vaga.cargo },
+        empresa: { 
+            id: a.vaga.empresa?.id, 
+            nome: a.vaga.empresa?.nome_empresa, 
+            nome_empresa: a.vaga.empresa?.nome_empresa 
+        },
+        created_at: a.created_at || a.criado_em,
+        status: a.status || 'em_analise'
+      }));
 
-    // 5) Render da home (Lógica existente)
-    res.render('candidatos/home-candidatos', {
-      nome: req.session.candidato.nome,
-      sobrenome: req.session.candidato.sobrenome,
-      localidade:
-        req.session.candidato.localidade ||
-        [candDb?.cidade, candDb?.estado, candDb?.pais].filter(Boolean).join(', '),
-      activePage: 'home',
-      usuario: req.session.usuario || req.session.candidato,
-      candidato: req.session.candidato,
-      vagas, // Agora 'vagas' só conterá vagas ABERTAS e NÃO APLICADAS
-      historico,
-      candidaturasAplicadasCount: historico.length,
-      areas
-    });
-  } catch (err) {
-    console.error('[telaHomeCandidato] erro:', err?.message || err);
-    req.session.erro = 'Não foi possível carregar sua home.';
-    return res.redirect('/login');
-  }
+    // Filtra vagas que o usuário já aplicou
+    const appliedIds = new Set(historico.map(h => h.vaga.id));
+    vagas = vagas.filter(v => !appliedIds.has(v.id));
+
+    // 5) Render da home usando os dados validados
+    res.render('candidatos/home-candidatos', {
+      nome: req.session.candidato.nome,
+      sobrenome: req.session.candidato.sobrenome,
+      localidade: req.session.candidato.localidade,
+      activePage: 'home',
+      usuario: req.session.usuario,
+      candidato: req.session.candidato,
+      vagas,
+      historico,
+      candidaturasAplicadasCount: historico.length,
+      areas: areasNomes // Passamos o array de strings diretamente
+    });
+
+  } catch (err) {
+    console.error('[telaHomeCandidato] erro crítico:', err);
+    req.session.erro = 'Não foi possível carregar sua home.';
+    return res.redirect('/login');
+  }
 };
 
 exports.renderMeuPerfil = async (req, res) => {

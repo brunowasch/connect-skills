@@ -37,14 +37,7 @@
       const nomeUser  = cand?.nome || 'Candidato';
       const sobrenome = cand?.sobrenome || '';
 
-      const localidadeResolved =
-        (typeof candLocalidade !== 'undefined' && candLocalidade)
-          ? candLocalidade
-          : (
-              (typeof localidade !== 'undefined' && localidade)
-                ? localidade
-                : 'Localidade não informada'
-            );
+      const localidadeResolved = (typeof localidade !== 'undefined') ? localidade : (cand.localidade || 'Localidade não informada');
 
       const fotoPerfilResolved =
         (typeof candFotoPerfil !== 'undefined' && candFotoPerfil)
@@ -65,7 +58,7 @@
 
       const fotoUrl = (fotoUrlCandidates.length ? fotoUrlCandidates[0] : '/img/avatar.png');
 
-      const _areas  = (typeof areas  !== 'undefined' && Array.isArray(areas))  ? areas  : (Array.isArray(cand?.areas) ? cand.areas : []);
+      const _areas = (typeof areas !== 'undefined') ? areas : (cand.areas || []);
       const _links  = (typeof links  !== 'undefined' && Array.isArray(links))  ? links  : [];
       const _anexos = (typeof anexos !== 'undefined' && Array.isArray(anexos)) ? anexos : [];
 
@@ -95,7 +88,7 @@
       const hasNasc  = !!cand?.data_nascimento;
       const hasFoto  = (fotoUrl && fotoUrl !== '/img/avatar.png');
       const hasLocal = !!(localidadeResolved && localidadeResolved !== 'Localidade não informada');
-      const hasAreas = Array.isArray(areasSel) && areasSel.length >= 1;
+      const hasAreas = Array.isArray(_areas) && _areas.length >= 1;
 
       const checklist        = [hasFoto, hasLocal, hasTel, hasNasc, hasAreas];
       const totalSteps       = checklist.length;
@@ -210,19 +203,63 @@
               <i class="bi bi-pencil-square"></i>
             </a>
           </div>
+<div class="col-12 col-lg-4">
+  <div class="bg-white rounded-2xl shadow-soft p-4 h-100 d-flex flex-column">
 
-          <% if (!areasSel || !areasSel.length) { %>
-              <div class="card-ghost p-4 rounded-2xl text-center w-100">
-                <div class="muted">Você ainda não selecionou áreas.</div>
-                <a class="btn btn-primary btn-sm mt-2" href="/candidatos/cadastro/areas">Selecionar áreas</a>
-              </div>
-          <% } else { %>
-              <div class="grid-areas justify-content-center w-100">
-                <% areasSel.slice(0, 6).forEach(function (rel) { %>
-                  <span class="pill"><%= rel.area_interesse?.nome %></span>
-                <% }) %>
-              </div>
+    <!-- HEADER -->
+    <div class="position-relative mb-3">
+      <div class="section-title text-center m-0">
+        <i class="bi bi-diagram-3 me-2 text-primary"></i>
+        Áreas de Interesse
+      </div>
+
+      <a href="/candidato/editar-areas"
+         class="position-absolute top-0 end-0 text-muted"
+         title="Editar áreas">
+        <i class="bi bi-pencil-square fs-5"></i>
+      </a>
+    </div>
+
+    <!-- CONTEÚDO -->
+    <div class="flex-grow-1 d-flex align-items-center justify-content-center">
+      <% if (!_areas || _areas.length === 0) { %>
+        <div class="card-ghost p-3 rounded-2xl text-center w-100">
+          <div class="small muted mb-2">Nenhuma área selecionada</div>
+          <a class="btn btn-primary btn-sm rounded-pill px-3"
+             href="/candidato/editar-areas">
+            Configurar
+          </a>
+        </div>
+      <% } else { %>
+        <div class="d-flex flex-wrap justify-content-center gap-2 w-100">
+          <% _areas.slice(0, 8).forEach(function (nomeArea) { %>
+            <span
+              class="badge rounded-pill fw-normal px-3 py-2"
+              style="
+                background-color: #f3e8ff;
+                color: #6f42c1;
+                border: 1px solid #e9d5ff;
+                font-size: 0.8rem;
+                white-space: nowrap;
+              ">
+              <%= nomeArea %>
+            </span>
+          <% }) %>
+
+          <% if (_areas.length > 8) { %>
+            <span
+              class="badge rounded-pill bg-light text-muted border fw-normal px-3 py-2"
+              style="font-size: 0.8rem;">
+              +<%= _areas.length - 8 %>
+            </span>
           <% } %>
+        </div>
+      <% } %>
+    </div>
+
+  </div>
+</div>
+
         </div>
       </div>
     </div>
