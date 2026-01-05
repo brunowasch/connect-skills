@@ -93,6 +93,55 @@ const normUrl = (u) => {
   return s;
 };
 
+const LISTA_HABILIDADES = [
+    "A/B Testing", "Acabamento de Interiores", "Adobe After Effects", "Adobe Illustrator", "Adobe Photoshop", 
+    "Adobe Premiere Pro", "Alinhamento de Eixos", "Almoxarifado e Estocagem", "Alvenaria Estrutural", 
+    "Análise de Dados", "Análise de Falhas Mecânicas", "Análise de Metas de Vendas", "Análise de Riscos Ocupacionais", 
+    "Android Development", "Angular", "API RESTful", "Apontamento de Produção", "Arduino e Prototipagem", 
+    "Armação de Ferragens", "Arquitetura de Software", "Asphalt Paving", "ASP.NET Core", "Assembly Language", 
+    "Assentamento de Pisos e Azulejos", "Atendimento ao Cliente (PDV)", "AutoCAD 2D/3D", "Automação Industrial (CLP)", 
+    "AWS (Cloud)", "Azure DevOps", "Balanceamento de Rodas", "Balanço Patrimonial", "Bancos de Dados NoSQL", 
+    "Bancos de Dados Relacionais (SQL)", "Big Data Analytics", "Blockchain", "Blueprint Reading (Leitura de Plantas)", 
+    "Bootstrap", "C#", "C++", "Cálculo de Materiais", "Carpintaria de Formas", "Cercamento Elétrico", 
+    "Chapeação e Pintura", "Cibersegurança", "Ciclo PDCA", "Cloud Computing", "CNC (Comando Numérico Computadorizado)", 
+    "Cobit Framework", "Cold Calling", "Comércio Exterior", "Configuração de Firewalls", "Configuração de Modems/Roteadores", 
+    "Conhecimento de Normas Regulamentadoras (NRs)", "Conserto de Eletrodomésticos", "Contabilidade Básica", 
+    "Controle de Estoque (Inventory Management)", "Controle de Qualidade (QA)", "Copywriting", "Corte e Dobra de Aço", 
+    "Corte e Solda a Plasma", "CRM (Salesforce/HubSpot)", "CSS3", "Dart", "Data Mining", "Data Science", 
+    "Data Visualization", "Deep Learning", "Desenho Técnico Mecânico", "Desenvolvimento de Chatbots", "DevOps", 
+    "Diagramas Unifilares", "Django Framework", "Docker", "E-commerce Management", "Edição de Vídeo", "Elétrica Automotiva", 
+    "Elétrica Predial", "Electron", "Eletrônica Digital", "Elixir", "Encanamento e Hidráulica", "Energia Fotovoltaica (Instalação)", 
+    "Engenharia de Prompt", "ERP (SAP/Oracle/Totvs)", "Escaneamento 3D", "Escrituração Fiscal", "Estatística Aplicada", 
+    "Estruturas Metálicas", "ETL (Extract, Transform, Load)", "Excel Avançado", "Express.js", "Fardamento e Merchandising", 
+    "Ferramentaria", "Figma", "Firebase", "Flutter", "Fluxo de Caixa", "Folha de Pagamento", "Funilaria Automotiva", 
+    "Gesso Acartonado (Drywall)", "Gestão de Backlog", "Gestão de Frotas", "Gestão de Resíduos Industriais", 
+    "Gestão de Tráfego Pago", "Git & GitHub", "Google Ads", "Google Analytics", "Google Cloud Platform (GCP)", "Go (Golang)", 
+    "GraphQL", "HTML5", "IBGE (Classificação de Produtos)", "Impermeabilização de Lajes", "Inbound Marketing", "Indústria 4.0", 
+    "Instalação de Ar Condicionado", "Instalação de Câmeras (CFTV)", "Instalação de Drywall", "Instalação de Redes de Proteção", 
+    "Instalações Elétricas Industriais", "Inteligência de Negócios (BI)", "Interpretação de Desenho Técnico", "Inventário de Ativos", 
+    "iOS Development (Swift)", "Java", "JavaScript", "Jenkins", "Jogos Digitais (Unity/Unreal)", "Kaban", "Kotlin", "Kubernetes", 
+    "Laravel", "Layout de Fábrica", "Lean Manufacturing", "Leitura de Instrumentos (Paquímetro/Micrômetro)", "Linux (Administração de Sistemas)", 
+    "Logística Reversa", "Machine Learning", "Manutenção Corretiva e Preventiva", "Manutenção de Computadores (Hardware)", 
+    "Manutenção de Elevadores", "Manutenção de Motores Diesel", "Manutenção Hidráulica", "Manutenção Industrial", "Manutenção Predial", 
+    "Marcenaria Fina", "Marketing de Conteúdo", "Mecânica de Fluidos", "Mecânica de Motocicletas", "Mecânica Diesel", "Mecânica Pesada", 
+    "Mecatrônica", "Metodologias Ágeis (Scrum)", "Metrologia", "Microsoft Power BI", "Microserviços", "Mix de Produtos", 
+    "Modelagem 3D", "Modelagem de Dados", "MongoDB", "Montagem de Andaimes", "Montagem de Estruturas de Madeira", "Montagem de Móveis", 
+    "Montagem de Painéis Elétricos", "MySQL", "Next.js", "Node.js", "NoSQL", "NumPy", "Objective-C", "Operação de Betoneira", 
+    "Operação de Empilhadeira", "Operação de Escavadeira", "Operação de Máquina Injetora", "Operação de Pontes Rolantes", 
+    "Operação de Prensa", "Operação de Retroescavadeira", "Operação de Torno Mecânico", "Oracle Database", "Padrões de Projeto (Design Patterns)", 
+    "Pandas (Python)", "Patch Panel e Cabeamento", "Pavimentação", "PHP", "Pintura Automotiva", "Pintura Industrial", 
+    "Pintura Predial", "Planejamento de Produção (PCP)", "Plataformas CMS (WordPress)", "Pneumática", "PostgreSQL", "PowerShell", 
+    "Prevenção de Perdas", "Processamento de Linguagem Natural (NLP)", "Product Management", "Programação de CLPs", "Programação de CNC", 
+    "Pronto Atendimento (Suporte Técnico)", "Prototipagem de UI/UX", "Python", "PyTorch", "R Language", "React Native", "React.js", 
+    "Recuperação de Motores", "Redes de Computadores (TCP/IP)", "Redis", "Redux", "Refrigeração Comercial", "Reparo de Dispositivos Móveis", 
+    "Reparo de Placas Eletrônicas", "Revestimento Cerâmico", "Ruby on Rails", "Rust", "Sass/SCSS", "Segurança da Informação", 
+    "Segurança do Trabalho (EPI/EPC)", "Selenium", "SEO (Search Engine Optimization)", "Serralheria", "Serviços de Alvenaria", 
+    "Shell Script", "Six Sigma (6 Sigma)", "SketchUp", "Solda MIG/MAG", "Solda TIG", "Soldagem a Arco", "Spring Boot", "SQL Server", 
+    "Swift", "Tableau", "Tailwind CSS", "Técnicas de Negociação", "Técnicas de Soldagem", "Telemarketing", "TensorFlow", "Terraform", 
+    "Topografia", "TypeScript", "UI/UX Design", "Usinagem", "Vendas B2B", "Vendas Consultivas", "Visual Merchandising", "Vue.js", 
+    "Webpack", "Windows Server"
+];
+
 function parseTelefoneBR(telRaw) {
   const tel = (telRaw || '').trim();
   if (!tel) return { ddi: '', ddd: '', numeroFormatado: '' };
@@ -174,8 +223,8 @@ exports.telaNomeCandidato = (req, res) => {
 };
 
 exports.salvarNomeCandidato = async (req, res) => {
-  const usuario_id = req.session.usuario.id; 
-  const { nome, sobrenome, data_nascimento } = req.body;
+  const usuario_id = req.session.usuario.id; 
+  const { nome, sobrenome, data_nascimento } = req.body;
 
   // Verificação de segurança
   if (!usuario_id) {
@@ -183,24 +232,100 @@ exports.salvarNomeCandidato = async (req, res) => {
     return res.redirect('/login');
   }
 
-  try {
-    // Agora esta chamada vai funcionar!
-    await candidatoModel.criarCandidato({
-      usuario_id: Number(usuario_id),
-      nome,
-      sobrenome,
-      data_nascimento: new Date(data_nascimento),
-    });
+  try {
+    await candidatoModel.criarCandidato({
+      usuario_id: Number(usuario_id),
+      nome,
+      sobrenome,
+      data_nascimento: new Date(data_nascimento),
+    });
 
-    // E o redirecionamento seguro vai funcionar
-    return res.redirect(`/candidato/localizacao`);
+    return res.redirect('/candidatos/cadastro/areas');
 
-  } catch (err) {
-    console.error('Erro ao salvar nome e sobrenome:', err);
-    req.session.erro = 'Erro ao salvar seus dados iniciais. Tente novamente.';
-    return res.redirect(`/candidato/nome`);
-  }
+  } catch (err) {
+    console.error('Erro ao salvar nome e sobrenome:', err);
+    req.session.erro = 'Erro ao salvar seus dados iniciais. Tente novamente.';
+    return res.redirect('/candidatos/cadastro/nome');
+  }
 };
+
+exports.telaCadastroAreas = async (req, res) => {
+    const usuario = req.session.usuario;
+    
+    // Renderiza a view passando a lista de habilidades
+    res.render('candidatos/cadastro-areas', { 
+        usuario,
+        habilidades: LISTA_HABILIDADES 
+    });
+};
+
+exports.salvarCadastroAreas = async (req, res) => {
+  const usuario_id = req.session.usuario?.id;
+
+  try {
+    if (!usuario_id) {
+      req.session.erro = 'Sessão expirada. Faça login novamente.';
+      return res.redirect('/login');
+    }
+
+    let areasSelecionadas = req.body.areasSelecionadas;
+
+    if (typeof areasSelecionadas === 'string') {
+      areasSelecionadas = JSON.parse(areasSelecionadas);
+    }
+
+    // Buscar candidato
+    const candidato = await prisma.candidato.findUnique({
+      where: { usuario_id: Number(usuario_id) }
+    });
+
+    if (!candidato) {
+      req.session.erro = 'Candidato não encontrado.';
+      return res.redirect('/candidatos/cadastro/areas');
+    }
+
+    // Buscar IDs das áreas pelo NOME
+    const areas = await prisma.area_interesse.findMany({
+      where: {
+        nome: {
+          in: areasSelecionadas
+        }
+      },
+      select: { id: true }
+    });
+
+    if (areas.length === 0) {
+      req.session.erro = 'Nenhuma área válida foi encontrada.';
+      return res.redirect('/candidatos/cadastro/areas');
+    }
+
+    // Limpa áreas antigas
+    await prisma.candidato_area.deleteMany({
+      where: { candidato_id: candidato.id }
+    });
+
+    // Monta dados corretos (INT, não STRING)
+    const dados = areas.map(area => ({
+      candidato_id: candidato.id,
+      area_interesse_id: area.id
+    }));
+
+    // Salva
+    await prisma.candidato_area.createMany({
+      data: dados
+    });
+
+    req.session.sucesso = 'Áreas de interesse salvas com sucesso!';
+    return res.redirect('/candidatos/home');
+
+  } catch (error) {
+    console.error('Erro ao salvar áreas:', error);
+    req.session.erro = 'Erro ao salvar suas áreas de interesse.';
+    return res.redirect('/candidatos/cadastro/areas');
+  }
+};
+
+
 
 exports.telaLocalizacao = (req, res) => {
   res.render('candidatos/localizacao-login-candidato');

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connect Skills - Áreas de Interesse</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/css/shared/style.css">
+  <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
+  <style>
+    :root { --nav-h: 0px !important; }
+    body#home { padding-top: 0 !important; }
+    .skill-pill {
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid #dee2e6;
+      color: #495057;
+      background-color: #f8f9fa;
+      font-size: 0.9rem;
+      user-select: none;
+    }
+    
+    .skill-pill:hover {
+      background-color: #e9ecef;
+      transform: translateY(-1px);
+    }
+
+    /* Estado Selecionado (Roxo estilo Connect Skills) */
+    .skill-pill.selected {
+      background-color: #6f42c1; /* Roxo bootstrap ou a cor da sua marca */
+      border-color: #6f42c1;
+      color: white;
+    }
+
+    .skills-container {
+      max-height: 400px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+  </style>
+</head>
+<body class="d-flex flex-column min-vh-100 bg-white">
+  
+  <%- include('../partials/header') %>
+  <%- include('../partials/flash-messages') %>
+
+  <main class="flex-grow-1 d-flex flex-column justify-content-center align-items-center px-3 py-5">
+    
+    <div class="w-100" style="max-width: 600px;">
+      <h1 class="text-center mb-2">Quais suas especialidades?</h1>
+      <p class="text-center text-muted mb-4">Selecione as tecnologias e habilidades que você domina.</p>
+
+      <form action="/candidatos/cadastro/areas" method="POST" id="formAreas">
+        
+        <div class="input-group mb-4">
+          <span class="input-group-text bg-white border-end-0 rounded-start-pill">
+            <i class="bi bi-search"></i>
+          </span>
+          <input type="text" id="buscaSkill" class="form-control border-start-0 rounded-end-pill" placeholder="Pesquisar habilidade (ex: Java, Vendas...)">
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 justify-content-center mb-4 skills-container p-2">
+          <% habilidades.forEach(function(skill) { %>
+            <div class="badge rounded-pill py-2 px-3 fw-normal skill-pill" 
+                 data-value="<%= skill %>"
+                 onclick="toggleSkill(this)">
+              <%= skill %>
+            </div>
+          <% }); %>
+        </div>
+        
+        <input type="hidden" name="areasSelecionadas" id="inputAreasSelecionadas">
+
+        <div class="d-grid gap-2">
+          <button type="submit" class="btn btn-primary rounded-pill py-2 fw-bold" onclick="prepararEnvio(event)">
+            Concluir Cadastro <i class="bi bi-arrow-right ms-2"></i>
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </main>
+
+  <script>
+    const selecionadas = new Set();
+    const inputBusca = document.getElementById('buscaSkill');
+    const pills = document.querySelectorAll('.skill-pill');
+
+    // Filtro de busca
+    inputBusca.addEventListener('input', (e) => {
+      const termo = e.target.value.toLowerCase();
+      pills.forEach(pill => {
+        const texto = pill.textContent.toLowerCase();
+        if (texto.includes(termo)) {
+          pill.classList.remove('d-none');
+        } else {
+          pill.classList.add('d-none');
+        }
+      });
+    });
+
+    // Função de Seleção
+    function toggleSkill(elemento) {
+      const valor = elemento.getAttribute('data-value');
+      
+      if (selecionadas.has(valor)) {
+        selecionadas.delete(valor);
+        elemento.classList.remove('selected');
+      } else {
+        selecionadas.add(valor);
+        elemento.classList.add('selected');
+      }
+    }
+
+    // Preparar o JSON antes de enviar
+    function prepararEnvio(e) {
+      if (selecionadas.size === 0) {
+        e.preventDefault();
+        alert('Por favor, selecione pelo menos uma área de interesse.');
+        return;
+      }
+      const arrayFinal = Array.from(selecionadas);
+      document.getElementById('inputAreasSelecionadas').value = JSON.stringify(arrayFinal);
+    }
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

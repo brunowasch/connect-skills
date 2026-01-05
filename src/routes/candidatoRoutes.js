@@ -16,17 +16,17 @@ router.get('/cadastro/google/complementar', ensureUsuarioCandidato, candidatoCon
 router.post('/complementar', ensureUsuarioCandidato, candidatoController.complementarGoogle);
 
 // Outras etapas do cadastro padrão
-router.get('/localizacao', ensureCandidato, candidatoController.telaLocalizacao);
-router.post('/localizacao', ensureCandidato, candidatoController.salvarLocalizacao);
+//router.get('/localizacao', ensureCandidato, candidatoController.telaLocalizacao);
+//router.post('/localizacao', ensureCandidato, candidatoController.salvarLocalizacao);
 
-router.get('/telefone', ensureCandidato, candidatoController.telaTelefone);
-router.post('/telefone', ensureCandidato, candidatoController.salvarTelefone);
+//router.get('/telefone', ensureCandidato, candidatoController.telaTelefone);
+//router.post('/telefone', ensureCandidato, candidatoController.salvarTelefone);
 
-router.get('/cadastro/foto-perfil', ensureCandidato, candidatoController.telaFotoPerfil);
-router.post('/cadastro/foto-perfil', ensureCandidato, uploadCandidato.single('novaFoto'), candidatoController.salvarFotoPerfil);
+//router.get('/cadastro/foto-perfil', ensureCandidato, candidatoController.telaFotoPerfil);
+//router.post('/cadastro/foto-perfil', ensureCandidato, uploadCandidato.single('novaFoto'), candidatoController.salvarFotoPerfil);
 
-router.get('/cadastro/areas', ensureCandidato, candidatoController.telaSelecionarAreas);
-router.post('/cadastro/areas', ensureCandidato, candidatoController.salvarAreas);
+router.get('/cadastro/areas', ensureCandidato, candidatoController.telaCadastroAreas);
+router.post('/cadastro/areas', ensureCandidato, candidatoController.salvarCadastroAreas);
 
 router.get('/perfil/:id', withEncodedParam('id'), candidatoController.perfilPublicoCandidato);
 

@@ -32,10 +32,10 @@
   <main id="content-main" class="container">
     <%
       const user = (typeof usuario !== 'undefined' && usuario) ? usuario : {};
-      const cand = (typeof candidato !== 'undefined' && candidato) ? candidato : {};
+      const cand = (typeof candidato !== 'undefined') ? candidato : {};
 
-      const nomeUser  = user?.nome || cand?.nome || 'Candidato';
-      const sobrenome = user?.sobrenome || cand?.sobrenome || '';
+      const nomeUser  = cand?.nome || 'Candidato';
+      const sobrenome = cand?.sobrenome || '';
 
       const localidadeResolved =
         (typeof candLocalidade !== 'undefined' && candLocalidade)
@@ -80,11 +80,11 @@
 
       const _vagas = (typeof vagas !== 'undefined' && Array.isArray(vagas)) ? vagas : [];
 
-      const areasSel            = _areas;
+      const areasSel = cand?.candidato_area || [];
       const linksPerf           = _links;
       const anexosList          = _anexos;
-      const historicoAplicacoes = _historico; // aplicações (vaga_avaliacao)
-      const vagasRecomendadas   = _vagas;     // vagas recomendadas
+      const historicoAplicacoes = (typeof historico !== 'undefined') ? historico : [];
+      const vagasRecomendadas   = (typeof vagas !== 'undefined') ? vagas : [];
 
       // --- Telefone (usa DDD + número, com fallback do próprio cand.telefone) ---
       const hasDDD = (typeof ddd !== 'undefined') && String(ddd || '').trim() !== '';
@@ -133,7 +133,7 @@
             alt="Foto do perfil"
           >
           <div>
-            <div class="h4 m-0">Olá, <%= nomeUser %> <%= sobrenome %> 👋</div>
+            <div class="h4 m-0">Olá, <%= candidato.nome %> <%= candidato.sobrenome %>! 👋</div>
             <div class="small muted">
               <i class="bi bi-geo-alt me-1"></i> <%= localidadeResolved %>
             </div>
@@ -212,18 +212,16 @@
           </div>
 
           <% if (!areasSel || !areasSel.length) { %>
-            <div class="card-ghost p-4 rounded-2xl text-center w-100">
-              <div class="muted">Você ainda não selecionou áreas.</div>
-              <a class="btn btn-primary btn-sm mt-2" href="/candidato/editar-areas">
-                Selecionar áreas
-              </a>
-            </div>
+              <div class="card-ghost p-4 rounded-2xl text-center w-100">
+                <div class="muted">Você ainda não selecionou áreas.</div>
+                <a class="btn btn-primary btn-sm mt-2" href="/candidatos/cadastro/areas">Selecionar áreas</a>
+              </div>
           <% } else { %>
-            <div class="grid-areas justify-content-center w-100">
-              <% areasSel.slice(0, 6).forEach(function (a) { %>
-                <span class="pill"><%= a %></span>
-              <% }) %>
-            </div>
+              <div class="grid-areas justify-content-center w-100">
+                <% areasSel.slice(0, 6).forEach(function (rel) { %>
+                  <span class="pill"><%= rel.area_interesse?.nome %></span>
+                <% }) %>
+              </div>
           <% } %>
         </div>
       </div>
