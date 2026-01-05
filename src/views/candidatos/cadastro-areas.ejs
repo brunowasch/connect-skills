@@ -51,77 +51,92 @@
       <h1 class="text-center mb-2">Quais suas especialidades?</h1>
       <p class="text-center text-muted mb-4">Selecione as tecnologias e habilidades que você domina.</p>
 
-      <form action="/candidatos/cadastro/areas" method="POST" id="formAreas">
-        
-        <div class="input-group mb-4">
-          <span class="input-group-text bg-white border-end-0 rounded-start-pill">
-            <i class="bi bi-search"></i>
-          </span>
-          <input type="text" id="buscaSkill" class="form-control border-start-0 rounded-end-pill" placeholder="Pesquisar habilidade (ex: Java, Vendas...)">
-        </div>
+      <form action="/candidatos/cadastro/areas" method="POST" id="formAreas" onsubmit="prepararEnvio(event)">
+    
+          <div class="input-group mb-4">
+              <span class="input-group-text bg-white border-end-0 rounded-start-pill">
+                  <i class="bi bi-search"></i>
+              </span>
+              <input type="text" id="buscaSkill" class="form-control border-start-0 rounded-end-pill" placeholder="Pesquisar habilidade..." onkeyup="filtrarSkills()">
+          </div>
 
-        <div class="d-flex flex-wrap gap-2 justify-content-center mb-4 skills-container p-2">
-          <% habilidades.forEach(function(skill) { %>
-            <div class="badge rounded-pill py-2 px-3 fw-normal skill-pill" 
-                 data-value="<%= skill %>"
-                 onclick="toggleSkill(this)">
-              <%= skill %>
-            </div>
-          <% }); %>
-        </div>
-        
-        <input type="hidden" name="areasSelecionadas" id="inputAreasSelecionadas">
+          <div class="d-flex flex-wrap gap-2 justify-content-center mb-4 skills-container p-2">
+              <% habilidades.forEach(function(skill) { %>
+              <div class="badge rounded-pill py-2 px-3 fw-normal skill-pill" 
+                  style="cursor: pointer; border: 1px solid #ccc; color: #333;"
+                  data-value="<%= skill %>"
+                  onclick="toggleSkill(this)">
+                  <%= skill %>
+              </div>
+              <% }); %>
+          </div>
+          
+          <input type="hidden" name="areasSelecionadas" id="inputAreasSelecionadas">
 
-        <div class="d-grid gap-2">
-          <button type="submit" class="btn btn-primary rounded-pill py-2 fw-bold" onclick="prepararEnvio(event)">
-            Concluir Cadastro <i class="bi bi-arrow-right ms-2"></i>
-          </button>
-        </div>
+          <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary rounded-pill py-2 fw-bold">
+                  Concluir Cadastro <i class="bi bi-arrow-right ms-2"></i>
+              </button>
+          </div>
       </form>
     </div>
 
   </main>
 
   <script>
+    // 1. Estado da aplicação
     const selecionadas = new Set();
     const inputBusca = document.getElementById('buscaSkill');
     const pills = document.querySelectorAll('.skill-pill');
+    const inputHidden = document.getElementById('inputAreasSelecionadas');
 
-    // Filtro de busca
-    inputBusca.addEventListener('input', (e) => {
-      const termo = e.target.value.toLowerCase();
-      pills.forEach(pill => {
-        const texto = pill.textContent.toLowerCase();
-        if (texto.includes(termo)) {
-          pill.classList.remove('d-none');
-        } else {
-          pill.classList.add('d-none');
-        }
+    // 2. Filtro de busca (Habilidades)
+    if (inputBusca) {
+      inputBusca.addEventListener('input', (e) => {
+        const termo = e.target.value.toLowerCase();
+        pills.forEach(pill => {
+          const texto = pill.textContent.toLowerCase();
+          // Usa d-none do bootstrap para esconder
+          pill.classList.toggle('d-none', !texto.includes(termo));
+        });
       });
-    });
+    }
 
-    // Função de Seleção
+    // 3. Função de Seleção (Alternar entre selecionado ou não)
     function toggleSkill(elemento) {
       const valor = elemento.getAttribute('data-value');
       
       if (selecionadas.has(valor)) {
         selecionadas.delete(valor);
-        elemento.classList.remove('selected');
+        elemento.classList.remove('selected', 'bg-primary', 'text-white');
       } else {
+        // Limite opcional: se quiser limitar a 5 áreas, por exemplo:
+        // if (selecionadas.size >= 5) return alert('Máximo de 5 áreas');
+        
         selecionadas.add(valor);
-        elemento.classList.add('selected');
+        elemento.classList.add('selected', 'bg-primary', 'text-white');
       }
+      
+      // Atualiza o input hidden em tempo real para garantir que o dado esteja lá
+      const arrayFinal = Array.from(selecionadas);
+      inputHidden.value = JSON.stringify(arrayFinal);
+      console.log("Áreas selecionadas:", inputHidden.value);
     }
 
-    // Preparar o JSON antes de enviar
+    // 4. Preparar o JSON e validar antes de enviar
     function prepararEnvio(e) {
       if (selecionadas.size === 0) {
-        e.preventDefault();
+        e.preventDefault(); // Impede o recarregamento da página
         alert('Por favor, selecione pelo menos uma área de interesse.');
-        return;
+        return false;
       }
+
+      // Garante que o valor final seja um JSON válido no input
       const arrayFinal = Array.from(selecionadas);
-      document.getElementById('inputAreasSelecionadas').value = JSON.stringify(arrayFinal);
+      inputHidden.value = JSON.stringify(arrayFinal);
+      
+      // Se chegou aqui, o formulário será enviado normalmente para o controller
+      return true;
     }
   </script>
 

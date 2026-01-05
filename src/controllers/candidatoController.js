@@ -263,18 +263,41 @@ exports.salvarCadastroAreas = async (req, res) => {
   const usuario_id = req.session.usuario?.id;
 
   try {
+    // 1. Validação de Sessão
     if (!usuario_id) {
       req.session.erro = 'Sessão expirada. Faça login novamente.';
       return res.redirect('/login');
     }
 
-    let areasSelecionadas = req.body.areasSelecionadas;
+    // 2. Parse do Input
+    let { areasSelecionadas } = req.body;
+    
+    // Log para depuração (veja isso no seu terminal)
+    console.log("Input recebido (RAW):", areasSelecionadas);
 
-    if (typeof areasSelecionadas === 'string') {
-      areasSelecionadas = JSON.parse(areasSelecionadas);
+    if (!areasSelecionadas) {
+        req.session.erro = 'Nenhuma área selecionada.';
+        return res.redirect('/candidatos/cadastro/areas');
     }
 
-    // Buscar candidato
+    if (typeof areasSelecionadas === 'string') {
+      try {
+        areasSelecionadas = JSON.parse(areasSelecionadas);
+      } catch (e) {
+        // Se falhar o parse, tenta usar como string única ou array simples
+        console.error("Erro ao fazer parse do JSON:", e);
+        areasSelecionadas = [areasSelecionadas]; 
+      }
+    }
+
+    // Garante que é um array
+    if (!Array.isArray(areasSelecionadas)) {
+        areasSelecionadas = [areasSelecionadas];
+    }
+
+    console.log("Áreas processadas:", areasSelecionadas);
+
+    // 3. Buscar candidato
     const candidato = await prisma.candidato.findUnique({
       where: { usuario_id: Number(usuario_id) }
     });
@@ -284,43 +307,60 @@ exports.salvarCadastroAreas = async (req, res) => {
       return res.redirect('/candidatos/cadastro/areas');
     }
 
-    // Buscar IDs das áreas pelo NOME
-    const areas = await prisma.area_interesse.findMany({
-      where: {
-        nome: {
-          in: areasSelecionadas
-        }
-      },
-      select: { id: true }
+    // --- CORREÇÃO PRINCIPAL AQUI ---
+    // Em vez de só buscar e falhar se não achar, vamos buscar os IDs.
+    // Se o ID não existir, precisamos decidir: ou cria ou avisa.
+    // Para facilitar seu teste, vamos criar lógica de "Encontrar ou Criar" (Upsert logic simulada)
+    
+    // Primeiro, busca as que já existem
+    const areasExistentes = await prisma.area_interesse.findMany({
+      where: { nome: { in: areasSelecionadas } }
     });
+    
+    // Cria uma lista de IDs
+    const idsParaSalvar = [...areasExistentes.map(a => a.id)];
 
-    if (areas.length === 0) {
-      req.session.erro = 'Nenhuma área válida foi encontrada.';
+    // Se você quiser que o sistema aceite qualquer coisa que o usuário enviou
+    // e crie no banco se não existir (Recomendado se a lista hardcoded for a fonte da verdade):
+    const nomesExistentes = areasExistentes.map(a => a.nome);
+    const nomesFaltantes = areasSelecionadas.filter(nome => !nomesExistentes.includes(nome));
+
+    for (const nomeNovaArea of nomesFaltantes) {
+        if(nomeNovaArea && nomeNovaArea.trim() !== "") {
+            const novaArea = await prisma.area_interesse.create({
+                data: { nome: nomeNovaArea, padrao: true } // Ajuste 'padrao' conforme seu schema
+            });
+            idsParaSalvar.push(novaArea.id);
+        }
+    }
+    
+    console.log("IDs finais para salvar:", idsParaSalvar);
+
+    if (idsParaSalvar.length === 0) {
+      req.session.erro = 'Nenhuma área válida foi processada. O banco de dados pode estar vazio.';
       return res.redirect('/candidatos/cadastro/areas');
     }
 
-    // Limpa áreas antigas
-    await prisma.candidato_area.deleteMany({
-      where: { candidato_id: candidato.id }
-    });
-
-    // Monta dados corretos (INT, não STRING)
-    const dados = areas.map(area => ({
-      candidato_id: candidato.id,
-      area_interesse_id: area.id
-    }));
-
-    // Salva
-    await prisma.candidato_area.createMany({
-      data: dados
-    });
+    // 4. Limpa e Salva
+    // Transaction garante que apaga e cria junto
+    await prisma.$transaction([
+        prisma.candidato_area.deleteMany({
+            where: { candidato_id: candidato.id }
+        }),
+        prisma.candidato_area.createMany({
+            data: idsParaSalvar.map(id => ({
+                candidato_id: candidato.id,
+                area_interesse_id: id
+            }))
+        })
+    ]);
 
     req.session.sucesso = 'Áreas de interesse salvas com sucesso!';
     return res.redirect('/candidatos/home');
 
   } catch (error) {
-    console.error('Erro ao salvar áreas:', error);
-    req.session.erro = 'Erro ao salvar suas áreas de interesse.';
+    console.error('Erro CRÍTICO ao salvar áreas:', error);
+    req.session.erro = 'Erro interno ao salvar suas áreas.';
     return res.redirect('/candidatos/cadastro/areas');
   }
 };
