@@ -149,16 +149,19 @@
 
     <section class="card border-0 shadow-sm p-3 p-md-4 mb-4 card-section">
       <div class="row g-4">
-        <div class="col-12 col-lg-4">
-          <h6>Áreas de atuação</h6>
-          <ul class="list-inline gap-2">
-            <% const areas = (vaga?.vaga_area || []).map(a => a?.area_interesse?.nome).filter(Boolean); %>
-            <% if (!areas.length) { %>
-              <li class="text-muted">Não informado</li>
-            <% } else { areas.forEach(n => { %>
-              <li class="list-inline-item badge text-bg-primary"><%= n %></li>
-            <% }) } %>
-          </ul>
+        <div class="mb-4">
+          <h6 class="fw-bold mb-2">Áreas de Atuação</h6>
+          <div class="d-flex flex-wrap gap-2">
+            <% if (vaga.vaga_area && vaga.vaga_area.length > 0) { %>
+              <% vaga.vaga_area.forEach(va => { %>
+                <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
+                  <%= va.area_interesse ? va.area_interesse.nome : 'Área' %>
+                </span>
+              <% }) %>
+            <% } else { %>
+              <p class="text-muted small mb-0">Não informado</p>
+            <% } %>
+          </div>
         </div>
 
         <div class="col-12 col-lg-4">

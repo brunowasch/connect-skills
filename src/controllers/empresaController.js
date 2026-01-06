@@ -695,7 +695,6 @@ exports.salvarVaga = async (req, res) => {
 
       // 1) áreas existentes
       for (const id of idsAreas) {
-        if (limitIds.length >= 3) break;
         if (!Number.isFinite(id)) continue;
         if (!limitIds.includes(id)) {
           limitIds.push(id);
