@@ -1091,18 +1091,25 @@ exports.salvarEditarVaga = async (req, res) => {
     });
 
     // ---------- Recria relações (máx. 3 áreas) ----------
-    const areaIdsLimitadas = areaIds.slice(0, 3);
-    if (areaIdsLimitadas.length) {
-      await prisma.vaga_area.createMany({
-        data: areaIdsLimitadas.map((id) => ({
-          vaga_id: vagaId,
-          area_interesse_id: id,
-        })),
-      });
-    }
+    const areaIdsUnicos = [...new Set(areaIds)];
+    if (areaIdsUnicos.length) {
+          await prisma.vaga_area.createMany({
+            data: areaIdsUnicos.map((id) => ({
+              vaga_id: vagaId,
+              area_interesse_id: id,
+            })),
+            skipDuplicates: true, // Segurança extra contra erros de Pkey
+          });
+        }
     if (skillIds.length) {
+      // Também garantimos IDs únicos para as skills
+      const skillIdsUnicos = [...new Set(skillIds)];
       await prisma.vaga_soft_skill.createMany({
-        data: skillIds.map((id) => ({ vaga_id: vagaId, soft_skill_id: id })),
+        data: skillIdsUnicos.map((id) => ({ 
+          vaga_id: vagaId, 
+          soft_skill_id: id 
+        })),
+        skipDuplicates: true,
       });
     }
 
