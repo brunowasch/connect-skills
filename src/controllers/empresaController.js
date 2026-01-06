@@ -62,10 +62,9 @@ exports.telaNomeEmpresa = (req, res) => {
 exports.salvarNomeEmpresa = async (req, res) => {
   try {
     const usuario_id = req.session.usuario.id;
-
     const { nome_empresa, descricao } = req.body;
 
-    // Verificação de segurança (garante que a sessão existe)
+    // Verificação de segurança
     if (!usuario_id) {
       req.session.erro = "Sessão inválida. Faça login novamente.";
       return res.redirect("/login");
@@ -76,21 +75,49 @@ exports.salvarNomeEmpresa = async (req, res) => {
       return res.redirect(`/empresas/nome-empresa`);
     }
 
-    const empresaExistente = await empresaModel.obterEmpresaPorUsuarioId(
-      usuario_id
-    );
+    // Verifica se já existe
+    const empresaExistente = await empresaModel.obterEmpresaPorUsuarioId(usuario_id);
     if (empresaExistente) {
-      req.session.erro = "Perfil de empresa já cadastrado.";
+      req.session.empresa = empresaExistente;
+      req.session.usuario.tipo = 'empresa';
       return res.redirect("/empresas/home");
     }
 
+    // 1. Cria a empresa no Banco
     await empresaModel.criarEmpresa({
       usuario_id: Number(usuario_id),
       nome_empresa,
       descricao,
     });
 
-    return res.redirect(`/empresas/localizacao`);
+    // 2. Busca a empresa recém-criada para pegar o ID e dados completos
+    const novaEmpresa = await prisma.empresa.findUnique({
+      where: { usuario_id: Number(usuario_id) }
+    });
+
+    // 3. Configura a Sessão (Login da Empresa)
+    req.session.empresa = {
+      id: novaEmpresa.id,
+      usuario_id: novaEmpresa.usuario_id,
+      nome_empresa: novaEmpresa.nome_empresa,
+      descricao: novaEmpresa.descricao,
+      cidade: novaEmpresa.cidade || "",
+      estado: novaEmpresa.estado || "",
+      pais: novaEmpresa.pais || "",
+      telefone: novaEmpresa.telefone || "",
+      foto_perfil: novaEmpresa.foto_perfil || "",
+    };
+    
+    req.session.usuario = {
+      ...req.session.usuario,
+      tipo: "empresa",
+      nome: novaEmpresa.nome_empresa,
+    };
+
+    req.session.sucessoCadastro = "Perfil criado com sucesso!";
+    
+    return req.session.save(() => res.redirect("/empresas/home"));
+
   } catch (err) {
     console.error("Erro ao inserir empresa:", err);
     req.session.erro = "Erro ao salvar os dados da empresa.";
@@ -2218,6 +2245,7 @@ exports.salvarComplementarGoogle = async (req, res) => {
       return res.redirect("/empresas/complementar");
     }
 
+    // Lógica de tratamento de telefone e endereço (mantida)
     const partes = (localidade || "").split(",").map((p) => norm(p));
     const [cidade = "", estado = "", pais = ""] =
       partes.length === 3
@@ -2266,6 +2294,7 @@ exports.salvarComplementarGoogle = async (req, res) => {
       },
     });
 
+    // Configura a sessão
     req.session.empresa = {
       id: empresa.id,
       usuario_id,
@@ -2283,12 +2312,11 @@ exports.salvarComplementarGoogle = async (req, res) => {
       nome: empresa.nome_empresa,
     };
 
-    const temFoto = Boolean(
-      empresa.foto_perfil && empresa.foto_perfil.trim() !== ""
-    );
-
+    // ALTERAÇÃO AQUI: Redireciona para Home em vez de foto-perfil
+    req.session.sucessoCadastro = "Cadastro completado com sucesso!";
     await new Promise((r) => req.session.save(r));
-    return res.redirect("/empresas/foto-perfil");
+    return res.redirect("/empresas/home");
+
   } catch (e) {
     console.error("[salvarComplementarGoogle][empresa] erro:", e);
     req.session.erro = "Erro ao salvar informações da empresa.";
