@@ -11,32 +11,76 @@
   <style>
     :root { --nav-h: 0px !important; }
     body#home { padding-top: 0 !important; }
-    .skill-pill {
+    
+    /* Área onde ficam as tags selecionadas */
+    .selected-area {
+      min-height: 50px;
+      border: 1px dashed #dee2e6;
+      background-color: #fcfcfc;
+      transition: all 0.2s;
+    }
+    
+    .selected-area.has-items {
+      border: 1px solid #dee2e6;
+      background-color: #fff;
+    }
+
+    .selected-tag {
+      background-color: #0084ff;
+      color: white;
+      font-size: 0.9rem;
+      padding: 6px 12px;
+      border-radius: 50px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      animation: fadeIn 0.2s ease-in-out;
+    }
+
+    .selected-tag i {
+      cursor: pointer;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+    
+    .selected-tag i:hover {
+      opacity: 1;
+    }
+
+    /* Itens da lista de sugestões */
+    .skill-option {
       cursor: pointer;
       transition: all 0.2s ease;
       border: 1px solid #dee2e6;
       color: #495057;
-      background-color: #f8f9fa;
+      background-color: #fff;
       font-size: 0.9rem;
       user-select: none;
     }
     
-    .skill-pill:hover {
-      background-color: #e9ecef;
-      transform: translateY(-1px);
+    .skill-option:hover {
+      border-color: #6f42c1;
+      color: #6f42c1;
+      background-color: #f3e8ff; /* Roxo bem clarinho */
     }
 
-    /* Estado Selecionado (Roxo estilo Connect Skills) */
-    .skill-pill.selected {
-      background-color: #6f42c1; /* Roxo bootstrap ou a cor da sua marca */
-      border-color: #6f42c1;
-      color: white;
+    /* Quando o item já está selecionado lá em cima, ele fica "apagado" na lista de baixo */
+    .skill-option.active-in-list {
+      opacity: 0.5;
+      background-color: #e9ecef;
+      pointer-events: none; /* Impede clicar de novo */
+      border-color: transparent;
     }
 
     .skills-container {
-      max-height: 400px;
+      max-height: 300px;
       overflow-y: auto;
       scrollbar-width: thin;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
     }
   </style>
 </head>
@@ -47,35 +91,42 @@
 
   <main class="flex-grow-1 d-flex flex-column justify-content-center align-items-center px-3 py-5">
     
-    <div class="w-100" style="max-width: 600px;">
+    <div class="w-100" style="max-width: 650px;">
       <h1 class="text-center mb-2">Quais suas especialidades?</h1>
-      <p class="text-center text-muted mb-4">Selecione as tecnologias e habilidades que você domina.</p>
+      <p class="text-center text-muted mb-4">Selecione as tecnologias para adicionar ao seu perfil.</p>
 
       <form action="/candidatos/cadastro/areas" method="POST" id="formAreas" onsubmit="prepararEnvio(event)">
-    
-          <div class="input-group mb-4">
-              <span class="input-group-text bg-white border-end-0 rounded-start-pill">
-                  <i class="bi bi-search"></i>
-              </span>
-              <input type="text" id="buscaSkill" class="form-control border-start-0 rounded-end-pill" placeholder="Pesquisar habilidade..." onkeyup="filtrarSkills()">
+          
+          <div class="mb-2">
+            <label class="form-label small text-muted fw-bold ms-1">Áreas selecionadas:</label>
+            <div id="selected-container" class="selected-area rounded-3 p-2 d-flex flex-wrap gap-2 align-items-center">
+              <span id="placeholder-text" class="text-muted small ms-2">Nenhuma habilidade selecionada...</span>
+              </div>
           </div>
 
-          <div class="d-flex flex-wrap gap-2 justify-content-center mb-4 skills-container p-2">
+          <div class="input-group mb-3">
+              <span class="input-group-text bg-white border-end-0 rounded-start-pill ps-3">
+                  <i class="bi bi-search text-muted"></i>
+              </span>
+              <input type="text" id="buscaSkill" class="form-control border-start-0 rounded-end-pill" placeholder="Buscar habilidade (ex: Java, Marketing...)" onkeyup="filtrarSkills()">
+          </div>
+
+          <label class="form-label small text-muted fw-bold ms-1">Áreas de Atuação:</label>
+          <div class="d-flex flex-wrap gap-2 justify-content-center mb-4 skills-container p-2 border rounded-3 bg-light">
               <% habilidades.forEach(function(skill) { %>
-              <div class="badge rounded-pill py-2 px-3 fw-normal skill-pill" 
-                  style="cursor: pointer; border: 1px solid #ccc; color: #333;"
+              <div class="badge rounded-pill py-2 px-3 fw-normal skill-option" 
                   data-value="<%= skill %>"
-                  onclick="toggleSkill(this)">
-                  <%= skill %>
+                  onclick="addSkill('<%= skill %>')">
+                  <i class="bi bi-plus text-secondary me-1"></i><%= skill %>
               </div>
               <% }); %>
           </div>
           
           <input type="hidden" name="areasSelecionadas" id="inputAreasSelecionadas">
 
-          <div class="d-grid gap-2">
-              <button type="submit" class="btn btn-primary rounded-pill py-2 fw-bold">
-                  Concluir Cadastro <i class="bi bi-arrow-right ms-2"></i>
+          <div class="d-grid gap-2 mt-4">
+              <button type="submit" class="btn btn-primary rounded-pill py-3 fw-bold shadow-sm">
+                  Concluir Cadastro <i class="bi bi-check-lg ms-2"></i>
               </button>
           </div>
       </form>
@@ -87,55 +138,110 @@
     // 1. Estado da aplicação
     const selecionadas = new Set();
     const inputBusca = document.getElementById('buscaSkill');
-    const pills = document.querySelectorAll('.skill-pill');
     const inputHidden = document.getElementById('inputAreasSelecionadas');
+    const selectedContainer = document.getElementById('selected-container');
+    const placeholderText = document.getElementById('placeholder-text');
+    const optionPills = document.querySelectorAll('.skill-option');
 
-    // 2. Filtro de busca (Habilidades)
+    // 2. Filtro de busca
     if (inputBusca) {
       inputBusca.addEventListener('input', (e) => {
         const termo = e.target.value.toLowerCase();
-        pills.forEach(pill => {
+        optionPills.forEach(pill => {
           const texto = pill.textContent.toLowerCase();
-          // Usa d-none do bootstrap para esconder
+          // Remove ícone do texto para comparação se necessário, mas includes resolve
           pill.classList.toggle('d-none', !texto.includes(termo));
         });
       });
     }
 
-    // 3. Função de Seleção (Alternar entre selecionado ou não)
-    function toggleSkill(elemento) {
-      const valor = elemento.getAttribute('data-value');
+    // 3. Adicionar Habilidade (Da lista para o topo)
+    function addSkill(valor) {
+      if (selecionadas.has(valor)) return;
+
+      selecionadas.add(valor);
       
-      if (selecionadas.has(valor)) {
-        selecionadas.delete(valor);
-        elemento.classList.remove('selected', 'bg-primary', 'text-white');
-      } else {
-        // Limite opcional: se quiser limitar a 5 áreas, por exemplo:
-        // if (selecionadas.size >= 5) return alert('Máximo de 5 áreas');
-        
-        selecionadas.add(valor);
-        elemento.classList.add('selected', 'bg-primary', 'text-white');
-      }
+      // Cria a tag visual lá em cima
+      criarTagVisual(valor);
       
-      // Atualiza o input hidden em tempo real para garantir que o dado esteja lá
-      const arrayFinal = Array.from(selecionadas);
-      inputHidden.value = JSON.stringify(arrayFinal);
-      console.log("Áreas selecionadas:", inputHidden.value);
+      // Atualiza visual da lista de baixo (marca como usado)
+      atualizarListaOpcoes(valor, true);
+      
+      atualizarInputHidden();
     }
 
-    // 4. Preparar o JSON e validar antes de enviar
-    function prepararEnvio(e) {
-      if (selecionadas.size === 0) {
-        e.preventDefault(); // Impede o recarregamento da página
-        alert('Por favor, selecione pelo menos uma área de interesse.');
-        return false;
-      }
+    // 4. Remover Habilidade (Do topo)
+    function removeSkill(valor) {
+      selecionadas.delete(valor);
+      
+      // Remove a tag visual do DOM
+      const tag = document.getElementById(`tag-${valor}`);
+      if (tag) tag.remove();
+      
+      // Verifica se ficou vazio para mostrar o placeholder
+      verificarPlaceholder();
+      
+      // Reabilita o botão na lista de baixo
+      atualizarListaOpcoes(valor, false);
+      
+      atualizarInputHidden();
+    }
 
-      // Garante que o valor final seja um JSON válido no input
+    // --- Funções Auxiliares ---
+
+    function criarTagVisual(valor) {
+      // Esconde o placeholder "Nenhuma habilidade..."
+      placeholderText.style.display = 'none';
+      selectedContainer.classList.add('has-items');
+
+      const tag = document.createElement('div');
+      tag.className = 'selected-tag';
+      tag.id = `tag-${valor}`;
+      tag.innerHTML = `
+        <span>${valor}</span>
+        <i class="bi bi-x-circle-fill" onclick="removeSkill('${valor}')" title="Remover"></i>
+      `;
+      selectedContainer.appendChild(tag);
+    }
+
+    function verificarPlaceholder() {
+      if (selecionadas.size === 0) {
+        placeholderText.style.display = 'block';
+        selectedContainer.classList.remove('has-items');
+      }
+    }
+
+    function atualizarListaOpcoes(valor, selecionado) {
+      // Encontra o elemento na lista de baixo pelo data-value
+      const opcao = document.querySelector(`.skill-option[data-value="${valor}"]`);
+      if (opcao) {
+        if (selecionado) {
+          opcao.classList.add('active-in-list');
+          opcao.innerHTML = `<i class="bi bi-check-circle-fill me-1" style="color: #0084ff;"></i>${valor}`;
+        } else {
+          opcao.classList.remove('active-in-list');
+          opcao.innerHTML = `<i class="bi bi-plus text-secondary me-1"></i>${valor}`;
+        }
+      }
+    }
+
+    function atualizarInputHidden() {
       const arrayFinal = Array.from(selecionadas);
       inputHidden.value = JSON.stringify(arrayFinal);
-      
-      // Se chegou aqui, o formulário será enviado normalmente para o controller
+    }
+
+    // 5. Preparar o envio
+    function prepararEnvio(e) {
+      if (selecionadas.size === 0) {
+        e.preventDefault();
+        // Feedback visual mais elegante que um alert
+        selectedContainer.style.borderColor = '#dc3545';
+        selectedContainer.classList.add('shake-animation'); // Opcional se tivesse CSS de animação
+        alert('Por favor, selecione pelo menos uma área de interesse.');
+        setTimeout(() => selectedContainer.style.borderColor = '#dee2e6', 2000);
+        return false;
+      }
+      atualizarInputHidden();
       return true;
     }
   </script>
