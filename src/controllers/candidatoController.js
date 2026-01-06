@@ -635,7 +635,8 @@ exports.telaHomeCandidato = async (req, res) => {
       telefone: candDb.telefone,
       foto_perfil: candDb.foto_perfil || "/img/avatar.png",
       localidade: localidadeBanco,
-      areas: areasNomes 
+      areas: areasNomes,
+      data_nascimento: candDb.data_nascimento
     };
 
     // 3) Vagas recomendadas (usa o ID do CANDIDATO para buscar)

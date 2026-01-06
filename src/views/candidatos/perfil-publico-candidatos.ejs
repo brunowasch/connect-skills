@@ -119,7 +119,7 @@ function toViewUrl(u) {
               : (candidato?.data_nascimento ? new Date(candidato.data_nascimento) : null);
 
             const dnStr = dn && !isNaN(dn.getTime())
-              ? dn.toLocaleDateString('pt-BR')
+              ? dn.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
               : '';
           %>
           <p class="mb-1 muted">

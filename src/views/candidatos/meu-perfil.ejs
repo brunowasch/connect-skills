@@ -86,7 +86,7 @@
               <span>
                 Data de nascimento:
                 <% if (candidato.data_nascimento) { %>
-                  <%= new Date(candidato.data_nascimento).toLocaleDateString('pt-BR') %>
+                  <%= new Date(candidato.data_nascimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) %>
                 <% } else { %>
                   não informada
                 <% } %>
