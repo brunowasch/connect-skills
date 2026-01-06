@@ -758,6 +758,15 @@ exports.renderMeuPerfil = async (req, res) => {
       [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ')
       || (req.session?.candidato?.localidade || '');
 
+    const dataBase = candidato.data_nascimento || candidato.usuario?.data_nascimento;
+
+    let dataFormatada = "";
+    if (dataBase) {
+      // Converte para objeto Date e formata para o padrão BR considerando o fuso horário correto
+      const dateObj = new Date(dataBase);
+      dataFormatada = dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    }
+
     const arquivos = candidato.candidato_arquivo || [];
     const anexos = arquivos;
 
@@ -1353,21 +1362,38 @@ exports.telaEditarAreas = async (req, res) => {
   if (!sess) return res.redirect('/login');
 
   try {
+    const candidatoId = sess.id; 
+
     const candidato = await prisma.candidato.findUnique({
-      where: { id: sess.id },
-      include: { candidato_area: { include: { area_interesse: true } } }
+      where: { id: candidatoId },
+      include: { 
+        candidato_area: { 
+          include: { area_interesse: true } 
+        } 
+      }
     });
 
-    const areasAtuais = candidato.candidato_area.map(r => r.area_interesse.nome);
-    const todasAsAreas = await prisma.area_interesse.findMany();
-    const outraArea = areasAtuais.includes('Outro') ? areasAtuais.find(area => area !== 'Outro') : null;
+    if (!candidato) {
+      req.session.erro = 'Candidato não encontrado.';
+      return res.redirect('/login');
+    }
+
+    // Mapeia as áreas que o candidato já possui
+    const areasAtuaisObjetos = candidato.candidato_area.map(ca => ({
+      id: ca.area_interesse.id,
+      nome: ca.area_interesse.nome
+    }));
+
+    // Busca todas as opções disponíveis no banco para o sistema de busca
+    const todasOpcoes = await prisma.area_interesse.findMany({
+      orderBy: { nome: 'asc' } // Opcional: traz em ordem alfabética
+    });
 
     res.render('candidatos/editar-areas', {
-      areasAtuais,
-      todasAsAreas,
-      candidatoId: sess.id,
-      outraArea,
-      activePage: 'editar-areas',
+      candidatoId,
+      areasAtuaisObjetos, 
+      todasOpcoes,
+      areasAtuais: areasAtuaisObjetos.map(a => a.nome) 
     });
 
   } catch (err) {
@@ -1378,58 +1404,65 @@ exports.telaEditarAreas = async (req, res) => {
 };
 
 exports.salvarEditarAreas = async (req, res) => {
-  const sess = req.session.candidato;
-  if (!sess) return res.redirect('/login');
-  const candidato_id = Number(sess.id);
+  const sess = req.session.candidato;
+  if (!sess) return res.redirect('/login');
+  const candidato_id = Number(sess.id);
 
-  let nomesSelecionados;
+  let nomesSelecionados;
 
   try {
-    nomesSelecionados = Array.isArray(req.body.areasSelecionadas)
-      ? req.body.areasSelecionadas
-      : JSON.parse(req.body.areasSelecionadas);
-  } catch {
+    // O frontend agora envia uma string JSON de nomes
+    nomesSelecionados = typeof req.body.areasSelecionadas === 'string' 
+      ? JSON.parse(req.body.areasSelecionadas) 
+      : req.body.areasSelecionadas;
+  } catch (err) {
     req.session.erro = 'Formato inválido de áreas selecionadas.';
     return res.redirect('/candidatos/editar-areas');
   }
 
+  // 1. Verificação básica (se vazio)
   if (!Array.isArray(nomesSelecionados) || nomesSelecionados.length === 0) {
-    req.session.erro = 'Nenhuma área foi selecionada.';
+    req.session.erro = 'Selecione ao menos uma área.';
     return res.redirect('/candidatos/editar-areas');
   }
-  if (nomesSelecionados.length > 3) {
-    req.session.erro = 'Você só pode selecionar até 3 áreas.';
-    return res.redirect('/candidatos/editar-areas');
-  }
+
 
   try {
-    const nomesCorrigidos = nomesSelecionados.map(nome => {
-      if (nome === 'Outro') {
-        const outra = req.body.outra_area_input?.trim();
-        if (!outra) {
-          throw new Error("Você selecionou 'Outro', mas não preencheu a nova área.");
-        }
-        return outra;
+    const nomesUnicos = [...new Set(nomesSelecionados)];
+
+    const areasEncontradas = await prisma.area_interesse.findMany({
+      where: {
+        nome: { in: nomesUnicos }
       }
-      return nome;
     });
 
-    const ids = await candidatoModel.buscarIdsDasAreas({ nomes: nomesCorrigidos });
-    if (ids.length !== nomesCorrigidos.length) {
-      req.session.erro = 'Erro ao localizar todas as áreas selecionadas.';
+    if (areasEncontradas.length === 0) {
+      req.session.erro = 'Áreas inválidas selecionadas.';
       return res.redirect('/candidatos/editar-areas');
     }
 
-    await prisma.candidato_area.deleteMany({ where: { candidato_id } });
-    await prisma.candidato_area.createMany({
-      data: ids.map(area_id => ({ candidato_id, area_interesse_id: area_id }))
-    });
+    // 4. Transação para limpar e salvar as novas áreas
+    await prisma.$transaction([
+      // Deleta as áreas antigas do candidato
+      prisma.candidato_area.deleteMany({ 
+        where: { candidato_id } 
+      }),
+      // Cria as novas relações
+      prisma.candidato_area.createMany({
+        data: areasEncontradas.map(area => ({
+          candidato_id: candidato_id,
+          area_interesse_id: area.id
+        })),
+        skipDuplicates: true
+      })
+    ]);
 
-    req.session.sucesso = 'Áreas de interesse atualizadas!';
+    req.session.sucesso = 'Áreas de interesse atualizadas com sucesso!';
     return res.redirect('/candidatos/meu-perfil');
+
   } catch (error) {
-    console.error('Erro ao salvar áreas de interesse:', error.message);
-    req.session.erro = 'Erro ao salvar as áreas de interesse.';
+    console.error('Erro ao salvar áreas de interesse:', error);
+    req.session.erro = 'Não foi possível salvar as alterações.';
     return res.redirect('/candidatos/editar-areas');
   }
 };

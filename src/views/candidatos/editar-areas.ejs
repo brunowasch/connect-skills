@@ -1,4 +1,3 @@
-<!-- editar-areas.ejs -->
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -8,80 +7,161 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <link rel="stylesheet" href="/css/shared/style.css">
-  <link rel="stylesheet" href="/css/candidatos/editar-areas.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
+  <style>
+    :root { --nav-h: 0px !important; }
+    body#home { padding-top: 0 !important; }
+    
+    .tag-area {
+      background-color: #f0f7ff;
+      color: #0d6efd;
+      border: 1px solid #cfe2ff;
+      border-radius: 8px;
+      padding: 8px 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .btn-remover-tag {
+      border: none;
+      background: none;
+      padding: 0;
+      color: #0d6efd;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      font-size: 1.2rem;
+    }
+    .btn-remover-tag:hover { color: #dc3545; }
+    .cursor-pointer { cursor: pointer; }
+  </style>
 </head>
 <body>
   <%- include('../partials/header') %>
   <%- include('../partials/flash-messages') %>
-  <style>
-    :root { --nav-h: 0px !important; }
-    body#home { padding-top: 0 !important; }
-  </style>
-  <main class="container text-center mt-5 pt-5">
-    <h2 class="mb-4">Edite suas Áreas de Interesse</h2>
+
+  <main class="container py-5 mt-5" style="max-width: 700px;">
+    <div class="text-center mb-5">
+      <h2 class="fw-bold text-primary">Edite suas Áreas de Interesse</h2>
+      <p class="text-muted">Pesquise e selecione as áreas em que você deseja atuar.</p>
+    </div>
+
     <form action="/candidato/editar-areas" method="POST" id="formEditarAreas">
       <input type="hidden" name="candidato_id" value="<%= candidatoId %>">
-
-      <h4>Áreas Atuais</h4>
-      <div id="areasSelecionadas" class="d-flex flex-wrap justify-content-center mb-4">
-        <% areasAtuais.forEach(area => { %>
-          <button type="button" class="area-btn selected" data-value="<%= area %>">
-            <%= area %> <i class="bi bi-x-circle"></i>
-          </button>
-        <% }) %>
-      </div>
-
-      <h4>Selecione a seguir três áreas nas quais você deseja trabalhar:</h4>
-      <div id="botoes" class="d-flex flex-wrap justify-content-center mb-2">
-        <% const opcoes = [
-          "Administração", "Agropecuária / Agricultura", "Comunicação / Jornalismo",
-          "Construção Civil", "Design / Criação", "Educação / Ensino", "Engenharia",
-          "Eventos / Produção Cultural", "Finanças / Contabilidade", "Gastronomia / Alimentação",
-          "Hotelaria / Turismo", "Jurídico", "Logística", "Marketing", "Mecânica / Manutenção",
-          "Moda / Estilo", "Meio Ambiente", "Produção / Operacional", "Recursos Humanos (RH)",
-          "Saúde", "Segurança / Vigilância", "Transporte / Motorista", "Tecnologia da Informação"
-        ]; %>
-
-        <% opcoes.forEach(opcao => {
-             if (!areasAtuais.includes(opcao)) { %>
-          <button type="button" class="area-btn m-1" data-value="<%= opcao %>"><%= opcao %></button>
-        <% } }); %>
-      </div>
-
-      <button type="button"
-              id="btnOutro"
-              class="area-btn btn btn-outline-secondary m-1"
-              data-value="Outro">
-        Outro…
-      </button>
-
-      <div id="campoOutroArea" class="mt-3 d-none">
-        <label for="outra_area" class="form-label">Descreva a outra área:</label>
-        <input
-          type="text"
-          id="outra_area"
-          name="outra_area_input"
-          class="form-control mx-auto mb-2"
-          style="max-width: 500px;"
-          placeholder="Digite a nova área"
-        />
-        <div class="d-flex justify-content-center gap-2">
-          <button type="button" id="btnConfirmarOutro" class="btn btn-primary" disabled>Confirmar</button>
-          <button type="button" id="btnCancelarOutro" class="btn btn-secondary">Cancelar</button>
+      
+      <div class="position-relative mb-4">
+        <div class="input-group input-group-lg shadow-sm">
+          <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+          <input type="text" id="busca-area" class="form-control border-start-0" placeholder="Digite para pesquisar uma área...">
         </div>
+        
+        <ul id="lista-sugestoes-area" class="list-group position-absolute w-100 shadow d-none" style="z-index: 1050; max-height: 250px; overflow-y: auto;">
+          </ul>
       </div>
 
-      <input type="hidden" name="areasSelecionadas" id="areasSelecionadasInput">
+      <div class="card border-0 bg-light rounded-4 p-4">
+        <h6 class="text-uppercase small fw-bold text-muted mb-3">Suas áreas selecionadas:</h6>
+        <div id="container-tags-areas" class="d-flex flex-wrap gap-2">
+          </div>
+      </div>
 
-      <div class="mt-4">
-        <button type="button" class="btn btn-secondary mt-4" id="btnCancelar">Cancelar</button>
-        <button type="submit" class="btn btn-continuar mt-4" id="btnContinuar" disabled>Salvar Alterações</button>
+      <input type="hidden" name="areasSelecionadas" id="areas-input">
+
+      <div class="d-flex justify-content-center gap-3 mt-5">
+        <a href="/candidato/meu-perfil" class="btn btn-outline-secondary px-4 py-2">Cancelar</a>
+        <button type="submit" class="btn btn-primary px-5 py-2 fw-bold shadow-sm">Salvar Alterações</button>
       </div>
     </form>
   </main>
 
-  <%- include('../partials/footer') %>
-  <script src="/js/candidatos/editar-areas.js"></script>
+  <script>
+    (function() {
+      // 1. Dados iniciais vindos do servidor
+      const todasAsAreas = <%- JSON.stringify(todasOpcoes || []) %>;
+      // 'areasAtuais' deve vir do controller como um array de objetos {id, nome}
+      let selecionadas = <%- JSON.stringify(areasAtuaisObjetos || []) %>;
+
+      const inputBusca = document.getElementById('busca-area');
+      const listaSugestoes = document.getElementById('lista-sugestoes-area');
+      const containerTags = document.getElementById('container-tags-areas');
+      const hiddenInput = document.getElementById('areas-input');
+
+      // Inicializa
+      renderizarTags();
+
+      // 2. Lógica de Busca
+      inputBusca.addEventListener('input', function() {
+        const termo = this.value.toLowerCase().trim();
+        listaSugestoes.innerHTML = '';
+
+        if (termo.length < 1) {
+          listaSugestoes.classList.add('d-none');
+          return;
+        }
+
+        const filtradas = todasAsAreas.filter(area => 
+          area.nome.toLowerCase().includes(termo) && 
+          !selecionadas.find(s => s.id === area.id)
+        );
+
+        if (filtradas.length > 0) {
+          filtradas.forEach(area => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item list-group-item-action cursor-pointer py-3';
+            li.textContent = area.nome;
+            li.onclick = () => adicionarArea(area);
+            listaSugestoes.appendChild(li);
+          });
+          listaSugestoes.classList.remove('d-none');
+        } else {
+          listaSugestoes.classList.add('d-none');
+        }
+      });
+
+      function adicionarArea(area) {
+        if (!selecionadas.find(s => s.id === area.id)) {
+          selecionadas.push(area);
+          inputBusca.value = '';
+          listaSugestoes.classList.add('d-none');
+          renderizarTags();
+        }
+      }
+
+      window.removerArea = function(id) {
+        selecionadas = selecionadas.filter(a => a.id !== id);
+        renderizarTags();
+      };
+
+      function renderizarTags() {
+        containerTags.innerHTML = '';
+        if (selecionadas.length === 0) {
+            containerTags.innerHTML = '<span class="text-muted italic small">Nenhuma área selecionada.</span>';
+        }
+
+        selecionadas.forEach(area => {
+          const tag = document.createElement('div');
+          tag.className = 'tag-area animate__animated animate__fadeIn';
+          tag.innerHTML = `
+            <span>${area.nome}</span>
+            <button type="button" class="btn-remover-tag" onclick="removerArea(${area.id})">
+              <i class="bi bi-x-circle-fill"></i>
+            </button>
+          `;
+          containerTags.appendChild(tag);
+        });
+
+        // Envia apenas os nomes ou IDs conforme seu backend espera
+        // Se seu backend espera nomes: .map(a => a.nome)
+        // Se espera IDs: .map(a => a.id)
+        hiddenInput.value = JSON.stringify(selecionadas.map(a => a.nome));
+      }
+
+      document.addEventListener('click', (e) => {
+        if (!inputBusca.contains(e.target)) listaSugestoes.classList.add('d-none');
+      });
+    })();
+  </script>
 </body>
 </html>
