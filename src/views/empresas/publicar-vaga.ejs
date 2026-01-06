@@ -49,12 +49,12 @@
         </div>
 
         <div class="col-md-6 mt-3 d-flex align-items-end" id="campo-presencial-hibrido">
-          <div class="me-3" id="campoPresencial" style="display:none;">
+          <div class="me-3 d-none" id="campoPresencial">
             <label class="form-label small">Dias presenciais</label>
             <input type="number" id="diasPresenciais" name="diasPresenciais"
                    class="form-control form-control-sm" min="0" max="7" style="width:80px;">
           </div>
-          <div id="campoHomeOffice" style="display:none;">
+          <div id="campoHomeOffice" class="d-none">
             <label class="form-label small">Dias home office</label>
             <input type="number" id="diasHomeOffice" name="diasHomeOffice"
                    class="form-control form-control-sm" min="0" max="7" style="width:80px;">
@@ -214,42 +214,43 @@
 
       <!-- Áreas de atuação + botão IA -->
       <div class="mb-4 position-relative">
-        <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
-        <div id="area-buttons" class="d-flex flex-wrap gap-2 justify-content-center">
-          <% areas.forEach(a => { %>
-            <button type="button" class="btn btn-outline-primary area-btn" data-id="<%=a.id%>"><%=a.nome%></button>
-          <% }) %>
+        <label class="form-label fw-bold">Áreas de Atuação</label>
+          <div class="d-flex flex-wrap gap-2 p-2 border rounded bg-light" 
+              id="area-container" 
+              style="max-height: 200px; overflow-y: auto;">
+            <% areas.forEach(area => { %>
+              <button type="button" 
+                      class="btn btn-outline-primary btn-sm area-btn" 
+                      data-value="<%= area.id %>">
+                <%= area.nome %>
+              </button>
+            <% }); %>
+          </div>
+          <input type="hidden" name="areasSelecionadas" id="areas-input">
         </div>
 
         <div class="mt-3">
           <label class="form-label">Área de interesse não está na lista? (Opcional)</label>
           <input type="text" class="form-control mb-2 nova-area" placeholder="Digite outra área de interesse...">
         </div>
-
-        <input type="hidden" id="areasSelecionadas" name="areasSelecionadas">
-        <div id="erroAreas" class="text-danger small mt-1"></div>
       </div>
 
       <!-- Habilidades + botão IA -->
       <div class="mb-4 position-relative">
 
         <!-- título centralizado, mas com largura limitada -->
-        <div class="mx-auto text-center" style="max-width: 560px;">
-          <h5 class="fw-bold mb-3">
-            Habilidades comportamentais que mais se encaixam à vaga (máx. 3):
-          </h5>
-        </div>
-
-        <div class="d-flex flex-wrap gap-2 justify-content-center mt-2">
-          <% habilidades.forEach(h => { %>
-            <button
-              type="button"
-              class="btn btn-outline-primary skill-btn"
-              data-id="<%= h.id %>"
-            >
-              <%= h.nome %>
-            </button>
-          <% }) %>
+        <div class="mb-4">
+          <label class="form-label fw-bold">Habilidades Comportamentais</label>
+          <div class="d-flex flex-wrap gap-2" id="skill-container">
+            <% softSkills.forEach(skill => { %>
+              <button type="button" 
+                      class="btn btn-outline-primary btn-sm skill-btn" 
+                      data-value="<%= skill.id %>">
+                <%= skill.nome %>
+              </button>
+            <% }); %>
+          </div>
+          <input type="hidden" name="habilidadesSelecionadas" id="skills-input">
         </div>
 
         <input type="hidden" id="habilidadesSelecionadas" name="habilidadesSelecionadas">
@@ -533,6 +534,55 @@
   </script>
 
 <script>
+  (function() {
+    // Função para atualizar os inputs hidden baseada nos botões selecionados
+    function atualizarInputsHiddens(containerId, inputId, classeBotao) {
+      const container = document.getElementById(containerId);
+      const input = document.getElementById(inputId);
+      if (!container || !input) return;
+
+      // Mapeia os IDs para um array de números ou strings
+      const selecionados = Array.from(container.querySelectorAll(`.${classeBotao}.btn-primary`))
+                                .map(btn => btn.getAttribute('data-value'));
+      
+      // IMPORTANTE: Salva como STRING JSON para o seu Controller conseguir dar o JSON.parse
+      input.value = JSON.stringify(selecionados);
+    }
+
+    // Listener para Áreas de Atuação
+    const areaContainer = document.getElementById('area-container');
+    if (areaContainer) {
+      areaContainer.addEventListener('click', e => {
+        const btn = e.target.closest('.area-btn');
+        if (btn) {
+          // Toggle de cores do Bootstrap
+          btn.classList.toggle('btn-outline-primary');
+          btn.classList.toggle('btn-primary');
+          
+          // Atualiza o input hidden 'areas'
+          atualizarInputsHiddens('area-container', 'areas-input', 'area-btn');
+        }
+      });
+    }
+
+    // Listener para Habilidades (Soft Skills)
+    const skillContainer = document.getElementById('skill-container');
+    if (skillContainer) {
+      skillContainer.addEventListener('click', e => {
+        const btn = e.target.closest('.skill-btn');
+        if (btn) {
+          btn.classList.toggle('btn-outline-primary');
+          btn.classList.toggle('btn-primary');
+
+          // Atualiza o input hidden 'skills'
+          atualizarInputsHiddens('skill-container', 'skills-input', 'skill-btn');
+        }
+      });
+    }
+  })();
+</script>
+
+<script>
   (function () {
     const modalEl = document.getElementById('iaPromptModal');
     if (!modalEl || !window.bootstrap) return;
@@ -653,5 +703,68 @@
     });
   })();
 </script>
+
+<script>
+  (function() {
+    const selectTipo = document.getElementById('tipo');
+    const campoPresencial = document.getElementById('campoPresencial');
+    const campoHomeOffice = document.getElementById('campoHomeOffice');
+
+    function gerenciarCampos() {
+      const valor = selectTipo.value;
+
+      // Primeiro, esconde ambos
+      campoPresencial.classList.add('d-none');
+      campoHomeOffice.classList.add('d-none');
+
+      // Mostra baseado na seleção
+      if (valor === 'Presencial') {
+        campoPresencial.classList.remove('d-none');
+      } 
+      else if (valor === 'Home_Office') {
+        campoHomeOffice.classList.remove('d-none');
+      } 
+      else if (valor === 'H_brido') {
+        campoPresencial.classList.remove('d-none');
+        campoHomeOffice.classList.remove('d-none');
+      }
+    }
+
+    // Evento de mudança
+    selectTipo.addEventListener('change', gerenciarCampos);
+
+    // Executa ao carregar a página (importante para quando houver erro de validação e a página recarregar)
+    gerenciarCampos();
+  })();
+</script>
+
+<script>
+  (function() {
+    const inputSalario = document.getElementById('salario');
+    const selectMoeda = document.getElementById('moeda');
+    const simboloMoeda = document.getElementById('simboloMoeda');
+
+    // 1. Atualiza o símbolo ao lado do input quando muda a moeda
+    selectMoeda.addEventListener('change', () => {
+      const moedas = { BRL:'R$', USD:'US$', EUR:'€', GBP:'£', JPY:'¥' };
+      simboloMoeda.textContent = moedas[selectMoeda.value] || 'R$';
+    });
+
+    // 2. Máscara de formatação monetária
+    inputSalario.addEventListener('input', function(e) {
+      let value = e.target.value.replace(/\D/g, ''); // Remove tudo que não é número
+      
+      // Converte para centavos (ex: 250000 vira 2500.00)
+      value = (value / 100).toFixed(2) + '';
+      
+      // Aplica a pontuação de milhar e decimal
+      value = value.replace(".", ",");
+      value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+      
+      e.target.value = value;
+    });
+  })();
+</script>
+
 </body>
 </html>

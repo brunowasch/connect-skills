@@ -465,33 +465,49 @@ exports.telaPerfilEmpresa = async (req, res) => {
 };
 
 exports.telaPublicarVaga = async (req, res) => {
-  try {
-    if (!req.session.empresa) return res.redirect("/login");
+try {
+    const empresa = getEmpresaFromSession(req);
+    if (!empresa) return res.redirect('/login');
 
-    const areas = await prisma.area_interesse.findMany({
-      where: { padrao: true },
-      orderBy: { nome: "asc" },
+    // 1. Buscamos todas, mas vamos filtrar as "sujeiras"
+    const areasRaw = await prisma.area_interesse.findMany({
+      orderBy: { nome: 'asc' }
     });
 
-    const habilidades = await prisma.soft_skill.findMany({
-      orderBy: { nome: "asc" },
+    // 2. Lista de termos que você quer esconder (sujeira do banco)
+    const termosSujeira = ['teste', 'fs', 'igugui', 'njkhbhjkb', 'testes'];
+
+    const areas = areasRaw
+      .filter(area => {
+        const nomeLower = area.nome.toLowerCase();
+        // Remove se o nome for muito curto ou se estiver na lista de sujeira
+        return !termosSujeira.some(sujeira => nomeLower.includes(sujeira)) && area.nome.length > 2;
+      })
+      .map(area => {
+        return {
+          ...area,
+          nome: area.nome.toLowerCase().replace(/(^\w{1})|(\s+\w{1})/g, letter => letter.toUpperCase())
+        };
+      });
+
+    const softSkills = await prisma.soft_skill.findMany({
+      orderBy: { nome: 'asc' }
     });
 
-    const backUrl =
-      req.query.back ||
-      req.session.lastEmpresaPage ||
-      req.get("referer") ||
-      "/empresa/home";
-
-    res.render("empresas/publicar-vaga", { areas, habilidades, backUrl });
-  } catch (err) {
-    console.error("Erro ao carregar áreas e habilidades:", err);
-    req.session.erro = "Erro ao carregar o formulário.";
-    res.redirect("/empresa/home");
+    res.render('empresas/publicar-vaga', {
+      empresa,
+      areas,
+      softSkills,
+      backUrl: '/empresas/home'
+    });
+  } catch (error) {
+    console.error(error);
+    res.redirect('/empresas/home');
   }
 };
 
 exports.salvarVaga = async (req, res) => {
+  console.log("DEBUG - Conteúdo do Body:", req.body);
   try {
     const empresaSessao = req.session?.empresa || null;
     if (!empresaSessao?.id) {
@@ -511,11 +527,12 @@ exports.salvarVaga = async (req, res) => {
     };
     const parseMoney = (v) => {
       if (v == null || v === "") return null;
+      // Remove os pontos de milhar e troca a vírgula decimal por ponto
       const s = String(v)
-        .replace(/\./g, "")
-        .replace(",", ".")
-        .replace(/[^\d.-]/g, "");
-      const n = Number(s);
+        .replace(/\./g, "") // Remove o ponto (milhar)
+        .replace(",", "."); // Troca a vírgula por ponto (decimal)
+      
+      const n = parseFloat(s);
       return Number.isFinite(n) ? n : null;
     };
 
@@ -582,41 +599,75 @@ exports.salvarVaga = async (req, res) => {
 
     // --- ÁREAS: suporta o novo hidden JSON e o formato antigo ---
     let areasInput = [];
-    if (areasSelecionadas) {
-      try {
-        areasInput = JSON.parse(areasSelecionadas);
-      } catch (_) {
-        areasInput = [];
-      }
-    } else if (areas) {
-      areasInput = Array.isArray(areas) ? areas : [areas];
+    let rawAreas = req.body.areasSelecionadas;
+
+    if (rawAreas) {
+        // Se for um array (como mostrado no debug), pegamos o primeiro item válido
+        if (Array.isArray(rawAreas)) {
+            rawAreas = rawAreas.find(item => item && item !== '[]') || "";
+        }
+
+        try {
+            if (typeof rawAreas === 'string' && rawAreas.trim() !== "") {
+                if (rawAreas.startsWith('[')) {
+                    areasInput = JSON.parse(rawAreas);
+                } else {
+                    areasInput = rawAreas.split(',').map(s => s.trim());
+                }
+            }
+        } catch (e) {
+            console.error("Erro no parse de áreasSelecionadas:", e);
+        }
     }
 
     const idsAreas = [];
     const novasAreas = [];
     for (const item of areasInput) {
-      const val = norm(item);
-      if (!val) continue;
-      if (/^nova:/i.test(val)) {
-        const nome = norm(val.replace(/^nova:/i, ""));
-        if (nome) novasAreas.push(nome);
-      } else if (/^\d+$/.test(val)) {
-        idsAreas.push(Number(val));
-      }
+        const val = String(item).trim();
+        if (!val || val === '[]') continue;
+
+        if (/^nova:/i.test(val)) {
+            const nome = val.replace(/^nova:/i, "").trim();
+            if (nome) novasAreas.push(nome);
+        } else {
+            const limpo = val.replace(/["']/g, "");
+            const numId = parseInt(limpo, 10);
+            if (!isNaN(numId)) idsAreas.push(numId);
+        }
     }
 
+    console.log("IDs identificados para salvar (AGORA VAI):", idsAreas);
+
     // --- SOFT SKILLS: hidden JSON "habilidadesSelecionadas" ---
-    let softSkillIds = [];
-    if (habilidadesSelecionadas) {
-      try {
-        const parsed = Array.isArray(habilidadesSelecionadas)
-          ? habilidadesSelecionadas
-          : JSON.parse(habilidadesSelecionadas);
-        softSkillIds = parsed.map((x) => Number(x)).filter(Number.isFinite);
-      } catch (_) {
-        softSkillIds = [];
-      }
+    let softSkillIds = []; 
+    let rawSkills = req.body.habilidadesSelecionadas;
+
+    if (rawSkills) {
+        // Pega o primeiro item válido do array (como vimos no DEBUG)
+        if (Array.isArray(rawSkills)) {
+            rawSkills = rawSkills.find(item => item && item !== '[]') || "";
+        }
+
+        try {
+            if (typeof rawSkills === 'string' && rawSkills.trim() !== "") {
+                let parsed;
+                if (rawSkills.startsWith('[')) {
+                    parsed = JSON.parse(rawSkills);
+                } else {
+                    parsed = rawSkills.split(',').map(s => s.trim());
+                }
+                
+                // Converte para número e remove aspas, preenchendo a variável correta
+                softSkillIds = parsed.map(id => {
+                    const limpo = String(id).replace(/["']/g, "");
+                    return parseInt(limpo, 10);
+                }).filter(n => !isNaN(n));
+            }
+        } catch (e) {
+            console.error("Erro no parse de habilidadesSelecionadas:", e);
+        }
     }
+      console.log("Habilidades identificadas para salvar (AGORA VAI):", softSkillIds);
 
     // Transação: cria a vaga, vincula até 3 áreas (existentes + novas),
     // cria áreas novas se necessário, e vincula soft skills

@@ -170,13 +170,19 @@
                   <% } %>
                 </div>
 
-                <div>
-                  <small class="text-muted mb-2">Áreas de atuação:</small><br>
-                  <% vaga.vaga_area.forEach(va => { %>
-                    <span class="badge bg-outline-primary text-primary border border-primary me-1 mb-1">
-                      <%= va.area_interesse.nome %>
-                    </span>
-                  <% }) %>
+                <div class="mt-3">
+                  <small class="text-muted d-block mb-1">Áreas de atuação:</small>
+                  <div class="d-flex flex-wrap gap-1">
+                    <% if (vaga.vaga_area && vaga.vaga_area.length > 0) { %>
+                      <% vaga.vaga_area.forEach(va => { %>
+                        <span class="badge rounded-pill border border-primary text-primary bg-white px-2 py-1">
+                          <%= va.area_interesse ? va.area_interesse.nome : 'Área não identificada' %>
+                        </span>
+                      <% }) %>
+                    <% } else { %>
+                      <span class="text-muted small italic">Nenhuma área selecionada</span>
+                    <% } %>
+                  </div>
                 </div>
                 <% if (vaga?.vaga_arquivo && vaga.vaga_arquivo.length) { %>
                   <div class="mt-2">
