@@ -41,6 +41,11 @@
 <body>
   <%- include('../partials/header') %>
   <%- include('../partials/flash-messages') %>
+  <body
+  data-todas-areas='<%- JSON.stringify(todasOpcoes || []) %>'
+  data-areas-atuais='<%- JSON.stringify(areasAtuaisObjetos || []) %>'
+  >
+
 
   <main class="container py-5 mt-5" style="max-width: 700px;">
     <div class="text-center mb-5">
@@ -79,9 +84,10 @@
   <script>
     (function() {
       // 1. Dados iniciais vindos do servidor
-      const todasAsAreas = <%- JSON.stringify(todasOpcoes || []) %>;
-      // 'areasAtuais' deve vir do controller como um array de objetos {id, nome}
-      let selecionadas = <%- JSON.stringify(areasAtuaisObjetos || []) %>;
+      const body = document.body;
+
+      const todasAsAreas = JSON.parse(body.dataset.todasAreas || '[]');
+      let selecionadas = JSON.parse(body.dataset.areasAtuais || '[]');
 
       const inputBusca = document.getElementById('busca-area');
       const listaSugestoes = document.getElementById('lista-sugestoes-area');

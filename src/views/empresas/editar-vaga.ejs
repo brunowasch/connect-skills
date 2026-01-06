@@ -259,13 +259,17 @@
      data-tipo="<%= vaga.tipo_local_trabalho %>"></div>
   <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
 
+  <div
+  id="areas-data"
+  data-todas-areas='<%- JSON.stringify(areas || []) %>'
+  data-selecionadas='<%- JSON.stringify(vaga.vaga_area.map(va => va.area_interesse)) %>'>
+</div>
 <script>
 (function() {
-  const todasAsAreas = <%- JSON.stringify(areas || []) %>;
+  const holder = document.getElementById('areas-data');
   
-  // 1. CARREGAR ÁREAS JÁ SALVAS NA VAGA
-  // Aqui pegamos os IDs que já estão vinculados à vaga vindo do EJS
-  let selecionadas = <%- JSON.stringify(vaga.vaga_area.map(va => va.area_interesse)) %> || [];
+  const todasAsAreas = JSON.parse(holder?.dataset.todasAreas || '[]');
+  let selecionadas = JSON.parse(holder?.dataset.selecionadas || '[]');
 
   const inputBusca = document.getElementById('busca-area');
   const listaSugestoes = document.getElementById('lista-sugestoes-area');
