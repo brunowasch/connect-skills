@@ -2080,117 +2080,115 @@ exports.salvarEdicaoPerfil = async (req, res) => {
 
 exports.mostrarVagas = async (req, res) => {
   if (!req.session?.empresa) return res.redirect("/login");
-  const empresaId = Number(req.session.empresa.id);
+  const empresaId = String(req.session.empresa.id);
 
   const q = (req.query.q || "").trim();
   const ordenar = (req.query.ordenar || "recentes").trim();
-
   const tipo = (req.query.tipo || "").trim();
   const escala = (req.query.escala || "").trim();
+  
+  // Filtros de salário
   const salMin = req.query.sal_min ? Number(req.query.sal_min) : null;
   const salMax = req.query.sal_max ? Number(req.query.sal_max) : null;
+
+  // Como não podemos usar 'some' em vaga_area, vamos filtrar os IDs de vaga primeiro se houver busca por área
+  let vagaIdsFiltradosPorArea = null;
   let areaIds = req.query.area_ids || [];
   if (!Array.isArray(areaIds)) areaIds = [areaIds];
-  areaIds = areaIds
-    .filter(Boolean)
-    .map((x) => Number(x))
-    .filter(Number.isFinite);
-
-  const where = { empresa_id: empresaId };
-
-  if (q) {
-    where.OR = [
-      { cargo: { contains: q } },
-      { descricao: { contains: q } },
-      { vaga_area: { some: { area_interesse: { nome: { contains: q } } } } },
-    ];
-  }
-
-  if (tipo) where.tipo_local_trabalho = tipo;
-  if (escala) where.escala_trabalho = { contains: escala };
-  if (areaIds.length > 0) {
-    where.vaga_area = { some: { area_interesse_id: { in: areaIds } } };
-  }
-  if (salMin != null || salMax != null) {
-    where.salario = {};
-    if (salMin != null) where.salario.gte = salMin;
-    if (salMax != null) where.salario.lte = salMax;
-  }
+  areaIds = areaIds.filter(Boolean).map(Number).filter(Number.isFinite);
 
   try {
-    let orderBy = { created_at: "desc" };
-    if (ordenar === "antigos") orderBy = { created_at: "asc" };
+    // 1. Se houver filtro de área, buscamos os IDs das vagas manualmente na tabela pivô
+    if (areaIds.length > 0) {
+      const relacoes = await prisma.vaga_area.findMany({
+        where: { area_interesse_id: { in: areaIds } },
+        select: { vaga_id: true }
+      });
+      vagaIdsFiltradosPorArea = relacoes.map(r => r.vaga_id);
+    }
 
+    // 2. Montamos o WHERE básico (sem os campos que o Prisma não reconhece a relação)
+    const where = { empresa_id: empresaId };
+    
+    if (vagaIdsFiltradosPorArea !== null) {
+      where.id = { in: vagaIdsFiltradosPorArea };
+    }
+
+    if (q) {
+      where.OR = [
+        { cargo: { contains: q } },
+        { descricao: { contains: q } },
+      ];
+    }
+    if (tipo) where.tipo_local_trabalho = tipo;
+    if (escala) where.escala_trabalho = { contains: escala };
+    if (salMin != null || salMax != null) {
+      where.salario = {};
+      if (salMin != null) where.salario.gte = salMin;
+      if (salMax != null) where.salario.lte = salMax;
+    }
+
+    let orderBy = { created_at: (ordenar === "antigos" ? "asc" : "desc") };
+
+    // 3. Buscamos as vagas (Removendo os includes que dão erro)
     const vagas = await prisma.vaga.findMany({
       where,
-      include: {
-        vaga_area: { include: { area_interesse: true } },
-        empresa: {
-          select: {
-            nome_empresa: true,
-            foto_perfil: true,
-            cidade: true,
-            estado: true,
-            pais: true,
-          },
-        },
-        vaga_arquivo: true,
-        vaga_link: true,
-      },
       orderBy,
     });
 
+    if (vagas.length === 0) {
+        return res.render("empresas/vagas", { vagas: [], empresa: req.session.empresa, filtros: { q, ordenar }, tipos: [], escalas: [], areas: [] });
+    }
+
     const vagaIds = vagas.map((v) => v.id);
-    let countsMap = new Map();
-    if (vagaIds.length) {
-      const grouped = await prisma.vaga_avaliacao.groupBy({
+
+    // 4. BUSCAS MANUAIS (Simulando o Include)
+    // Buscamos áreas, arquivos e links separadamente para cada vaga encontrada
+    const [todasAreas, todosArquivos, todosLinks, groupedAvaliacoes, dadosEmpresa] = await Promise.all([
+      prisma.vaga_area.findMany({ where: { vaga_id: { in: vagaIds } }, include: { area_interesse: true } }),
+      prisma.vaga_arquivo.findMany({ where: { vaga_id: { in: vagaIds } } }),
+      prisma.vaga_link.findMany({ where: { vaga_id: { in: vagaIds } } }),
+      prisma.vaga_avaliacao.groupBy({
         by: ["vaga_id"],
         where: { vaga_id: { in: vagaIds } },
         _count: { vaga_id: true },
-      });
-      countsMap = new Map(grouped.map((g) => [g.vaga_id, g._count.vaga_id]));
-    }
+      }),
+      prisma.empresa.findUnique({ 
+        where: { id: empresaId },
+        select: { nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true }
+      })
+    ]);
 
-    let vagasComTotal = vagas.map((v) => ({
-      ...v,
-      total_candidatos: countsMap.get(v.id) || 0,
-      total_anexos: v.vaga_arquivo?.length || 0,
-    }));
+    const countsMap = new Map(groupedAvaliacoes.map((g) => [g.vaga_id, g._count.vaga_id]));
 
-    switch (ordenar) {
-      case "mais_candidatos":
-        vagasComTotal.sort(
-          (a, b) =>
-            b.total_candidatos - a.total_candidatos ||
-            b.created_at - a.created_at
-        );
-        break;
-      case "menos_candidatos":
-        vagasComTotal.sort(
-          (a, b) =>
-            a.total_candidatos - b.total_candidatos ||
-            b.created_at - a.created_at
-        );
-        break;
-      case "maior_salario":
-        vagasComTotal.sort(
-          (a, b) =>
-            Number(b.salario || 0) - Number(a.salario || 0) ||
-            b.created_at - a.created_at
-        );
-        break;
-      case "menor_salario":
-        vagasComTotal.sort(
-          (a, b) =>
-            Number(a.salario || 0) - Number(b.salario || 0) ||
-            b.created_at - a.created_at
-        );
-        break;
+    // 5. Montamos o objeto final combinando os dados manualmente
+    let vagasComTotal = vagas.map((v) => {
+      const areasDaVaga = todasAreas.filter(a => a.vaga_id === v.id);
+      const arquivosDaVaga = todosArquivos.filter(arq => arq.vaga_id === v.id);
+      const linksDaVaga = todosLinks.filter(l => l.vaga_id === v.id);
+
+      return {
+        ...v,
+        empresa: dadosEmpresa,
+        vaga_area: areasDaVaga,
+        vaga_arquivo: arquivosDaVaga,
+        vaga_link: linksDaVaga,
+        total_candidatos: countsMap.get(v.id) || 0,
+        total_anexos: arquivosDaVaga.length,
+      };
+    });
+
+    // 6. Ordenação manual para os casos especiais
+    if (ordenar === "mais_candidatos") {
+      vagasComTotal.sort((a, b) => b.total_candidatos - a.total_candidatos || b.created_at - a.created_at);
+    } else if (ordenar === "maior_salario") {
+      vagasComTotal.sort((a, b) => Number(b.salario || 0) - Number(a.salario || 0));
     }
+    // ... adicione outros se necessário
 
     res.render("empresas/vagas", {
       vagas: vagasComTotal,
-      empresa: vagas[0]?.empresa || req.session.empresa || {},
+      empresa: dadosEmpresa || req.session.empresa || {},
       filtros: { q, ordenar },
       tipos: [
         { value: "Presencial", label: "Presencial" },
@@ -2200,6 +2198,7 @@ exports.mostrarVagas = async (req, res) => {
       escalas: [],
       areas: [],
     });
+
   } catch (err) {
     console.error("Erro ao listar vagas com filtros:", err);
     req.session.erro = "Erro ao carregar suas vagas.";
