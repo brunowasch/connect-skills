@@ -33,7 +33,7 @@ router.get('/perfil/:id', candidatoController.perfilPublicoCandidato);
 // Rotas autenticadas
 router.get('/home', ensureCandidato, candidatoController.telaHomeCandidato);
 router.get('/meu-perfil', ensureCandidato, candidatoController.renderMeuPerfil);
-router.get('/vagas', ensureCandidato, candidatoController.mostrarVagas);
+router.get('/vagas/:id', ensureCandidato, candidatoController.vagaDetalhes);
 router.get('/vagas/historico', ensureCandidato, candidatoController.historicoAplicacoes);
 router.get('/vagas/:id', ensureCandidato, withEncodedParam('id'), candidatoController.vagaDetalhes);
 router.get('/vagas/:id/perguntas-disc', ensureCandidato, vagaController.apiPerguntasDISC);

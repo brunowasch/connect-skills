@@ -234,23 +234,22 @@
               <% if (!anexos || !anexos.length) { %>
                 <tr><td colspan="5" class="text-center text-muted">Nenhum anexo enviado ainda.</td></tr>
               <% } else { %>
-                <% anexos.forEach(a => { %>
-                  <tr>
+                <% anexos.forEach(a => { %> <tr>
                     <td class="text-truncate" style="max-width: 360px;"><%= a.nome %></td>
                     <td><code><%= a.mime %></code></td>
-                    <td><%= humanFileSize ? humanFileSize(a.tamanho) : ((a.tamanho||0) + ' B') %></td>
+                    <td><%= humanFileSize(a.tamanho) %></td>
                     <td><%= new Date(a.criadoEm).toLocaleString('pt-BR') %></td>
                     <td class="text-end">
-                      <a href="/empresa/anexos/<%= encodeId(a.id) %>/abrir" target="_blank" rel="noopener"
-                        class="btn btn-sm btn-outline-primary">
+                      <a href="/empresa/anexos/<%= a.id %>/abrir" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
                         Abrir
                       </a>
+                      
                       <button
                         type="button"
                         class="btn btn-sm btn-outline-danger"
                         data-bs-toggle="modal"
                         data-bs-target="#modalDeleteAnexo"
-                        data-action="/empresa/anexos/<%= a.id %>/delete"
+                        data-action="/empresa/anexos/<%= a.id %>/delete" 
                         data-nome="<%= a.nome %>">
                         Excluir
                       </button>

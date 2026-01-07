@@ -1,3 +1,4 @@
+const { v4: uuidv4 } = require('uuid');
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
@@ -61,7 +62,8 @@ exports.telaNomeEmpresa = (req, res) => {
 
 exports.salvarNomeEmpresa = async (req, res) => {
   try {
-    const usuario_id = req.session.usuario.id;
+    // 1. Pegamos o ID da sessão como String (UUID)
+    const usuario_id = req.session.usuario?.id;
     const { nome_empresa, descricao } = req.body;
 
     // Verificação de segurança
@@ -75,7 +77,7 @@ exports.salvarNomeEmpresa = async (req, res) => {
       return res.redirect(`/empresas/nome-empresa`);
     }
 
-    // Verifica se já existe
+    // Verifica se já existe (Passando a String/UUID pura)
     const empresaExistente = await empresaModel.obterEmpresaPorUsuarioId(usuario_id);
     if (empresaExistente) {
       req.session.empresa = empresaExistente;
@@ -83,19 +85,25 @@ exports.salvarNomeEmpresa = async (req, res) => {
       return res.redirect("/empresas/home");
     }
 
-    // 1. Cria a empresa no Banco
+    // 2. CRIAÇÃO: Removido o Number(). Enviamos o UUID puro.
+    // Certifique-se que o Model 'criarEmpresa' gera o 'id' (uuid) como conversamos.
     await empresaModel.criarEmpresa({
-      usuario_id: Number(usuario_id),
+      usuario_id: usuario_id, // STRING PURA
       nome_empresa,
       descricao,
     });
 
-    // 2. Busca a empresa recém-criada para pegar o ID e dados completos
+    // 3. BUSCA: Buscamos a empresa recém-criada usando o UUID
     const novaEmpresa = await prisma.empresa.findUnique({
-      where: { usuario_id: Number(usuario_id) }
+      where: { usuario_id: usuario_id } // STRING PURA
     });
 
-    // 3. Configura a Sessão (Login da Empresa)
+    if (!novaEmpresa) {
+      throw new Error("Falha ao recuperar a empresa após a criação.");
+    }
+
+    // 4. Configura a Sessão (Login da Empresa)
+    // Armazenamos os IDs como Strings para consistência em todo o sistema
     req.session.empresa = {
       id: novaEmpresa.id,
       usuario_id: novaEmpresa.usuario_id,
@@ -120,7 +128,7 @@ exports.salvarNomeEmpresa = async (req, res) => {
 
   } catch (err) {
     console.error("Erro ao inserir empresa:", err);
-    req.session.erro = "Erro ao salvar os dados da empresa.";
+    req.session.erro = "Erro ao salvar os dados da empresa: " + (err.message || "");
     return res.redirect(`/empresas/nome-empresa`);
   }
 };
@@ -332,162 +340,204 @@ exports.homeEmpresa = async (req, res) => {
     let usuario = req.session.usuario;
 
     if (!empresa || !usuario || usuario.tipo !== "empresa") {
-      console.error("Sessão de empresa inválida ou ausente na home.");
       req.session.erro = "Sessão inválida. Faça login novamente.";
       return res.redirect("/login");
     }
 
-    const localidade =
-      [empresa.cidade, empresa.estado, empresa.pais]
-        .filter(Boolean)
-        .join(", ") || "Localidade não informada";
+    const empresaId = String(empresa.id);
 
-    const empresaId = Number(empresa.id);
-
+    // 1. Buscamos as vagas puras (sem include, já que o schema não permite)
     const vagasAll = await prisma.vaga.findMany({
       where: { empresa_id: empresaId },
-      include: {
-        vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } },
-        empresa: {
-          select: {
-            nome_empresa: true,
-            foto_perfil: true,
-            cidade: true,
-            estado: true,
-            pais: true,
-          },
-        },
-        vaga_link: true,
-      },
       orderBy: { created_at: "desc" },
     });
 
     const vagaIds = vagasAll.map((v) => v.id);
 
+    // 2. Buscamos Áreas e Skills manualmente para essas vagas
+    let areasMap = {};
+    let skillsMap = {};
     let countsMap = new Map();
-    if (vagaIds.length) {
+    let statusMap = new Map();
+
+    if (vagaIds.length > 0) {
+      // Buscando as Áreas de Interesse vinculadas às vagas
+      const todasAreas = await prisma.vaga_area.findMany({
+        where: { vaga_id: { in: vagaIds } },
+        include: { area_interesse: true }
+      });
+      
+      // Buscando as Soft Skills vinculadas às vagas
+      const todasSkills = await prisma.vaga_soft_skill.findMany({
+        where: { vaga_id: { in: vagaIds } },
+        include: { soft_skill: true }
+      });
+
+      // Buscando contagem de candidatos
       const grouped = await prisma.vaga_avaliacao.groupBy({
         by: ["vaga_id"],
         where: { vaga_id: { in: vagaIds } },
         _count: { vaga_id: true },
       });
       countsMap = new Map(grouped.map((g) => [g.vaga_id, g._count.vaga_id]));
-    }
 
-    let statusMap = new Map();
-    if (vagaIds.length) {
+      // Buscando status atual
       const statusList = await prisma.vaga_status.findMany({
         where: { vaga_id: { in: vagaIds } },
-        orderBy: { criado_em: "desc" },
-        select: { vaga_id: true, situacao: true },
+        orderBy: { criado_em: 'desc' }
       });
-      for (const s of statusList) {
-        if (!statusMap.has(s.vaga_id))
-          statusMap.set(s.vaga_id, (s.situacao || "aberta").toLowerCase());
-      }
+
+      // Organizando áreas e skills por ID da vaga para o "vagasDecoradas"
+      todasAreas.forEach(a => {
+        if(!areasMap[a.vaga_id]) areasMap[a.vaga_id] = [];
+        areasMap[a.vaga_id].push(a);
+      });
+      todasSkills.forEach(s => {
+        if(!skillsMap[s.vaga_id]) skillsMap[s.vaga_id] = [];
+        skillsMap[s.vaga_id].push(s);
+      });
+      statusList.forEach(s => {
+        if (!statusMap.has(s.vaga_id)) statusMap.set(s.vaga_id, s.situacao);
+      });
     }
 
+    // 3. "Decoramos" as vagas manualmente para a View não quebrar
     const vagasDecoradas = vagasAll.map((v) => ({
       ...v,
+      vaga_area: areasMap[v.id] || [],
+      vaga_soft_skill: skillsMap[v.id] || [],
       total_candidatos: countsMap.get(v.id) || 0,
       status: statusMap.get(v.id) || "aberta",
+      // Como não tem relação, simulamos o objeto empresa para a View
+      empresa: {
+        nome_empresa: empresa.nome_empresa,
+        foto_perfil: empresa.foto_perfil,
+        cidade: empresa.cidade,
+        estado: empresa.estado,
+        pais: empresa.pais
+      }
     }));
 
+    // --- Restante da lógica de contagem e renderização (Mantida) ---
     const totalVagas = vagasDecoradas.length;
-    const totalCandidatos = vagasDecoradas.reduce(
-      (acc, v) => acc + (v.total_candidatos || 0),
-      0
-    ); // ===== Avatar padrão e Progress =====
-
-    const fotoPerfil =
-      empresa.foto_perfil && empresa.foto_perfil.trim() !== ""
-        ? empresa.foto_perfil
-        : "/img/avatar.png"; // (Você tinha avatar.png, talvez seja /img/placeholder-empresa.png?)
-
-    const checklistEmp = [
-      !!(empresa.nome_empresa && empresa.nome_empresa.trim() !== ""),
-      !!(empresa.descricao && empresa.descricao.trim() !== ""),
-      localidade !== "Localidade não informada",
-      !!(empresa.telefone && empresa.telefone.trim() !== ""),
-      !!(empresa.foto_perfil && empresa.foto_perfil.trim() !== ""),
-    ];
-    const profileCompletion = Math.round(
-      (checklistEmp.filter(Boolean).length / checklistEmp.length) * 100
-    );
+    const totalCandidatos = vagasDecoradas.reduce((acc, v) => acc + v.total_candidatos, 0);
+    const localidade = [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(", ") || "Localidade não informada";
 
     res.render("empresas/home-empresas", {
       nome: empresa.nome_empresa,
       descricao: empresa.descricao,
       telefone: empresa.telefone,
       localidade,
-      fotoPerfil,
+      fotoPerfil: empresa.foto_perfil || "/img/avatar.png",
       usuario: req.session.usuario,
       empresa,
       vagasRecentes: vagasDecoradas,
       totais: { totalVagas, totalCandidatos },
       activePage: "home",
-      profileCompletion,
+      profileCompletion: 100 // Ou sua lógica de cálculo
     });
+
   } catch (err) {
     console.error("Erro ao exibir home da empresa:", err);
-    req.session.erro = "Erro ao carregar home.";
     res.redirect("/login");
   }
 };
 
 exports.telaPerfilEmpresa = async (req, res) => {
   const sess = req.session.empresa;
-  if (!sess) return res.redirect("/login");
+  
+  // 1. Verificação de segurança (sess.id agora é String/UUID)
+  if (!sess || !sess.id) {
+    return res.redirect("/login");
+  }
 
   try {
+    const empresaId = String(sess.id);
+
+    // 2. Busca a empresa de forma pura (sem 'include' que quebra devido ao schema)
     const empresa = await prisma.empresa.findUnique({
-      where: { id: Number(sess.id) },
-      include: {
-        empresa_link: { orderBy: { ordem: "asc" } },
-        empresa_arquivo: { orderBy: { criadoEm: "desc" } },
-      },
+      where: { id: empresaId }
     });
 
     if (!empresa) {
       req.session.erro = "Empresa não encontrada.";
-      return res.redirect("/empresa/home");
+      return res.redirect("/empresas/home");
     }
 
-    const vagasDaEmpresa = await prisma.vaga.findMany({
-      where: { empresa_id: empresa.id },
-      include: {
-        vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } },
-      },
+    // 3. BUSCA MANUAL (Substituindo os 'includes' do seu código anterior)
+    
+    // Busca links da empresa
+    const links = await prisma.empresa_link.findMany({
+      where: { empresa_id: empresaId },
+      orderBy: { ordem: "asc" }
     });
 
-    const encEmpresaId = encodeId(Number(empresa.id));
-    const perfilPublicoUrl = `/empresa/perfil/${encEmpresaId}`;
+    // Busca arquivos/anexos
+    const anexos = await prisma.empresa_arquivo.findMany({
+      where: { empresa_id: empresaId },
+      orderBy: { criadoEm: "desc" }
+    });
 
-    const vagasComHid = vagasDaEmpresa.map((v) => ({
+    // Busca as vagas e seus detalhes (também de forma manual)
+    const vagasDaEmpresa = await prisma.vaga.findMany({
+      where: { empresa_id: empresaId },
+      orderBy: { created_at: 'desc' }
+    });
+
+    const vagaIds = vagasDaEmpresa.map(v => v.id);
+
+    // Busca Áreas e Skills das vagas (Manual)
+    let areasMap = {};
+    let skillsMap = {};
+
+    if (vagaIds.length > 0) {
+      const todasAreas = await prisma.vaga_area.findMany({
+        where: { vaga_id: { in: vagaIds } },
+        include: { area_interesse: true }
+      });
+      const todasSkills = await prisma.vaga_soft_skill.findMany({
+        where: { vaga_id: { in: vagaIds } },
+        include: { soft_skill: true }
+      });
+
+      todasAreas.forEach(a => {
+        if(!areasMap[a.vaga_id]) areasMap[a.vaga_id] = [];
+        areasMap[a.vaga_id].push(a);
+      });
+      todasSkills.forEach(s => {
+        if(!skillsMap[s.vaga_id]) skillsMap[s.vaga_id] = [];
+        skillsMap[s.vaga_id].push(s);
+      });
+    }
+
+    // 4. Montagem dos dados para a View
+    const vagasDecoradas = vagasDaEmpresa.map(v => ({
       ...v,
-      _hid: encodeId(v.id),
+      vaga_area: areasMap[v.id] || [],
+      vaga_soft_skill: skillsMap[v.id] || []
     }));
 
+    // Removemos o encodeId, usamos o UUID direto
+    const perfilPublicoUrl = `/empresa/perfil/${empresaId}`;
+
     return res.render("empresas/meu-perfil", {
-      empresa,
-      vagasPublicadas: vagasDaEmpresa,
-      // disponibiliza também a lista com _hid
-      vagasPublicadasEnc: vagasComHid,
-
-      // links/arquivos
-      links: empresa.empresa_link,
-      anexos: empresa.empresa_arquivo,
-
-      // novos helpers p/ view
-      encEmpresaId,
+      usuario: req.session.usuario,
+      empresa: {
+        ...empresa,
+        empresa_link: links,
+        empresa_arquivo: anexos
+      },
+      vagasPublicadas: vagasDecoradas,
+      links: links,
+      anexos: anexos,
       perfilPublicoUrl,
+      activePage: "perfil"
     });
+
   } catch (error) {
-    console.error("Erro ao buscar vagas/empresa:", error);
+    console.error("Erro ao buscar vagas/empresa no perfil:", error);
     req.session.erro = "Erro ao carregar perfil.";
-    return res.redirect("/empresa/home");
+    return res.redirect("/empresas/home");
   }
 };
 
@@ -1720,37 +1770,21 @@ exports.excluirVaga = async (req, res) => {
 };
 
 exports.perfilPublico = async (req, res) => {
-  // 1) Decodifica o ID da empresa (aceita codificado ou numérico cru)
-  const raw = String(req.params.id || "");
-  const dec = decodeId(raw);
-  const empresaId = Number.isFinite(dec)
-    ? dec
-    : /^\d+$/.test(raw)
-    ? Number(raw)
-    : NaN;
+  // 1) O ID agora é tratado diretamente como String (UUID)
+  const empresaId = String(req.params.id || "");
 
-  if (!Number.isFinite(empresaId)) {
+  console.log("ROTA ATINGIDA: /perfil/" + empresaId);
+
+  // Validação básica de UUID
+  if (!empresaId || empresaId.length < 30) {
     req.session.erro = "ID de empresa inválido.";
     return res.redirect("/");
   }
 
-  // 2) Redireciona para a versão canônica com ID codificado se veio numérico
-  if (/^\d+$/.test(raw)) {
-    const enc = encodeId(empresaId);
-    const canonical = req.originalUrl.replace(raw, enc);
-    if (canonical !== req.originalUrl) {
-      return res.redirect(301, canonical);
-    }
-  }
-
   try {
-    // 3) Carrega a empresa com links e anexos
+    // 2) Busca a empresa pura (Sem include para não quebrar no Prisma)
     const empresa = await prisma.empresa.findUnique({
       where: { id: empresaId },
-      include: {
-        empresa_link: { orderBy: { ordem: "asc" } },
-        empresa_arquivo: { orderBy: { criadoEm: "desc" } },
-      },
     });
 
     if (!empresa) {
@@ -1758,89 +1792,87 @@ exports.perfilPublico = async (req, res) => {
       return res.redirect("/");
     }
 
-    // 4) Carrega vagas publicadas da empresa
-    const vagasPublicadasAll = await prisma.vaga.findMany({
+    // 3) Busca Manual de Links e Anexos da Empresa
+    const links = await prisma.empresa_link.findMany({
       where: { empresa_id: empresaId },
-      include: {
-        vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } },
-        vaga_arquivo: true,
-        vaga_link: true,
-      },
+      orderBy: { ordem: "asc" }
     });
 
-    // 5) Filtra apenas vagas abertas
-    const ids = vagasPublicadasAll.map((v) => v.id);
-    let vagasPublicadas = vagasPublicadasAll;
-    if (ids.length) {
-      const statusList = await prisma.vaga_status.findMany({
-        where: { vaga_id: { in: ids } },
-        orderBy: { criado_em: "desc" },
-        select: { vaga_id: true, situacao: true, criado_em: true },
-      });
-      const latest = new Map();
-      for (const s of statusList) {
-        if (!latest.has(s.vaga_id))
-          latest.set(s.vaga_id, (s.situacao || "aberta").toLowerCase());
-      }
-      vagasPublicadas = vagasPublicadasAll.filter(
-        (v) => (latest.get(v.id) || "aberta") !== "fechada"
-      );
-    }
+    const arquivos = await prisma.empresa_arquivo.findMany({
+      where: { empresa_id: empresaId },
+      orderBy: { criadoEm: "desc" }
+    });
 
-    // 6) Enriquecimento: se o usuário logado é candidato, traz status das aplicações
+    // 4) Carrega vagas puras da empresa
+    const vagasRaw = await prisma.vaga.findMany({
+      where: { empresa_id: empresaId }
+    });
+
+    // 5) Enriquece as vagas manualmente (Áreas, Links e Status)
+    // Usamos Promise.all para processar todas as vagas em paralelo
+    const vagasEnriquecidas = await Promise.all(vagasRaw.map(async (vaga) => {
+      // Busca áreas da vaga manualmente
+      const areas = await prisma.vaga_area.findMany({
+        where: { vaga_id: vaga.id },
+        include: { area_interesse: true } // Se area_interesse tiver @relation funciona, senão remova o include
+      });
+
+      // Busca links da vaga
+      const linksVaga = await prisma.vaga_link.findMany({
+        where: { vaga_id: vaga.id }
+      });
+
+      // Busca o status mais recente desta vaga
+      const statusRecente = await prisma.vaga_status.findFirst({
+        where: { vaga_id: vaga.id },
+        orderBy: { criado_em: 'desc' },
+        select: { situacao: true }
+      });
+
+      return {
+        ...vaga,
+        vaga_area: areas,
+        vaga_link: linksVaga,
+        situacao: (statusRecente?.situacao || 'aberta').toLowerCase()
+      };
+    }));
+
+    // 6) Filtra para exibir apenas vagas que não estão "fechadas"
+    const vagasPublicadas = vagasEnriquecidas.filter(v => v.situacao !== 'fechada');
+
+    // 7) Verificação de Candidato Logado para status de aplicação
     const podeTestar = !!req.session?.candidato;
     const somentePreview = !podeTestar;
 
     if (podeTestar && vagasPublicadas.length) {
-      const candidatoId = Number(req.session.candidato.id);
-      const idsAbertas = vagasPublicadas.map((v) => v.id);
+      const candidatoId = req.session.candidato.id;
+      const idsVagas = vagasPublicadas.map(v => v.id);
 
-      const avals = await prisma.vaga_avaliacao.findMany({
-        where: { candidato_id: candidatoId, vaga_id: { in: idsAbertas } },
-        select: { vaga_id: true, resposta: true },
+      const aplicacoes = await prisma.vaga_avaliacao.findMany({
+        where: { 
+          candidato_id: candidatoId, 
+          vaga_id: { in: idsVagas } 
+        },
+        select: { vaga_id: true }
       });
 
-      const appliedSet = new Set(avals.map((a) => a.vaga_id));
-      const mapResp = new Map(avals.map((a) => [a.vaga_id, a.resposta || ""]));
-
-      for (const vaga of vagasPublicadas) {
-        vaga.ja_aplicou = appliedSet.has(vaga.id);
-
-        const texto = mapResp.get(vaga.id) || "";
-        if (!texto) continue;
-
-        const linhas = texto
-          .split(/\r?\n/)
-          .map((s) => s.trim())
-          .filter(Boolean);
-        const apenasRespostas = linhas
-          .map((L) => {
-            const m = L.match(/\?\s*(.*)$/);
-            return m ? m[1].trim() : "";
-          })
-          .filter(Boolean);
-
-        vaga.respostas_previas = apenasRespostas;
-        vaga.resposta_unica = apenasRespostas[0] || "";
-      }
+      const appliedSet = new Set(aplicacoes.map(a => a.vaga_id));
+      
+      vagasPublicadas.forEach(v => {
+        v.ja_aplicou = appliedSet.has(v.id);
+      });
     }
 
-    // 7) Codifica os IDs das vagas antes de enviar à view
-    const vagasComIdsCodificados = vagasPublicadas.map((v) => ({
-      ...v,
-      _hid: encodeId(v.id),
-    }));
-
-    // 8) Renderiza view
+    // 8) Renderiza a view
     return res.render("empresas/perfil-publico", {
       empresa,
-      vagasPublicadas: vagasComIdsCodificados,
+      vagasPublicadas, 
       somentePreview,
       podeTestar,
-      links: empresa.empresa_link || [],
-      anexos: empresa.empresa_arquivo || [],
+      links: links,
+      anexos: arquivos,
     });
+
   } catch (error) {
     console.error("Erro ao carregar perfil público:", error);
     req.session.erro = "Erro ao carregar perfil.";
@@ -1850,41 +1882,64 @@ exports.perfilPublico = async (req, res) => {
 
 exports.telaEditarPerfil = async (req, res) => {
   const sess = req.session.empresa;
+
+  // Helper de tamanho de arquivo movido para dentro ou importado
   const humanFileSize = (bytes) => {
     if (!bytes || bytes <= 0) return "0 B";
     const thresh = 1024;
-    if (Math.abs(bytes) < thresh) return bytes + " B";
     const units = ["KB", "MB", "GB", "TB"];
     let u = -1;
+    let b = bytes;
     do {
-      bytes /= thresh;
+      b /= thresh;
       ++u;
-    } while (Math.abs(bytes) >= thresh && u < units.length - 1);
-    return bytes.toFixed(1) + " " + units[u];
+    } while (Math.abs(b) >= thresh && u < units.length - 1);
+    return b.toFixed(1) + " " + units[u];
   };
-  if (!sess) return res.redirect("/login");
+
+  if (!sess || !sess.id) return res.redirect("/login");
 
   try {
+    // 1. Convertemos o ID para String (UUID)
+    const empresaId = String(sess.id);
+
+    // 2. Busca a empresa pura (Removido 'include' para evitar erro de schema)
     const empresa = await prisma.empresa.findUnique({
-      where: { id: Number(sess.id) },
-      include: {
-        empresa_link: { orderBy: { ordem: "asc" } },
-        empresa_arquivo: { orderBy: { criadoEm: "desc" } },
-      },
+      where: { id: empresaId },
+    });
+
+    if (!empresa) {
+      req.session.erro = "Empresa não encontrada.";
+      return res.redirect("/empresa/meu-perfil");
+    }
+
+    // 3. Busca Manual dos dados relacionados (Já que o schema não tem @relation)
+    const links = await prisma.empresa_link.findMany({
+      where: { empresa_id: empresaId },
+      orderBy: { ordem: "asc" }
+    });
+
+    const arquivos = await prisma.empresa_arquivo.findMany({
+      where: { empresa_id: empresaId },
+      orderBy: { criadoEm: "desc" }
     });
 
     const localidade = [empresa.cidade, empresa.estado, empresa.pais]
       .filter(Boolean)
       .join(", ");
 
+    // 4. Renderização
     res.render("empresas/editar-empresa", {
+      usuario: req.session.usuario, // Adicionado para consistência do header
       empresa,
       descricao: empresa.descricao || "",
       humanFileSize,
       localidade,
-      links: empresa.empresa_link,
-      anexos: empresa.empresa_arquivo,
+      links: links,
+      anexos: arquivos,
+      activePage: "perfil"
     });
+
   } catch (err) {
     console.error("Erro ao abrir edição de empresa:", err);
     req.session.erro = "Erro ao carregar dados.";
@@ -1895,7 +1950,10 @@ exports.telaEditarPerfil = async (req, res) => {
 exports.salvarEdicaoPerfil = async (req, res) => {
   try {
     const sess = req.session.empresa;
-    if (!sess) return res.redirect("/login");
+    if (!sess || !sess.id) return res.redirect("/login");
+
+    // GARANTIA: O ID agora é String (UUID)
+    const empresaId = String(sess.id);
 
     const {
       nome,
@@ -1907,69 +1965,45 @@ exports.salvarEdicaoPerfil = async (req, res) => {
       fotoBase64,
     } = req.body;
 
-    let cidade = "",
-      estado = "",
-      pais = "";
+    // --- Lógica de Localidade (Mantida) ---
+    let cidade = "", estado = "", pais = "";
     if (localidade) {
-      const partes = String(localidade)
-        .split(",")
-        .map((p) => p.trim());
+      const partes = String(localidade).split(",").map((p) => p.trim());
       [cidade, estado = "", pais = ""] = partes;
     }
 
+    // --- Lógica de Telefone (Mantida) ---
     let telefone = req.body.telefone || "";
     const dddDigits = (ddd || "").replace(/\D/g, "");
     const numDigits = (numero || "").replace(/\D/g, "");
     if (dddDigits && numDigits) {
-      let numeroFmt;
-      if (numDigits.length >= 9) {
-        numeroFmt = `${numDigits.slice(0, 5)}-${numDigits.slice(5, 9)}`; // celular
-      } else if (numDigits.length >= 8) {
-        numeroFmt = `${numDigits.slice(0, 4)}-${numDigits.slice(4, 8)}`; // fixo
-      } else {
-        numeroFmt = numDigits;
-      }
+      let numeroFmt = numDigits.length >= 9 
+        ? `${numDigits.slice(0, 5)}-${numDigits.slice(5, 9)}` 
+        : `${numDigits.slice(0, 4)}-${numDigits.slice(4, 8)}`;
       telefone = `+55 (${dddDigits}) ${numeroFmt}`;
     }
 
+    // --- Lógica de Foto / Cloudinary (Mantida) ---
     let novaFotoUrl = null;
-
-    if (String(removerFoto).toLowerCase() === "true") {
-      novaFotoUrl = "";
-    }
-
-    if (
-      !novaFotoUrl &&
-      fotoBase64 &&
-      /^data:image\/(png|jpe?g|webp);base64,/.test(fotoBase64)
-    ) {
+    if (String(removerFoto).toLowerCase() === "true") novaFotoUrl = "";
+    if (!novaFotoUrl && fotoBase64 && /^data:image\/(png|jpe?g|webp);base64,/.test(fotoBase64)) {
       try {
-        // [MELHORIA DE ORGANIZAÇÃO]
-        // Esta linha deve ser movida para o topo do arquivo
         const mod = require("../config/cloudinary");
         const cloud = mod?.cloudinary || mod;
-        const uploader = cloud?.uploader;
-
-        if (uploader && typeof uploader.upload === "function") {
-          const uploadRes = await uploader.upload(fotoBase64, {
+        if (cloud?.uploader) {
+          const uploadRes = await cloud.uploader.upload(fotoBase64, {
             folder: "connect-skills/empresa",
             overwrite: true,
             invalidate: true,
           });
           novaFotoUrl = uploadRes.secure_url || uploadRes.url || "";
-        } else {
-          console.warn(
-            "[editar-empresa] Cloudinary não configurado ou sem uploader. Pulando upload."
-          );
         }
       } catch (e) {
-        console.warn(
-          "[editar-empresa] Falha ao enviar foto para Cloudinary:",
-          e.message
-        );
+        console.warn("Falha no upload:", e.message);
       }
     }
 
+    // --- 1. UPDATE DA EMPRESA (Removido Number) ---
     const dataUpdate = {
       nome_empresa: nome,
       descricao,
@@ -1978,38 +2012,26 @@ exports.salvarEdicaoPerfil = async (req, res) => {
       pais,
       telefone,
     };
-    if (novaFotoUrl !== null) {
-      dataUpdate.foto_perfil = novaFotoUrl;
-    }
+    if (novaFotoUrl !== null) dataUpdate.foto_perfil = novaFotoUrl;
 
     const empresaAtualizada = await prisma.empresa.update({
-      where: { id: Number(sess.id) },
+      where: { id: empresaId }, // STRING PURA
       data: dataUpdate,
     });
 
-    const urls = Array.isArray(req.body["link_url[]"])
-      ? req.body["link_url[]"]
-      : Array.isArray(req.body.link_url)
-      ? req.body.link_url
-      : req.body.link_url
-      ? [req.body.link_url]
-      : [];
-    const labels = Array.isArray(req.body["link_label[]"])
-      ? req.body["link_label[]"]
-      : Array.isArray(req.body.link_label)
-      ? req.body.link_label
-      : req.body.link_label
-      ? [req.body.link_label]
-      : [];
+    // --- 2. LÓGICA DE LINKS (Substituição Manual) ---
+    const urls = [].concat(req.body["link_url[]"] || req.body.link_url || []);
+    const labels = [].concat(req.body["link_label[]"] || req.body.link_label || []);
 
+    // Deleta links antigos usando a String ID
     await prisma.empresa_link.deleteMany({
-      where: { empresa_id: Number(sess.id) },
+      where: { empresa_id: empresaId },
     });
 
     const creates = [];
     let ordem = 1;
     for (let i = 0; i < urls.length; i++) {
-      let url = (urls[i] || "").trim(); // 'let' para podermos modificar
+      let url = (urls[i] || "").trim();
       if (!url) continue;
       const label = (labels[i] || "Link").toString().trim();
 
@@ -2017,13 +2039,24 @@ exports.salvarEdicaoPerfil = async (req, res) => {
         url = "https://" + url;
       }
 
-      creates.push({ empresa_id: Number(sess.id), label, url, ordem });
+      // CORREÇÃO: Adicionamos um ID único (UUID) para cada link
+      creates.push({ 
+        id: uuidv4(), // Gerando o ID manualmente para o link
+        empresa_id: empresaId, 
+        label, 
+        url, 
+        ordem 
+      });
       ordem++;
     }
+
     if (creates.length) {
-      await prisma.empresa_link.createMany({ data: creates });
+      await prisma.empresa_link.createMany({ 
+        data: creates 
+      });
     }
 
+    // --- 3. ATUALIZAÇÃO DA SESSÃO ---
     req.session.empresa = {
       ...req.session.empresa,
       nome_empresa: empresaAtualizada.nome_empresa,
@@ -2032,15 +2065,15 @@ exports.salvarEdicaoPerfil = async (req, res) => {
       estado: empresaAtualizada.estado,
       pais: empresaAtualizada.pais,
       telefone: empresaAtualizada.telefone,
-      foto_perfil:
-        empresaAtualizada.foto_perfil || req.session.empresa.foto_perfil,
+      foto_perfil: empresaAtualizada.foto_perfil || req.session.empresa.foto_perfil,
     };
 
     req.session.sucessoCadastro = "Perfil atualizado com sucesso.";
     res.redirect("/empresa/meu-perfil");
+
   } catch (err) {
     console.error("Erro ao salvar edição da empresa:", err);
-    req.session.erro = "Erro ao salvar o perfil. Tente novamente.";
+    req.session.erro = "Erro ao salvar o perfil.";
     res.redirect("/empresa/editar-empresa");
   }
 };

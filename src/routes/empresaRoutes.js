@@ -9,6 +9,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const withEncodedParam = require('../middlewares/withEncodedParam');
 const candidatoController = require('../controllers/candidatoController');
+const empresaArquivoController = require('../controllers/empresaArquivoController');
 
 let ensureEmpresa = null;
 let ensureUsuarioEmpresa = null;
@@ -36,6 +37,11 @@ const remember = (req, _res, next) => {
   next();
 };
 
+router.get('/perfil/:id', (req, res, next) => {
+  console.log("ROTA ATINGIDA: /perfil/" + req.params.id);
+  next();
+}, empresaController.perfilPublico);
+
 router.get('/complementar', ensureUsuarioEmpresa, empresaController.telaComplementarGoogle);
 router.post('/complementar', ensureUsuarioEmpresa, empresaController.salvarComplementarGoogle);
 router.get('/nome-empresa', ensureEmpresa, empresaController.telaNomeEmpresa);
@@ -47,6 +53,7 @@ router.post('/telefone', ensureEmpresa, empresaController.salvarTelefone);
 router.get('/foto-perfil', ensureEmpresa, empresaController.telaFotoPerfil);
 router.post('/foto-perfil', ensureEmpresa, uploadEmpresa.single('novaFoto'), empresaController.salvarFotoPerfil);
 
+
 router.get('/home', remember, ensureEmpresa, empresaController.homeEmpresa);
 router.get('/meu-perfil', ensureEmpresa, remember, empresaController.telaPerfilEmpresa);
 router.get('/editar-empresa', ensureEmpresa, empresaController.telaEditarPerfil);
@@ -57,6 +64,11 @@ router.post('/publicar-vaga', ensureEmpresa, uploadVaga.array('anexosVaga'), emp
 
 router.get('/public/vaga/anexos/:id/abrir', vagaArquivoController.abrirAnexoPublico);
 router.get('/public/vaga/:id', withEncodedParam('id'), candidatoController.vagaDetalhes);
+
+router.get('/anexos/:id/abrir', ensureEmpresa, empresaArquivoController.abrirAnexo);
+router.get('/anexos/:id/deletar', ensureEmpresa, empresaArquivoController.deletarAnexo);
+router.post('/upload-anexos', ensureEmpresa, uploadEmpresa.array('anexos'), empresaArquivoController.uploadAnexos);
+router.get('/public/anexos/:id/abrir', empresaArquivoController.abrirAnexo);
 
 router.get('/vagas', ensureEmpresa, remember, empresaController.mostrarVagas);
 
@@ -75,7 +87,6 @@ router.get('/candidatos-encontrados', ensureEmpresa, (req, res) =>
   res.render('empresas/candidatos-encontrados')
 );
 
-router.get('/perfil/:id', empresaController.perfilPublico);
 router.get('/ranking-candidatos/:vagaId', ensureEmpresa, empresaController.rankingCandidatos);
 
 router.post('/excluir-conta', ensureEmpresa, empresaController.excluirConta);
@@ -86,12 +97,12 @@ router.get('/editar-vaga/:id', ensureEmpresa, (req, res) =>
 router.post('/editar-vaga/:id', ensureEmpresa, (req, res) =>
    res.redirect(307, `/empresas/vaga/${req.params.id}/editar`)
 );
-router.get('/empresa/vaga/:id/editar', ensureEmpresa, (req, res) =>
-   res.redirect(301, `/empresas/vaga/${req.params.id}/editar`)
-);
-router.post('/empresa/vaga/:id/editar', ensureEmpresa, (req, res) =>
-   res.redirect(307, `/empresas/vaga/${req.params.id}/editar`)
-);
+//router.get('/empresa/vaga/:id/editar', ensureEmpresa, (req, res) =>
+//   res.redirect(301, `/empresas/vaga/${req.params.id}/editar`)
+//);
+//router.post('/empresa/vaga/:id/editar', ensureEmpresa, (req, res) =>
+//   res.redirect(307, `/empresas/vaga/${req.params.id}/editar`)
+//);
 router.post('/excluir-vaga/:id', ensureEmpresa, (req, res) =>
    res.redirect(307, `/empresas/vaga/${req.params.id}/excluir`)
 );
