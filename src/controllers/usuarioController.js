@@ -252,7 +252,7 @@ exports.criarUsuario = async (req, res) => {
 
     if (usuarioExistente) {
       if (usuarioExistente.email_verificado) {
-        const usuarioId = usuarioExistente.id;
+        const usuarioId = String(usuarioExistente.id);
 
         const cand = await candidatoModel.obterCandidatoPorUsuarioId(usuarioId);
         const emp  = await empresaModel.obterEmpresaPorUsuarioId(usuarioId);

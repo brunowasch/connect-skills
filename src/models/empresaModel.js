@@ -75,8 +75,10 @@ exports.atualizarFotoPerfil = async ({ foto_perfil, usuario_id }) => {
  * @returns {Promise<Object|null>}
  */
 exports.obterEmpresaPorUsuarioId = async (usuario_id) => {
+  if (!usuario_id) return null;
+
   return await prisma.empresa.findUnique({
-    where: { usuario_id: Number(usuario_id) }
+    where: { usuario_id: String(usuario_id) }
   });
 };
 

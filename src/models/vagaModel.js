@@ -123,33 +123,32 @@ exports.buscarVagasPorUsuarioId = async (usuario_id) => {
 * @param {number} candidato_id
  */
 exports.buscarVagasPorInteresseDoCandidato = async (candidato_id) => {
-  const candidato = await prisma.candidato.findUnique({
-    where: { id: Number(candidato_id) },
-    include: { candidato_area: true },
-  });
+  if (!candidato_id) return [];
 
-  if (!candidato || candidato.candidato_area.length === 0) {
-    return []; // Sem áreas escolhidas
-  }
+  // 1. Busca áreas do candidato
+  const candidatoAreas = await prisma.candidato_area.findMany({
+    where: { candidato_id: String(candidato_id) }
+  });
 
-  const areaIds = candidato.candidato_area.map(rel => rel.area_interesse_id);
+  if (candidatoAreas.length === 0) return [];
 
-  return await prisma.vaga.findMany({
-    where: {
-      vaga_area: {
-        some: {
-          area_interesse_id: { in: areaIds },
-        },
-      },
-    },
-    include: {
-      empresa: true,
-      vaga_area: { include: { area_interesse: true } },
-      vaga_soft_skill: { include: { soft_skill: true } },
-      vaga_arquivo: true,
-      vaga_link: true,
-    },
-  });
+  const areaIds = candidatoAreas.map(rel => rel.area_interesse_id);
+
+  // 2. Busca IDs de vagas que possuem essas áreas na tabela vaga_area
+  const vinculosVagas = await prisma.vaga_area.findMany({
+    where: { area_interesse_id: { in: areaIds } },
+    select: { vaga_id: true }
+  });
+
+  const vagaIds = [...new Set(vinculosVagas.map(v => v.vaga_id))];
+
+  if (vagaIds.length === 0) return [];
+
+  // 3. Busca as vagas (Sem usar includes de relação que não existem no prisma)
+  return await prisma.vaga.findMany({
+    where: { id: { in: vagaIds } },
+    orderBy: { created_at: 'desc' }
+  });
 };
 
 /**

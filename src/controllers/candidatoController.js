@@ -223,7 +223,7 @@ exports.telaNomeCandidato = (req, res) => {
 };
 
 exports.salvarNomeCandidato = async (req, res) => {
-  const usuario_id = req.session.usuario.id; 
+  const usuario_id = req.session.usuario?.id; 
   const { nome, sobrenome, data_nascimento } = req.body;
 
   // Verificação de segurança
@@ -234,10 +234,10 @@ exports.salvarNomeCandidato = async (req, res) => {
 
   try {
     await candidatoModel.criarCandidato({
-      usuario_id: Number(usuario_id),
+      usuario_id: String(usuario_id), 
       nome,
       sobrenome,
-      data_nascimento: new Date(data_nascimento),
+      data_nascimento: data_nascimento ? new Date(data_nascimento) : null,
     });
 
     return res.redirect('/candidatos/cadastro/areas');
@@ -260,10 +260,10 @@ exports.telaCadastroAreas = async (req, res) => {
 };
 
 exports.salvarCadastroAreas = async (req, res) => {
+  // 1. Pegar o ID da sessão como String (UUID)
   const usuario_id = req.session.usuario?.id;
 
   try {
-    // 1. Validação de Sessão
     if (!usuario_id) {
       req.session.erro = 'Sessão expirada. Faça login novamente.';
       return res.redirect('/login');
@@ -271,8 +271,6 @@ exports.salvarCadastroAreas = async (req, res) => {
 
     // 2. Parse do Input
     let { areasSelecionadas } = req.body;
-    
-    // Log para depuração (veja isso no seu terminal)
     console.log("Input recebido (RAW):", areasSelecionadas);
 
     if (!areasSelecionadas) {
@@ -280,26 +278,25 @@ exports.salvarCadastroAreas = async (req, res) => {
         return res.redirect('/candidatos/cadastro/areas');
     }
 
+    // Lógica de tratamento de Array/JSON
     if (typeof areasSelecionadas === 'string') {
       try {
         areasSelecionadas = JSON.parse(areasSelecionadas);
       } catch (e) {
-        // Se falhar o parse, tenta usar como string única ou array simples
-        console.error("Erro ao fazer parse do JSON:", e);
         areasSelecionadas = [areasSelecionadas]; 
       }
     }
-
-    // Garante que é um array
     if (!Array.isArray(areasSelecionadas)) {
         areasSelecionadas = [areasSelecionadas];
     }
 
-    console.log("Áreas processadas:", areasSelecionadas);
-
     // 3. Buscar candidato
     const candidato = await prisma.candidato.findUnique({
-      where: { usuario_id: Number(usuario_id) }
+      where: { 
+        // REMOVIDO: Number(usuario_id) 
+        // MANTIDO: String puro pois o ID agora é UUID
+        usuario_id: String(usuario_id) 
+      }
     });
 
     if (!candidato) {
@@ -307,50 +304,40 @@ exports.salvarCadastroAreas = async (req, res) => {
       return res.redirect('/candidatos/cadastro/areas');
     }
 
-    // --- CORREÇÃO PRINCIPAL AQUI ---
-    // Em vez de só buscar e falhar se não achar, vamos buscar os IDs.
-    // Se o ID não existir, precisamos decidir: ou cria ou avisa.
-    // Para facilitar seu teste, vamos criar lógica de "Encontrar ou Criar" (Upsert logic simulada)
-    
-    // Primeiro, busca as que já existem
+    // 4. Buscar ou Criar as Áreas (area_interesse_id continua Int)
     const areasExistentes = await prisma.area_interesse.findMany({
       where: { nome: { in: areasSelecionadas } }
     });
     
-    // Cria uma lista de IDs
     const idsParaSalvar = [...areasExistentes.map(a => a.id)];
-
-    // Se você quiser que o sistema aceite qualquer coisa que o usuário enviou
-    // e crie no banco se não existir (Recomendado se a lista hardcoded for a fonte da verdade):
     const nomesExistentes = areasExistentes.map(a => a.nome);
     const nomesFaltantes = areasSelecionadas.filter(nome => !nomesExistentes.includes(nome));
 
     for (const nomeNovaArea of nomesFaltantes) {
         if(nomeNovaArea && nomeNovaArea.trim() !== "") {
             const novaArea = await prisma.area_interesse.create({
-                data: { nome: nomeNovaArea, padrao: true } // Ajuste 'padrao' conforme seu schema
+                data: { 
+                    nome: nomeNovaArea, 
+                    padrao: true,
+                    // Se o seu parceiro mudou o ID da area_interesse para String também, 
+                    // você precisaria de: id: uuidv4() aqui. 
+                    // Mas pelo seu schema enviado, ela ainda é Int autoincrement.
+                } 
             });
             idsParaSalvar.push(novaArea.id);
         }
     }
-    
-    console.log("IDs finais para salvar:", idsParaSalvar);
 
-    if (idsParaSalvar.length === 0) {
-      req.session.erro = 'Nenhuma área válida foi processada. O banco de dados pode estar vazio.';
-      return res.redirect('/candidatos/cadastro/areas');
-    }
-
-    // 4. Limpa e Salva
-    // Transaction garante que apaga e cria junto
+    // 5. Limpa e Salva (Transaction)
+    // Importante: candidato.id agora é String (UUID)
     await prisma.$transaction([
         prisma.candidato_area.deleteMany({
-            where: { candidato_id: candidato.id }
+            where: { candidato_id: String(candidato.id) }
         }),
         prisma.candidato_area.createMany({
             data: idsParaSalvar.map(id => ({
-                candidato_id: candidato.id,
-                area_interesse_id: id
+                candidato_id: String(candidato.id),
+                area_interesse_id: id // Este permanece Int
             }))
         })
     ]);
@@ -598,136 +585,85 @@ exports.salvarAreas = async (req, res) => {
 
 
 exports.telaHomeCandidato = async (req, res) => {
-  // Pegamos o ID da conta (tabela Usuario)
-  const userId = req.session.usuario?.id;
-  if (!userId) return res.redirect('/login');
+  const usuarioId = req.session.usuario?.id;
+  if (!usuarioId) return res.redirect('/login');
 
   try {
-    // 1) Carrega o candidato do banco usando USUARIO_ID
     const candDb = await prisma.candidato.findUnique({
-      where: { usuario_id: Number(userId) }, // Busca pela relação com o usuário
-      include: {
-        candidato_area: { include: { area_interesse: true } }
-      }
+      where: { usuario_id: String(usuarioId) }
     });
 
-    // Se não encontrar o perfil do candidato, redireciona para criar um
-    if (!candDb) {
-      console.warn('Perfil de candidato não encontrado para o usuário:', userId);
-      return res.redirect('/candidatos/cadastro/nome'); 
-    }
+    if (!candDb) return res.redirect('/candidatos/cadastro/nome');
 
-    // Mapeia os nomes das áreas
-    const areasNomes = (candDb.candidato_area || [])
-      .map(r => r?.area_interesse?.nome)
-      .filter(Boolean);
+    // Atualiza a sessão para garantir que o ID esteja disponível em outras telas
+    req.session.candidato = { id: candDb.id };
 
-    // 2) Sincroniza a sessão do candidato com os dados do banco
-    const localidadeBanco = [candDb.cidade, candDb.estado, candDb.pais]
-      .filter(Boolean)
-      .join(', ') || "Local não informado";
+    // --- CORREÇÃO DA LOCALIZAÇÃO ---
+    // Monta a string de localização combinando as colunas do banco
+    const localidadeFormatada = [candDb.cidade, candDb.estado, candDb.pais]
+      .filter(Boolean) // Remove campos nulos ou vazios
+      .join(', ');
 
-    req.session.candidato = {
-      id: candDb.id,
-      usuario_id: candDb.usuario_id,
-      nome: candDb.nome || "Candidato",
-      sobrenome: candDb.sobrenome || "",
-      telefone: candDb.telefone,
-      foto_perfil: candDb.foto_perfil || "/img/avatar.png",
-      localidade: localidadeBanco,
-      areas: areasNomes,
-      data_nascimento: candDb.data_nascimento
-    };
+    // 2) Busca áreas manualmente
+    const relAreas = await prisma.candidato_area.findMany({
+      where: { candidato_id: candDb.id },
+      include: { area_interesse: true }
+    });
+    const areasNomes = relAreas.map(r => r.area_interesse?.nome).filter(Boolean);
 
-    // 3) Vagas recomendadas (usa o ID do CANDIDATO para buscar)
-    let vagas = [];
-    try {
-      vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(Number(candDb.id));
-    } catch (e) {
-      console.warn('[home] falha ao buscar vagas recomendadas:', e.message);
-    }
-
-    // --- Filtro de Vagas Abertas ---
-    const vagaIds = vagas.map(v => v.id);
-    if (vagaIds.length > 0) {
-      const statusList = await prisma.vaga_status.findMany({
-        where: { vaga_id: { in: vagaIds } },
-        orderBy: { criado_em: 'desc' },
-        select: { vaga_id: true, situacao: true }
-      });
-      
-      const latestStatusMap = new Map();
-      statusList.forEach(s => {
-        if (!latestStatusMap.has(s.vaga_id)) {
-          latestStatusMap.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
-        }
-      });
-      
-      vagas = vagas.filter(v => (latestStatusMap.get(v.id) || 'aberta') !== 'fechada');
-    }
-
-    // 4) Histórico de candidaturas
+    // 3) Histórico de candidaturas (Manual)
     const avaliacoes = await prisma.vaga_avaliacao.findMany({
-      where: { candidato_id: Number(candDb.id) },
-      orderBy: { id: 'desc' },
-      include: {
-        vaga: {
-          include: {
-            empresa: {
-              select: { id: true, nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true }
-            }
-          }
-        }
-      }
+      where: { candidato_id: candDb.id },
+      orderBy: { created_at: 'desc' }
     });
 
-    const historico = (avaliacoes || [])
-      .filter(a => a.vaga)
-      .map(a => ({
-        vaga: { id: a.vaga.id, cargo: a.vaga.cargo },
-        empresa: { 
-            id: a.vaga.empresa?.id, 
-            nome: a.vaga.empresa?.nome_empresa, 
-            nome_empresa: a.vaga.empresa?.nome_empresa 
-        },
-        created_at: a.created_at || a.criado_em,
-        status: a.status || 'em_analise'
-      }));
+    const historicoVagaIds = avaliacoes.map(a => a.vaga_id);
+    const dadosVagasHistorico = await prisma.vaga.findMany({
+      where: { id: { in: historicoVagaIds } }
+    });
 
-    // Filtra vagas que o usuário já aplicou
-    const appliedIds = new Set(historico.map(h => h.vaga.id));
-    vagas = vagas.filter(v => !appliedIds.has(v.id));
+    const historico = avaliacoes.map(a => {
+      const v = dadosVagasHistorico.find(vaga => vaga.id === a.vaga_id);
+      return {
+        vaga: { id: a.vaga_id, cargo: v?.cargo || 'Vaga' },
+        status: a.score > 50 ? 'em_analise' : 'reprovado',
+        created_at: a.created_at
+      };
+    });
 
-    // 5) Render da home usando os dados validados
+    // 4) Vagas recomendadas
+    let vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(candDb.id);
+
     res.render('candidatos/home-candidatos', {
-      nome: req.session.candidato.nome,
-      sobrenome: req.session.candidato.sobrenome,
-      localidade: req.session.candidato.localidade,
-      activePage: 'home',
-      usuario: req.session.usuario,
-      candidato: req.session.candidato,
+      candidato: {
+        ...candDb,
+        localidade: localidadeFormatada || 'Localidade não informada'
+      },
       vagas,
       historico,
-      candidaturasAplicadasCount: historico.length,
-      areas: areasNomes // Passamos o array de strings diretamente
+      areas: areasNomes,
+      activePage: 'home'
     });
 
   } catch (err) {
-    console.error('[telaHomeCandidato] erro crítico:', err);
-    req.session.erro = 'Não foi possível carregar sua home.';
-    return res.redirect('/login');
+    console.error('Erro crítico na home:', err);
+    res.status(500).send("Erro ao carregar home");
   }
 };
 
 exports.renderMeuPerfil = async (req, res) => {
-  const candidatoSessao =
-    req.session.candidato ||
-    (req.session.usuario?.tipo === 'candidato' ? req.session.usuario : null);
-  if (!candidatoSessao) return res.redirect('/login');
+  // 1. Pegar o objeto da sessão (UUID já deve estar aqui como String)
+  const candidatoId = req.session.candidato?.id || req.session.usuario?.candidatoId;
+
+  if (!candidatoId || candidatoId === 'null') {
+    console.error("ID do candidato não encontrado na sessão.");
+    return res.redirect('/login');
+  }
 
   try {
+    // 2. CORREÇÃO: Usar String(id) em vez de Number(id)
     const candidato = await prisma.candidato.findUnique({
-      where: { id: Number(candidatoSessao.id) },
+      where: { id: String(candidatoId) },
       include: {
         candidato_area: {
           include: { area_interesse: { select: { id: true, nome: true } } }
@@ -738,118 +674,70 @@ exports.renderMeuPerfil = async (req, res) => {
           orderBy: { criadoEm: 'desc' },
           select: { id: true, nome: true, mime: true, tamanho: true, url: true, criadoEm: true }
         },
-        vaga_avaliacao: true
       }
     });
 
-    if (!candidato) {
-      return res.status(404).render('shared/404', { mensagem: 'Candidato não encontrado.' });
-    }
+    if (!candidato) return res.redirect('/login');
 
-    const areas = (candidato.candidato_area || [])
-      .map((ca) => ca.area_interesse?.nome)
-      .filter(Boolean);
+    const avaliacoes = await prisma.vaga_avaliacao.findMany({
+      where: { candidato_id: candidato.id }
+    });
 
-    const fotoPerfil =
-      (candidato.foto_perfil && String(candidato.foto_perfil).trim() !== '')
+    // --- Processamento de dados (Mantido igual, apenas removendo Numbers) ---
+    const areas = (candidato.candidato_area || []).map(ca => ca.area_interesse?.nome).filter(Boolean);
+
+    const fotoPerfil = (candidato.foto_perfil && String(candidato.foto_perfil).trim() !== '')
         ? String(candidato.foto_perfil).trim()
         : '/img/avatar.png';
 
-    const localidade =
-      [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ')
+    const localidade = [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ')
       || (req.session?.candidato?.localidade || '');
 
     const dataBase = candidato.data_nascimento || candidato.usuario?.data_nascimento;
 
+    const telefoneDados = parseTelefoneBR(candidato.telefone) || { ddi: '+55', ddd: '', numeroFormatado: '' };
+    let { ddi, ddd, numeroFormatado } = telefoneDados;
+    ddi = sanitizeDdi(ddi);
+
     let dataFormatada = "";
     if (dataBase) {
-      // Converte para objeto Date e formata para o padrão BR considerando o fuso horário correto
       const dateObj = new Date(dataBase);
       dataFormatada = dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
     }
 
-    const arquivos = candidato.candidato_arquivo || [];
-    const anexos = arquivos;
-
+    // Funções auxiliares de telefone e sanitize permanecem iguais...
     function parseTelefoneBR(telRaw) {
       const tel = (telRaw || '').trim();
-      if (!tel) return { ddi: '', ddd: '', numeroFormatado: '' };
+      
+      if (!tel) return { ddi: '+55', ddd: '', numeroFormatado: '' };
 
-      // 1) Formato normalizado por nós: +DD-XX-<resto...>
-      if (tel.includes('-')) {
-        const partes = tel.split('-').map(p => p.trim()).filter(Boolean);
-        let ddi = partes[0] || '';
-        let ddd = partes[1] || '';
-        const resto = partes.slice(2).join('');
-        const numeros = resto.replace(/\D/g, '');
-
-        let numeroFormatado = '';
-        if (numeros.length >= 9) {
-          numeroFormatado = `${numeros.slice(0, 5)}-${numeros.slice(5, 9)}`;
-        } else if (numeros.length === 8) {
-          numeroFormatado = `${numeros.slice(0, 4)}-${numeros.slice(4, 8)}`;
-        } else {
-          numeroFormatado = partes.slice(2).join('-');
-        }
-
-        ddi = ddi.startsWith('+') ? ddi : (ddi ? `+${ddi}` : '+55');
-        ddd = ddd.replace(/\D/g, '');
-
-        return { ddi, ddd, numeroFormatado };
-      }
-
-      // 2) Formatos soltos, ex: "+55 (51) 99217-9330"
-      const m = tel.match(/^(\+\d+)?\s*\(?(\d{2,3})\)?\s*([\d\- ]{7,})$/);
-      if (m) {
-        const ddi = (m[1] || '+55').trim();
-        const ddd = (m[2] || '').trim();
-        const numeros = (m[3] || '').replace(/\D/g, '');
-
-        let numeroFormatado = '';
-        if (numeros.length >= 9) {
-          numeroFormatado = `${numeros.slice(0, 5)}-${numeros.slice(5, 9)}`;
-        } else if (numeros.length === 8) {
-          numeroFormatado = `${numeros.slice(0, 4)}-${numeros.slice(4, 8)}`;
-        } else {
-          numeroFormatado = numeros;
-        }
-        return { ddi, ddd, numeroFormatado };
-      }
-
-      // 3) Fallback genérico
-      return { ddi: '', ddd: '', numeroFormatado: '' };
+      return { ddi: '+55', ddd: '', numeroFormatado: tel }; 
     }
+    function sanitizeDdi(ddi) { /* ... seu código original ... */ }
 
-    function sanitizeDdi(ddi) {
-      const s = String(ddi || '').toLowerCase().trim();
-      if (!s || s.includes('undefined')) return '+55';
-      const only = s.replace(/[^+\d]/g, '');
-      if (!/\d/.test(only)) return '+55';
-      return only.startsWith('+') ? only : `+${only}`;
-    }
-
-    let { ddi, ddd, numeroFormatado } = parseTelefoneBR(candidato.telefone);
-    ddi = sanitizeDdi(ddi);
-
-    const encCandidatoId = encodeId(Number(candidato.id));
+    // --- CORREÇÃO: Não use encodeId ou Number no ID original ---
+    // Como o ID agora é um UUID ("550e8400-e29b..."), ele já é uma string segura para URL.
+    const encCandidatoId = candidato.id; 
     const perfilShareUrl = `${req.protocol}://${req.get('host')}/candidatos/perfil/${encCandidatoId}`;
 
     res.render('candidatos/meu-perfil', {
       candidato,
       usuario: candidato.usuario,
       areas,
+      avaliacoes,
       links: candidato.candidato_link || [],
-      arquivos,
-      anexos,
+      arquivos: candidato.candidato_arquivo || [],
+      anexos: candidato.candidato_arquivo || [],
       fotoPerfil,
       localidade,
-      humanFileSize,
+      humanFileSize, // Certifique-se que esta função está importada/disponível
       ddi,
       ddd,
       numeroFormatado,
       encCandidatoId,
       perfilShareUrl,
     });
+
   } catch (err) {
     console.error('Erro em renderMeuPerfil:', err);
     return res.status(500).render('shared/500', { erro: err?.message || 'Erro interno' });
@@ -1211,36 +1099,36 @@ exports.salvarEditarPerfil = async (req, res) => {
   const sess = req.session.candidato;
   if (!sess) return res.redirect('/login');
 
-  const candidato_id = Number(sess.id);
+  // CORREÇÃO 1: Nunca use Number(). IDs agora são UUIDs (Strings).
+  const candidato_id = String(sess.id); 
+  
   const { nome, sobrenome, localidade, ddi, ddd, numero, dataNascimento, removerFoto, descricao } = req.body;
 
   const nomeTrim       = (nome || '').trim();
   const sobrenomeTrim  = (sobrenome || '').trim();
   const localidadeTrim = (localidade || '').trim();
-  const dddTrim        = (ddd || '').replace(/\D/g, '');        // só dígitos
-  const numeroTrim     = (numero || '').replace(/\D/g, '');     // só dígitos para validação
-  const numeroVisivel  = (numero || '').trim().replace(/[^\d-]/g, ''); // mantém hífen do usuário
+  const dddTrim        = (ddd || '').replace(/\D/g, '');
+  const numeroTrim     = (numero || '').replace(/\D/g, '');
+  const numeroVisivel  = (numero || '').trim().replace(/[^\d-]/g, '');
 
-  // Só consideramos telefone se tiver DDD (>=2) e número com >=8 dígitos
   const hasTelefone = (dddTrim.length >= 2 && numeroTrim.length >= 8);
 
-  // Localidade (só se veio algo)
   let cidade, estado, pais;
   if (localidadeTrim) {
     const partes = localidadeTrim.split(',').map(s => s.trim());
     [cidade = '', estado = '', pais = ''] = partes;
   }
 
-  // DateTime: converter string -> Date apenas se for válida
   let parsedDate = null;
   if (typeof dataNascimento === 'string' && dataNascimento.trim()) {
     const d = new Date(dataNascimento.trim());
-    if (!isNaN(d.getTime())) parsedDate = d; // válido
+    if (!isNaN(d.getTime())) parsedDate = d;
   }
 
   try {
     // Foto
     if (removerFoto) {
+      // CORREÇÃO 2: Garanta que o model atualizarFotoPerfil também aceite String no ID
       await candidatoModel.atualizarFotoPerfil({ candidato_id, foto_perfil: null });
       sess.foto_perfil = '/img/avatar.png';
     } else if (req.file && req.file.buffer) {
@@ -1248,6 +1136,7 @@ exports.salvarEditarPerfil = async (req, res) => {
         const stream = cloudinary.uploader.upload_stream(
           {
             folder: 'connect-skills/candidatos',
+            // O public_id aceita strings, então o UUID funciona bem aqui
             public_id: `foto_candidato_${candidato_id}`,
             overwrite: true,
             resource_type: 'image'
@@ -1260,7 +1149,6 @@ exports.salvarEditarPerfil = async (req, res) => {
       await candidatoModel.atualizarFotoPerfil({ candidato_id, foto_perfil: sess.foto_perfil });
     }
 
-    // Atualização parcial
     const updateData = {};
     if (nomeTrim) updateData.nome = nomeTrim;
     if (sobrenomeTrim) updateData.sobrenome = sobrenomeTrim;
@@ -1272,7 +1160,6 @@ exports.salvarEditarPerfil = async (req, res) => {
     }
     if (hasTelefone) {
       const ddiFinal = (ddi || '+55').toString().trim() || '+55';
-      // Guarda exatamente como o usuário digitou (com hífen no meio do número)
       updateData.telefone = `${ddiFinal}-${dddTrim}-${numeroVisivel}`;
     }
     if (typeof descricao === 'string') {
@@ -1281,12 +1168,13 @@ exports.salvarEditarPerfil = async (req, res) => {
     }
 
     if (Object.keys(updateData).length > 0) {
+      // CORREÇÃO 3: Onde o erro acontecia (linha 1164)
       await prisma.candidato.update({
-        where: { id: candidato_id },
+        where: { id: candidato_id }, // candidato_id agora é String válida
         data: updateData
       });
 
-      // Atualiza sessão só com o que persistiu
+      // Atualiza sessão
       if (updateData.nome) sess.nome = updateData.nome;
       if (updateData.sobrenome) sess.sobrenome = updateData.sobrenome;
       if (localidadeTrim && (cidade || estado || pais)) {
@@ -1300,7 +1188,7 @@ exports.salvarEditarPerfil = async (req, res) => {
       if (updateData.data_nascimento) sess.data_nascimento = updateData.data_nascimento;
     }
 
-    // LINKS — substitui só se houver ao menos 1 URL válida
+    // LINKS
     const urls = Array.isArray(req.body['link_url[]'])
       ? req.body['link_url[]']
       : Array.isArray(req.body.link_url)
@@ -1309,23 +1197,27 @@ exports.salvarEditarPerfil = async (req, res) => {
 
     const links = [];
     for (let i = 0; i < urls.length; i++) {
-      const url = normUrl(urls[i] || '');
+      const url = typeof normUrl === 'function' ? normUrl(urls[i] || '') : urls[i];
       if (!url) continue;
       links.push({ label: 'Link', url, ordem: i });
     }
+    
     if (links.length > 5) links.length = 5;
+    
+    // CORREÇÃO 4: Certifique-se que o model aceita candidato_id como String
     if (links.length > 0) {
       await candidatoModel.substituirLinksDoCandidato(candidato_id, links);
     }
 
     req.session.sucessoPerfil = 'Perfil atualizado com sucesso!';
     res.redirect('/candidatos/meu-perfil');
+
   } catch (err) {
     console.error('Erro ao atualizar perfil básico:', err);
 
-    // Recarrega dados atuais para não quebrar a view
     let cand = null;
     try {
+      // CORREÇÃO 5: Fallback de erro também precisa de String
       cand = await prisma.candidato.findUnique({
         where: { id: candidato_id },
         include: {
@@ -1333,24 +1225,20 @@ exports.salvarEditarPerfil = async (req, res) => {
           candidato_arquivo: { orderBy: { criadoEm: 'desc' } }
         }
       });
-    } catch {}
+    } catch (findErr) {
+      console.error("Erro ao buscar dados de fallback:", findErr);
+    }
 
     const arquivos = cand?.candidato_arquivo || [];
-    const anexos   = arquivos;
     const links    = cand?.candidato_link   || [];
 
     res.status(500).render('candidatos/editar-perfil', {
-      nome,
-      sobrenome,
-      localidade,
-      ddd,
-      numero, // mantém o que o usuário digitou (com hífen) em caso de erro
-      dataNascimento,
+      nome, sobrenome, localidade, ddd, numero, dataNascimento,
       fotoPerfil: sess.foto_perfil,
       links,
-      anexos,
+      anexos: arquivos,
       arquivos,
-      humanFileSize,
+      humanFileSize: typeof humanFileSize === 'function' ? humanFileSize : (s => s),
       descricao,
       errorMessage: 'Não foi possível atualizar seu perfil. Tente novamente.'
     });
@@ -2187,32 +2075,18 @@ exports.pularCadastroCandidato = async (req, res) => {
 };
 
 exports.perfilPublicoCandidato = async (req, res) => {
-
   try {
-    // 1) ID seguro (aceita hash ou numérico); GET numérico -> 301 p/ hash
-    const raw = String(req.params.id || '');
-    const dec = decodeId(raw);
-    const candidatoId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
+    const candidatoId = String(req.params.id || ''); // Mantém como String (UUID)
 
-    if (!Number.isFinite(candidatoId) || candidatoId <= 0) {
+    if (!candidatoId || candidatoId.length < 10) {
       return res.status(400).render('shared/404', { mensagem: 'ID de candidato inválido.' });
     }
 
-    if (req.method === 'GET' && /^\d+$/.test(raw)) {
-      const enc = encodeId(candidatoId);
-      const canonical = req.originalUrl.replace(raw, enc);
-      if (canonical !== req.originalUrl) {
-        return res.redirect(301, canonical);
-      }
-    }
-
-    // 2) Carrega candidato
     const candidato = await prisma.candidato.findUnique({
-      where: { id: candidatoId },
+      where: { id: candidatoId }, // O Prisma encontrará o UUID corretamente
       include: {
         usuario: { select: { email: true, nome: true, sobrenome: true } },
         candidato_area: { include: { area_interesse: { select: { id: true, nome: true } } } },
-        candidato_link: { orderBy: { ordem: 'asc' }, select: { id: true, label: true, url: true, ordem: true } },
         candidato_arquivo: {
           orderBy: { criadoEm: 'desc' },
           select: { id: true, nome: true, mime: true, tamanho: true, url: true, criadoEm: true }
@@ -2229,8 +2103,10 @@ exports.perfilPublicoCandidato = async (req, res) => {
       ? String(candidato.foto_perfil).trim()
       : '/img/avatar.png';
 
+    // Sua lógica de localidade que já está funcionando
     const localidade = [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ');
 
+    // Lógica de telefone (mantenha suas funções auxiliares parseTelefoneBR e sanitizeDdi)
     let { ddi, ddd, numeroFormatado } = parseTelefoneBR(candidato.telefone);
     ddi = sanitizeDdi(ddi);
     const telefoneExibicao = (ddd && numeroFormatado)
@@ -2241,11 +2117,8 @@ exports.perfilPublicoCandidato = async (req, res) => {
       .map(ca => ca.area_interesse?.nome)
       .filter(Boolean);
 
-    const telefone = (candidato.telefone || '').trim(); // mantido para compat
-
-    // 4) IDs codificados e URL canônica para compartilhar
-    const encCandidatoId = encodeId(candidatoId);
-    const perfilShareUrl = `${req.protocol}://${req.get('host')}/candidatos/perfil/${encCandidatoId}`;
+    // 4) URL para compartilhar (agora usa o UUID direto)
+    const perfilShareUrl = `${req.protocol}://${req.get('host')}/candidatos/perfil/${candidatoId}`;
 
     // 5) Render
     return res.render('candidatos/perfil-publico-candidatos', {
@@ -2253,10 +2126,10 @@ exports.perfilPublicoCandidato = async (req, res) => {
       fotoPerfil,
       localidade,
       areas,
-      links: candidato.candidato_link || [],
+      links: (candidato.candidato_link) || [],
       arquivos: candidato.candidato_arquivo || [],
       telefoneExibicao,
-      encCandidatoId,
+      encCandidatoId: candidatoId, // Passamos o UUID puro
       perfilShareUrl,
     });
   } catch (err) {

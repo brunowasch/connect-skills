@@ -28,7 +28,7 @@ router.post('/complementar', ensureUsuarioCandidato, candidatoController.complem
 router.get('/cadastro/areas', ensureCandidato, candidatoController.telaCadastroAreas);
 router.post('/cadastro/areas', ensureCandidato, candidatoController.salvarCadastroAreas);
 
-router.get('/perfil/:id', withEncodedParam('id'), candidatoController.perfilPublicoCandidato);
+router.get('/perfil/:id', candidatoController.perfilPublicoCandidato);
 
 // Rotas autenticadas
 router.get('/home', ensureCandidato, candidatoController.telaHomeCandidato);

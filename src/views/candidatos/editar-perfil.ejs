@@ -198,7 +198,7 @@
                     <td><%= humanFileSize(a.tamanho) %></td>
                     <td><%= new Date(a.criadoEm).toLocaleString('pt-BR') %></td>
                     <td class="text-end">
-                      <a href="/candidato/anexos/<%= encodeId(a.id) %>/abrir" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                      <a href="/candidato/anexos/<%= a.id %>/abrir" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
                         Abrir
                       </a>
                       <button
@@ -206,7 +206,7 @@
                         class="btn btn-sm btn-outline-danger"
                         data-bs-toggle="modal"
                         data-bs-target="#modalDeleteAnexo"
-                        data-action="/candidato/anexos/<%= a.id %>/delete"
+                        data-action="/candidato/anexos/<%= a.id %>/delete" 
                         data-nome="<%= a.nome %>">
                         Excluir
                       </button>
