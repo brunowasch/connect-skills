@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connect Skills - Áreas de Interesse</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/css/shared/style.css">
+  <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
+  <style>
+    :root { --nav-h: 0px !important; }
+    body#home { padding-top: 0 !important; }
+    
+    /* Área onde ficam as tags selecionadas */
+    .selected-area {
+      min-height: 50px;
+      border: 1px dashed #dee2e6;
+      background-color: #fcfcfc;
+      transition: all 0.2s;
+    }
+    
+    .selected-area.has-items {
+      border: 1px solid #dee2e6;
+      background-color: #fff;
+    }
+
+    .selected-tag {
+      background-color: #0084ff;
+      color: white;
+      font-size: 0.9rem;
+      padding: 6px 12px;
+      border-radius: 50px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      animation: fadeIn 0.2s ease-in-out;
+    }
+
+    .selected-tag i {
+      cursor: pointer;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+    
+    .selected-tag i:hover {
+      opacity: 1;
+    }
+
+    /* Itens da lista de sugestões */
+    .skill-option {
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid #dee2e6;
+      color: #495057;
+      background-color: #fff;
+      font-size: 0.9rem;
+      user-select: none;
+    }
+    
+    .skill-option:hover {
+      border-color: #6f42c1;
+      color: #6f42c1;
+      background-color: #f3e8ff; /* Roxo bem clarinho */
+    }
+
+    /* Quando o item já está selecionado lá em cima, ele fica "apagado" na lista de baixo */
+    .skill-option.active-in-list {
+      opacity: 0.5;
+      background-color: #e9ecef;
+      pointer-events: none; /* Impede clicar de novo */
+      border-color: transparent;
+    }
+
+    .skills-container {
+      max-height: 300px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body class="d-flex flex-column min-vh-100 bg-white">
+  
+  <%- include('../partials/header') %>
+  <%- include('../partials/flash-messages') %>
+
+  <main class="flex-grow-1 d-flex flex-column justify-content-center align-items-center px-3 py-5">
+    
+    <div class="w-100" style="max-width: 650px;">
+      <h1 class="text-center mb-2">Quais suas especialidades?</h1>
+      <p class="text-center text-muted mb-4">Selecione as tecnologias para adicionar ao seu perfil.</p>
+
+      <form action="/candidatos/cadastro/areas" method="POST" id="formAreas" onsubmit="prepararEnvio(event)">
+          
+          <div class="mb-2">
+            <label class="form-label small text-muted fw-bold ms-1">Áreas selecionadas:</label>
+            <div id="selected-container" class="selected-area rounded-3 p-2 d-flex flex-wrap gap-2 align-items-center">
+              <span id="placeholder-text" class="text-muted small ms-2">Nenhuma habilidade selecionada...</span>
+              </div>
+          </div>
+
+          <div class="input-group mb-3">
+              <span class="input-group-text bg-white border-end-0 rounded-start-pill ps-3">
+                  <i class="bi bi-search text-muted"></i>
+              </span>
+              <input type="text" id="buscaSkill" class="form-control border-start-0 rounded-end-pill" placeholder="Buscar habilidade (ex: Java, Marketing...)" onkeyup="filtrarSkills()">
+          </div>
+
+          <label class="form-label small text-muted fw-bold ms-1">Áreas de Atuação:</label>
+          <div class="d-flex flex-wrap gap-2 justify-content-center mb-4 skills-container p-2 border rounded-3 bg-light">
+              <% habilidades.forEach(function(skill) { %>
+              <div class="badge rounded-pill py-2 px-3 fw-normal skill-option" 
+                  data-value="<%= skill %>"
+                  onclick="addSkill('<%= skill %>')">
+                  <i class="bi bi-plus text-secondary me-1"></i><%= skill %>
+              </div>
+              <% }); %>
+          </div>
+          
+          <input type="hidden" name="areasSelecionadas" id="inputAreasSelecionadas">
+
+          <div class="d-grid gap-2 mt-4">
+              <button type="submit" class="btn btn-primary rounded-pill py-3 fw-bold shadow-sm">
+                  Concluir Cadastro <i class="bi bi-check-lg ms-2"></i>
+              </button>
+          </div>
+      </form>
+    </div>
+
+  </main>
+
+  <script>
+    // 1. Estado da aplicação
+    const selecionadas = new Set();
+    const inputBusca = document.getElementById('buscaSkill');
+    const inputHidden = document.getElementById('inputAreasSelecionadas');
+    const selectedContainer = document.getElementById('selected-container');
+    const placeholderText = document.getElementById('placeholder-text');
+    const optionPills = document.querySelectorAll('.skill-option');
+
+    // 2. Filtro de busca
+    if (inputBusca) {
+      inputBusca.addEventListener('input', (e) => {
+        const termo = e.target.value.toLowerCase();
+        optionPills.forEach(pill => {
+          const texto = pill.textContent.toLowerCase();
+          // Remove ícone do texto para comparação se necessário, mas includes resolve
+          pill.classList.toggle('d-none', !texto.includes(termo));
+        });
+      });
+    }
+
+    // 3. Adicionar Habilidade (Da lista para o topo)
+    function addSkill(valor) {
+      if (selecionadas.has(valor)) return;
+
+      selecionadas.add(valor);
+      
+      // Cria a tag visual lá em cima
+      criarTagVisual(valor);
+      
+      // Atualiza visual da lista de baixo (marca como usado)
+      atualizarListaOpcoes(valor, true);
+      
+      atualizarInputHidden();
+    }
+
+    // 4. Remover Habilidade (Do topo)
+    function removeSkill(valor) {
+      selecionadas.delete(valor);
+      
+      // Remove a tag visual do DOM
+      const tag = document.getElementById(`tag-${valor}`);
+      if (tag) tag.remove();
+      
+      // Verifica se ficou vazio para mostrar o placeholder
+      verificarPlaceholder();
+      
+      // Reabilita o botão na lista de baixo
+      atualizarListaOpcoes(valor, false);
+      
+      atualizarInputHidden();
+    }
+
+    // --- Funções Auxiliares ---
+
+    function criarTagVisual(valor) {
+      // Esconde o placeholder "Nenhuma habilidade..."
+      placeholderText.style.display = 'none';
+      selectedContainer.classList.add('has-items');
+
+      const tag = document.createElement('div');
+      tag.className = 'selected-tag';
+      tag.id = `tag-${valor}`;
+      tag.innerHTML = `
+        <span>${valor}</span>
+        <i class="bi bi-x-circle-fill" onclick="removeSkill('${valor}')" title="Remover"></i>
+      `;
+      selectedContainer.appendChild(tag);
+    }
+
+    function verificarPlaceholder() {
+      if (selecionadas.size === 0) {
+        placeholderText.style.display = 'block';
+        selectedContainer.classList.remove('has-items');
+      }
+    }
+
+    function atualizarListaOpcoes(valor, selecionado) {
+      // Encontra o elemento na lista de baixo pelo data-value
+      const opcao = document.querySelector(`.skill-option[data-value="${valor}"]`);
+      if (opcao) {
+        if (selecionado) {
+          opcao.classList.add('active-in-list');
+          opcao.innerHTML = `<i class="bi bi-check-circle-fill me-1" style="color: #0084ff;"></i>${valor}`;
+        } else {
+          opcao.classList.remove('active-in-list');
+          opcao.innerHTML = `<i class="bi bi-plus text-secondary me-1"></i>${valor}`;
+        }
+      }
+    }
+
+    function atualizarInputHidden() {
+      const arrayFinal = Array.from(selecionadas);
+      inputHidden.value = JSON.stringify(arrayFinal);
+    }
+
+    // 5. Preparar o envio
+    function prepararEnvio(e) {
+      if (selecionadas.size === 0) {
+        e.preventDefault();
+        // Feedback visual mais elegante que um alert
+        selectedContainer.style.borderColor = '#dc3545';
+        selectedContainer.classList.add('shake-animation'); // Opcional se tivesse CSS de animação
+        alert('Por favor, selecione pelo menos uma área de interesse.');
+        setTimeout(() => selectedContainer.style.borderColor = '#dee2e6', 2000);
+        return false;
+      }
+      atualizarInputHidden();
+      return true;
+    }
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

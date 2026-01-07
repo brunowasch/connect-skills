@@ -93,6 +93,55 @@ const normUrl = (u) => {
   return s;
 };
 
+const LISTA_HABILIDADES = [
+    "A/B Testing", "Acabamento de Interiores", "Adobe After Effects", "Adobe Illustrator", "Adobe Photoshop", 
+    "Adobe Premiere Pro", "Alinhamento de Eixos", "Almoxarifado e Estocagem", "Alvenaria Estrutural", 
+    "Análise de Dados", "Análise de Falhas Mecânicas", "Análise de Metas de Vendas", "Análise de Riscos Ocupacionais", 
+    "Android Development", "Angular", "API RESTful", "Apontamento de Produção", "Arduino e Prototipagem", 
+    "Armação de Ferragens", "Arquitetura de Software", "Asphalt Paving", "ASP.NET Core", "Assembly Language", 
+    "Assentamento de Pisos e Azulejos", "Atendimento ao Cliente (PDV)", "AutoCAD 2D/3D", "Automação Industrial (CLP)", 
+    "AWS (Cloud)", "Azure DevOps", "Balanceamento de Rodas", "Balanço Patrimonial", "Bancos de Dados NoSQL", 
+    "Bancos de Dados Relacionais (SQL)", "Big Data Analytics", "Blockchain", "Blueprint Reading (Leitura de Plantas)", 
+    "Bootstrap", "C#", "C++", "Cálculo de Materiais", "Carpintaria de Formas", "Cercamento Elétrico", 
+    "Chapeação e Pintura", "Cibersegurança", "Ciclo PDCA", "Cloud Computing", "CNC (Comando Numérico Computadorizado)", 
+    "Cobit Framework", "Cold Calling", "Comércio Exterior", "Configuração de Firewalls", "Configuração de Modems/Roteadores", 
+    "Conhecimento de Normas Regulamentadoras (NRs)", "Conserto de Eletrodomésticos", "Contabilidade Básica", 
+    "Controle de Estoque (Inventory Management)", "Controle de Qualidade (QA)", "Copywriting", "Corte e Dobra de Aço", 
+    "Corte e Solda a Plasma", "CRM (Salesforce/HubSpot)", "CSS3", "Dart", "Data Mining", "Data Science", 
+    "Data Visualization", "Deep Learning", "Desenho Técnico Mecânico", "Desenvolvimento de Chatbots", "DevOps", 
+    "Diagramas Unifilares", "Django Framework", "Docker", "E-commerce Management", "Edição de Vídeo", "Elétrica Automotiva", 
+    "Elétrica Predial", "Electron", "Eletrônica Digital", "Elixir", "Encanamento e Hidráulica", "Energia Fotovoltaica (Instalação)", 
+    "Engenharia de Prompt", "ERP (SAP/Oracle/Totvs)", "Escaneamento 3D", "Escrituração Fiscal", "Estatística Aplicada", 
+    "Estruturas Metálicas", "ETL (Extract, Transform, Load)", "Excel Avançado", "Express.js", "Fardamento e Merchandising", 
+    "Ferramentaria", "Figma", "Firebase", "Flutter", "Fluxo de Caixa", "Folha de Pagamento", "Funilaria Automotiva", 
+    "Gesso Acartonado (Drywall)", "Gestão de Backlog", "Gestão de Frotas", "Gestão de Resíduos Industriais", 
+    "Gestão de Tráfego Pago", "Git & GitHub", "Google Ads", "Google Analytics", "Google Cloud Platform (GCP)", "Go (Golang)", 
+    "GraphQL", "HTML5", "IBGE (Classificação de Produtos)", "Impermeabilização de Lajes", "Inbound Marketing", "Indústria 4.0", 
+    "Instalação de Ar Condicionado", "Instalação de Câmeras (CFTV)", "Instalação de Drywall", "Instalação de Redes de Proteção", 
+    "Instalações Elétricas Industriais", "Inteligência de Negócios (BI)", "Interpretação de Desenho Técnico", "Inventário de Ativos", 
+    "iOS Development (Swift)", "Java", "JavaScript", "Jenkins", "Jogos Digitais (Unity/Unreal)", "Kaban", "Kotlin", "Kubernetes", 
+    "Laravel", "Layout de Fábrica", "Lean Manufacturing", "Leitura de Instrumentos (Paquímetro/Micrômetro)", "Linux (Administração de Sistemas)", 
+    "Logística Reversa", "Machine Learning", "Manutenção Corretiva e Preventiva", "Manutenção de Computadores (Hardware)", 
+    "Manutenção de Elevadores", "Manutenção de Motores Diesel", "Manutenção Hidráulica", "Manutenção Industrial", "Manutenção Predial", 
+    "Marcenaria Fina", "Marketing de Conteúdo", "Mecânica de Fluidos", "Mecânica de Motocicletas", "Mecânica Diesel", "Mecânica Pesada", 
+    "Mecatrônica", "Metodologias Ágeis (Scrum)", "Metrologia", "Microsoft Power BI", "Microserviços", "Mix de Produtos", 
+    "Modelagem 3D", "Modelagem de Dados", "MongoDB", "Montagem de Andaimes", "Montagem de Estruturas de Madeira", "Montagem de Móveis", 
+    "Montagem de Painéis Elétricos", "MySQL", "Next.js", "Node.js", "NoSQL", "NumPy", "Objective-C", "Operação de Betoneira", 
+    "Operação de Empilhadeira", "Operação de Escavadeira", "Operação de Máquina Injetora", "Operação de Pontes Rolantes", 
+    "Operação de Prensa", "Operação de Retroescavadeira", "Operação de Torno Mecânico", "Oracle Database", "Padrões de Projeto (Design Patterns)", 
+    "Pandas (Python)", "Patch Panel e Cabeamento", "Pavimentação", "PHP", "Pintura Automotiva", "Pintura Industrial", 
+    "Pintura Predial", "Planejamento de Produção (PCP)", "Plataformas CMS (WordPress)", "Pneumática", "PostgreSQL", "PowerShell", 
+    "Prevenção de Perdas", "Processamento de Linguagem Natural (NLP)", "Product Management", "Programação de CLPs", "Programação de CNC", 
+    "Pronto Atendimento (Suporte Técnico)", "Prototipagem de UI/UX", "Python", "PyTorch", "R Language", "React Native", "React.js", 
+    "Recuperação de Motores", "Redes de Computadores (TCP/IP)", "Redis", "Redux", "Refrigeração Comercial", "Reparo de Dispositivos Móveis", 
+    "Reparo de Placas Eletrônicas", "Revestimento Cerâmico", "Ruby on Rails", "Rust", "Sass/SCSS", "Segurança da Informação", 
+    "Segurança do Trabalho (EPI/EPC)", "Selenium", "SEO (Search Engine Optimization)", "Serralheria", "Serviços de Alvenaria", 
+    "Shell Script", "Six Sigma (6 Sigma)", "SketchUp", "Solda MIG/MAG", "Solda TIG", "Soldagem a Arco", "Spring Boot", "SQL Server", 
+    "Swift", "Tableau", "Tailwind CSS", "Técnicas de Negociação", "Técnicas de Soldagem", "Telemarketing", "TensorFlow", "Terraform", 
+    "Topografia", "TypeScript", "UI/UX Design", "Usinagem", "Vendas B2B", "Vendas Consultivas", "Visual Merchandising", "Vue.js", 
+    "Webpack", "Windows Server"
+];
+
 function parseTelefoneBR(telRaw) {
   const tel = (telRaw || '').trim();
   if (!tel) return { ddi: '', ddd: '', numeroFormatado: '' };
@@ -174,8 +223,8 @@ exports.telaNomeCandidato = (req, res) => {
 };
 
 exports.salvarNomeCandidato = async (req, res) => {
-  const usuario_id = req.session.usuario.id; 
-  const { nome, sobrenome, data_nascimento } = req.body;
+  const usuario_id = req.session.usuario.id; 
+  const { nome, sobrenome, data_nascimento } = req.body;
 
   // Verificação de segurança
   if (!usuario_id) {
@@ -183,24 +232,140 @@ exports.salvarNomeCandidato = async (req, res) => {
     return res.redirect('/login');
   }
 
-  try {
-    // Agora esta chamada vai funcionar!
-    await candidatoModel.criarCandidato({
-      usuario_id: Number(usuario_id),
-      nome,
-      sobrenome,
-      data_nascimento: new Date(data_nascimento),
-    });
+  try {
+    await candidatoModel.criarCandidato({
+      usuario_id: Number(usuario_id),
+      nome,
+      sobrenome,
+      data_nascimento: new Date(data_nascimento),
+    });
 
-    // E o redirecionamento seguro vai funcionar
-    return res.redirect(`/candidato/localizacao`);
+    return res.redirect('/candidatos/cadastro/areas');
 
-  } catch (err) {
-    console.error('Erro ao salvar nome e sobrenome:', err);
-    req.session.erro = 'Erro ao salvar seus dados iniciais. Tente novamente.';
-    return res.redirect(`/candidato/nome`);
-  }
+  } catch (err) {
+    console.error('Erro ao salvar nome e sobrenome:', err);
+    req.session.erro = 'Erro ao salvar seus dados iniciais. Tente novamente.';
+    return res.redirect('/candidatos/cadastro/nome');
+  }
 };
+
+exports.telaCadastroAreas = async (req, res) => {
+    const usuario = req.session.usuario;
+    
+    // Renderiza a view passando a lista de habilidades
+    res.render('candidatos/cadastro-areas', { 
+        usuario,
+        habilidades: LISTA_HABILIDADES 
+    });
+};
+
+exports.salvarCadastroAreas = async (req, res) => {
+  const usuario_id = req.session.usuario?.id;
+
+  try {
+    // 1. Validação de Sessão
+    if (!usuario_id) {
+      req.session.erro = 'Sessão expirada. Faça login novamente.';
+      return res.redirect('/login');
+    }
+
+    // 2. Parse do Input
+    let { areasSelecionadas } = req.body;
+    
+    // Log para depuração (veja isso no seu terminal)
+    console.log("Input recebido (RAW):", areasSelecionadas);
+
+    if (!areasSelecionadas) {
+        req.session.erro = 'Nenhuma área selecionada.';
+        return res.redirect('/candidatos/cadastro/areas');
+    }
+
+    if (typeof areasSelecionadas === 'string') {
+      try {
+        areasSelecionadas = JSON.parse(areasSelecionadas);
+      } catch (e) {
+        // Se falhar o parse, tenta usar como string única ou array simples
+        console.error("Erro ao fazer parse do JSON:", e);
+        areasSelecionadas = [areasSelecionadas]; 
+      }
+    }
+
+    // Garante que é um array
+    if (!Array.isArray(areasSelecionadas)) {
+        areasSelecionadas = [areasSelecionadas];
+    }
+
+    console.log("Áreas processadas:", areasSelecionadas);
+
+    // 3. Buscar candidato
+    const candidato = await prisma.candidato.findUnique({
+      where: { usuario_id: Number(usuario_id) }
+    });
+
+    if (!candidato) {
+      req.session.erro = 'Candidato não encontrado.';
+      return res.redirect('/candidatos/cadastro/areas');
+    }
+
+    // --- CORREÇÃO PRINCIPAL AQUI ---
+    // Em vez de só buscar e falhar se não achar, vamos buscar os IDs.
+    // Se o ID não existir, precisamos decidir: ou cria ou avisa.
+    // Para facilitar seu teste, vamos criar lógica de "Encontrar ou Criar" (Upsert logic simulada)
+    
+    // Primeiro, busca as que já existem
+    const areasExistentes = await prisma.area_interesse.findMany({
+      where: { nome: { in: areasSelecionadas } }
+    });
+    
+    // Cria uma lista de IDs
+    const idsParaSalvar = [...areasExistentes.map(a => a.id)];
+
+    // Se você quiser que o sistema aceite qualquer coisa que o usuário enviou
+    // e crie no banco se não existir (Recomendado se a lista hardcoded for a fonte da verdade):
+    const nomesExistentes = areasExistentes.map(a => a.nome);
+    const nomesFaltantes = areasSelecionadas.filter(nome => !nomesExistentes.includes(nome));
+
+    for (const nomeNovaArea of nomesFaltantes) {
+        if(nomeNovaArea && nomeNovaArea.trim() !== "") {
+            const novaArea = await prisma.area_interesse.create({
+                data: { nome: nomeNovaArea, padrao: true } // Ajuste 'padrao' conforme seu schema
+            });
+            idsParaSalvar.push(novaArea.id);
+        }
+    }
+    
+    console.log("IDs finais para salvar:", idsParaSalvar);
+
+    if (idsParaSalvar.length === 0) {
+      req.session.erro = 'Nenhuma área válida foi processada. O banco de dados pode estar vazio.';
+      return res.redirect('/candidatos/cadastro/areas');
+    }
+
+    // 4. Limpa e Salva
+    // Transaction garante que apaga e cria junto
+    await prisma.$transaction([
+        prisma.candidato_area.deleteMany({
+            where: { candidato_id: candidato.id }
+        }),
+        prisma.candidato_area.createMany({
+            data: idsParaSalvar.map(id => ({
+                candidato_id: candidato.id,
+                area_interesse_id: id
+            }))
+        })
+    ]);
+
+    req.session.sucesso = 'Áreas de interesse salvas com sucesso!';
+    return res.redirect('/candidatos/home');
+
+  } catch (error) {
+    console.error('Erro CRÍTICO ao salvar áreas:', error);
+    req.session.erro = 'Erro interno ao salvar suas áreas.';
+    return res.redirect('/candidatos/cadastro/areas');
+  }
+};
+
+
 
 exports.telaLocalizacao = (req, res) => {
   res.render('candidatos/localizacao-login-candidato');
@@ -433,123 +598,125 @@ exports.salvarAreas = async (req, res) => {
 
 
 exports.telaHomeCandidato = async (req, res) => {
-  const usuario = req.session.candidato;
-  if (!usuario) return res.redirect('/login');
+  // Pegamos o ID da conta (tabela Usuario)
+  const userId = req.session.usuario?.id;
+  if (!userId) return res.redirect('/login');
 
-  try {
-    // 1) Carrega o candidato do banco (Lógica existente)
-    const candDb = await prisma.candidato.findUnique({
-      where: { id: Number(usuario.id) },
-      include: {
-        candidato_area: { include: { area_interesse: true } }
-      }
-    });
+  try {
+    // 1) Carrega o candidato do banco usando USUARIO_ID
+    const candDb = await prisma.candidato.findUnique({
+      where: { usuario_id: Number(userId) }, // Busca pela relação com o usuário
+      include: {
+        candidato_area: { include: { area_interesse: true } }
+      }
+    });
 
-    const areas = (candDb?.candidato_area || [])
-      .map(r => r?.area_interesse?.nome)
-      .filter(Boolean);
+    // Se não encontrar o perfil do candidato, redireciona para criar um
+    if (!candDb) {
+      console.warn('Perfil de candidato não encontrado para o usuário:', userId);
+      return res.redirect('/candidatos/cadastro/nome'); 
+    }
 
-    // 2) Sincroniza sessão (Lógica existente)
-    try {
-      req.session.candidato = {
-        ...req.session.candidato,
-        nome: candDb?.nome ?? req.session.candidato.nome,
-        sobrenome: candDb?.sobrenome ?? req.session.candidato.sobrenome,
-        telefone: candDb?.telefone ?? req.session.candidato.telefone,
-        data_nascimento: candDb?.data_nascimento ?? req.session.candidato.data_nascimento,
-        foto_perfil: candDb?.foto_perfil ?? req.session.candidato.foto_perfil,
-        localidade:
-          req.session.candidato.localidade ||
-         [candDb?.cidade, candDb?.estado, candDb?.pais].filter(Boolean).join(', '),
-        areas
-      };
-    } catch (e) {
-      console.warn('[home] não foi possível atualizar sessão do candidato:', e?.message || e);
-    }
+    // Mapeia os nomes das áreas
+    const areasNomes = (candDb.candidato_area || [])
+      .map(r => r?.area_interesse?.nome)
+      .filter(Boolean);
 
-    // 3) Vagas recomendadas (Lógica existente)
-    let vagas = [];
-    try {
-      vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(Number(usuario.id));
-    } catch (e) {
-      console.warn('[home] falha ao buscar vagas recomendadas:', e.message);
-      vagas = [];
-    }
+    // 2) Sincroniza a sessão do candidato com os dados do banco
+    const localidadeBanco = [candDb.cidade, candDb.estado, candDb.pais]
+      .filter(Boolean)
+      .join(', ') || "Local não informado";
 
-    // Bloco de filtragem de vagas fechadas (o mesmo da página /vagas)
-    const vagaIds = vagas.map(v => v.id);
-    let abertasSet = new Set(vagaIds);
-    if (vagaIds.length) {
-      const statusList = await prisma.vaga_status.findMany({
-        where: { vaga_id: { in: vagaIds } },
-        orderBy: { criado_em: 'desc' },
-        select: { vaga_id: true, situacao: true }
-      });
-      const latest = new Map();
-      for (const s of statusList) {
-        if (!latest.has(s.vaga_id)) latest.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
-      }
-      abertasSet = new Set(
-        vagaIds.filter(id => (latest.get(id) || 'aberta') !== 'fechada')
-      );
-    }
-    // Aplica o filtro
-    vagas = vagas.filter(v => abertasSet.has(v.id));
-    // Fim da correção
+    req.session.candidato = {
+      id: candDb.id,
+      usuario_id: candDb.usuario_id,
+      nome: candDb.nome || "Candidato",
+      sobrenome: candDb.sobrenome || "",
+      telefone: candDb.telefone,
+      foto_perfil: candDb.foto_perfil || "/img/avatar.png",
+      localidade: localidadeBanco,
+      areas: areasNomes,
+      data_nascimento: candDb.data_nascimento
+    };
 
+    // 3) Vagas recomendadas (usa o ID do CANDIDATO para buscar)
+    let vagas = [];
+    try {
+      vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(Number(candDb.id));
+    } catch (e) {
+      console.warn('[home] falha ao buscar vagas recomendadas:', e.message);
+    }
 
-    // 4) Histórico (Lógica existente)
-    const avaliacoes = await prisma.vaga_avaliacao.findMany({
-      where: { candidato_id: Number(usuario.id) },
-      orderBy: { id: 'desc' },
-      include: {
-        vaga: {
-          include: {
-            empresa: {
-              select: { id: true, nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true }
-            }
-          }
-        }
-      }
-    });
+    // --- Filtro de Vagas Abertas ---
+    const vagaIds = vagas.map(v => v.id);
+    if (vagaIds.length > 0) {
+      const statusList = await prisma.vaga_status.findMany({
+        where: { vaga_id: { in: vagaIds } },
+        orderBy: { criado_em: 'desc' },
+        select: { vaga_id: true, situacao: true }
+      });
+      
+      const latestStatusMap = new Map();
+      statusList.forEach(s => {
+        if (!latestStatusMap.has(s.vaga_id)) {
+          latestStatusMap.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
+        }
+      });
+      
+      vagas = vagas.filter(v => (latestStatusMap.get(v.id) || 'aberta') !== 'fechada');
+    }
 
-    // (Lógica existente de 'historico' e 'appliedIds')
-    const historico = (avaliacoes || [])
-      .filter(a => a.vaga)
-      .map(a => {
-        const v = a.vaga;
-        const emp = v.empresa || {};
-        return {
-          vaga: { id: v.id, cargo: v.cargo },
-          empresa: { id: emp.id, nome: emp.nome_empresa, nome_empresa: emp.nome_empresa },
-          created_at: a.created_at || a.criado_em || new Date().toISOString(),
-          status: a.status || 'em_analise'
-        };
-      });
+    // 4) Histórico de candidaturas
+    const avaliacoes = await prisma.vaga_avaliacao.findMany({
+      where: { candidato_id: Number(candDb.id) },
+      orderBy: { id: 'desc' },
+      include: {
+        vaga: {
+          include: {
+            empresa: {
+              select: { id: true, nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true }
+            }
+          }
+        }
+      }
+    });
 
-    const appliedIds = new Set(historico.map(h => h.vaga.id));
-    vagas = (vagas || []).filter(v => !appliedIds.has(v.id));
+    const historico = (avaliacoes || [])
+      .filter(a => a.vaga)
+      .map(a => ({
+        vaga: { id: a.vaga.id, cargo: a.vaga.cargo },
+        empresa: { 
+            id: a.vaga.empresa?.id, 
+            nome: a.vaga.empresa?.nome_empresa, 
+            nome_empresa: a.vaga.empresa?.nome_empresa 
+        },
+        created_at: a.created_at || a.criado_em,
+        status: a.status || 'em_analise'
+      }));
 
-    // 5) Render da home (Lógica existente)
-    res.render('candidatos/home-candidatos', {
-      nome: req.session.candidato.nome,
-      sobrenome: req.session.candidato.sobrenome,
-      localidade:
-        req.session.candidato.localidade ||
-        [candDb?.cidade, candDb?.estado, candDb?.pais].filter(Boolean).join(', '),
-      activePage: 'home',
-      usuario: req.session.usuario || req.session.candidato,
-      candidato: req.session.candidato,
-      vagas, // Agora 'vagas' só conterá vagas ABERTAS e NÃO APLICADAS
-      historico,
-      candidaturasAplicadasCount: historico.length,
-      areas
-    });
-  } catch (err) {
-    console.error('[telaHomeCandidato] erro:', err?.message || err);
-    req.session.erro = 'Não foi possível carregar sua home.';
-    return res.redirect('/login');
-  }
+    // Filtra vagas que o usuário já aplicou
+    const appliedIds = new Set(historico.map(h => h.vaga.id));
+    vagas = vagas.filter(v => !appliedIds.has(v.id));
+
+    // 5) Render da home usando os dados validados
+    res.render('candidatos/home-candidatos', {
+      nome: req.session.candidato.nome,
+      sobrenome: req.session.candidato.sobrenome,
+      localidade: req.session.candidato.localidade,
+      activePage: 'home',
+      usuario: req.session.usuario,
+      candidato: req.session.candidato,
+      vagas,
+      historico,
+      candidaturasAplicadasCount: historico.length,
+      areas: areasNomes // Passamos o array de strings diretamente
+    });
+
+  } catch (err) {
+    console.error('[telaHomeCandidato] erro crítico:', err);
+    req.session.erro = 'Não foi possível carregar sua home.';
+    return res.redirect('/login');
+  }
 };
 
 exports.renderMeuPerfil = async (req, res) => {
@@ -591,6 +758,15 @@ exports.renderMeuPerfil = async (req, res) => {
     const localidade =
       [candidato.cidade, candidato.estado, candidato.pais].filter(Boolean).join(', ')
       || (req.session?.candidato?.localidade || '');
+
+    const dataBase = candidato.data_nascimento || candidato.usuario?.data_nascimento;
+
+    let dataFormatada = "";
+    if (dataBase) {
+      // Converte para objeto Date e formata para o padrão BR considerando o fuso horário correto
+      const dateObj = new Date(dataBase);
+      dataFormatada = dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    }
 
     const arquivos = candidato.candidato_arquivo || [];
     const anexos = arquivos;
@@ -1187,21 +1363,38 @@ exports.telaEditarAreas = async (req, res) => {
   if (!sess) return res.redirect('/login');
 
   try {
+    const candidatoId = sess.id; 
+
     const candidato = await prisma.candidato.findUnique({
-      where: { id: sess.id },
-      include: { candidato_area: { include: { area_interesse: true } } }
+      where: { id: candidatoId },
+      include: { 
+        candidato_area: { 
+          include: { area_interesse: true } 
+        } 
+      }
     });
 
-    const areasAtuais = candidato.candidato_area.map(r => r.area_interesse.nome);
-    const todasAsAreas = await prisma.area_interesse.findMany();
-    const outraArea = areasAtuais.includes('Outro') ? areasAtuais.find(area => area !== 'Outro') : null;
+    if (!candidato) {
+      req.session.erro = 'Candidato não encontrado.';
+      return res.redirect('/login');
+    }
+
+    // Mapeia as áreas que o candidato já possui
+    const areasAtuaisObjetos = candidato.candidato_area.map(ca => ({
+      id: ca.area_interesse.id,
+      nome: ca.area_interesse.nome
+    }));
+
+    // Busca todas as opções disponíveis no banco para o sistema de busca
+    const todasOpcoes = await prisma.area_interesse.findMany({
+      orderBy: { nome: 'asc' } // Opcional: traz em ordem alfabética
+    });
 
     res.render('candidatos/editar-areas', {
-      areasAtuais,
-      todasAsAreas,
-      candidatoId: sess.id,
-      outraArea,
-      activePage: 'editar-areas',
+      candidatoId,
+      areasAtuaisObjetos, 
+      todasOpcoes,
+      areasAtuais: areasAtuaisObjetos.map(a => a.nome) 
     });
 
   } catch (err) {
@@ -1212,58 +1405,65 @@ exports.telaEditarAreas = async (req, res) => {
 };
 
 exports.salvarEditarAreas = async (req, res) => {
-  const sess = req.session.candidato;
-  if (!sess) return res.redirect('/login');
-  const candidato_id = Number(sess.id);
+  const sess = req.session.candidato;
+  if (!sess) return res.redirect('/login');
+  const candidato_id = Number(sess.id);
 
-  let nomesSelecionados;
+  let nomesSelecionados;
 
   try {
-    nomesSelecionados = Array.isArray(req.body.areasSelecionadas)
-      ? req.body.areasSelecionadas
-      : JSON.parse(req.body.areasSelecionadas);
-  } catch {
+    // O frontend agora envia uma string JSON de nomes
+    nomesSelecionados = typeof req.body.areasSelecionadas === 'string' 
+      ? JSON.parse(req.body.areasSelecionadas) 
+      : req.body.areasSelecionadas;
+  } catch (err) {
     req.session.erro = 'Formato inválido de áreas selecionadas.';
     return res.redirect('/candidatos/editar-areas');
   }
 
+  // 1. Verificação básica (se vazio)
   if (!Array.isArray(nomesSelecionados) || nomesSelecionados.length === 0) {
-    req.session.erro = 'Nenhuma área foi selecionada.';
+    req.session.erro = 'Selecione ao menos uma área.';
     return res.redirect('/candidatos/editar-areas');
   }
-  if (nomesSelecionados.length > 3) {
-    req.session.erro = 'Você só pode selecionar até 3 áreas.';
-    return res.redirect('/candidatos/editar-areas');
-  }
+
 
   try {
-    const nomesCorrigidos = nomesSelecionados.map(nome => {
-      if (nome === 'Outro') {
-        const outra = req.body.outra_area_input?.trim();
-        if (!outra) {
-          throw new Error("Você selecionou 'Outro', mas não preencheu a nova área.");
-        }
-        return outra;
+    const nomesUnicos = [...new Set(nomesSelecionados)];
+
+    const areasEncontradas = await prisma.area_interesse.findMany({
+      where: {
+        nome: { in: nomesUnicos }
       }
-      return nome;
     });
 
-    const ids = await candidatoModel.buscarIdsDasAreas({ nomes: nomesCorrigidos });
-    if (ids.length !== nomesCorrigidos.length) {
-      req.session.erro = 'Erro ao localizar todas as áreas selecionadas.';
+    if (areasEncontradas.length === 0) {
+      req.session.erro = 'Áreas inválidas selecionadas.';
       return res.redirect('/candidatos/editar-areas');
     }
 
-    await prisma.candidato_area.deleteMany({ where: { candidato_id } });
-    await prisma.candidato_area.createMany({
-      data: ids.map(area_id => ({ candidato_id, area_interesse_id: area_id }))
-    });
+    // 4. Transação para limpar e salvar as novas áreas
+    await prisma.$transaction([
+      // Deleta as áreas antigas do candidato
+      prisma.candidato_area.deleteMany({ 
+        where: { candidato_id } 
+      }),
+      // Cria as novas relações
+      prisma.candidato_area.createMany({
+        data: areasEncontradas.map(area => ({
+          candidato_id: candidato_id,
+          area_interesse_id: area.id
+        })),
+        skipDuplicates: true
+      })
+    ]);
 
-    req.session.sucesso = 'Áreas de interesse atualizadas!';
+    req.session.sucesso = 'Áreas de interesse atualizadas com sucesso!';
     return res.redirect('/candidatos/meu-perfil');
+
   } catch (error) {
-    console.error('Erro ao salvar áreas de interesse:', error.message);
-    req.session.erro = 'Erro ao salvar as áreas de interesse.';
+    console.error('Erro ao salvar áreas de interesse:', error);
+    req.session.erro = 'Não foi possível salvar as alterações.';
     return res.redirect('/candidatos/editar-areas');
   }
 };

@@ -12,6 +12,27 @@
 <style>
     :root { --nav-h: 0px !important; }
   body#home { padding-top: 0 !important; }
+  .tag-area {
+    background-color: #f0f7ff;
+    color: #0d6efd;
+    border: 1px solid #cfe2ff;
+    border-radius: 8px;
+    padding: 6px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+  }
+  .btn-remover-tag {
+    border: none;
+    background: none;
+    padding: 0;
+    color: #0d6efd;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+  }
+  .btn-remover-tag:hover { color: #dc3545; }
 </style>
 <body>
   <%- include('../partials/header-empresa') %>
@@ -173,21 +194,26 @@
       </button>
     </div>
 
-      <div class="mb-4">
-        <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
-        <div class="d-flex flex-wrap gap-2 justify-content-center mb-2" id="area-buttons">
-          <% areas.forEach(area => { %>
-            <% const isSelected = selectedAreas.includes(area.id); %>
-            <button type="button" class="btn area-btn <%= isSelected ? 'btn-primary' : 'btn-outline-primary' %>" data-id="<%= area.id %>"> <%= area.nome %> </button>
-          <% }) %>
+    <div class="col-12 mt-5">
+      <label class="form-label fw-bold">Áreas de Atuação</label>
+      
+      <div class="position-relative">
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+          <input type="text" id="busca-area" class="form-control" placeholder="Pesquisar nova área...">
         </div>
-        <input type="text" id="inputAreaNova" class="form-control mb-2 nova-area" placeholder="Digite outra área e pressione Enter">
-        <input type="hidden" name="areasSelecionadas" id="areasSelecionadas" value='<%= JSON.stringify(selectedAreas) %>'>
-        <div class="text-danger" id="erroAreas"></div>
+        <ul id="lista-sugestoes-area" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1000; max-height: 200px; overflow-y: auto;">
+          </ul>
       </div>
 
+      <div id="container-tags-areas" class="d-flex flex-wrap gap-2 mt-3">
+        </div>
+
+      <input type="hidden" name="areasSelecionadas" id="areas-input">
+    </div>
+
       <div class="mb-4">
-        <h5 class="fw-bold text-center">Habilidades comportamentais que mais se encaixam à vaga (máx. 3):</h5>
+        <h5 class="fw-bold text-center">Habilidades comportamentais que mais se encaixam à vaga:</h5>
         <div class="d-flex flex-wrap gap-2 justify-content-center">
           <% skills.forEach(s => { %>
             <button type="button" class="btn <%= selectedSkills.includes(s.id)?'btn-primary':'btn-outline-primary' %> skill-btn" data-id="<%=s.id%>"><%=s.nome%></button>
@@ -202,6 +228,28 @@
         <button type="submit" class="btn btn-primary">Salvar alterações</button>
       </div>
     </form>
+    <script>
+    (function() {
+      const container = document.querySelector('#formEditarVaga');
+      const inputHidden = document.getElementById('habilidadesSelecionadas');
+
+      container.addEventListener('click', function(e) {
+        if (e.target.classList.contains('skill-btn')) {
+          const btn = e.target;
+          
+          // Toggle das cores
+          btn.classList.toggle('btn-outline-primary');
+          btn.classList.toggle('btn-primary');
+
+          // Atualiza o input hidden
+          const selecionados = Array.from(document.querySelectorAll('.skill-btn.btn-primary'))
+                                    .map(b => b.getAttribute('data-id'));
+          
+          inputHidden.value = JSON.stringify(selecionados);
+        }
+      });
+    })();
+    </script>
   </main>
 
   <%- include('../partials/footer') %>
@@ -210,6 +258,95 @@
      data-home="<%= vaga.dias_home_office ?? '' %>"
      data-tipo="<%= vaga.tipo_local_trabalho %>"></div>
   <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
+
+  <div
+  id="areas-data"
+  data-todas-areas='<%- JSON.stringify(areas || []) %>'
+  data-selecionadas='<%- JSON.stringify(vaga.vaga_area.map(va => va.area_interesse)) %>'>
+</div>
+<script>
+(function() {
+  const holder = document.getElementById('areas-data');
+  
+  const todasAsAreas = JSON.parse(holder?.dataset.todasAreas || '[]');
+  let selecionadas = JSON.parse(holder?.dataset.selecionadas || '[]');
+
+  const inputBusca = document.getElementById('busca-area');
+  const listaSugestoes = document.getElementById('lista-sugestoes-area');
+  const containerTags = document.getElementById('container-tags-areas');
+  const hiddenInput = document.getElementById('areas-input');
+
+  // Inicializa a tela com o que já existe
+  renderizarTags();
+
+  // 2. BUSCA DINÂMICA
+  inputBusca.addEventListener('input', function() {
+    const termo = this.value.toLowerCase().trim();
+    listaSugestoes.innerHTML = '';
+
+    if (termo.length < 1) {
+      listaSugestoes.classList.add('d-none');
+      return;
+    }
+
+    const filtradas = todasAsAreas.filter(area => 
+      area.nome.toLowerCase().includes(termo) && 
+      !selecionadas.find(s => s.id === area.id)
+    );
+
+    if (filtradas.length > 0) {
+      filtradas.forEach(area => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item list-group-item-action cursor-pointer';
+        li.textContent = area.nome;
+        li.style.cursor = 'pointer';
+        li.onclick = () => adicionarArea(area);
+        listaSugestoes.appendChild(li);
+      });
+      listaSugestoes.classList.remove('d-none');
+    } else {
+      listaSugestoes.classList.add('d-none');
+    }
+  });
+
+  window.adicionarArea = function(area) {
+    if (selecionadas.find(s => s.id === area.id)) return;
+    selecionadas.push(area);
+    inputBusca.value = '';
+    listaSugestoes.classList.add('d-none');
+    renderizarTags();
+  };
+
+  window.removerArea = function(id) {
+    selecionadas = selecionadas.filter(a => a.id !== id);
+    renderizarTags();
+  };
+
+  function renderizarTags() {
+    containerTags.innerHTML = '';
+    const ids = selecionadas.map(a => String(a.id));
+    
+    selecionadas.forEach(area => {
+      const tag = document.createElement('div');
+      tag.className = 'tag-area'; // Use o CSS que já definimos na publicação
+      tag.innerHTML = `
+        <span>${area.nome}</span>
+        <button type="button" class="btn-remover-tag" onclick="removerArea(${area.id})">
+          <i class="bi bi-x-circle-fill"></i>
+        </button>
+      `;
+      containerTags.appendChild(tag);
+    });
+    hiddenInput.value = JSON.stringify(ids);
+  }
+
+  // Fecha sugestões ao clicar fora
+  document.addEventListener('click', (e) => {
+    if (!inputBusca.contains(e.target)) listaSugestoes.classList.add('d-none');
+  });
+})();
+</script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const tipo      = document.getElementById('tipo');
@@ -238,6 +375,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
   toggle();
   if (tipo) tipo.addEventListener('change', toggle);
+
+  const inputSalario = document.querySelector('input[name="salario"]');
+  inputSalario.addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    value = (value / 100).toFixed(2) + '';
+    value = value.replace(".", ",");
+    value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+    e.target.value = value;
+  });
 });
 </script>
 <script>

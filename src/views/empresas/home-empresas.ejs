@@ -159,6 +159,13 @@
           <div class="progress-bar bg-primary" data-progress="<%= profileCompletion %>"></div>
         </div>
 
+        <div class="d-flex align-items-center mb-3">
+          <small style="font-size: 0.8rem; color: #6c757d;">
+            <i class="bi bi-info-circle me-1"></i>
+            * Personalize os detalhes visuais da sua empresa para atrair mais talentos.
+          </small>
+        </div>
+
         <div class="d-flex gap-2 mt-3 flex-wrap">
           <% if (!hasNome)  { %><a href="/empresa/editar-empresa" class="btn btn-sm btn-outline-primary">Definir nome</a><% } %>
           <% if (!hasLocal) { %><a href="/empresa/editar-empresa" class="btn btn-sm btn-outline-primary">Definir localidade</a><% } %>

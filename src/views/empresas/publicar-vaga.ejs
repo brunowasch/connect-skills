@@ -9,14 +9,35 @@
   <link rel="stylesheet" href="/css/shared/style.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
-<body>
+<body data-todas-areas='<%- JSON.stringify(areas || []) %>'>
   <style>
     :root { --nav-h: 0px !important; }
-  body#home { padding-top: 0 !important; }
+    body#home { padding-top: 0 !important; }
     main#content-main { margin-top: var(--header-h); }
+
+    .tag-area {
+        background-color: #e9ecef;
+        border: 1px solid #dee2e6;
+        border-radius: 20px;
+        padding: 5px 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+      }
+      .tag-area .btn-remover-tag {
+        cursor: pointer;
+        color: #dc3545;
+        border: none;
+        background: none;
+        padding: 0;
+        line-height: 1;
+      }
   </style>
+
   <%- include('../partials/header-empresa') %>
   <%- include('../partials/flash-messages') %>
+
   <main class="container py-5 mt-4" style="max-width: 800px;">
     <a href="<%= backUrl %>" class="text-decoration-none" title="Voltar">
       <i class="bi bi-x fs-3"></i>
@@ -47,12 +68,12 @@
         </div>
 
         <div class="col-md-6 mt-3 d-flex align-items-end" id="campo-presencial-hibrido">
-          <div class="me-3" id="campoPresencial" style="display:none;">
+          <div class="me-3 d-none" id="campoPresencial">
             <label class="form-label small">Dias presenciais</label>
             <input type="number" id="diasPresenciais" name="diasPresenciais"
                    class="form-control form-control-sm" min="0" max="7" style="width:80px;">
           </div>
-          <div id="campoHomeOffice" style="display:none;">
+          <div id="campoHomeOffice" class="d-none">
             <label class="form-label small">Dias home office</label>
             <input type="number" id="diasHomeOffice" name="diasHomeOffice"
                    class="form-control form-control-sm" min="0" max="7" style="width:80px;">
@@ -89,10 +110,28 @@
           </select>
         </div>
 
+        <!-- Descrição da vaga + botão IA -->
         <div class="col-12 mt-4 mb-4">
-          <label for="descricao" class="form-label">Descrição da vaga</label>
-          <textarea id="descricao" name="descricao" class="form-control"
-                    rows="5" style="resize:none;" placeholder="Diga um pouco sobre a vaga..." required></textarea>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label for="descricao" class="form-label mb-0">Descrição da vaga</label>
+
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary btn-ia-helper"
+              data-target="descricao"
+              data-label="descrição da vaga"
+            >
+              <i class="bi bi-stars me-1"></i> IA
+            </button>
+          </div>
+
+          <textarea
+            id="descricao"
+            name="descricao"
+            class="form-control"
+            rows="5"
+            placeholder="Diga um pouco sobre a vaga..."
+          ></textarea>
         </div>
       </div>
 
@@ -116,21 +155,46 @@
         </div>
       </div>
 
+      <!-- Pergunta para IA + botão IA -->
       <div class="mb-4">
-        <label for="pergunta" class="form-label mt-3">Pergunta para IA</label>
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <label for="pergunta" class="form-label mb-0">Pergunta para IA</label>
+        
+        </div>
+
         <small class="d-block text-muted">
-          Crie perguntas que avaliem o conhecimento, as experiências e as competências do candidato em relação a sua empresa e ao cargo oferecido.
+          Crie perguntas que avaliem o conhecimento...
         </small>
-        <textarea name="pergunta" id="pergunta" class="form-control mt-2" rows="4" placeholder="Digite as perguntas que deseja fazer ao candidato" required></textarea>
+
+        <textarea
+          name="pergunta"
+          id="pergunta"
+          class="form-control mt-2"
+          rows="4"
+          placeholder="Digite as perguntas que deseja fazer ao candidato"
+          required
+        ></textarea>
       </div>
 
-      <div class="mb-4">
-        <label for="opcao" class="form-label mt-3">Perfil de candidato ideal</label>
-        <small class="d-block text-muted">
-          Descreva como seria o candidato ideal para esta vaga. A IA usará essa descrição, junto das respostas do candidato, para calcular o nível de compatibilidade.
-        </small>
-        <textarea name="opcao" id="opcao" class="form-control mt-2" rows="4" placeholder="Exemplo: O candidato ideal deve ser comunicativo, com facilidade para trabalho em equipe e domínio em ferramentas de análise de dados" required></textarea>
+      <!-- Perfil de candidato ideal + botão IA -->
+    <div class="mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <label for="opcao" class="form-label mb-0">Perfil de candidato ideal</label>
       </div>
+
+      <small class="d-block text-muted">
+        Descreva como seria o candidato ideal para esta vaga... 
+      </small>
+
+      <textarea
+        name="opcao"
+        id="opcao"
+        class="form-control mt-2"
+        rows="4"
+        placeholder="Exemplo: O candidato ideal deve ser..."
+        required
+      ></textarea>
+    </div>
 
       <div class="mb-4">
         <label for="anexosVaga" class="form-label">Anexos da vaga (PDF, imagens, etc.)</label>
@@ -167,29 +231,51 @@
         </button>
       </div>
 
-      <div class="mb-4">
-        <h5 class="fw-bold text-center">Áreas de atuação da vaga (máx. 3):</h5>
-        <div id="area-buttons" class="d-flex flex-wrap gap-2 justify-content-center">
-          <% areas.forEach(a => { %>
-            <button type="button" class="btn btn-outline-primary area-btn" data-id="<%=a.id%>"><%=a.nome%></button>
-          <% }) %>
+      <!-- Áreas de atuação + botão IA -->
+      <div class="col-12 mt-4">
+        <label class="form-label fw-bold">Áreas de Atuação</label>
+        <p class="text-muted small">Pesquise e selecione as áreas relacionadas a esta vaga.</p>
+        
+        <div class="position-relative">
+          <div class="input-group">
+            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+            <input type="text" id="busca-area" class="form-control" placeholder="Pesquisar área (ex: Designer, Programador...)">
+          </div>
+          
+          <ul id="lista-sugestoes-area" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1000; max-height: 200px; overflow-y: auto;">
+            </ul>
         </div>
+
+        <div id="container-tags-areas" class="d-flex flex-wrap gap-2 mt-3">
+          </div>
+
+        <input type="hidden" name="areasSelecionadas" id="areas-input" value="[]">
+      </div>
 
         <div class="mt-3">
           <label class="form-label">Área de interesse não está na lista? (Opcional)</label>
           <input type="text" class="form-control mb-2 nova-area" placeholder="Digite outra área de interesse...">
         </div>
-
-        <input type="hidden" id="areasSelecionadas" name="areasSelecionadas">
-        <div id="erroAreas" class="text-danger small mt-1"></div>
       </div>
-      <div class="mb-4">
-        <h5 class="fw-bold text-center">Habilidades comportamentais que mais se encaixam à vaga (máx. 3):</h5>
-        <div class="d-flex flex-wrap gap-2 justify-content-center">
-          <% habilidades.forEach(h => { %>
-            <button type="button" class="btn btn-outline-primary skill-btn" data-id="<%=h.id%>"><%=h.nome%></button>
-          <% }) %>
+
+      <!-- Habilidades + botão IA -->
+      <div class="mb-4 position-relative">
+
+        <!-- título centralizado, mas com largura limitada -->
+        <div class="mb-4">
+          <label class="form-label fw-bold">Habilidades Comportamentais</label>
+          <div class="d-flex flex-wrap gap-2" id="skill-container">
+            <% softSkills.forEach(skill => { %>
+              <button type="button" 
+                      class="btn btn-outline-primary btn-sm skill-btn" 
+                      data-value="<%= skill.id %>">
+                <%= skill.nome %>
+              </button>
+            <% }); %>
+          </div>
+          <input type="hidden" name="habilidadesSelecionadas" id="skills-input">
         </div>
+
         <input type="hidden" id="habilidadesSelecionadas" name="habilidadesSelecionadas">
         <div id="erroHabilidades" class="text-danger small mt-1"></div>
       </div>
@@ -201,125 +287,596 @@
     </form>
   </main>
 
+  <!-- Modal para prompt da IA -->
+  <div class="modal fade" id="iaPromptModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="iaModalLabel">Gerar conteúdo com IA</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted" id="iaModalDescription">
+            Digite um breve contexto para que a IA possa gerar o conteúdo automaticamente.
+          </p>
+          <textarea id="iaPromptInput" class="form-control" rows="4"
+                    placeholder="Ex: Crie uma descrição de vaga para analista de dados júnior, com foco em..."></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" id="iaApplyButton" class="btn btn-primary">Gerar Texto</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalPerguntaIA" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Gerar perguntas para o candidato</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="small text-muted">
+          A IA criará perguntas técnicas e comportamentais.
+        </p>
+        <textarea id="promptPerguntaIA" class="form-control" rows="4"
+          placeholder="Ex: Crie perguntas para avaliar experiência, trabalho em equipe e conhecimentos técnicos..."></textarea>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="gerarPerguntasIA()">Gerar Perguntas</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+  <div class="modal fade" id="modalPerfilIA" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+
+        <div class="modal-header">
+          <h5 class="modal-title">Gerar perfil do candidato ideal</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <p class="small text-muted">
+            Descreva o tipo de profissional esperado para a vaga.
+          </p>
+          <textarea id="promptPerfilIA" class="form-control" rows="4"
+            placeholder="Ex: Profissional proativo, comunicativo, com experiência na área..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" onclick="gerarPerfilIA()">Gerar Perfil</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalAreasIA" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Sugerir áreas de atuação</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="small text-muted">
+          Descreva a vaga para que a IA sugira até 3 áreas de atuação.
+        </p>
+
+        <textarea
+          id="promptAreasIA"
+          class="form-control"
+          rows="4"
+          placeholder="Ex: Vaga para desenvolvedor backend com foco em APIs e bancos de dados..."
+        ></textarea>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="gerarAreasIA()">Gerar áreas</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+  <div class="modal fade" id="modalHabilidadesIA" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+
+        <div class="modal-header">
+          <h5 class="modal-title">Sugerir habilidades comportamentais</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <p class="small text-muted">
+            Explique o perfil desejado para a vaga.
+          </p>
+
+          <textarea
+            id="promptHabilidadesIA"
+            class="form-control"
+            rows="4"
+            placeholder="Ex: Profissional proativo, que trabalhe bem em equipe e tenha foco em resultados..."
+          ></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" onclick="gerarHabilidadesIA()">Gerar habilidades</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
   <%- include('../partials/footer') %>
-<script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
+
+  <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
+
+  <!-- links dinâmicos -->
+  <script>
+    (function(){
+      const wrap = document.getElementById('links-container');
+      document.getElementById('btnAddLink').addEventListener('click', () => {
+        const row = document.createElement('div');
+        row.className = 'row g-2 align-items-end mb-2 link-row';
+        row.innerHTML = `
+          <div class="col-md-5">
+            <input type="text" name="linksTitulo[]" class="form-control" placeholder="Ex: Portfólio da empresa">
+          </div>
+          <div class="col-md-6">
+            <input type="url" name="linksUrl[]" class="form-control" placeholder="https://...">
+          </div>
+          <div class="col-md-1">
+            <button type="button" class="btn btn-outline-danger w-100 btn-remover-link">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>`;
+        wrap.appendChild(row);
+      });
+      wrap.addEventListener('click', e => {
+        if (e.target.closest('.btn-remover-link')) {
+          const row = e.target.closest('.link-row');
+          if (row) row.remove();
+        }
+      });
+    })();
+  </script>
+
+  <!-- lista de anexos (visual) -->
+  <script>
+    (function(){
+      const input = document.getElementById('anexosVaga');
+      const lista = document.getElementById('lista-anexos');
+
+      input.addEventListener('change', () => {
+        lista.innerHTML = '';
+        if (input.files.length) {
+          const ul = document.createElement('ul');
+          ul.className = 'list-group';
+          [...input.files].forEach(file => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex align-items-center justify-content-between';
+            li.innerHTML = `
+              <span><i class="bi bi-paperclip me-2"></i>${file.name}</span>
+              <small class="text-muted">${(file.size / 1024).toFixed(1)} KB</small>
+            `;
+            ul.appendChild(li);
+          });
+          lista.appendChild(ul);
+        }
+      });
+    })();
+  </script>
+
+  <!-- múltiplos inputs de anexo com remoção -->
+  <script>
+    (function () {
+      const wrapper = document.getElementById('anexos-wrapper');
+      const hidden  = document.getElementById('anexos-hidden');
+      const lista   = document.getElementById('lista-anexos');
+
+      function criaInputNovo() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.name = 'anexosVaga';
+        input.className = 'form-control';
+        input.multiple = true;
+        input.addEventListener('change', onChangeInput);
+        wrapper.innerHTML = '';
+        wrapper.appendChild(input);
+        return input;
+      }
+
+      function renderLista() {
+        lista.innerHTML = '';
+        const grupos = hidden.querySelectorAll('input[type="file"][name="anexosVaga"], #anexos-wrapper input[type="file"][name="anexosVaga"]');
+
+        let count = 0;
+        grupos.forEach((inp) => {
+          const files = Array.from(inp.files || []);
+          if (!files.length) return;
+
+          files.forEach((f) => {
+            count++;
+            const li = document.createElement('div');
+            li.className = 'list-group-item d-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2';
+            li.innerHTML = `
+              <span><i class="bi bi-paperclip me-2"></i>${f.name}</span>
+              <div class="d-flex align-items-center gap-2">
+                <small class="text-muted">${(f.size / 1024).toFixed(1)} KB</small>
+                <button type="button" class="btn btn-sm btn-outline-danger">Remover</button>
+              </div>
+            `;
+            li.querySelector('button').addEventListener('click', () => {
+              inp.remove();
+              li.remove();
+              renderLista();
+            });
+            lista.appendChild(li);
+          });
+        });
+
+        if (!count) {
+          const vazio = document.createElement('div');
+          vazio.className = 'text-muted small';
+          vazio.textContent = 'Nenhum arquivo selecionado ainda.';
+          lista.appendChild(vazio);
+        }
+      }
+
+      function onChangeInput(e) {
+        const input = e.target;
+        if (!input.files || !input.files.length) return;
+
+        hidden.appendChild(input);
+        criaInputNovo();
+        renderLista();
+      }
+
+      const initial = document.querySelector('#anexos-wrapper input[type="file"]');
+      initial.addEventListener('change', onChangeInput);
+      renderLista();
+    })();
+  </script>
+
 <script>
-  (function(){
-    const wrap = document.getElementById('links-container');
-    document.getElementById('btnAddLink').addEventListener('click', () => {
-      const row = document.createElement('div');
-      row.className = 'row g-2 align-items-end mb-2 link-row';
-      row.innerHTML = `
-        <div class="col-md-5">
-          <input type="text" name="linksTitulo[]" class="form-control" placeholder="Ex: Portfólio da empresa">
-        </div>
-        <div class="col-md-6">
-          <input type="url" name="linksUrl[]" class="form-control" placeholder="https://...">
-        </div>
-        <div class="col-md-1">
-          <button type="button" class="btn btn-outline-danger w-100 btn-remover-link">
-            <i class="bi bi-trash"></i>
-          </button>
-        </div>`;
-      wrap.appendChild(row);
+  (function() {
+    // Função para atualizar os inputs hidden baseada nos botões selecionados
+    function atualizarInputsHiddens(containerId, inputId, classeBotao) {
+      const container = document.getElementById(containerId);
+      const input = document.getElementById(inputId);
+      if (!container || !input) return;
+
+      // Mapeia os IDs para um array de números ou strings
+      const selecionados = Array.from(container.querySelectorAll(`.${classeBotao}.btn-primary`))
+                                .map(btn => btn.getAttribute('data-value'));
+      
+      // IMPORTANTE: Salva como STRING JSON para o seu Controller conseguir dar o JSON.parse
+      input.value = JSON.stringify(selecionados);
+    }
+
+    // Listener para Áreas de Atuação
+    const areaContainer = document.getElementById('area-container');
+    if (areaContainer) {
+      areaContainer.addEventListener('click', e => {
+        const btn = e.target.closest('.area-btn');
+        if (btn) {
+          // Toggle de cores do Bootstrap
+          btn.classList.toggle('btn-outline-primary');
+          btn.classList.toggle('btn-primary');
+          
+          // Atualiza o input hidden 'areas'
+          atualizarInputsHiddens('area-container', 'areas-input', 'area-btn');
+        }
+      });
+    }
+
+    // Listener para Habilidades (Soft Skills)
+    const skillContainer = document.getElementById('skill-container');
+    if (skillContainer) {
+      skillContainer.addEventListener('click', e => {
+        const btn = e.target.closest('.skill-btn');
+        if (btn) {
+          btn.classList.toggle('btn-outline-primary');
+          btn.classList.toggle('btn-primary');
+
+          // Atualiza o input hidden 'skills'
+          atualizarInputsHiddens('skill-container', 'skills-input', 'skill-btn');
+        }
+      });
+    }
+  })();
+</script>
+
+<script>
+  (function () {
+    const modalEl = document.getElementById('iaPromptModal');
+    if (!modalEl || !window.bootstrap) return;
+
+    const modal = new bootstrap.Modal(modalEl);
+    const promptInput = document.getElementById('iaPromptInput');
+    const modalLabel = document.getElementById('iaModalLabel');
+    const modalDesc = document.getElementById('iaModalDescription');
+    const applyBtn = document.getElementById('iaApplyButton');
+    let activeTargetId = '';
+
+    // Helper para selecionar botões baseados no texto
+    function selecionarBotoesPorTexto(classeBotao, listaTextosIA) {
+      if (!listaTextosIA || !Array.isArray(listaTextosIA)) return;
+
+      const botoes = document.querySelectorAll(classeBotao);
+      
+      // Normaliza os textos da IA para comparação (remove espaços extras, minúsculas)
+      const textosAlvo = listaTextosIA.map(t => t.trim().toLowerCase());
+
+      botoes.forEach(btn => {
+        const btnTexto = btn.textContent.trim().toLowerCase();
+        const jaSelecionado = btn.classList.contains('btn-primary'); // Assume que btn-primary indica ativo
+        const deveSelecionar = textosAlvo.includes(btnTexto);
+
+        // Se a IA sugeriu e não está selecionado -> clica para selecionar
+        // Nota: O limite de 3 será controlado pelo seu script externo (publicacaoVagasRequisitos.js)
+        if (deveSelecionar && !jaSelecionado) {
+          btn.click();
+        }
+      });
+    }
+
+    // Configura o modal
+    document.querySelectorAll('.btn-ia-helper').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeTargetId = btn.getAttribute('data-target');
+        if (!activeTargetId) return;
+
+        const label = btn.dataset.label || 'conteúdo';
+        modalLabel.textContent = `Gerar ${label} com IA`;
+        modalDesc.textContent = `Forneça um contexto para gerar ${label}.`;
+        promptInput.placeholder = btn.dataset.placeholder || 'Digite um contexto...';
+        promptInput.value = '';
+        modal.show();
+      });
     });
-    wrap.addEventListener('click', e => {
-      if (e.target.closest('.btn-remover-link')) {
-        const row = e.target.closest('.link-row');
-        if (row) row.remove();
+
+    // Ação ao clicar em "Gerar Texto"
+    applyBtn.addEventListener('click', async () => {
+      const contexto = promptInput.value.trim();
+      if (!contexto) return alert('Digite um contexto.');
+
+      applyBtn.disabled = true;
+      applyBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Gerando...';
+
+      try {
+        const response = await fetch('/empresa/vaga/gerar-ia', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shortdesc: contexto })
+        });
+        
+        const data = await response.json();
+
+        if (response.ok && data.sucesso) {
+          const targetEl = document.getElementById(activeTargetId);
+
+          if (targetEl) {
+            // 1. GERAÇÃO COMPLETA (Botão da Descrição)
+            if (activeTargetId === 'descricao') {
+              targetEl.value = data.longDescription || '';
+              
+              // Preenche perguntas e perfil se vazios
+              const campoPerguntas = document.getElementById('pergunta');
+              const campoPerfil = document.getElementById('opcao');
+              
+              if (campoPerguntas && !campoPerguntas.value) campoPerguntas.value = data.questions || '';
+              if (campoPerfil && !campoPerfil.value) campoPerfil.value = data.bestCandidate || '';
+
+              // --- SELEÇÃO AUTOMÁTICA DE BOTÕES ---
+              // Seleciona Áreas de Atuação (requiredSkills)
+              if (data.areas && data.areas.length > 0) {
+                 // Reseta seleções anteriores (opcional, remova se quiser apenas adicionar)
+                 document.querySelectorAll('.area-btn.btn-primary').forEach(b => b.click());
+                 // Seleciona as novas
+                 selecionarBotoesPorTexto('.area-btn', data.areas);
+              }
+
+              // Seleciona Habilidades (behaviouralSkills)
+              if (data.skills && data.skills.length > 0) {
+                 // Reseta seleções anteriores
+                 document.querySelectorAll('.skill-btn.btn-primary').forEach(b => b.click());
+                 // Seleciona as novas
+                 selecionarBotoesPorTexto('.skill-btn', data.skills);
+              }
+
+            } else if (activeTargetId === 'pergunta') {
+              targetEl.value = data.questions || '';
+            } else if (activeTargetId === 'opcao') {
+              targetEl.value = data.bestCandidate || '';
+            } else {
+              targetEl.value = data.longDescription || '';
+            }
+          }
+
+          modal.hide();
+        } else {
+          alert('Erro: ' + (data.erro || 'A IA não retornou dados válidos.'));
+        }
+      } catch (error) {
+        console.error(error);
+        alert('Erro de conexão com o servidor local.');
+      } finally {
+        applyBtn.disabled = false;
+        applyBtn.innerHTML = 'Gerar Texto';
       }
     });
   })();
-  (function(){
-  const input = document.getElementById('anexosVaga');
-  const lista = document.getElementById('lista-anexos');
-
-  input.addEventListener('change', () => {
-    lista.innerHTML = ''; // limpa antes de renderizar de novo
-    if (input.files.length) {
-      const ul = document.createElement('ul');
-      ul.className = 'list-group';
-      [...input.files].forEach(file => {
-        const li = document.createElement('li');
-        li.className = 'list-group-item d-flex align-items-center justify-content-between';
-        li.innerHTML = `
-          <span><i class="bi bi-paperclip me-2"></i>${file.name}</span>
-          <small class="text-muted">${(file.size / 1024).toFixed(1)} KB</small>
-        `;
-        ul.appendChild(li);
-      });
-      lista.appendChild(ul);
-    }
-  });
-})();
 </script>
+
 <script>
-(function () {
-  const wrapper = document.getElementById('anexos-wrapper');
-  const hidden  = document.getElementById('anexos-hidden');
-  const lista   = document.getElementById('lista-anexos');
+  (function() {
+    const selectTipo = document.getElementById('tipo');
+    const campoPresencial = document.getElementById('campoPresencial');
+    const campoHomeOffice = document.getElementById('campoHomeOffice');
 
-  function criaInputNovo() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.name = 'anexosVaga';
-    input.className = 'form-control';
-    input.multiple = true;
-    input.addEventListener('change', onChangeInput);
-    wrapper.innerHTML = '';
-    wrapper.appendChild(input);
-    return input;
-  }
+    function gerenciarCampos() {
+      const valor = selectTipo.value;
 
-  function renderLista() {
-    lista.innerHTML = '';
-    const grupos = hidden.querySelectorAll('input[type="file"][name="anexosVaga"], #anexos-wrapper input[type="file"][name="anexosVaga"]');
+      // Primeiro, esconde ambos
+      campoPresencial.classList.add('d-none');
+      campoHomeOffice.classList.add('d-none');
 
-    let count = 0;
-    grupos.forEach((inp, idx) => {
-      const files = Array.from(inp.files || []);
-      if (!files.length) return;
+      // Mostra baseado na seleção
+      if (valor === 'Presencial') {
+        campoPresencial.classList.remove('d-none');
+      } 
+      else if (valor === 'Home_Office') {
+        campoHomeOffice.classList.remove('d-none');
+      } 
+      else if (valor === 'H_brido') {
+        campoPresencial.classList.remove('d-none');
+        campoHomeOffice.classList.remove('d-none');
+      }
+    }
 
-      files.forEach((f, i) => {
-        count++;
-        const li = document.createElement('div');
-        li.className = 'list-group-item d-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2';
-        li.innerHTML = `
-          <span><i class="bi bi-paperclip me-2"></i>${f.name}</span>
-          <div class="d-flex align-items-center gap-2">
-            <small class="text-muted">${(f.size / 1024).toFixed(1)} KB</small>
-            <button type="button" class="btn btn-sm btn-outline-danger">Remover</button>
-          </div>
-        `;
-        li.querySelector('button').addEventListener('click', () => {
-          inp.remove();       
-          li.remove();        
-          renderLista();      
-        });
-        lista.appendChild(li);
-      });
+    // Evento de mudança
+    selectTipo.addEventListener('change', gerenciarCampos);
+
+    // Executa ao carregar a página (importante para quando houver erro de validação e a página recarregar)
+    gerenciarCampos();
+  })();
+</script>
+
+<script>
+  (function() {
+    const inputSalario = document.getElementById('salario');
+    const selectMoeda = document.getElementById('moeda');
+    const simboloMoeda = document.getElementById('simboloMoeda');
+
+    // 1. Atualiza o símbolo ao lado do input quando muda a moeda
+    selectMoeda.addEventListener('change', () => {
+      const moedas = { BRL:'R$', USD:'US$', EUR:'€', GBP:'£', JPY:'¥' };
+      simboloMoeda.textContent = moedas[selectMoeda.value] || 'R$';
     });
 
-    if (!count) {
-      const vazio = document.createElement('div');
-      vazio.className = 'text-muted small';
-      vazio.textContent = 'Nenhum arquivo selecionado ainda.';
-      lista.appendChild(vazio);
+    // 2. Máscara de formatação monetária
+    inputSalario.addEventListener('input', function(e) {
+      let value = e.target.value.replace(/\D/g, ''); // Remove tudo que não é número
+      
+      // Converte para centavos (ex: 250000 vira 2500.00)
+      value = (value / 100).toFixed(2) + '';
+      
+      // Aplica a pontuação de milhar e decimal
+      value = value.replace(".", ",");
+      value = value.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+      
+      e.target.value = value;
+    });
+  })();
+</script>
+
+
+<script>
+(function() {
+  const body = document.body;
+  const todasAsAreas = JSON.parse(body.dataset.todasAreas || '[]');
+  let selecionadas = [];
+
+  const inputBusca = document.getElementById('busca-area');
+  const listaSugestoes = document.getElementById('lista-sugestoes-area');
+  const containerTags = document.getElementById('container-tags-areas');
+  const hiddenInput = document.getElementById('areas-input');
+
+  // 1. Filtrar e mostrar sugestões ao digitar
+  inputBusca.addEventListener('input', function() {
+    const termo = this.value.toLowerCase().trim();
+    listaSugestoes.innerHTML = '';
+
+    if (termo.length < 1) {
+      listaSugestoes.classList.add('d-none');
+      return;
     }
+
+    const filtradas = todasAsAreas.filter(area => 
+      area.nome.toLowerCase().includes(termo) && 
+      !selecionadas.find(s => s.id === area.id)
+    );
+
+    if (filtradas.length > 0) {
+      filtradas.forEach(area => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item list-group-item-action cursor-pointer';
+        li.textContent = area.nome;
+        li.style.cursor = 'pointer';
+        li.onclick = () => adicionarArea(area);
+        listaSugestoes.appendChild(li);
+      });
+      listaSugestoes.classList.remove('d-none');
+    } else {
+      listaSugestoes.classList.add('d-none');
+    }
+  });
+
+  // 2. Função para adicionar a tag
+  window.adicionarArea = function(area) {
+      // Impede adicionar a mesma área duas vezes
+      if (selecionadas.find(s => s.id === area.id)) return;
+
+      selecionadas.push(area);
+      
+      // Limpa o campo de busca e esconde as sugestões
+      if (inputBusca) inputBusca.value = '';
+      if (listaSugestoes) listaSugestoes.classList.add('d-none');
+      
+      renderizarTags();
+    };
+
+  // 3. Função para remover a tag
+  window.removerArea = function(id) {
+    selecionadas = selecionadas.filter(a => a.id !== id);
+    renderizarTags();
+  };
+
+  // 4. Renderizar as tags e atualizar o Hidden Input
+  function renderizarTags() {
+    containerTags.innerHTML = '';
+    const ids = selecionadas.map(a => String(a.id));
+    
+    selecionadas.forEach(area => {
+      const tag = document.createElement('div');
+      tag.className = 'tag-area';
+      tag.innerHTML = `
+        <span>${area.nome}</span>
+        <button type="button" class="btn-remover-tag" onclick="removerArea(${area.id})">
+          <i class="bi bi-x-circle-fill"></i>
+        </button>
+      `;
+      containerTags.appendChild(tag);
+    });
+
+    // Atualiza o input que o controller lê
+    hiddenInput.value = JSON.stringify(ids);
   }
-  function onChangeInput(e) {
-    const input = e.target;
-    if (!input.files || !input.files.length) return;
 
-    hidden.appendChild(input);
+  // Fecha a lista se clicar fora
+  document.addEventListener('click', (e) => {
+    if (!inputBusca.contains(e.target)) listaSugestoes.classList.add('d-none');
+  });
 
-    criaInputNovo();
-
-    renderLista();
-  }
-  const initial = document.querySelector('#anexos-wrapper input[type="file"]');
-  initial.addEventListener('change', onChangeInput);
-  renderLista();
 })();
 </script>
 
