@@ -23,6 +23,87 @@
     .muted { color:#6c757d; }
     .grid-areas { display:flex; flex-wrap:wrap; gap:.4rem; }
     .kpi .num { font-weight:800; font-size:1.25rem; }
+
+    .grid-areas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px; /* Espaçamento entre os itens */
+    justify-content: center;
+    width: 100%;
+    margin-top: 100%;
+    }
+
+    /* Estilo específico para as pílulas de Áreas de Interesse */
+    .badge-area-interesse {
+        background-color: #f3e8ff !important; /* Roxo bem claro de fundo */
+        color: #9333ea !important;           /* Roxo vibrante para o texto */
+        border: 1px solid #e9d5ff !important; /* Borda levemente mais escura que o fundo */
+        padding: 8px 16px !important;
+        font-weight: 500 !important;
+        font-size: 0.85rem !important;
+        border-radius: 50px !important;      /* Formato arredondado de pílula */
+        transition: all 0.2s ease;
+    }
+
+    .badge-area-interesse:hover {
+        background-color: #e9d5ff !important;
+        transform: translateY(-1px);
+    }
+
+    .interest-pill {
+    background-color: #ffffff; 
+    color: #015edb;           /* Texto roxo vibrante */
+    border: 1px solid #e9d5ff; /* Borda suave */
+    padding: 6px 14px;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    }
+
+    .interest-pill-more {
+        background-color: #f8f9fa;
+        color: #6c757d;
+        border: 1px solid #dee2e6;
+        padding: 6px 12px;
+        border-radius: 50px;
+        font-size: 0.85rem;
+    }
+
+    /* Garante que o container pai não tenha bordas internas sobrando */
+    .dashboard-kpi {
+        border: none !important;
+    }
+    .progress {
+    height: 25px !important; /* Aumentamos um pouco a altura para o texto caber bem */
+    position: relative;
+    background-color: #e9ecef;
+    border-radius: 50px;
+    overflow: hidden;
+    }
+
+    .progress-bar {
+         /* Roxo para combinar com os seus novos chips */
+        transition: width 0.6s ease;
+    }
+
+    /* O texto que ficará centralizado na barra */
+    .progress-text {
+        position: absolute;
+        width: 100%;
+        text-align: center;
+        line-height: 25px; /* Mesmo que a altura da barra */
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #495057; /* Cor escura para quando a barra estiver vazia */
+        z-index: 2;
+        pointer-events: none; /* Evita que o texto atrapalhe cliques */
+        mix-blend-mode: difference; /* MÁGICA: O texto muda de cor automaticamente conforme a barra passa (fica branco no roxo) */
+        filter: invert(1) grayscale(1) contrast(100); 
+    }
   </style>
 </head>
 <body id="home-candidato">
@@ -32,19 +113,12 @@
   <main id="content-main" class="container">
     <%
       const user = (typeof usuario !== 'undefined' && usuario) ? usuario : {};
-      const cand = (typeof candidato !== 'undefined' && candidato) ? candidato : {};
+      const cand = (typeof candidato !== 'undefined') ? candidato : {};
 
-      const nomeUser  = user?.nome || cand?.nome || 'Candidato';
-      const sobrenome = user?.sobrenome || cand?.sobrenome || '';
+      const nomeUser  = cand?.nome || 'Candidato';
+      const sobrenome = cand?.sobrenome || '';
 
-      const localidadeResolved =
-        (typeof candLocalidade !== 'undefined' && candLocalidade)
-          ? candLocalidade
-          : (
-              (typeof localidade !== 'undefined' && localidade)
-                ? localidade
-                : 'Localidade não informada'
-            );
+      const localidadeResolved = (typeof localidade !== 'undefined') ? localidade : (cand.localidade || 'Localidade não informada');
 
       const fotoPerfilResolved =
         (typeof candFotoPerfil !== 'undefined' && candFotoPerfil)
@@ -65,7 +139,7 @@
 
       const fotoUrl = (fotoUrlCandidates.length ? fotoUrlCandidates[0] : '/img/avatar.png');
 
-      const _areas  = (typeof areas  !== 'undefined' && Array.isArray(areas))  ? areas  : (Array.isArray(cand?.areas) ? cand.areas : []);
+      const _areas = (typeof areas !== 'undefined') ? areas : (cand.areas || []);
       const _links  = (typeof links  !== 'undefined' && Array.isArray(links))  ? links  : [];
       const _anexos = (typeof anexos !== 'undefined' && Array.isArray(anexos)) ? anexos : [];
 
@@ -80,11 +154,12 @@
 
       const _vagas = (typeof vagas !== 'undefined' && Array.isArray(vagas)) ? vagas : [];
 
-      const areasSel            = _areas;
+      const areasSel = cand?.candidato_area || [];
       const linksPerf           = _links;
       const anexosList          = _anexos;
-      const historicoAplicacoes = _historico; // aplicações (vaga_avaliacao)
-      const vagasRecomendadas   = _vagas;     // vagas recomendadas
+      const historicoAplicacoes = (typeof historico !== 'undefined') ? historico : [];
+      const vagasRecomendadas   = (typeof vagas !== 'undefined') ? vagas : [];
+      const dataNascimentoBruta = cand?.data_nascimento || user?.data_nascimento;
 
       // --- Telefone (usa DDD + número, com fallback do próprio cand.telefone) ---
       const hasDDD = (typeof ddd !== 'undefined') && String(ddd || '').trim() !== '';
@@ -92,10 +167,10 @@
       const hasTel = (hasDDD && hasNum) || !!cand?.telefone;
 
       // --- Itens da barra de progresso (ignora links e anexos) ---
-      const hasNasc  = !!cand?.data_nascimento;
+      const hasNasc = !!dataNascimentoBruta;
       const hasFoto  = (fotoUrl && fotoUrl !== '/img/avatar.png');
       const hasLocal = !!(localidadeResolved && localidadeResolved !== 'Localidade não informada');
-      const hasAreas = Array.isArray(areasSel) && areasSel.length >= 1;
+      const hasAreas = Array.isArray(_areas) && _areas.length >= 1;
 
       const checklist        = [hasFoto, hasLocal, hasTel, hasNasc, hasAreas];
       const totalSteps       = checklist.length;
@@ -133,7 +208,7 @@
             alt="Foto do perfil"
           >
           <div>
-            <div class="h4 m-0">Olá, <%= nomeUser %> <%= sobrenome %> 👋</div>
+            <div class="h4 m-0">Olá, <%= candidato.nome %> <%= candidato.sobrenome %>! 👋</div>
             <div class="small muted">
               <i class="bi bi-geo-alt me-1"></i> <%= localidadeResolved %>
             </div>
@@ -169,6 +244,13 @@
           <div class="progress-bar" data-progress="<%= profileCompletion %>"></div>
         </div>
 
+        <div class="d-flex align-items-center mb-3">
+          <small style="font-size: 0.8rem; color: #6c757d;">
+            <i class="bi bi-info-circle me-1"></i>
+            * Empresas preferem perfis completos.
+          </small>
+        </div>
+
 
         <div class="d-flex gap-2 mt-3 flex-wrap">
           <% if (!hasFoto) { %><a href="/candidato/editar-perfil" class="btn btn-sm btn-outline-primary">Adicionar foto</a><% } %>
@@ -200,31 +282,40 @@
 
       <div class="col-12 col-lg-4">
         <div class="bg-white rounded-2xl shadow-soft p-4 h-100 dashboard-kpi">
-          <div class="d-flex justify-content-between align-items-center mb-2 w-100">
+          
+          <div class="d-flex justify-content-between align-items-center mb-3 w-100">
             <div class="section-title">
               <i class="bi bi-diagram-3 me-1"></i>
               Áreas de interesse
             </div>
-
             <a href="/candidato/editar-areas" class="text-decoration-none" title="Editar áreas">
               <i class="bi bi-pencil-square"></i>
             </a>
           </div>
 
-          <% if (!areasSel || !areasSel.length) { %>
-            <div class="card-ghost p-4 rounded-2xl text-center w-100">
-              <div class="muted">Você ainda não selecionou áreas.</div>
-              <a class="btn btn-primary btn-sm mt-2" href="/candidato/editar-areas">
-                Selecionar áreas
-              </a>
-            </div>
-          <% } else { %>
-            <div class="grid-areas justify-content-center w-100">
-              <% areasSel.slice(0, 6).forEach(function (a) { %>
-                <span class="pill"><%= a %></span>
-              <% }) %>
-            </div>
-          <% } %>
+          <div class="flex-grow-1 d-flex flex-column justify-content-center align-items-center">
+            <% if (!_areas || _areas.length === 0) { %>
+              <div class="card-ghost p-3 rounded-2xl text-center w-100">
+                <div class="small muted mb-2">Nenhuma área selecionada</div>
+                <a class="btn btn-primary btn-sm rounded-pill px-3" href="/candidato/editar-areas">Configurar</a>
+              </div>
+            <% } else { %>
+              <div class="d-flex flex-wrap gap-2 justify-content-center">
+                <% _areas.slice(0, 8).forEach(function (nomeArea) { %>
+                  <span class="interest-pill">
+                    <%= nomeArea %>
+                  </span>
+                <% }) %>
+
+                <% if (_areas.length > 8) { %>
+                  <span class="interest-pill-more">
+                    +<%= _areas.length - 8 %>
+                  </span>
+                <% } %>
+              </div>
+            <% } %>
+          </div>
+
         </div>
       </div>
     </div>

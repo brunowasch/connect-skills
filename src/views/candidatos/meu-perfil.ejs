@@ -86,7 +86,7 @@
               <span>
                 Data de nascimento:
                 <% if (candidato.data_nascimento) { %>
-                  <%= new Date(candidato.data_nascimento).toLocaleDateString('pt-BR') %>
+                  <%= new Date(candidato.data_nascimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) %>
                 <% } else { %>
                   não informada
                 <% } %>
@@ -133,26 +133,29 @@
     </div>
 
     <div class="row gy-4 mt-3">
-      <div class="col-md-6 col-12">
-        <div class="d-flex justify-content-between align-items-center">
-          <div class="section-title">
-            <i class="bi bi-star-fill text-warning icon-sm"></i>
-            Áreas de interesse
-          </div>
-          <a href="/candidato/editar-areas" class="text-decoration-none" title="Editar áreas">
-            <i class="bi bi-pencil-square"></i>
-          </a>
-        </div>
-        <ul class="list-group list-group-flush">
-          <% if (areas && areas.length) { %>
-            <% areas.forEach(area => { %>
-              <li class="list-group-item"><%= area %></li>
-            <% }) %>
-          <% } else { %>
-            <li class="list-group-item text-muted">Nenhuma área selecionada</li>
-          <% } %>
-        </ul>
+    <div class="mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0"><i class="bi bi-briefcase me-2 text-primary"></i>Áreas de Interesse</h6>
+        <a href="/candidato/editar-areas" class="btn btn-sm btn-outline-primary rounded-pill">
+          <i class="bi bi-pencil-square me-1"></i>Editar
+        </a>
       </div>
+
+      <div class="d-flex flex-wrap gap-2">
+        <% if (candidato.candidato_area && candidato.candidato_area.length > 0) { %>
+          <% candidato.candidato_area.forEach(ca => { %>
+            <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
+              <%= ca.area_interesse ? ca.area_interesse.nome : 'Área' %>
+            </span>
+          <% }) %>
+        <% } else { %>
+          <div class="text-muted small border rounded-3 p-3 w-100 text-center bg-light">
+            <i class="bi bi-info-circle me-1"></i> Nenhuma área selecionada. 
+            <a href="/candidato/editar-areas" class="text-primary">Adicionar agora</a>
+          </div>
+        <% } %>
+      </div>
+    </div>
 
       <div class="col-md-6 col-12">
         <div class="d-flex justify-content-between align-items-center">
