@@ -1265,63 +1265,51 @@ exports.salvarEditarVaga = async (req, res) => {
 
 exports.rankingCandidatos = async (req, res) => {
   try {
-    // 1) Decodifica o param (aceita codificado ou numérico cru)
-    const raw = String(req.params.vagaId || "");
-    const dec = decodeId(raw);
-    const vagaId = Number.isFinite(dec)
-      ? dec
-      : /^\d+$/.test(raw)
-      ? Number(raw)
-      : NaN;
+    // 1) Captura o ID da URL. 
+    // Usamos rawId para evitar confusão com o antigo 'raw'
+    const rawId = String(req.params.vagaId || "");
+    
+    console.log("SESSÃO ATUAL:", req.session.empresa);
 
-    const empresaId = await getEmpresaIdDaSessao(req);
+    let dec = decodeId(rawId);
+    let vagaId = (dec && !isNaN(dec)) ? dec : rawId;
+
+    const empresaId = req.session.empresa?.id;
+    console.log("ID DA EMPRESA IDENTIFICADO:", empresaId);
     if (!empresaId) {
       req.session.erro = "Faça login como empresa para ver o ranking.";
       return res.redirect("/login");
     }
 
-    if (!Number.isFinite(vagaId)) {
-      req.session.erro = "Vaga inválida.";
-      return res.redirect("/empresa/vagas");
-    }
-
-    // 2) Se veio numérico cru, canonicaliza para a versão com ID codificado (GET)
-    if (/^\d+$/.test(raw)) {
-      const enc = encodeId(vagaId);
-      const canonical = req.originalUrl.replace(raw, enc);
-      if (canonical !== req.originalUrl) {
-        return res.redirect(301, canonical);
-      }
-    }
-
-    // 3) Confere se a vaga pertence à empresa logada
     const vaga = await prisma.vaga.findFirst({
-      where: { id: vagaId, empresa_id: empresaId },
-      include: { empresa: true },
+      where: { 
+        id: String(vagaId), 
+        empresa_id: String(empresaId) 
+      },
     });
+
     if (!vaga) {
+      console.error("[rankingCandidatos] Vaga não encontrada ou ID inválido:", vagaId);
       req.session.erro = "Vaga não encontrada ou não pertence a esta empresa.";
       return res.redirect("/empresa/vagas");
     }
 
-    // 4) Busca as avaliações
+    vaga.empresa = {
+      nome_empresa: req.session.empresa.nome_empresa
+    };
+
+    // 3) Busca as avaliações
     const avaliacoes = await vagaAvaliacaoModel.listarPorVaga({
-      vaga_id: vagaId,
+      vaga_id: String(vagaId),
     });
 
     const tryParseJSON = (s) => {
-      try {
-        return JSON.parse(s);
-      } catch (_) {
-        return null;
-      }
+      try { return JSON.parse(s); } catch (_) { return null; }
     };
 
-    // garante interrogação ao final, se não houver pontuação
     const ensureQmark = (str) => {
       const t = String(str || "").trim();
       if (!t) return "";
-      // substitui qualquer pontuação final por "?" ou adiciona "?" se não houver
       return t.replace(/\s*([?.!…:])?\s*$/, "?");
     };
 
@@ -1331,112 +1319,63 @@ exports.rankingCandidatos = async (req, res) => {
       return [q, a].join(" ");
     };
 
+    // 4) Processamento dos candidatos
     const rows = avaliacoes.map((a, idx) => {
       const c = a.candidato || {};
       const u = c.usuario || {};
 
-      const nome =
-        [c.nome, c.sobrenome].filter(Boolean).join(" ").trim() ||
-        u.nome ||
-        u.email ||
-        `Candidato #${c.id || ""}`.trim();
+      const nome = [c.nome, c.sobrenome].filter(Boolean).join(" ").trim() ||
+                   u.nome || u.email || `Candidato #${c.id || ""}`.trim();
 
-      const local =
-        [c.cidade, c.estado, c.pais].filter(Boolean).join(", ") || "—";
-      const telefone = c.telefone || "—";
-      const foto_perfil = c.foto_perfil || "/img/avatar.png";
-      const email = u.email || "";
+      const local = [c.cidade, c.estado, c.pais].filter(Boolean).join(", ") || "—";
+      
+      const breakdown = typeof a.breakdown === "string" 
+        ? tryParseJSON(a.breakdown) || {} 
+        : a.breakdown || {};
 
-      // breakdown pode ter sido salvo como string
-      const breakdown =
-        typeof a.breakdown === "string"
-          ? tryParseJSON(a.breakdown) || {}
-          : a.breakdown || {};
-
-      // reconstrói TODAS as perguntas a partir de breakdown.qa + breakdown.da
       let lines = [];
       if (breakdown && typeof breakdown === "object") {
         const qa = Array.isArray(breakdown.qa) ? breakdown.qa : [];
         const da = Array.isArray(breakdown.da) ? breakdown.da : [];
-        if (da.length)
-          lines = lines.concat(da.filter((x) => x?.question).map(toLine));
-        if (qa.length)
-          lines = lines.concat(qa.filter((x) => x?.question).map(toLine));
+        if (da.length) lines = lines.concat(da.filter((x) => x?.question).map(toLine));
+        if (qa.length) lines = lines.concat(qa.filter((x) => x?.question).map(toLine));
       }
 
-      // fallback para texto consolidado salvo
-      let questions = lines.length ? lines.join("\n") : "";
-      if (!questions && typeof a.resposta === "string") {
-        questions = a.resposta.trim();
-      }
-
-      // fallbacks legados (se houver { questions: "..." } em algum campo)
-      if (!questions) {
-        const p =
-          typeof a.payload === "string" ? tryParseJSON(a.payload) : a.payload;
-        const r =
-          typeof a.api_result === "string"
-            ? tryParseJSON(a.api_result)
-            : a.api_result;
-        const rr =
-          typeof a.result === "string" ? tryParseJSON(a.result) : a.result;
-        questions =
-          (p && p.questions) ||
-          (r && r.questions) ||
-          (rr && rr.questions) ||
-          questions ||
-          "";
-        if (typeof questions !== "string") questions = "";
-      }
-
-      const score_D = Number(breakdown?.score_D) || 0;
-      const score_I = Number(breakdown?.score_I) || 0;
-      const score_S = Number(breakdown?.score_S) || 0;
-      const score_C = Number(breakdown?.score_C) || 0;
-
-      const explanation =
-        typeof breakdown?.explanation === "string" ? breakdown.explanation : "";
-      const suggestions = Array.isArray(breakdown?.suggestions)
-        ? breakdown.suggestions
-        : [];
-      const matchedSkills = Array.isArray(breakdown?.matchedSkills)
-        ? breakdown.matchedSkills
-        : [];
+      let questions = lines.length ? lines.join("\n") : (typeof a.resposta === "string" ? a.resposta.trim() : "");
 
       return {
         pos: idx + 1,
         candidato_id: c.id || null,
         nome,
         local,
-        telefone,
-        email,
-        foto_perfil,
-
+        telefone: c.telefone || "—",
+        email: u.email || "",
+        foto_perfil: c.foto_perfil || "/img/avatar.png",
         score: Number(a.score) || 0,
-        score_D,
-        score_I,
-        score_S,
-        score_C,
-
-        explanation,
-        suggestions,
-        matchedSkills,
-
+        score_D: Number(breakdown?.score_D) || 0,
+        score_I: Number(breakdown?.score_I) || 0,
+        score_S: Number(breakdown?.score_S) || 0,
+        score_C: Number(breakdown?.score_C) || 0,
+        explanation: breakdown?.explanation || "",
+        suggestions: Array.isArray(breakdown?.suggestions) ? breakdown.suggestions : [],
+        matchedSkills: Array.isArray(breakdown?.matchedSkills) ? breakdown.matchedSkills : [],
         questions,
       };
     });
+
+    // Ordena por score decrescente
     rows.sort((a, b) => (b.score || 0) - (a.score || 0));
 
-    const encVagaId = encodeId(vagaId);
-
+    // Retorna para a view com o ID original da URL (rawId)
     return res.render("empresas/ranking-candidatos", {
       vaga,
       rows,
-      encVagaId,
+      encVagaId: rawId,
       activePage: "vagas",
     });
+
   } catch (err) {
-    console.error("[rankingCandidatos] erro:", err?.message || err);
+    console.error("[rankingCandidatos] erro:", err);
     req.session.erro = "Não foi possível carregar o ranking.";
     return res.redirect("/empresa/vagas");
   }

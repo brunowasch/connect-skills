@@ -88,23 +88,19 @@ exports.obterCandidatoPorUsuarioId = async (usuario_id) => {
   }
 
   try {
-    const candidato = await prisma.candidato.findUnique({
+    const candidato = await prisma.candidato.findFirst({
       where: {
         usuario_id: String(usuario_id)
       },
       include: {
-        usuario: {
-          select: {
-            email: true
-          }
-        },
-        candidato_area: {
-          include: {
-            area_interesse: true
-          }
-        }
+        usuario: { select: { email: true } },
+        candidato_area: { include: { area_interesse: true } }
       }
     });
+
+    if (!candidato) {
+      console.warn(`[obterCandidatoPorUsuarioId] Nenhum candidato encontrado para o usuario_id: ${usuario_id}`);
+    }
 
     return candidato;
   } catch (error) {

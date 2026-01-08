@@ -862,184 +862,105 @@ exports.historicoAplicacoes = async (req, res) => {
   try {
     const sess = req.session?.candidato;
     if (!sess) return res.redirect('/login');
-    const candidato_id = Number(sess.id);
-
+    
+    const candidato_id = String(sess.id); // UUID suporte
     const q = (req.query.q || '').trim();
     const ordenar = (req.query.ordenar || 'recentes').trim();
 
-    const avaliacoes = await prisma.vaga_avaliacao.findMany({
+    const avaliacoesRaw = await prisma.vaga_avaliacao.findMany({
       where: { candidato_id },
-      orderBy: { id: 'desc' },
-      include: {
-        vaga: {
-          include: {
-            empresa: {
-              select: { id: true, nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true }
-            },
-            vaga_area:       { include: { area_interesse: { select: { id: true, nome: true } } } },
-            vaga_soft_skill: { include: { soft_skill:     { select: { id: true, nome: true } } } },
-          }
-        }
-      }
+      orderBy: { id: 'desc' }
     });
 
-    // Nada aplicado ainda (ou antes de filtrar)
-    if (!avaliacoes.length) {
-      return res.render('candidatos/historico-aplicacoes', {
-        items: [],
-        filtros: { q, ordenar },
-        activePage: 'vagas',
-      });
+    if (!avaliacoesRaw.length) {
+      return res.render('candidatos/historico-aplicacoes', { items: [], filtros: { q, ordenar }, activePage: 'vagas' });
     }
 
-    // Status atual por vaga
-    const vagaIds = [...new Set(avaliacoes.map(a => a.vaga?.id).filter(Boolean))];
-    let statusMap = new Map();
-    if (vagaIds.length) {
-      const statusList = await prisma.vaga_status.findMany({
-        where: { vaga_id: { in: vagaIds } },
-        orderBy: { criado_em: 'desc' },
-        select: { vaga_id: true, situacao: true }
-      });
-      for (const s of statusList) {
-        if (!statusMap.has(s.vaga_id)) statusMap.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
-      }
-    }
+    const items = await Promise.all(avaliacoesRaw.map(async (a) => {
+      // 1) Busca a Vaga
+      const v = await prisma.vaga.findUnique({ where: { id: a.vaga_id } });
+      if (!v) return null;
 
-    // Helpers para montar perguntas/respostas completas
-    const tryParseJSON = (s) => { try { return JSON.parse(s); } catch { return null; } };
-    const ensureQmark = (str) => {
-      const t = String(str || '').trim();
-      if (!t) return '';
-      return t.replace(/\s*([?.!…:])?\s*$/, '?');
-    };
-
-    // Normaliza dados para a view
-    let items = avaliacoes
-      .filter(a => a.vaga) // evita órfãos
-      .map(a => {
-        const v = a.vaga;
-        const empresa = v.empresa || {};
-        const publicadoEm = v.created_at ? new Date(v.created_at) : null;
-        const publicadoEmBR = publicadoEm
-          ? publicadoEm.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-          : '-';
-
-        const areas  = (v.vaga_area || []).map(x => x.area_interesse?.nome).filter(Boolean);
-        const skills = (v.vaga_soft_skill || []).map(x => x.soft_skill?.nome).filter(Boolean);
-
-        let beneficios = [];
-        if (Array.isArray(v.beneficio)) beneficios = v.beneficio;
-        else if (v.beneficio) beneficios = String(v.beneficio).split(/[|,]/).map(s => s.trim()).filter(Boolean);
-
-        // 1) Tenta montar do breakdown (qa/da) — fonte de verdade
-        const breakdown = typeof a.breakdown === 'string' ? (tryParseJSON(a.breakdown) || {}) : (a.breakdown || {});
-        const qa = Array.isArray(breakdown?.qa) ? breakdown.qa : [];
-        const da = Array.isArray(breakdown?.da) ? breakdown.da : [];
-
-        let respostas = [];
-        if (da.length || qa.length) {
-          const toItem = (r) => ({
-            pergunta: ensureQmark(r?.question || ''),
-            resposta: String(r?.answer || '').trim()
-          });
-          // Prioriza DA (DISC/Auto) e depois QA (extras), preservando ordem
-          respostas = [
-            ...da.filter(x => x && (x.question || x.answer)).map(toItem),
-            ...qa.filter(x => x && (x.question || x.answer)).map(toItem),
-          ];
-        }
-
-        // 2) Fallback: texto consolidado salvo em a.resposta (linhas "pergunta? resposta")
-        if (!respostas.length) {
-          const respostasTexto = String(a.resposta || '').trim();
-          if (respostasTexto) {
-            respostas = respostasTexto
-              .replace(/\r\n/g, '\n')
-              .replace(/\\r\\n/g, '\n')
-              .replace(/\\n/g, '\n')
-              .split('\n')
-              .map(l => l.trim())
-              .filter(Boolean)
-              .map(l => {
-                const idx = l.indexOf('?');
-                if (idx !== -1) {
-                  const pergunta = ensureQmark(l.slice(0, idx + 1).trim());
-                  const resposta = l.slice(idx + 1).trim();
-                  return { pergunta, resposta };
-                }
-                return { pergunta: '', resposta: l };
-              });
-          }
-        }
-
-        const statusAtual = statusMap.get(v.id) || 'aberta';
-
-        return {
-          idAvaliacao: a.id,
-          score: a.score ?? 0,
-          created_at: v.created_at || a.created_at || a.criado_em || null, // usado para ordenar
-          vaga: {
-            id: v.id,
-            cargo: v.cargo,
-            descricao: v.descricao,
-            tipo: v.tipo_local_trabalho,
-            escala: v.escala_trabalho,
-            diasPresenciais: v.dias_presenciais ?? null,
-            diasHomeOffice: v.dias_home_office ?? null,
-            salario: v.salario ?? null,
-            moeda: v.moeda || '',
-            publicadoEmBR,
-            beneficios,
-            areas,
-            skills,
-            statusAtual,
-          },
-          empresa: {
-            id: empresa.id,
-            nome: empresa.nome_empresa,
-            foto: (empresa.foto_perfil && !['null','undefined'].includes(String(empresa.foto_perfil).trim()))
-            ? empresa.foto_perfil
-            : '/img/empresa-padrao.png',
-            localidade: [empresa.cidade, empresa.estado, empresa.pais].filter(Boolean).join(', '),
-          },
-          respostas
-        };
+      // 2) Busca a Empresa (Manual)
+      const empresa = await prisma.empresa.findUnique({
+        where: { id: v.empresa_id },
+        select: { id: true, nome_empresa: true, foto_perfil: true, cidade: true, estado: true, pais: true }
       });
 
+      // 3) Busca as Áreas (Manual em duas etapas)
+      // Primeiro pegamos os IDs na tabela pivô
+      const vinculosAreas = await prisma.vaga_area.findMany({
+        where: { vaga_id: v.id }
+      });
+
+      // Depois buscamos os nomes na tabela area_interesse para cada ID encontrado
+      const areas = await Promise.all(vinculosAreas.map(async (vinculo) => {
+        const area = await prisma.area_interesse.findUnique({
+          where: { id: vinculo.area_interesse_id }
+        });
+        return area?.nome;
+      }));
+
+      // 4) Busca o Status da Vaga (Manual)
+      const statusVaga = await prisma.vaga_status.findFirst({
+        where: { vaga_id: v.id },
+        orderBy: { criado_em: 'desc' }
+      });
+
+      const tryParseJSON = (s) => { try { return JSON.parse(s); } catch { return null; } };
+      const breakdown = typeof a.breakdown === 'string' ? (tryParseJSON(a.breakdown) || {}) : (a.breakdown || {});
+      const qa = Array.isArray(breakdown?.qa) ? breakdown.qa : [];
+      const da = Array.isArray(breakdown?.da) ? breakdown.da : [];
+
+      let respostas = [...da, ...qa].filter(x => x?.question).map(r => ({
+        pergunta: String(r.question).trim().replace(/\s*([?.!…:])?\s*$/, "?"),
+        resposta: String(r.answer || '—').trim()
+      }));
+
+      return {
+        idAvaliacao: a.id,
+        score: a.score ?? 0,
+        created_at: v.created_at || a.criado_em,
+        vaga: {
+          id: v.id,
+          cargo: v.cargo,
+          descricao: v.descricao,
+          tipo: v.tipo_local_trabalho,
+          salario: v.salario,
+          publicadoEmBR: v.created_at ? new Date(v.created_at).toLocaleDateString('pt-BR') : '-',
+          areas: areas.filter(Boolean),
+          statusAtual: statusVaga?.situacao || 'aberta'
+        },
+        empresa: {
+          id: empresa?.id,
+          nome: empresa?.nome_empresa,
+          foto: empresa?.foto_perfil || '/img/empresa-padrao.png',
+          localidade: [empresa?.cidade, empresa?.estado].filter(Boolean).join(', ')
+        },
+        respostas
+      };
+    }));
+
+    // Remove nulos (vagas deletadas) e aplica filtros/ordenação
+    let filteredItems = items.filter(Boolean);
+    
     if (q) {
       const termo = q.toLowerCase();
-      items = items.filter(it =>
-        it.vaga.cargo?.toLowerCase().includes(termo) ||
-        it.vaga.descricao?.toLowerCase().includes(termo) ||
-        it.empresa?.nome?.toLowerCase().includes(termo) ||
-        (it.vaga.areas || []).some(nome => nome?.toLowerCase().includes(termo))
+      filteredItems = filteredItems.filter(it => 
+        it.vaga.cargo?.toLowerCase().includes(termo) || 
+        it.empresa.nome?.toLowerCase().includes(termo)
       );
     }
 
-    switch (ordenar) {
-      case 'antigos':
-        items.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
-        break;
-      case 'mais_salario':
-        items.sort((a, b) => (b.vaga.salario || 0) - (a.vaga.salario || 0));
-        break;
-      case 'menos_salario':
-        items.sort((a, b) => (a.vaga.salario || 0) - (b.vaga.salario || 0));
-        break;
-      default:
-        items.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-    }
-
     return res.render('candidatos/historico-aplicacoes', {
-      items,
+      items: filteredItems,
       filtros: { q, ordenar },
       activePage: 'vagas',
     });
+
   } catch (err) {
-    console.error('[historicoAplicacoes] erro:', err?.message || err);
-    req.session.erro = 'Não foi possível carregar seu histórico.';
-    return res.redirect('/candidatos/vagas/historico');
+    console.error('[historicoAplicacoes] erro:', err);
+    return res.redirect('/candidatos/home');
   }
 };
 
@@ -1493,7 +1414,7 @@ exports.avaliarCompatibilidade = async (req, res) => {
       where: { id: vaga_id },
       select: {
         descricao: true,
-        vaga_soft_skill: { include: { soft_skill: true } }
+        cargo: true
       }
     });
 
@@ -1501,8 +1422,21 @@ exports.avaliarCompatibilidade = async (req, res) => {
       return res.status(404).json({ ok: false, error: 'Vaga não encontrada.' });
     }
 
+    // 5.1 Busca manual das Soft Skills (Contorno para a falta de relação no Schema)
+    const relacoesSkills = await prisma.vaga_soft_skill.findMany({
+      where: { vaga_id: vaga_id }
+    });
+
+    const skillIds = relacoesSkills.map(r => r.soft_skill_id);
+    
+    const softSkillsDb = await prisma.soft_skill.findMany({
+      where: { id: { in: skillIds } }
+    });
+
+    const softSkillsNomes = softSkillsDb.map(s => s.nome);
+
     // 6. Preparação dos dados para o serviço de IA
-    const qaRaw = Array.isArray(req.body.qa) ? req.body.qa : [];
+const qaRaw = Array.isArray(req.body.qa) ? req.body.qa : [];
     let itemsStr = typeof req.body.items === 'string' ? req.body.items.trim() : '';
     const skillsRaw = Array.isArray(req.body.skills) ? req.body.skills : [];
 
@@ -1517,14 +1451,13 @@ exports.avaliarCompatibilidade = async (req, res) => {
       }))
       .filter(x => x.question || x.answer);
 
+    // Ajuste aqui: Prioriza skills enviadas, senão usa as do banco (softSkillsNomes)
     let skills = skillsRaw
       .map(s => (typeof s === 'string' ? s.trim() : ''))
       .filter(Boolean);
 
     if (!skills.length) {
-      skills = (vagaDb?.vaga_soft_skill || [])
-        .map(vs => vs.soft_skill?.nome)
-        .filter(Boolean);
+      skills = softSkillsNomes; 
     }
 
     const discQuestions = (getDiscQuestionsForSkills(skills) || []).map(q =>
@@ -1839,119 +1772,112 @@ exports.excluirConta = async (req, res) => {
 
 exports.vagaDetalhes = async (req, res) => {
   try {
-    // 1. O ID agora é uma String (UUID), não convertemos para Number
-    const id = String(req.params.id || '');
+    const id = String(req.params.id || '').trim();
     
     if (!id || id.length < 10) {
       return res.status(400).send('ID de vaga inválido');
     }
 
-    // 2. Buscamos a vaga usando o UUID
+    // 1. Busca a Vaga PURA (sem include que causa erro)
     const vaga = await prisma.vaga.findUnique({
-      where: { id: id },
-      include: {
-        empresa: {
-          include: {
-            usuario: { select: { id: true, nome: true, sobrenome: true, email: true } }
-          }
-        },
-        vaga_area:       { include: { area_interesse: { select: { id: true, nome: true } } } },
-        vaga_soft_skill: { include: { soft_skill: { select: { id: true, nome: true } } } },
-        vaga_arquivo: true,
-        vaga_link: true
-      }
+      where: { id: id }
     });
 
     if (!vaga) {
       return res.status(404).send('Vaga não encontrada');
     }
 
-    // 3. Verificamos o status da vaga
+    // 2. BUSCAS MANUAIS (Contornando a falta de relação no Prisma)
+    const [empresa, relacoesArea, relacoesSkills, arquivos, links] = await Promise.all([
+      // Busca a empresa e o usuário dono da empresa
+      prisma.empresa.findUnique({
+        where: { id: vaga.empresa_id },
+        include: { usuario: { select: { id: true, nome: true, sobrenome: true, email: true } } }
+      }),
+      // Busca as áreas da vaga
+      prisma.vaga_area.findMany({
+        where: { vaga_id: id }
+      }),
+      // Busca as soft skills da vaga
+      prisma.vaga_soft_skill.findMany({
+        where: { vaga_id: id }
+      }),
+      prisma.vaga_arquivo.findMany({ where: { vaga_id: id } }),
+      prisma.vaga_link.findMany({ where: { vaga_id: id } })
+    ]);
+
+    // 3. Busca os NOMES das áreas e skills (já que as tabelas acima só trazem IDs)
+    const areaIds = relacoesArea.map(ra => ra.area_interesse_id);
+    const skillIds = relacoesSkills.map(rs => rs.soft_skill_id);
+
+    const [nomesAreas, nomesSkills] = await Promise.all([
+      prisma.area_interesse.findMany({ where: { id: { in: areaIds } } }),
+      prisma.soft_skill.findMany({ where: { id: { in: skillIds } } })
+    ]);
+
+    // 4. Monta o objeto para a View não quebrar
+    const vagaFormatada = {
+      ...vaga,
+      empresa,
+      vaga_arquivo: arquivos,
+      vaga_link: links,
+      // Simulando a estrutura que o EJS espera
+      vaga_area: relacoesArea.map(ra => ({
+        area_interesse: nomesAreas.find(na => na.id === ra.area_interesse_id)
+      })),
+      vaga_soft_skill: relacoesSkills.map(rs => ({
+        soft_skill: nomesSkills.find(ns => ns.id === rs.soft_skill_id)
+      }))
+    };
+
+    // 5. Verificação de Status
     const statusMaisRecente = await prisma.vaga_status.findFirst({
       where: { vaga_id: id },
       orderBy: { criado_em: 'desc' },
       select: { situacao: true }
     });
 
-    const situacaoAtual = statusMaisRecente?.situacao || 'aberta'; 
-    const STATUS_PERMITIDO = 'aberta';
-    
-    // Se a vaga não estiver aberta, tratamos como não encontrada para o candidato
-    if (situacaoAtual !== STATUS_PERMITIDO) {
+    if ((statusMaisRecente?.situacao || 'aberta') !== 'aberta') {
       return res.status(404).send('Esta vaga não está mais disponível.');
     }
 
-    // 4. Formatação de dados para exibição
-    const publicadoEm = vaga.created_at ? new Date(vaga.created_at) : null;
-    const publicadoEmBR = publicadoEm
-      ? publicadoEm.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    // 6. Formatação para Exibição
+    const publicadoEmBR = vaga.created_at 
+      ? new Date(vaga.created_at).toLocaleDateString('pt-BR') 
       : '-';
 
-    const beneficios = Array.isArray(vaga.beneficio)
-      ? vaga.beneficio
-      : (vaga.beneficio ? String(vaga.beneficio).split('|').map(s => s.trim()).filter(Boolean) : []);
-
-    const areas  = (vaga.vaga_area || []).map(va => va.area_interesse?.nome).filter(Boolean);
-    const skills = (vaga.vaga_soft_skill || []).map(vs => vs.soft_skill?.nome).filter(Boolean);
-
-    const diasPresenciais = vaga.dias_presenciais || '';
-    const diasHomeOffice  = vaga.dias_home_office  || '';
-
-    // 5. Perguntas de avaliação (IA/DISC e Extras)
-    const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank'); 
-    const discQs = (typeof getDiscQuestionsForSkills === 'function'
-      ? (getDiscQuestionsForSkills(skills) || [])
-      : []);
-
-    const extraRaw = String(vaga.pergunta || '').trim();
-    const extraQs = extraRaw
-      ? extraRaw
-          .replace(/\r\n/g, '\n')
-          .replace(/\\r\\n/g, '\n')
-          .replace(/\\n/g, '\n')
-          .split('\n')
-          .map(s => s.trim())
-          .filter(Boolean)
+    const beneficios = vaga.beneficio 
+      ? String(vaga.beneficio).split('|').map(s => s.trim()).filter(Boolean) 
       : [];
 
-    const perguntasLista = Array.from(new Set([...discQs, ...extraQs]));
+    const areas  = nomesAreas.map(a => a.nome).filter(Boolean);
+    const skills = nomesSkills.map(s => s.nome).filter(Boolean);
 
-    // 6. Verificação de aplicação existente (Usando IDs como Strings)
-    const candId = req.session?.candidato?.id || req.session?.usuario?.id;
+    // 7. Verificação de Aplicação
+    const candId = req.session?.candidato?.id;
     let jaAplicou = false;
-
-    if (candId && id) {
-      const [candidatura, avaliacao] = await Promise.all([
-        prisma.vaga_candidato.findFirst({
-          where: { candidato_id: candId, vaga_id: id },
-          select: { id: true }
-        }),
-        prisma.vaga_avaliacao.findFirst({
-          where: { candidato_id: candId, vaga_id: id },
-          select: { id: true }
-        })
-      ]);
-      jaAplicou = !!(candidatura || avaliacao);
+    if (candId) {
+      const avaliacao = await prisma.vaga_avaliacao.findFirst({
+        where: { candidato_id: candId, vaga_id: id }
+      });
+      jaAplicou = !!avaliacao;
     }
-
-    // 7. Preparação de IDs para a View (Passamos os UUIDs puros)
-    const podeTestar = !!req.session?.candidato;
 
     return res.render('candidatos/vaga-detalhes', {
       tituloPagina: 'Detalhes da vaga',
-      vaga,
+      vaga: vagaFormatada,
       publicadoEmBR,
       beneficios,
       areas,
       skills,
-      diasPresenciais,
-      diasHomeOffice,
-      perguntasLista,
       jaAplicou,
+      diasPresenciais: vagaFormatada.dias_presenciais || '',
+      diasHomeOffice: vagaFormatada.dias_home_office || '',
+      perguntasLista: [],
       usuarioSessao: req.session?.usuario || null,
-      encId: id,              // Passa o UUID da vaga
-      encEmpresaId: vaga?.empresa?.id || '', // Passa o UUID da empresa
-      podeTestar,
+      encId: id,
+      encEmpresaId: empresa?.id || '',
+      podeTestar: !!req.session?.candidato
     });
 
   } catch (err) {
@@ -2105,7 +2031,6 @@ exports.perfilPublicoCandidato = async (req, res) => {
 
 exports.aplicarVaga = async (req, res) => {
   try {
-    // 1. Obtemos o candidato da sessão (IDs agora são Strings/UUIDs)
     const usuario = req.session?.candidato;
     
     if (!usuario?.id) {
@@ -2113,35 +2038,29 @@ exports.aplicarVaga = async (req, res) => {
       return res.redirect('/login');
     }
 
-    // 2. Obtemos o ID da vaga (String pura, sem Number())
     const vagaId = String(req.params.id || '');
     
-    // Validação simples de existência de ID
     if (!vagaId || vagaId.length < 10) {
       return res.status(400).send('ID de vaga inválido');
     }
 
-    // 3. Buscamos o status da vaga usando o UUID
+    // 1. Verifica status (Correto conforme sua lógica)
     const statusMaisRecente = await prisma.vaga_status.findFirst({
       where: { vaga_id: vagaId },
       orderBy: { criado_em: 'desc' },
       select: { situacao: true }
     });
 
-    // 4. Verificamos se a vaga está 'aberta'
-    const situacaoAtual = statusMaisRecente?.situacao || 'aberta';
-    const STATUS_PERMITIDO_PARA_APLICAR = 'aberta'; 
-
-    if (situacaoAtual !== STATUS_PERMITIDO_PARA_APLICAR) {
+    if ((statusMaisRecente?.situacao || 'aberta') !== 'aberta') {
       req.session.erro = 'Esta vaga não está mais aceitando candidaturas.';
       return res.redirect('/candidatos/vagas'); 
     }
 
-    // 5. Verificamos se o candidato já aplicou (Cruzamento de UUIDs)
-    const jaExiste = await prisma.vaga_candidato.findFirst({
+    // 2. MUDANÇA: Verifica na tabela 'vaga_avaliacao'
+    const jaExiste = await prisma.vaga_avaliacao.findFirst({
       where: { 
         vaga_id: vagaId, 
-        candidato_id: usuario.id // usuario.id deve ser o UUID salvo no login
+        candidato_id: usuario.id 
       }
     });
 
@@ -2152,12 +2071,14 @@ exports.aplicarVaga = async (req, res) => {
       return res.redirect(urlVaga);
     }
 
-    // 6. Criamos a aplicação relacionando os UUIDs
-    await prisma.vaga_candidato.create({
+    // 3. MUDANÇA: Criar na tabela 'vaga_avaliacao' gerando ID manual
+    await prisma.vaga_avaliacao.create({
       data: {
+        id: crypto.randomUUID(), // Gera o UUID manual pois o schema não tem default
         vaga_id: vagaId,
         candidato_id: usuario.id,
-        status: 'em_analise' 
+        score: 0,                // Campo obrigatório no seu schema
+        updated_at: new Date()   // Campo obrigatório no seu schema
       }
     });
 
@@ -2165,8 +2086,8 @@ exports.aplicarVaga = async (req, res) => {
     return res.redirect(urlVaga);
 
   } catch (err) {
-    console.error('[aplicarVaga] erro:', err?.message || err);
-    req.session.erro = 'Não foi possível aplicar à vaga. Tente novamente.';
+    console.error('[aplicarVaga] erro:', err);
+    req.session.erro = 'Erro técnico ao aplicar. Verifique os campos obrigatórios.';
     return res.redirect('/candidatos/vagas');
   }
 };

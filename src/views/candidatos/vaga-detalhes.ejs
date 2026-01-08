@@ -85,7 +85,7 @@
               <div class="section-title"><i class="bi bi-clock-history"></i> Escala</div>
               <div><%= vaga.escala_trabalho || '—' %></div>
             </div>
-            <% if (diasPresenciais) { %>
+            <% if (typeof diasPresenciais !== 'undefined' && diasPresenciais) { %>
             <div class="col-12 col-md-6">
               <div class="section-title"><i class="bi bi-building-check"></i> Dias presenciais</div>
               <div><%= diasPresenciais %></div>
