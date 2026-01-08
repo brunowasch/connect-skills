@@ -364,13 +364,34 @@ exports.homeEmpresa = async (req, res) => {
       // Buscando as Áreas de Interesse vinculadas às vagas
       const todasAreas = await prisma.vaga_area.findMany({
         where: { vaga_id: { in: vagaIds } },
-        include: { area_interesse: true }
+      });
+      const areaIds = [...new Set(todasAreas.map(a => a.area_interesse_id))];
+
+      const areas = await prisma.area_interesse.findMany({
+        where: { id: { in: areaIds } }
+      });
+
+      const areaMap = new Map(areas.map(a => [a.id, a]));
+
+      todasAreas.forEach(v => {
+        v.area_interesse = areaMap.get(v.area_interesse_id);
       });
       
       // Buscando as Soft Skills vinculadas às vagas
       const todasSkills = await prisma.vaga_soft_skill.findMany({
-        where: { vaga_id: { in: vagaIds } },
-        include: { soft_skill: true }
+        where: { vaga_id: { in: vagaIds } }
+      });
+
+      const softSkillIds = [...new Set(todasSkills.map(s => s.soft_skill_id))];
+
+      const softSkills = await prisma.soft_skill.findMany({
+        where: { id: { in: softSkillIds } }
+      });
+
+      const softSkillMap = new Map(softSkills.map(s => [s.id, s]));
+
+      todasSkills.forEach(s => {
+        s.soft_skill = softSkillMap.get(s.soft_skill_id);
       });
 
       // Buscando contagem de candidatos
