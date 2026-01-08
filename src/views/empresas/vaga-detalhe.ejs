@@ -23,6 +23,37 @@
       .btn-group-actions{flex-direction:column;align-items:stretch;}
       .btn-group-actions .btn{width:100%;}
     }
+    /* Reduz o tamanho do título da seção */
+    .vaga-secao h3 {
+        font-size: 1.1rem !important; /* Tamanho menor e mais discreto */
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: #333;
+    }
+
+    /* Estilo do container de skills */
+    .skills-container {
+        margin-top: 8px;
+    }
+
+    /* Estilo dos badges (as tags) */
+    .badge-skill {
+        background-color: #f1f5f9; /* Azul acinzentado bem claro */
+        color: #475569;            /* Texto grafite */
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-size: 0.85rem;        /* Texto menor para as habilidades */
+        font-weight: 500;
+        border: 1px solid #e2e8f0;
+        display: inline-block;
+        white-space: nowrap;
+    }
+
+    /* Ajuste para o texto "Não informado" */
+    .text-muted {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
   </style>
 </head>
 <body data-vaga-id="<%= vaga?.id %>" data-share-url="<%= shareUrl || '' %>">
@@ -164,16 +195,21 @@
           </div>
         </div>
 
-        <div class="col-12 col-lg-4">
-          <h6>Habilidades comportamentais</h6>
-          <ul class="list-inline gap-2">
-            <% const softs = (vaga?.vaga_soft_skill || []).map(s => s?.soft_skill?.nome).filter(Boolean); %>
-            <% if (!softs.length) { %>
-              <li class="text-muted">Não informado</li>
-            <% } else { softs.forEach(n => { %>
-              <li class="list-inline-item badge text-bg-success"><%= n %></li>
-            <% }) } %>
-          </ul>
+        <div class="mt-4">
+          <h6 class="fw-bold mb-2">Habilidades comportamentais</h6>
+          <div class="d-flex flex-wrap gap-2">
+            <% if (vaga.vaga_soft_skill && vaga.vaga_soft_skill.length > 0) { %>
+              <% vaga.vaga_soft_skill.forEach(rel => { %>
+                <% if (rel.soft_skill) { %>
+                  <span class="badge rounded-pill bg-light text-dark border px-3 py-2" style="font-size: 0.85rem; font-weight: 500;">
+                    <%= rel.soft_skill.nome %>
+                  </span>
+                <% } %>
+              <% }) %>
+            <% } else { %>
+              <p class="text-muted small mb-0">Não informado</p>
+            <% } %>
+          </div>
         </div>
       </div>
     </section>

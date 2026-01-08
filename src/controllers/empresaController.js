@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
+const skillsLista = require('../utils/softSkills');
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
@@ -599,10 +600,12 @@ exports.telaPublicarVaga = async (req, res) => {
       orderBy: { nome: 'asc' }
     });
 
+    // 2. Renderize passando a nova variável 'skillsLista'
     res.render('empresas/publicar-vaga', {
       empresa,
       areas,
-      softSkills,
+      softSkills, // Estas são as skills do banco (para gerar os botões)
+      skillsLista: skillsLista, // Esta é a lista de 250 nomes (para limpeza/IA)
       backUrl: '/empresas/home'
     });
   } catch (error) {
@@ -744,35 +747,27 @@ exports.salvarVaga = async (req, res) => {
     console.log("IDs identificados para salvar (AGORA VAI):", idsAreas);
 
     // --- SOFT SKILLS: hidden JSON "habilidadesSelecionadas" ---
-    let softSkillIds = []; 
+    let softSkillIds = [];
     let rawSkills = req.body.habilidadesSelecionadas;
 
     if (rawSkills) {
-        // Pega o primeiro item válido do array (como vimos no DEBUG)
         if (Array.isArray(rawSkills)) {
             rawSkills = rawSkills.find(item => item && item !== '[]') || "";
         }
 
-        try {
-            if (typeof rawSkills === 'string' && rawSkills.trim() !== "") {
-                let parsed;
-                if (rawSkills.startsWith('[')) {
-                    parsed = JSON.parse(rawSkills);
-                } else {
-                    parsed = rawSkills.split(',').map(s => s.trim());
-                }
-                
-                // Converte para número e remove aspas, preenchendo a variável correta
-                softSkillIds = parsed.map(id => {
-                    const limpo = String(id).replace(/["']/g, "");
-                    return parseInt(limpo, 10);
-                }).filter(n => !isNaN(n));
-            }
-        } catch (e) {
-            console.error("Erro no parse de habilidadesSelecionadas:", e);
+      try {
+        if (typeof rawSkills === 'string' && rawSkills.trim() !== "") {
+            const parsed = JSON.parse(rawSkills);
+            // Converte para número e remove o que não for ID válido
+            softSkillIds = parsed
+                .map(val => parseInt(String(val).replace(/["']/g, "").trim(), 10))
+                .filter(n => !isNaN(n));
         }
+    } catch (e) {
+        console.error("Erro no parse de habilidadesSelecionadas:", e);
     }
-      console.log("Habilidades identificadas para salvar (AGORA VAI):", softSkillIds);
+    }
+    console.log("Habilidades identificadas para salvar (AGORA VAI):", softSkillIds);
 
     // Transação: cria a vaga, vincula até 3 áreas (existentes + novas),
     // cria áreas novas se necessário, e vincula soft skills
@@ -1558,6 +1553,8 @@ exports.telaVagaDetalhe = async (req, res) => {
     } catch (e) {
       console.warn("[telaVagaDetalhe] erro nas perguntas:", e.message);
     }
+
+    console.log("HABILIDADES ENCONTRADAS:", JSON.stringify(vaga.vaga_soft_skill, null, 2));
 
     return res.render("empresas/vaga-detalhe", {
       vaga,
@@ -2528,39 +2525,39 @@ exports.excluirAnexoEmpresa = async (req, res) => {
 exports.gerarDescricaoIA = async (req, res) => {
   try {
     const { shortdesc } = req.body;
+    if (!shortdesc) return res.status(400).json({ erro: 'Contexto não fornecido.' });
 
-    if (!shortdesc) {
-      return res.status(400).json({ 
-        erro: 'Contexto (shortdesc) não fornecido.' 
-      });
-    }
-
-    // 1. A IA exige a lista de skills e softSkills para funcionar.
-    // Vamos buscar do seu banco de dados (Prisma)
     const [dbHardSkills, dbSoftSkills] = await Promise.all([
       prisma.area_interesse.findMany({ select: { nome: true } }),
       prisma.soft_skill.findMany({ select: { nome: true } })
     ]);
 
-    // 2. Formata os dados exatamente como você testou no Postman
+    // O SEGREDO: Misturamos as do banco com as novas, mas damos ênfase às novas
+    const nomesBanco = dbSoftSkills.map(s => s.nome);
+    // Pegamos uma amostra aleatória da lista de 250 para renovar as opções da IA toda vez
+    const amostraNovas = skillsLista
+      .filter(s => !nomesBanco.includes(s))
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 100); // Pega 100 aleatórias
+
+    const listaParaIA = [...dbSoftSkills.map(s => s.nome), ...amostraNovas];
+
     const payload = {
-      shortDesc: shortdesc, // Atenção ao 'D' maiúsculo se a API exigir
+      // Adicionamos uma instrução extra no texto para a IA
+      shortDesc: `Atue como Recrutador Tech. Com base no contexto: "${shortdesc}". 
+                  IMPORTANTE: Escolha habilidades comportamentais modernas e específicas da lista fornecida, 
+                  evite apenas o básico como "Comunicação" ou "Trabalho em equipe" se houver opções mais precisas.`,
       skills: dbHardSkills.map(s => s.nome),
-      softSkills: dbSoftSkills.map(s => s.nome)
+      softSkills: listaParaIA
     };
 
-    console.log("Enviando payload para IA...");
-
-    // 3. Chamada para a API externa
-    const response = await axios.post(process.env.IA_GEN_DESC, payload);
+    const response = await axios.post(process.env.IA_GEN_DESC, payload, { timeout: 40000 });
+    
     let dadosIA = response.data;
-
-    // Se a API retornar o JSON dentro de uma string "response", fazemos o parse
     if (dadosIA.response) {
       dadosIA = typeof dadosIA.response === 'string' ? JSON.parse(dadosIA.response) : dadosIA.response;
     }
 
-    // 4. Mapeia o retorno para o seu Frontend
     return res.json({
       sucesso: true,
       cargoSugerido: dadosIA.jobTitle || '', 
@@ -2568,15 +2565,11 @@ exports.gerarDescricaoIA = async (req, res) => {
       bestCandidate: dadosIA.bestCandidate || '',
       questions: dadosIA.questions || [],
       areas: dadosIA.requiredSkills || [],
-      skills: dadosIA.behaviouralSkills || []
+      skills: dadosIA.behaviouralSkills || dadosIA.skills || dadosIA.softSkills || []
     });
 
   } catch (error) {
-    console.error('--- ERRO NA IA ---');
-    console.error(error.response ? error.response.data : error.message);
-    
-    return res.status(500).json({ 
-      erro: 'A IA recusou a requisição. Verifique se os campos shortDesc, skills e softSkills foram enviados corretamente.' 
-    });
+    console.error('--- ERRO NA IA ---', error.message);
+    return res.status(500).json({ erro: 'A IA falhou em gerar a descrição.' });
   }
 };

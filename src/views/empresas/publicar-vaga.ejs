@@ -9,7 +9,10 @@
   <link rel="stylesheet" href="/css/shared/style.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
 </head>
-<body data-todas-areas='<%- JSON.stringify(areas || []) %>'>
+<body 
+  data-todas-areas='<%- JSON.stringify(areas || []) %>'
+  data-todas-skills='<%- JSON.stringify(skillsLista || []) %>'
+>
   <style>
     :root { --nav-h: 0px !important; }
     body#home { padding-top: 0 !important; }
@@ -259,27 +262,26 @@
       </div>
 
       <!-- Habilidades + botão IA -->
-      <div class="mb-4 position-relative">
-
-        <!-- título centralizado, mas com largura limitada -->
-        <div class="mb-4">
-          <label class="form-label fw-bold">Habilidades Comportamentais</label>
-          <div class="d-flex flex-wrap gap-2" id="skill-container">
-            <% softSkills.forEach(skill => { %>
-              <button type="button" 
-                      class="btn btn-outline-primary btn-sm skill-btn" 
-                      data-value="<%= skill.id %>">
-                <%= skill.nome %>
-              </button>
-            <% }); %>
-          </div>
-          <input type="hidden" name="habilidadesSelecionadas" id="skills-input">
+      <div class="mb-3 position-relative">
+        <label class="form-label fw-bold">Habilidades Comportamentais (Soft Skills)</label>
+        
+        <div class="input-group mb-2">
+          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+          <input type="text" id="busca-soft-skill" class="form-control border-start-0" placeholder="Digite para buscar (ex: Inteligência Emocional, Resiliência...)">
         </div>
 
-        <input type="hidden" id="habilidadesSelecionadas" name="habilidadesSelecionadas">
-        <div id="erroHabilidades" class="text-danger small mt-1"></div>
-      </div>
+        <ul id="lista-sugestoes-skill" class="list-group position-absolute w-100 d-none" style="z-index: 1050; max-height: 250px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></ul>
 
+        <div id="skill-container" class="d-flex flex-wrap gap-2 mt-3">
+          <% softSkills.forEach(skill => { %>
+            <button type="button" class="btn btn-sm btn-outline-primary skill-btn" data-value="<%= skill.id %>">
+              <%= skill.nome %>
+            </button>
+          <% }) %>
+        </div>
+        
+        <input type="hidden" name="habilidadesSelecionadas" id="skills-input">
+      </div>
       <div class="text-center mt-4">
         <a href="<%= backUrl %>" class="btn btn-outline-danger px-5 me-2">Cancelar</a>
         <button type="submit" class="btn btn-outline-primary px-5">Continuar</button>
@@ -442,6 +444,100 @@
       }
     })();
   </script>
+  <script>
+(function() {
+  const body = document.body;
+  // Pega a lista de 250 nomes do atributo data que definimos no body
+  const lista250 = JSON.parse(body.dataset.todasSkills || '[]');
+  
+  const inputBusca = document.getElementById('busca-soft-skill');
+  const listaSugestoes = document.getElementById('lista-sugestoes-skill');
+  const container = document.getElementById('skill-container');
+
+  inputBusca.addEventListener('input', function() {
+    const termo = this.value.toLowerCase().trim();
+    listaSugestoes.innerHTML = '';
+
+    if (termo.length < 1) {
+      listaSugestoes.classList.add('d-none');
+      return;
+    }
+
+    // Filtra na lista de 250
+    const filtradas = lista250.filter(s => s.toLowerCase().includes(termo));
+
+    if (filtradas.length > 0) {
+      // Mostra apenas as primeiras 15 para não travar a tela
+      filtradas.slice(0, 15).forEach(nomeSkill => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item list-group-item-action cursor-pointer';
+        li.style.cursor = 'pointer';
+        li.textContent = nomeSkill;
+        li.onclick = () => selecionarOuCriarSkill(nomeSkill);
+        listaSugestoes.appendChild(li);
+      });
+      listaSugestoes.classList.remove('d-none');
+    } else {
+      listaSugestoes.classList.add('d-none');
+    }
+  });
+
+  window.selecionarOuCriarSkill = function(nome) {
+    const container = document.getElementById('skill-container');
+    if (!container) return;
+
+    const nomeLimpo = nome.trim();
+    const termoBusca = nomeLimpo.toLowerCase();
+
+    const botoes = Array.from(container.querySelectorAll('.skill-btn'));
+    let btnExistente = botoes.find(b => b.textContent.trim().toLowerCase() === termoBusca);
+
+    if (btnExistente) {
+      // Se achou e está branco, clica para ficar azul
+      if (!btnExistente.classList.contains('btn-primary')) {
+        btnExistente.classList.remove('btn-outline-primary');
+        btnExistente.classList.add('btn-primary');
+      }
+    } else {
+      // 2. Se não existe, cria o botão azul na hora
+      const novoBtn = document.createElement('button');
+      novoBtn.type = 'button';
+      novoBtn.className = 'btn btn-sm btn-primary skill-btn m-1';
+      novoBtn.setAttribute('data-value', nomeLimpo);
+      novoBtn.textContent = nomeLimpo;
+      
+      // IMPORTANTE: Adicione o evento de clique ao botão novo para que 
+      // o usuário possa DESELECIONAR ele depois se quiser
+      novoBtn.addEventListener('click', function() {
+          this.classList.toggle('btn-primary');
+          this.classList.toggle('btn-outline-primary');
+          if (typeof atualizarInputsHiddens === 'function') {
+              atualizarInputsHiddens('skill-container', 'skills-input', 'skill-btn');
+          }
+      });
+
+      container.appendChild(novoBtn);
+    }
+
+    // AJUSTE: A atualização deve rodar fora do else também, 
+    // para capturar quando um botão existente mudou para azul.
+    if (typeof atualizarInputsHiddens === 'function') {
+      atualizarInputsHiddens('skill-container', 'skills-input', 'skill-btn');
+    }
+
+    // Proteção para não dar erro se o campo de busca não existir no momento
+    const inputBusca = document.getElementById('busca-soft-skill');
+    const listaSugestoes = document.getElementById('lista-sugestoes-skill');
+    if (inputBusca) inputBusca.value = '';
+    if (listaSugestoes) listaSugestoes.classList.add('d-none');
+  }
+
+  // Fecha o dropdown se clicar fora
+  document.addEventListener('click', (e) => {
+    if (!inputBusca.contains(e.target)) listaSugestoes.classList.add('d-none');
+  });
+})();
+</script>
   <script>
     (function(){
       const wrap = document.getElementById('links-container');
@@ -633,36 +729,20 @@
 function selecionarSugestoesIA(tipo, listaSugestoesIA) {
   if (!listaSugestoesIA || !Array.isArray(listaSugestoesIA)) return;
 
-  const textosAlvo = listaSugestoesIA
-    .filter(t => typeof t === 'string') 
-    .map(t => t.trim().toLowerCase());
-
   if (tipo === 'area') {
     const todasAsAreas = JSON.parse(document.body.dataset.todasAreas || '[]');
-    textosAlvo.forEach(nomeSugestao => {
-      const areaEncontrada = todasAsAreas.find(a => 
-        a.nome.toLowerCase() === nomeSugestao
-      );
-      if (areaEncontrada) window.adicionarArea(areaEncontrada);
+    listaSugestoesIA.forEach(nomeSugestao => {
+      const area = todasAsAreas.find(a => a.nome.toLowerCase() === nomeSugestao.trim().toLowerCase());
+      if (area) window.adicionarArea(area);
     });
   } else {
-    const container = document.getElementById('skill-container');
-    if (!container) return;
-
-    const botoesLixo = container.querySelectorAll('.skill-btn');
-    botoesLixo.forEach(btn => {
-      const texto = btn.textContent.trim();
-      if (texto.includes('[') || texto.includes('"') || texto === "") {
-        btn.remove();
-      }
-    });
-
-    const botoesValidos = container.querySelectorAll('.skill-btn');
-    botoesValidos.forEach(btn => {
-      const btnTexto = btn.textContent.trim().toLowerCase();
-      const jaSelecionado = btn.classList.contains('btn-primary');
-      if (textosAlvo.includes(btnTexto) && !jaSelecionado) {
-        btn.click();
+    // Tratamento de Skills
+    listaSugestoesIA.forEach(sugestao => {
+      if (typeof sugestao === 'string' && sugestao.trim() !== "") {
+        // Chama a função que criamos acima para acender ou criar o botão
+        if (window.selecionarOuCriarSkill) {
+          window.selecionarOuCriarSkill(sugestao.trim());
+        }
       }
     });
   }
