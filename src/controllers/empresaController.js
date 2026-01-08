@@ -2530,13 +2530,15 @@ exports.gerarDescricaoIA = async (req, res) => {
     const { shortdesc } = req.body;
 
     if (!shortdesc) {
-      return res.status(400).json({ erro: 'Contexto não fornecido.' });
+      return res.status(400).json({ 
+        erro: 'Contexto (shortdesc) não fornecido.' 
+      });
     }
 
     // 1. A IA exige a lista de skills e softSkills para funcionar.
     // Vamos buscar do seu banco de dados (Prisma)
     const [dbHardSkills, dbSoftSkills] = await Promise.all([
-      prisma.area_interesse.findMany({ select: { nome: true } }), // ou a tabela de hard_skills se tiver
+      prisma.area_interesse.findMany({ select: { nome: true } }),
       prisma.soft_skill.findMany({ select: { nome: true } })
     ]);
 
@@ -2550,28 +2552,23 @@ exports.gerarDescricaoIA = async (req, res) => {
     console.log("Enviando payload para IA...");
 
     // 3. Chamada para a API externa
-    const response = await axios.post(process.env.IA_GEN_DESC, payload, {
-      timeout: 30000,
-      headers: { 'Content-Type': 'application/json' }
-    });
-
+    const response = await axios.post(process.env.IA_GEN_DESC, payload);
     let dadosIA = response.data;
 
     // Se a API retornar o JSON dentro de uma string "response", fazemos o parse
     if (dadosIA.response) {
-      dadosIA = typeof dadosIA.response === 'string' 
-        ? JSON.parse(dadosIA.response) 
-        : dadosIA.response;
+      dadosIA = typeof dadosIA.response === 'string' ? JSON.parse(dadosIA.response) : dadosIA.response;
     }
 
     // 4. Mapeia o retorno para o seu Frontend
     return res.json({
       sucesso: true,
+      cargoSugerido: dadosIA.jobTitle || '', 
       longDescription: dadosIA.longDescription || '',
       bestCandidate: dadosIA.bestCandidate || '',
-      questions: Array.isArray(dadosIA.questions) ? dadosIA.questions.join('\n') : (dadosIA.questions || ''),
-      areas: dadosIA.requiredSkills || [],        
-      skills: dadosIA.behaviouralSkills || []     
+      questions: dadosIA.questions || [],
+      areas: dadosIA.requiredSkills || [],
+      skills: dadosIA.behaviouralSkills || []
     });
 
   } catch (error) {

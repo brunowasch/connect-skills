@@ -429,7 +429,19 @@
 
   <script src="/js/empresas/publicacaoVagasRequisitos.js"></script>
 
-  <!-- links dinâmicos -->
+  <script>
+    (function limparBotoesBugadosIniciais() {
+      const container = document.getElementById('skill-container');
+      if (container) {
+        container.querySelectorAll('.skill-btn').forEach(btn => {
+          const texto = btn.textContent.trim();
+          if (texto.includes('[') || texto.includes('"') || texto === "") {
+            btn.remove();
+          }
+        });
+      }
+    })();
+  </script>
   <script>
     (function(){
       const wrap = document.getElementById('links-container');
@@ -621,34 +633,35 @@
 function selecionarSugestoesIA(tipo, listaSugestoesIA) {
   if (!listaSugestoesIA || !Array.isArray(listaSugestoesIA)) return;
 
-  const textosAlvo = listaSugestoesIA.map(t => t.trim().toLowerCase());
+  const textosAlvo = listaSugestoesIA
+    .filter(t => typeof t === 'string') 
+    .map(t => t.trim().toLowerCase());
 
   if (tipo === 'area') {
-    // 1. Pega a lista de áreas que veio do banco (injetada no body pelo EJS)
     const todasAsAreas = JSON.parse(document.body.dataset.todasAreas || '[]');
-    
     textosAlvo.forEach(nomeSugestao => {
-      // 2. Tenta encontrar a área no seu banco que tenha o mesmo nome que a IA sugeriu
       const areaEncontrada = todasAsAreas.find(a => 
-        a.nome.toLowerCase() === nomeSugestao || 
-        nomeSugestao.includes(a.nome.toLowerCase())
+        a.nome.toLowerCase() === nomeSugestao
       );
-
-      if (areaEncontrada) {
-        // 3. Chama a função global que você já tem no final do arquivo
-        window.adicionarArea(areaEncontrada);
-      } else {
-        console.warn(`IA sugeriu "${nomeSugestao}", mas essa área não existe no seu banco.`);
-      }
+      if (areaEncontrada) window.adicionarArea(areaEncontrada);
     });
   } else {
-    // Lógica para os BOTÕES de Soft Skills
-    const botoes = document.querySelectorAll('.skill-btn');
-    botoes.forEach(btn => {
+    const container = document.getElementById('skill-container');
+    if (!container) return;
+
+    const botoesLixo = container.querySelectorAll('.skill-btn');
+    botoesLixo.forEach(btn => {
+      const texto = btn.textContent.trim();
+      if (texto.includes('[') || texto.includes('"') || texto === "") {
+        btn.remove();
+      }
+    });
+
+    const botoesValidos = container.querySelectorAll('.skill-btn');
+    botoesValidos.forEach(btn => {
       const btnTexto = btn.textContent.trim().toLowerCase();
       const jaSelecionado = btn.classList.contains('btn-primary');
-      // Se o texto do botão está na lista da IA, "clica" nele
-      if (textosAlvo.some(t => btnTexto.includes(t)) && !jaSelecionado) {
+      if (textosAlvo.includes(btnTexto) && !jaSelecionado) {
         btn.click();
       }
     });
@@ -671,7 +684,7 @@ function selecionarSugestoesIA(tipo, listaSugestoesIA) {
     });
 
     // Ação ao clicar em "Gerar Texto"
-    applyBtn.addEventListener('click', async () => {
+applyBtn.addEventListener('click', async () => {
       const contexto = promptInput.value.trim();
       if (!contexto) return alert('Digite um contexto.');
 
@@ -688,36 +701,53 @@ function selecionarSugestoesIA(tipo, listaSugestoesIA) {
         const data = await response.json();
 
         if (response.ok && data.sucesso) {
-          const targetEl = document.getElementById(activeTargetId);
-
-          if (targetEl) {
-            if (activeTargetId === 'descricao') {
-              targetEl.value = data.longDescription || '';
-              
-              // Seleciona os elementos corretamente antes de usar
-              const campoPerguntas = document.getElementById('pergunta');
-              const campoPerfil = document.getElementById('opcao');
-              
-              if (campoPerguntas) campoPerguntas.value = data.questions || '';
-              if (campoPerfil) campoPerfil.value = data.bestCandidate || '';
-
-              // SELEÇÃO AUTOMÁTICA
-              selecionarSugestoesIA('area', data.areas);
-              selecionarSugestoesIA('skill', data.skills);
-
-            } else if (activeTargetId === 'pergunta') {
-              targetEl.value = data.questions || '';
-            } else if (activeTargetId === 'opcao') {
-              targetEl.value = data.bestCandidate || '';
-            }
+          // 1. Preenche o Cargo sugerido pela IA no campo principal
+          const campoCargo = document.getElementById('cargo');
+          if (campoCargo && data.cargoSugerido) {
+            campoCargo.value = data.cargoSugerido;
           }
+
+          // 2. Localiza o elemento alvo (onde o usuário clicou para abrir o modal)
+          const currentTarget = document.getElementById(activeTargetId);
+
+          // 3. Distribuição dos dados baseada no alvo
+          if (activeTargetId === 'descricao') {
+            // Se o alvo é a descrição, preenchemos TUDO (descrição, perfil e perguntas)
+            if (currentTarget) currentTarget.value = data.longDescription || '';
+            
+            const campoPerguntas = document.getElementById('pergunta');
+            const campoPerfil = document.getElementById('opcao');
+            
+            if (campoPerguntas) {
+              campoPerguntas.value = Array.isArray(data.questions) 
+                ? data.questions.join('\n') 
+                : (data.questions || '');
+            }
+            if (campoPerfil) campoPerfil.value = data.bestCandidate || '';
+
+            // Seleção automática de áreas e skills
+            selecionarSugestoesIA('area', data.areas);
+            selecionarSugestoesIA('skill', data.skills);
+
+          } else if (activeTargetId === 'pergunta') {
+            // Se o usuário clicou especificamente no botão de perguntas
+            if (currentTarget) {
+              currentTarget.value = Array.isArray(data.questions) 
+                ? data.questions.join('\n') 
+                : (data.questions || '');
+            }
+          } else if (activeTargetId === 'opcao') {
+            // Se o usuário clicou especificamente no botão de perfil ideal
+            if (currentTarget) currentTarget.value = data.bestCandidate || '';
+          }
+
           modal.hide();
         } else {
-          // Agora o alert mostrará a mensagem vinda do servidor
+          // Exibe o erro vindo do backend (ex: falta de contexto)
           alert(data.erro || 'Erro desconhecido na IA');
         }
       } catch (error) {
-        console.error(error);
+        console.error('Erro na requisição IA:', error);
         alert('Erro de conexão com o servidor local.');
       } finally {
         applyBtn.disabled = false;
