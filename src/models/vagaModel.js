@@ -233,21 +233,32 @@ exports.atualizarVaga = async ({
  * @param {number|string} id — ID da vaga a ser excluída
  * @returns {Promise<Object>}
  */
+// src/models/vagaModel.js
+
 exports.excluirVaga = async (id) => {
-  const vagaId = Number(id);
+  // REMOVA esta linha ou comente-a: const vagaId = Number(id);
+  // Use o id diretamente como String (UUID)
+  const vagaId = String(id); 
 
-  // 1) Remove todos os vínculos na tabela pivô vaga_area
-  await prisma.vaga_area.deleteMany({
-    where: { vaga_id: vagaId }
-  });
+  // 1) Remove todos os vínculos na tabela pivô vaga_area
+  await prisma.vaga_area.deleteMany({
+    where: { vaga_id: vagaId }
+  });
 
-  // 2) Remove todos os vínculos na tabela pivô vaga_soft_skill
-  await prisma.vaga_soft_skill.deleteMany({
-    where: { vaga_id: vagaId }
-  });
+  // 2) Remove todos os vínculos na tabela pivô vaga_soft_skill
+  await prisma.vaga_soft_skill.deleteMany({
+    where: { vaga_id: vagaId }
+  });
 
-  // 3) Finalmente, apaga a vaga
-  return await prisma.vaga.delete({
-    where: { id: vagaId }
-  });
+  // 3) Remove arquivos e links (se existirem no seu banco)
+  await prisma.vaga_arquivo.deleteMany({ where: { vaga_id: vagaId } });
+  await prisma.vaga_link.deleteMany({ where: { vaga_id: vagaId } });
+  
+  // 4) Remove avaliações/candidaturas (essencial para não dar erro de chave estrangeira)
+  await prisma.vaga_avaliacao.deleteMany({ where: { vaga_id: vagaId } });
+
+  // 5) Por fim, remove a vaga
+  return await prisma.vaga.delete({
+    where: { id: vagaId }
+  });
 };

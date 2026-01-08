@@ -467,7 +467,6 @@ exports.homeEmpresa = async (req, res) => {
 exports.telaPerfilEmpresa = async (req, res) => {
   const sess = req.session.empresa;
   
-  // 1. Verificação de segurança (sess.id agora é String/UUID)
   if (!sess || !sess.id) {
     return res.redirect("/login");
   }
@@ -475,7 +474,6 @@ exports.telaPerfilEmpresa = async (req, res) => {
   try {
     const empresaId = String(sess.id);
 
-    // 2. Busca a empresa de forma pura (sem 'include' que quebra devido ao schema)
     const empresa = await prisma.empresa.findUnique({
       where: { id: empresaId }
     });
@@ -485,21 +483,17 @@ exports.telaPerfilEmpresa = async (req, res) => {
       return res.redirect("/empresas/home");
     }
 
-    // 3. BUSCA MANUAL (Substituindo os 'includes' do seu código anterior)
-    
-    // Busca links da empresa
+    // Busca links e anexos (Busca simples, funciona normal)
     const links = await prisma.empresa_link.findMany({
       where: { empresa_id: empresaId },
       orderBy: { ordem: "asc" }
     });
 
-    // Busca arquivos/anexos
     const anexos = await prisma.empresa_arquivo.findMany({
       where: { empresa_id: empresaId },
       orderBy: { criadoEm: "desc" }
     });
 
-    // Busca as vagas e seus detalhes (também de forma manual)
     const vagasDaEmpresa = await prisma.vaga.findMany({
       where: { empresa_id: empresaId },
       orderBy: { created_at: 'desc' }
@@ -507,38 +501,56 @@ exports.telaPerfilEmpresa = async (req, res) => {
 
     const vagaIds = vagasDaEmpresa.map(v => v.id);
 
-    // Busca Áreas e Skills das vagas (Manual)
     let areasMap = {};
     let skillsMap = {};
 
     if (vagaIds.length > 0) {
-      const todasAreas = await prisma.vaga_area.findMany({
-        where: { vaga_id: { in: vagaIds } },
-        include: { area_interesse: true }
+      // --- CORREÇÃO AQUI: BUSCA MANUAL EM VEZ DE INCLUDE ---
+      
+      // 1. Busca as relações brutas (apenas os IDs)
+      const relacoesAreas = await prisma.vaga_area.findMany({
+        where: { vaga_id: { in: vagaIds } }
       });
-      const todasSkills = await prisma.vaga_soft_skill.findMany({
-        where: { vaga_id: { in: vagaIds } },
-        include: { soft_skill: true }
+      const relacoesSkills = await prisma.vaga_soft_skill.findMany({
+        where: { vaga_id: { in: vagaIds } }
       });
 
-      todasAreas.forEach(a => {
-        if(!areasMap[a.vaga_id]) areasMap[a.vaga_id] = [];
-        areasMap[a.vaga_id].push(a);
+      // 2. Busca os nomes das áreas e skills nas tabelas de referência
+      const areaIdsUnicos = [...new Set(relacoesAreas.map(ra => ra.area_interesse_id))];
+      const skillIdsUnicos = [...new Set(relacoesSkills.map(rs => rs.soft_skill_id))];
+
+      const [dadosAreas, dadosSkills] = await Promise.all([
+        prisma.area_interesse.findMany({ where: { id: { in: areaIdsUnicos } } }),
+        prisma.soft_skill.findMany({ where: { id: { in: skillIdsUnicos } } })
+      ]);
+
+      const areaRefMap = new Map(dadosAreas.map(a => [a.id, a]));
+      const skillRefMap = new Map(dadosSkills.map(s => [s.id, s]));
+
+      // 3. Monta os objetos no formato esperado pelo seu EJS
+      relacoesAreas.forEach(ra => {
+        if(!areasMap[ra.vaga_id]) areasMap[ra.vaga_id] = [];
+        areasMap[ra.vaga_id].push({
+          ...ra,
+          area_interesse: areaRefMap.get(ra.area_interesse_id)
+        });
       });
-      todasSkills.forEach(s => {
-        if(!skillsMap[s.vaga_id]) skillsMap[s.vaga_id] = [];
-        skillsMap[s.vaga_id].push(s);
+
+      relacoesSkills.forEach(rs => {
+        if(!skillsMap[rs.vaga_id]) skillsMap[rs.vaga_id] = [];
+        skillsMap[rs.vaga_id].push({
+          ...rs,
+          soft_skill: skillRefMap.get(rs.soft_skill_id)
+        });
       });
     }
 
-    // 4. Montagem dos dados para a View
     const vagasDecoradas = vagasDaEmpresa.map(v => ({
       ...v,
       vaga_area: areasMap[v.id] || [],
       vaga_soft_skill: skillsMap[v.id] || []
     }));
 
-    // Removemos o encodeId, usamos o UUID direto
     const perfilPublicoUrl = `/empresa/perfil/${empresaId}`;
 
     return res.render("empresas/meu-perfil", {
@@ -1736,69 +1748,44 @@ exports.reabrirVaga = async (req, res) => {
 };
 
 exports.excluirVaga = async (req, res) => {
-  const empresaSess = getEmpresaFromSession(req);
-
-  // 1) Decodifica o ID (aceita codificado ou numérico cru)
-  const raw = String(req.params.id || "");
-  const dec = decodeId(raw);
-  const vagaId = Number.isFinite(dec)
-    ? dec
-    : /^\d+$/.test(raw)
-    ? Number(raw)
-    : NaN;
-
-  if (!Number.isFinite(vagaId)) {
-    return res.redirect("/empresa/meu-perfil?erro=vaga_invalida");
-  }
-
   try {
-    const empresaId = empresaSess?.id ? Number(empresaSess.id) : null;
-    if (!empresaId) {
+    // Garanta que o ID da empresa seja comparado como String
+    const empresaIdSessao = String(req.session?.empresa?.id || "");
+    
+    if (!empresaIdSessao) {
       req.session.erro = "Sessão expirada. Faça login novamente.";
-      return res.redirect("/empresa/login");
+      return res.redirect("/login");
     }
 
-    // 2) Confere se a vaga pertence à empresa logada
-    const vaga = await prisma.vaga.findFirst({
-      where: { id: vagaId, empresa_id: empresaId },
-      select: { id: true },
+    // Se parseParamId usa o decodeId acima, ele retornará null se houver erro de UTF-8
+    const vagaId = decodeId(req.params.id); 
+
+    if (!vagaId) {
+      req.session.erro = "Esta vaga possui um formato de identificação antigo e não pode ser excluída por aqui.";
+      return res.redirect("/empresa/meu-perfil");
+    }
+
+    const vaga = await prisma.vaga.findUnique({
+      where: { id: String(vagaId) },
+      select: { empresa_id: true },
     });
-    if (!vaga) {
-      return res.redirect("/empresa/meu-perfil?erro=vaga_nao_encontrada");
+
+    // Verificação de segurança rigorosa
+    if (!vaga || String(vaga.empresa_id) !== empresaIdSessao) {
+      req.session.erro = "Acesso negado ou vaga não encontrada.";
+      return res.redirect("/empresa/meu-perfil");
     }
 
-    // 3) Monta a transação de exclusão (respeitando modelos existentes)
-    const tx = [
-      prisma.vaga_area.deleteMany({ where: { vaga_id: vagaId } }),
-      prisma.vaga_soft_skill.deleteMany({ where: { vaga_id: vagaId } }),
-    ];
-
-    if (prisma.vaga_hard_skill?.deleteMany) {
-      tx.push(
-        prisma.vaga_hard_skill.deleteMany({ where: { vaga_id: vagaId } })
-      );
-    }
-    if (prisma.vaga_status?.deleteMany) {
-      tx.push(prisma.vaga_status.deleteMany({ where: { vaga_id: vagaId } }));
-    }
-    if (prisma.vaga_avaliacao?.deleteMany) {
-      tx.push(prisma.vaga_avaliacao.deleteMany({ where: { vaga_id: vagaId } }));
-    }
-
-    tx.push(prisma.vaga.delete({ where: { id: vagaId } }));
-
-    await prisma.$transaction(tx);
+    // Exclusão
+    await vagaModel.excluirVaga(vagaId);
 
     req.session.sucessoVaga = "Vaga excluída com sucesso!";
     return res.redirect("/empresa/meu-perfil");
-  } catch (err) {
-    console.error("Erro excluirVaga:", err?.message || err);
-    req.session.erro = "Não foi possível excluir a vaga.";
-    if (Number.isFinite(vagaId)) {
-      const enc = encodeId(vagaId);
-      return res.redirect(`/empresa/vaga/${enc}`);
-    }
-    return res.redirect("/empresa/meu-perfil?erro=nao_foi_possivel_excluir");
+
+  } catch (error) {
+    console.error("Erro ao excluir vaga:", error);
+    req.session.erro = "Não foi possível excluir a vaga devido a um erro interno.";
+    res.redirect("/empresa/meu-perfil");
   }
 };
 
@@ -2177,8 +2164,8 @@ exports.mostrarVagas = async (req, res) => {
 
     // 4. BUSCAS MANUAIS (Simulando o Include)
     // Buscamos áreas, arquivos e links separadamente para cada vaga encontrada
-    const [todasAreas, todosArquivos, todosLinks, groupedAvaliacoes, dadosEmpresa] = await Promise.all([
-      prisma.vaga_area.findMany({ where: { vaga_id: { in: vagaIds } }, include: { area_interesse: true } }),
+      const [relacoesAreas, todosArquivos, todosLinks, groupedAvaliacoes, dadosEmpresa] = await Promise.all([
+      prisma.vaga_area.findMany({ where: { vaga_id: { in: vagaIds } } }), // Removido include
       prisma.vaga_arquivo.findMany({ where: { vaga_id: { in: vagaIds } } }),
       prisma.vaga_link.findMany({ where: { vaga_id: { in: vagaIds } } }),
       prisma.vaga_avaliacao.groupBy({
@@ -2192,11 +2179,23 @@ exports.mostrarVagas = async (req, res) => {
       })
     ]);
 
+    const areaIdsPresentes = [...new Set(relacoesAreas.map(ra => ra.area_interesse_id))];
+    const nomesAreas = await prisma.area_interesse.findMany({
+      where: { id: { in: areaIdsPresentes } }
+    });
+
+    const areasMap = new Map(nomesAreas.map(a => [a.id, a]));
     const countsMap = new Map(groupedAvaliacoes.map((g) => [g.vaga_id, g._count.vaga_id]));
 
     // 5. Montamos o objeto final combinando os dados manualmente
     let vagasComTotal = vagas.map((v) => {
-      const areasDaVaga = todasAreas.filter(a => a.vaga_id === v.id);
+      // Montamos as áreas da vaga injetando o objeto area_interesse manualmente
+      const areasDaVaga = relacoesAreas
+        .filter(ra => ra.vaga_id === v.id)
+        .map(ra => ({
+          ...ra,
+          area_interesse: areasMap.get(ra.area_interesse_id)
+        }));
       const arquivosDaVaga = todosArquivos.filter(arq => arq.vaga_id === v.id);
       const linksDaVaga = todosLinks.filter(l => l.vaga_id === v.id);
 

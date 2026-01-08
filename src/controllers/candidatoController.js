@@ -252,11 +252,28 @@ exports.salvarNomeCandidato = async (req, res) => {
 exports.telaCadastroAreas = async (req, res) => {
     const usuario = req.session.usuario;
     
-    // Renderiza a view passando a lista de habilidades
-    res.render('candidatos/cadastro-areas', { 
-        usuario,
-        habilidades: LISTA_HABILIDADES 
-    });
+    try {
+        // BUSCA TUDO, mas excluímos apenas os termos de teste lixo
+        const areasNoBanco = await prisma.area_interesse.findMany({
+            where: { 
+                nome: { 
+                    notIn: ['Teste 1', 'Teste 2', 'Testes', 'fs', 'igiyugyui', 'igugui', 'igugui '] 
+                } 
+            },
+            orderBy: { nome: 'asc' }
+        });
+
+        const habilidades = areasNoBanco.map(a => a.nome);
+
+        res.render('candidatos/cadastro-areas', { 
+            usuario,
+            // Se o banco trouxer algo, usamos. Se não, usamos a sua lista reserva.
+            habilidades: habilidades.length > 0 ? habilidades : LISTA_HABILIDADES 
+        });
+    } catch (error) {
+        console.error("Erro ao carregar áreas:", error);
+        res.render('candidatos/cadastro-areas', { usuario, habilidades: LISTA_HABILIDADES });
+    }
 };
 
 exports.salvarCadastroAreas = async (req, res) => {
@@ -746,127 +763,99 @@ exports.renderMeuPerfil = async (req, res) => {
 
 
 exports.mostrarVagas = async (req, res) => {
-  const usuario = req.session.candidato;
-  if (!usuario) return res.redirect('/login');
+  const usuarioSessao = req.session.candidato; 
+  if (!usuarioSessao) return res.redirect('/login');
 
-  const q = (req.query.q || '').trim();
-  const ordenar = (req.query.ordenar || 'recentes').trim();
+  const usuarioId = String(usuarioSessao.id);
+  const q = (req.query.q || '').trim();
+  const ordenar = (req.query.ordenar || 'recentes').trim();
 
-  try {
-    let vagas = await vagaModel.buscarVagasPorInteresseDoCandidato(usuario.id);
+  try {
+    // 1. Busca os IDs das vagas recomendadas via Model
+    let vagasInteresse = await vagaModel.buscarVagasPorInteresseDoCandidato(usuarioId);
+    const idsVagas = vagasInteresse.map(v => v.id);
 
-    vagas = await prisma.vaga.findMany({
-      where: { id: { in: vagas.map(v => v.id) } },
-      include: {
-        empresa: true,
-        vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } },
-        vaga_arquivo: true,
-        vaga_link: true,
-      }
-    });
+    if (idsVagas.length === 0) {
+      return res.render('candidatos/vagas', { vagas: [], filtros: { q, ordenar }, activePage: 'vagas', candidato: usuarioSessao, areas: [] });
+    }
 
-    // filtra somente vagas abertas
-    const vagaIds = vagas.map(v => v.id);
-    let abertasSet = new Set(vagaIds);
-    if (vagaIds.length) {
-      const statusList = await prisma.vaga_status.findMany({
-        where: { vaga_id: { in: vagaIds } },
-        orderBy: { criado_em: 'desc' },
-        select: { vaga_id: true, situacao: true }
-      });
-      const latest = new Map();
-      for (const s of statusList) {
-        if (!latest.has(s.vaga_id)) latest.set(s.vaga_id, (s.situacao || 'aberta').toLowerCase());
-      }
-      abertasSet = new Set(
-        vagaIds.filter(id => (latest.get(id) || 'aberta') !== 'fechada')
-      );
-    }
-    vagas = vagas.filter(v => abertasSet.has(v.id));
+    // 2. Busca as vagas básicas (Sem include, pois o schema não permite)
+    let vagasRaw = await prisma.vaga.findMany({
+      where: { id: { in: idsVagas } }
+    });
 
-    // filtro por busca (cargo, descrição, empresa ou áreas)
-    if (q) {
-      const termo = q.toLowerCase();
-      vagas = vagas.filter(v =>
-        v.cargo?.toLowerCase().includes(termo) ||
-        v.descricao?.toLowerCase().includes(termo) ||
-        v.empresa?.nome_empresa?.toLowerCase().includes(termo) ||
-        v.vaga_area?.some(rel => rel.area_interesse?.nome?.toLowerCase().includes(termo))
-      );
-    }
+    // 3. Busca Manual das Relações (Contornando o Schema)
+    // Buscamos as empresas de todas as vagas de uma vez
+    const empresaIds = [...new Set(vagasRaw.map(v => v.empresa_id))];
+    const empresas = await prisma.empresa.findMany({
+      where: { id: { in: empresaIds } }
+    });
 
-    const aplicadas = await prisma.vaga_avaliacao.findMany({
-    where: { candidato_id: Number(usuario.id) },
-    select: { vaga_id: true }
-    });
+    // Buscamos as áreas vinculadas a essas vagas
+    const todasVagaAreas = await prisma.vaga_area.findMany({
+      where: { vaga_id: { in: idsVagas } }
+    });
+    
+    // Como vaga_area só tem IDs, precisamos buscar os nomes na area_interesse
+    const areaIds = [...new Set(todasVagaAreas.map(a => a.area_interesse_id))];
+    const nomesAreas = await prisma.area_interesse.findMany({
+      where: { id: { in: areaIds } }
+    });
 
-    const appliedSet = new Set(aplicadas.map(a => a.vaga_id));
-    vagas = (vagas || []).filter(v => !appliedSet.has(v.id));
+    // 4. Montagem do Objeto Completo manualmente
+    let vagasCompletas = vagasRaw.map(vaga => {
+      const empresaVaga = empresas.find(e => e.id === vaga.empresa_id) || {};
+      const relacoesArea = todasVagaAreas.filter(va => va.vaga_id === vaga.id);
+      const areasVaga = relacoesArea.map(ra => {
+        const det = nomesAreas.find(na => na.id === ra.area_interesse_id);
+        return { area_interesse: det };
+      });
 
-    switch (ordenar) {
-      case 'antigos':
-        vagas.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-        break;
-      case 'mais_salario':
-        vagas.sort((a, b) => (b.salario || 0) - (a.salario || 0));
-        break;
-      case 'menos_salario':
-        vagas.sort((a, b) => (a.salario || 0) - (b.salario || 0));
-        break;
-      default:
-        vagas.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    }
+      return {
+        ...vaga,
+        empresa: empresaVaga,
+        vaga_area: areasVaga,
+        encId: encodeId(vaga.id)
+      };
+    });
 
-    const vagaIdsAbertas = vagas.map(v => v.id);
-    const avaliacoes = vagaIdsAbertas.length
-      ? await prisma.vaga_avaliacao.findMany({
-          where: { candidato_id: Number(usuario.id), vaga_id: { in: vagaIdsAbertas } },
-          select: { vaga_id: true, resposta: true }
-        })
-      : [];
-    const mapAval = new Map(avaliacoes.map(a => [a.vaga_id, a.resposta || '']));
-    for (const vaga of vagas) {
-      const texto = mapAval.get(vaga.id) || '';
-      if (!texto) continue;
-    }
+    // 5. Filtros de Busca Manual (Cargo, Empresa, Área)
+    if (q) {
+      const termo = q.toLowerCase();
+      vagasCompletas = vagasCompletas.filter(v =>
+        v.cargo?.toLowerCase().includes(termo) ||
+        v.empresa?.nome_empresa?.toLowerCase().includes(termo) ||
+        v.vaga_area?.some(va => va.area_interesse?.nome?.toLowerCase().includes(termo))
+      );
+    }
 
-    const cand = await prisma.candidato.findUnique({
-    where: { id: Number(usuario.id) },
-    include: { candidato_area: { include: { area_interesse: true } } }
-  });
-  const areas = (cand?.candidato_area || [])
-    .map(r => r.area_interesse?.nome)
-    .filter(Boolean);
+    // 6. Filtro de Vagas Aplicadas (Remover as que o candidato já se inscreveu)
+    const aplicadas = await prisma.vaga_avaliacao.findMany({
+      where: { candidato_id: usuarioId },
+      select: { vaga_id: true }
+    });
+    const appliedSet = new Set(aplicadas.map(a => a.vaga_id));
+    vagasCompletas = vagasCompletas.filter(v => !appliedSet.has(v.id));
 
+    // 7. Busca áreas do Candidato para o Header/Filtros
+    const candAreasRel = await prisma.candidato_area.findMany({
+      where: { candidato_id: usuarioId },
+      include: { area_interesse: true } // Aqui funciona porque no schema candidato_area tem a relação
+    });
+    const areasCandidato = candAreasRel.map(r => r.area_interesse?.nome).filter(Boolean);
 
+    res.render('candidatos/vagas', {
+      vagas: vagasCompletas,
+      filtros: { q, ordenar },
+      activePage: 'vagas',
+      candidato: usuarioSessao,
+      areas: areasCandidato
+    });
 
-    const vagasParaView = vagas.map(vaga => {
-      const empresa = vaga.empresa || {}; // Garante que empresa não é nula
-      return {
-        ...vaga,
-        encId: encodeId(vaga.id), // ID da vaga codificado
-        empresa: {
-          ...empresa,
-          encId: encodeId(empresa.id) // ID da empresa codificado
-        }
-      };
-    });
-
-
-  res.render('candidatos/vagas', {
-    vagas: vagasParaView, // MUDANÇA: Passando o array modificado
-    filtros: { q, ordenar },
-    activePage: 'vagas',
-    candidato: req.session.candidato,
-    areas
-  });
-
-  } catch (err) {
-    console.error('Erro ao buscar vagas para candidato:', err);
-    req.session.erro = 'Erro ao buscar vagas. Tente novamente.';
-    res.redirect('/candidatos/home');
-  }
+  } catch (err) {
+    console.error('Erro ao buscar vagas manual:', err);
+    res.redirect('/candidatos/home');
+  }
 };
 
 exports.historicoAplicacoes = async (req, res) => {

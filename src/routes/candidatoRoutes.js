@@ -33,11 +33,11 @@ router.get('/perfil/:id', candidatoController.perfilPublicoCandidato);
 // Rotas autenticadas
 router.get('/home', ensureCandidato, candidatoController.telaHomeCandidato);
 router.get('/meu-perfil', ensureCandidato, candidatoController.renderMeuPerfil);
-router.get('/vagas/:id', ensureCandidato, candidatoController.vagaDetalhes);
 router.get('/vagas/historico', ensureCandidato, candidatoController.historicoAplicacoes);
 router.get('/vagas/:id', ensureCandidato, withEncodedParam('id'), candidatoController.vagaDetalhes);
 router.get('/vagas/:id/perguntas-disc', ensureCandidato, vagaController.apiPerguntasDISC);
 router.post('/vagas/:id/aplicar', ensureCandidato, candidatoController.aplicarVaga);
+router.get('/vagas', ensureCandidato, candidatoController.mostrarVagas);
 
 // Edição de perfil
 router.get('/editar-perfil', ensureCandidato, candidatoController.telaEditarPerfil);
