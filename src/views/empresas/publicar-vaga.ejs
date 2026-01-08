@@ -617,27 +617,43 @@
     const applyBtn = document.getElementById('iaApplyButton');
     let activeTargetId = '';
 
-    // Helper para selecionar botões baseados no texto
-    function selecionarBotoesPorTexto(classeBotao, listaTextosIA) {
-      if (!listaTextosIA || !Array.isArray(listaTextosIA)) return;
+    // Nova versão que lida com Tags (Áreas) e Botões (Skills)
+function selecionarSugestoesIA(tipo, listaSugestoesIA) {
+  if (!listaSugestoesIA || !Array.isArray(listaSugestoesIA)) return;
 
-      const botoes = document.querySelectorAll(classeBotao);
-      
-      // Normaliza os textos da IA para comparação (remove espaços extras, minúsculas)
-      const textosAlvo = listaTextosIA.map(t => t.trim().toLowerCase());
+  const textosAlvo = listaSugestoesIA.map(t => t.trim().toLowerCase());
 
-      botoes.forEach(btn => {
-        const btnTexto = btn.textContent.trim().toLowerCase();
-        const jaSelecionado = btn.classList.contains('btn-primary'); // Assume que btn-primary indica ativo
-        const deveSelecionar = textosAlvo.includes(btnTexto);
+  if (tipo === 'area') {
+    // 1. Pega a lista de áreas que veio do banco (injetada no body pelo EJS)
+    const todasAsAreas = JSON.parse(document.body.dataset.todasAreas || '[]');
+    
+    textosAlvo.forEach(nomeSugestao => {
+      // 2. Tenta encontrar a área no seu banco que tenha o mesmo nome que a IA sugeriu
+      const areaEncontrada = todasAsAreas.find(a => 
+        a.nome.toLowerCase() === nomeSugestao || 
+        nomeSugestao.includes(a.nome.toLowerCase())
+      );
 
-        // Se a IA sugeriu e não está selecionado -> clica para selecionar
-        // Nota: O limite de 3 será controlado pelo seu script externo (publicacaoVagasRequisitos.js)
-        if (deveSelecionar && !jaSelecionado) {
-          btn.click();
-        }
-      });
-    }
+      if (areaEncontrada) {
+        // 3. Chama a função global que você já tem no final do arquivo
+        window.adicionarArea(areaEncontrada);
+      } else {
+        console.warn(`IA sugeriu "${nomeSugestao}", mas essa área não existe no seu banco.`);
+      }
+    });
+  } else {
+    // Lógica para os BOTÕES de Soft Skills
+    const botoes = document.querySelectorAll('.skill-btn');
+    botoes.forEach(btn => {
+      const btnTexto = btn.textContent.trim().toLowerCase();
+      const jaSelecionado = btn.classList.contains('btn-primary');
+      // Se o texto do botão está na lista da IA, "clica" nele
+      if (textosAlvo.some(t => btnTexto.includes(t)) && !jaSelecionado) {
+        btn.click();
+      }
+    });
+  }
+}
 
     // Configura o modal
     document.querySelectorAll('.btn-ia-helper').forEach((btn) => {
@@ -675,46 +691,30 @@
           const targetEl = document.getElementById(activeTargetId);
 
           if (targetEl) {
-            // 1. GERAÇÃO COMPLETA (Botão da Descrição)
             if (activeTargetId === 'descricao') {
               targetEl.value = data.longDescription || '';
               
-              // Preenche perguntas e perfil se vazios
+              // Seleciona os elementos corretamente antes de usar
               const campoPerguntas = document.getElementById('pergunta');
               const campoPerfil = document.getElementById('opcao');
               
-              if (campoPerguntas && !campoPerguntas.value) campoPerguntas.value = data.questions || '';
-              if (campoPerfil && !campoPerfil.value) campoPerfil.value = data.bestCandidate || '';
+              if (campoPerguntas) campoPerguntas.value = data.questions || '';
+              if (campoPerfil) campoPerfil.value = data.bestCandidate || '';
 
-              // --- SELEÇÃO AUTOMÁTICA DE BOTÕES ---
-              // Seleciona Áreas de Atuação (requiredSkills)
-              if (data.areas && data.areas.length > 0) {
-                 // Reseta seleções anteriores (opcional, remova se quiser apenas adicionar)
-                 document.querySelectorAll('.area-btn.btn-primary').forEach(b => b.click());
-                 // Seleciona as novas
-                 selecionarBotoesPorTexto('.area-btn', data.areas);
-              }
-
-              // Seleciona Habilidades (behaviouralSkills)
-              if (data.skills && data.skills.length > 0) {
-                 // Reseta seleções anteriores
-                 document.querySelectorAll('.skill-btn.btn-primary').forEach(b => b.click());
-                 // Seleciona as novas
-                 selecionarBotoesPorTexto('.skill-btn', data.skills);
-              }
+              // SELEÇÃO AUTOMÁTICA
+              selecionarSugestoesIA('area', data.areas);
+              selecionarSugestoesIA('skill', data.skills);
 
             } else if (activeTargetId === 'pergunta') {
               targetEl.value = data.questions || '';
             } else if (activeTargetId === 'opcao') {
               targetEl.value = data.bestCandidate || '';
-            } else {
-              targetEl.value = data.longDescription || '';
             }
           }
-
           modal.hide();
         } else {
-          alert('Erro: ' + (data.erro || 'A IA não retornou dados válidos.'));
+          // Agora o alert mostrará a mensagem vinda do servidor
+          alert(data.erro || 'Erro desconhecido na IA');
         }
       } catch (error) {
         console.error(error);

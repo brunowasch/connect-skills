@@ -563,30 +563,25 @@ exports.telaPerfilEmpresa = async (req, res) => {
 };
 
 exports.telaPublicarVaga = async (req, res) => {
-try {
+  try {
     const empresa = getEmpresaFromSession(req);
     if (!empresa) return res.redirect('/login');
 
-    // 1. Buscamos todas, mas vamos filtrar as "sujeiras"
     const areasRaw = await prisma.area_interesse.findMany({
       orderBy: { nome: 'asc' }
     });
 
-    // 2. Lista de termos que você quer esconder (sujeira do banco)
     const termosSujeira = ['teste', 'fs', 'igugui', 'njkhbhjkb', 'testes'];
 
     const areas = areasRaw
       .filter(area => {
         const nomeLower = area.nome.toLowerCase();
-        // Remove se o nome for muito curto ou se estiver na lista de sujeira
         return !termosSujeira.some(sujeira => nomeLower.includes(sujeira)) && area.nome.length > 2;
       })
-      .map(area => {
-        return {
-          ...area,
-          nome: area.nome.toLowerCase().replace(/(^\w{1})|(\s+\w{1})/g, letter => letter.toUpperCase())
-        };
-      });
+      .map(area => ({
+        ...area,
+        nome: area.nome.toLowerCase().replace(/(^\w{1})|(\s+\w{1})/g, letter => letter.toUpperCase())
+      }));
 
     const softSkills = await prisma.soft_skill.findMany({
       orderBy: { nome: 'asc' }
@@ -770,9 +765,11 @@ exports.salvarVaga = async (req, res) => {
     // Transação: cria a vaga, vincula até 3 áreas (existentes + novas),
     // cria áreas novas se necessário, e vincula soft skills
     const vagaCriada = await prisma.$transaction(async (tx) => {
+      const vagaIdManual = uuidv4();
       const vaga = await tx.vaga.create({
         data: {
-          empresa_id: Number(empresaSessao.id),
+          id: vagaIdManual,
+          empresa_id: String(empresaSessao.id),
           cargo: norm(cargo),
           tipo_local_trabalho: norm(tipo),
           escala_trabalho: toNullIfEmpty(escala),
@@ -785,6 +782,7 @@ exports.salvarVaga = async (req, res) => {
           pergunta: norm(pergunta),
           opcao: norm(opcao),
           vinculo_empregaticio: vinculoSafe,
+          uuid: uuidv4(),
         },
       });
 
@@ -825,7 +823,7 @@ exports.salvarVaga = async (req, res) => {
       if (limitIds.length) {
         await tx.vaga_area.createMany({
           data: limitIds.map((areaId) => ({
-            vaga_id: vaga.id,
+            vaga_id: vaga.id, // O ID que acabamos de gerar
             area_interesse_id: areaId,
           })),
           skipDuplicates: true,
@@ -1517,82 +1515,97 @@ exports.telaAnexosEmpresa = async (req, res) => {
 
 exports.telaVagaDetalhe = async (req, res) => {
   const empresaSess = getEmpresaFromSession(req);
-
-  // 1) Decodifica o param e canonicaliza se vier numérico "cru"
-  const raw = String(req.params.id || "");
-  const dec = decodeId(raw);
-  const id = Number.isFinite(dec) ? dec : /^\d+$/.test(raw) ? Number(raw) : NaN;
-
-  if (!Number.isFinite(id)) {
-    return res.status(404).render("shared/404", { url: req.originalUrl });
-  }
-
-  if (/^\d+$/.test(raw)) {
-    const enc = encodeId(id);
-    const canonical = req.originalUrl.replace(raw, enc);
-    if (canonical !== req.originalUrl) {
-      return res.redirect(301, canonical);
-    }
-  }
+  let rawId = req.params.id; 
 
   try {
+    let idBusca = rawId;
+
+    if (rawId && rawId.startsWith("U2FsdGVk")) {
+      // TRATAMENTO DE SEGURANÇA: 
+      // URLs transformam '+' em ' ' ou usam hifens. Precisamos normalizar para o Base64 padrão.
+      const normalizedId = rawId.replace(/-/g, '+').replace(/_/g, '/');
+      
+      const dec = decodeId(normalizedId); 
+      
+      if (dec) {
+        idBusca = String(dec);
+      } else {
+        console.error("FALHA NA DESCRIPTOGRAFIA: O decodeId retornou null para o ID:", rawId);
+        // Se falhou, idBusca continuará sendo o rawId, o que resultará em 404 no banco
+      }
+    }
+
+    console.log("DEBUG ACESSO:");
+    console.log("- idBusca final:", idBusca);
+
+    // Busca a vaga
     const vaga = await prisma.vaga.findFirst({
-      where: {
-        id,
-        ...(empresaSess?.id ? { empresa_id: Number(empresaSess.id) } : {}),
-      },
-      include: {
-        empresa: true,
-        vaga_area: { include: { area_interesse: true } },
-        vaga_soft_skill: { include: { soft_skill: true } },
-        vaga_arquivo: true,
-        vaga_link: true,
-      },
+      where: { id: idBusca }
     });
 
     if (!vaga) {
+      console.warn(`Vaga não encontrada no banco: ${idBusca}`);
       return res.status(404).render("shared/404", { url: req.originalUrl });
     }
 
-    const statusAtual = await obterStatusDaVaga(id);
+// 3) BUSCAS MANUAIS (Sem usar include, pois o schema não permite)
+    
+    // Empresa
+    vaga.empresa = await prisma.empresa.findUnique({
+      where: { id: vaga.empresa_id }
+    });
 
-    const encId = encodeId(id);
-    const baseUrl =
-      process.env.APP_BASE_URL || `${req.protocol}://${req.get("host")}`;
-    const shareUrl = `${baseUrl}/empresa/public/vaga/${encId}`;
+    // Áreas de Interesse (Manual)
+    const relacoesArea = await prisma.vaga_area.findMany({
+      where: { vaga_id: vaga.id }
+    });
+    // Para cada relação, buscamos o objeto da área de interesse
+    vaga.vaga_area = await Promise.all(relacoesArea.map(async (rel) => {
+      const area = await prisma.area_interesse.findUnique({
+        where: { id: rel.area_interesse_id }
+      });
+      return { ...rel, area_interesse: area };
+    }));
 
+    // Soft Skills (Manual)
+    const relacoesSkill = await prisma.vaga_soft_skill.findMany({
+      where: { vaga_id: vaga.id }
+    });
+    // Para cada relação, buscamos o objeto da soft skill
+    vaga.vaga_soft_skill = await Promise.all(relacoesSkill.map(async (rel) => {
+      const skill = await prisma.soft_skill.findUnique({
+        where: { id: rel.soft_skill_id }
+      });
+      return { ...rel, soft_skill: skill };
+    }));
+
+    // Arquivos e Links (Simples, sem relações extras)
+    vaga.vaga_arquivo = await prisma.vaga_arquivo.findMany({ where: { vaga_id: vaga.id } });
+    vaga.vaga_link = await prisma.vaga_link.findMany({ where: { vaga_id: vaga.id } });
+
+    // 4) Lógica de Status e URLs
+    const statusAtual = await obterStatusDaVaga(idBusca);
+    const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get("host")}`;
+    const shareUrl = `${baseUrl}/empresa/public/vaga/${rawId}`;
+
+    // 5) Montagem de Perguntas
     let perguntasLista = [];
     try {
       const skillNames = (vaga.vaga_soft_skill || [])
         .map((vs) => vs.soft_skill?.nome)
         .filter(Boolean);
 
-      const {
-        getDiscQuestionsForSkills,
-      } = require("../utils/discQuestionBank");
-      const discQs =
-        (typeof getDiscQuestionsForSkills === "function"
-          ? getDiscQuestionsForSkills(skillNames)
-          : []) || [];
+      const { getDiscQuestionsForSkills } = require("../utils/discQuestionBank");
+      const discQs = (typeof getDiscQuestionsForSkills === "function" ? getDiscQuestionsForSkills(skillNames) : []) || [];
 
       const extraRaw = String(vaga.pergunta || "").trim();
       const extraQs = extraRaw
-        ? extraRaw
-            .replace(/\r\n/g, "\n")
-            .replace(/\\r\\n/g, "\n")
-            .replace(/\\n/g, "\n")
-            .split("\n")
-            .map((s) => s.trim())
-            .filter(Boolean)
+        ? extraRaw.replace(/\r\n/g, "\n").replace(/\\n/g, "\n").split("\n").map(s => s.trim()).filter(Boolean)
         : [];
 
       perguntasLista = [...discQs, ...extraQs];
     } catch (e) {
-      console.warn(
-        "[telaVagaDetalhe] falha ao montar perguntas:",
-        e?.message || e
-      );
-      perguntasLista = [];
+      console.warn("[telaVagaDetalhe] erro nas perguntas:", e.message);
     }
 
     return res.render("empresas/vaga-detalhe", {
@@ -1600,13 +1613,12 @@ exports.telaVagaDetalhe = async (req, res) => {
       statusAtual,
       shareUrl,
       perguntasLista,
-      encId,
+      encId: rawId,
     });
+
   } catch (err) {
-    console.error("Erro telaVagaDetalhe", err);
-    return res
-      .status(500)
-      .render("shared/500", { erro: "Falha ao carregar a vaga." });
+    console.error("Erro crítico em telaVagaDetalhe:", err);
+    return res.status(500).render("shared/500", { erro: "Falha ao carregar a vaga." });
   }
 };
 
@@ -2583,44 +2595,53 @@ exports.gerarDescricaoIA = async (req, res) => {
       return res.status(400).json({ erro: 'Contexto não fornecido.' });
     }
 
-    // Chamada para a API externa
-    const response = await axios.post(process.env.IA_GEN_DESC, {
-      shortdesc: shortdesc
+    // 1. A IA exige a lista de skills e softSkills para funcionar.
+    // Vamos buscar do seu banco de dados (Prisma)
+    const [dbHardSkills, dbSoftSkills] = await Promise.all([
+      prisma.area_interesse.findMany({ select: { nome: true } }), // ou a tabela de hard_skills se tiver
+      prisma.soft_skill.findMany({ select: { nome: true } })
+    ]);
+
+    // 2. Formata os dados exatamente como você testou no Postman
+    const payload = {
+      shortDesc: shortdesc, // Atenção ao 'D' maiúsculo se a API exigir
+      skills: dbHardSkills.map(s => s.nome),
+      softSkills: dbSoftSkills.map(s => s.nome)
+    };
+
+    console.log("Enviando payload para IA...");
+
+    // 3. Chamada para a API externa
+    const response = await axios.post(process.env.IA_GEN_DESC, payload, {
+      timeout: 30000,
+      headers: { 'Content-Type': 'application/json' }
     });
 
-    let dadosIA = {};
+    let dadosIA = response.data;
 
-    // Tratamento robusto para extrair o JSON da resposta da API
-    if (response.data && response.data.response) {
-      dadosIA = typeof response.data.response === 'string' 
-        ? JSON.parse(response.data.response) 
-        : response.data.response;
-    } 
-    else if (response.data && (response.data.questions || response.data.requiredSkills)) {
-      dadosIA = response.data;
+    // Se a API retornar o JSON dentro de uma string "response", fazemos o parse
+    if (dadosIA.response) {
+      dadosIA = typeof dadosIA.response === 'string' 
+        ? JSON.parse(dadosIA.response) 
+        : dadosIA.response;
     }
 
-    // 1. Processa as perguntas (questions)
-    let perguntasTexto = '';
-    if (Array.isArray(dadosIA.questions)) {
-      perguntasTexto = dadosIA.questions.join('\n');
-    } else {
-      perguntasTexto = dadosIA.questions || '';
-    }
-
-    // 2. Retorna todos os dados mapeados para o frontend
-    // Incluindo agora as áreas e habilidades para o 1º botão (Descrição)
+    // 4. Mapeia o retorno para o seu Frontend
     return res.json({
       sucesso: true,
       longDescription: dadosIA.longDescription || '',
-      bestCandidate: dadosIA.bestCandidate || '', // Perfil do candidato
-      questions: perguntasTexto,                   // Perguntas para IA
-      areas: dadosIA.requiredSkills || [],        // Áreas de Atuação (requiredSkills do JSON)
-      skills: dadosIA.behaviouralSkills || []     // Habilidades (behaviouralSkills do JSON)
+      bestCandidate: dadosIA.bestCandidate || '',
+      questions: Array.isArray(dadosIA.questions) ? dadosIA.questions.join('\n') : (dadosIA.questions || ''),
+      areas: dadosIA.requiredSkills || [],        
+      skills: dadosIA.behaviouralSkills || []     
     });
 
   } catch (error) {
-    console.error('Erro ao processar IA:', error.message);
-    return res.status(500).json({ erro: 'A IA não retornou um formato válido ou houve erro na conexão.' });
+    console.error('--- ERRO NA IA ---');
+    console.error(error.response ? error.response.data : error.message);
+    
+    return res.status(500).json({ 
+      erro: 'A IA recusou a requisição. Verifique se os campos shortDesc, skills e softSkills foram enviados corretamente.' 
+    });
   }
 };

@@ -1,5 +1,5 @@
 generator client {
-  provider      = "prisma-client-js"
+  provider = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-1.0.x"]
 }
 
@@ -9,226 +9,226 @@ datasource db {
 }
 
 model area_interesse {
-  id             Int              @id @default(autoincrement())
-  nome           String?          @unique @db.VarChar(100)
-  padrao         Boolean?         @default(false)
-  uuid           String?          @unique @db.VarChar(36)
-  candidato_area candidato_area[]
+    id             Int              @id @default(autoincrement())
+    uuid           String?          @unique @db.VarChar(36)
+    nome           String?          @unique @db.VarChar(100)
+    padrao         Boolean?         @default(false)
+    candidato_area candidato_area[]
 }
 
 model candidato {
-  id                String              @id
-  usuario_id        String              @unique
-  nome              String?
-  sobrenome         String?
-  data_nascimento   DateTime?
-  pais              String?
-  descricao         String?             @db.Text
-  estado            String?
-  cidade            String?
-  telefone          String?
-  foto_perfil       String?
-  uuid              String?             @unique @db.VarChar(36)
-  usuario           usuario             @relation(fields: [usuario_id], references: [id])
-  candidato_area    candidato_area[]
-  candidato_arquivo candidato_arquivo[]
-  candidato_link    candidato_link[]
+    id                String              @id
+    uuid              String?             @unique @db.VarChar(36)
+    usuario_id        String              @unique
+    nome              String?
+    sobrenome         String?
+    data_nascimento   DateTime?
+    pais              String?
+    descricao         String?             @db.Text
+    estado            String?
+    cidade            String?
+    telefone          String?
+    foto_perfil       String?
+    usuario           usuario             @relation(fields: [usuario_id], references: [id])
+    candidato_area    candidato_area[]
+    candidato_arquivo candidato_arquivo[]
+    candidato_link    candidato_link[]
 }
 
 model candidato_area {
-  candidato_id      String
-  area_interesse_id Int
-  area_interesse    area_interesse @relation(fields: [area_interesse_id], references: [id])
-  candidato         candidato      @relation(fields: [candidato_id], references: [id])
+    candidato_id      String
+    area_interesse_id Int
+    area_interesse    area_interesse @relation(fields: [area_interesse_id], references: [id])
+    candidato         candidato      @relation(fields: [candidato_id], references: [id])
 
-  @@id([candidato_id, area_interesse_id])
-  @@index([area_interesse_id], map: "candidato_area_area_interesse_id_fkey")
+    @@id([candidato_id, area_interesse_id])
+    @@index([area_interesse_id], map: "candidato_area_area_interesse_id_fkey")
 }
 
 model candidato_arquivo {
-  id           String    @id
-  candidato_id String
-  nome         String
-  url          String
-  mime         String
-  tamanho      Int
-  criadoEm     DateTime  @default(now())
-  uuid         String?   @unique @db.VarChar(36)
-  candidato    candidato @relation(fields: [candidato_id], references: [id])
+    id           String    @id
+    uuid         String?   @unique @db.VarChar(36)
+    candidato_id String
+    nome         String
+    url          String
+    mime         String
+    tamanho      Int
+    criadoEm     DateTime  @default(now())
+    candidato    candidato @relation(fields: [candidato_id], references: [id])
 
-  @@index([candidato_id], map: "candidato_arquivo_candidato_id_fkey")
+    @@index([candidato_id], map: "candidato_arquivo_candidato_id_fkey")
 }
 
 model candidato_link {
-  id           String    @id
-  candidato_id String
-  label        String    @db.VarChar(50)
-  url          String    @db.VarChar(255)
-  ordem        Int       @default(0)
-  uuid         String?   @unique @db.VarChar(36)
-  candidato    candidato @relation(fields: [candidato_id], references: [id], onDelete: Cascade)
+    id           String    @id
+    uuid         String?   @unique @db.VarChar(36)
+    candidato_id String
+    label        String    @db.VarChar(50)
+    url          String    @db.VarChar(255)
+    ordem        Int       @default(0)
+    candidato    candidato @relation(fields: [candidato_id], references: [id], onDelete: Cascade)
 
-  @@index([candidato_id], map: "candidato_link_candidato_id_fkey")
+    @@index([candidato_id], map: "candidato_link_candidato_id_fkey")
 }
 
 model empresa {
-  id              String            @id
-  usuario_id      String            @unique
-  nome_empresa    String
-  descricao       String
-  telefone        String?
-  pais            String?
-  estado          String?
-  cidade          String?
-  foto_perfil     String?
-  uuid            String?           @unique @db.VarChar(36)
-  usuario         usuario           @relation(fields: [usuario_id], references: [id])
-  empresa_arquivo empresa_arquivo[]
-  empresa_link    empresa_link[]
+    id              String            @id
+    uuid            String?           @unique @db.VarChar(36)
+    usuario_id      String            @unique
+    nome_empresa    String
+    descricao       String
+    telefone        String?
+    pais            String?
+    estado          String?
+    cidade          String?
+    foto_perfil     String?
+    usuario         usuario           @relation(fields: [usuario_id], references: [id])
+    empresa_arquivo empresa_arquivo[]
+    empresa_link    empresa_link[]
 }
 
 model empresa_arquivo {
-  id         String   @id
-  empresa_id String
-  nome       String
-  url        String
-  mime       String?
-  tamanho    Int?
-  criadoEm   DateTime @default(now())
-  uuid       String?  @unique @db.VarChar(36)
-  empresa    empresa  @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+    id         String   @id
+    uuid       String?  @unique @db.VarChar(36)
+    empresa_id String
+    nome       String
+    url        String
+    mime       String?
+    tamanho    Int?
+    criadoEm   DateTime @default(now())
+    empresa    empresa  @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
 
-  @@index([empresa_id], map: "empresa_arquivo_empresa_id_fkey")
+    @@index([empresa_id], map: "empresa_arquivo_empresa_id_fkey")
 }
 
 model empresa_link {
-  id         String  @id
-  empresa_id String
-  label      String  @db.VarChar(100)
-  url        String  @db.VarChar(255)
-  ordem      Int     @default(0)
-  uuid       String? @unique @db.VarChar(36)
-  empresa    empresa @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+    id         String  @id
+    uuid       String? @unique @db.VarChar(36)
+    empresa_id String
+    label      String  @db.VarChar(100)
+    url        String  @db.VarChar(255)
+    ordem      Int     @default(0)
+    empresa    empresa @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
 
-  @@index([empresa_id], map: "empresa_link_empresa_id_fkey")
+    @@index([empresa_id], map: "empresa_link_empresa_id_fkey")
 }
 
 model sessions {
-  session_id String  @id @db.VarChar(128)
-  expires    Int     @db.UnsignedInt
-  data       String? @db.MediumText
-}
+    session_id String  @id @db.VarChar(128)
+    expires    Int     @db.UnsignedInt
+    data       String? @db.MediumText
+    }
 
-model soft_skill {
-  id   Int    @id @default(autoincrement()) @db.UnsignedInt
-  nome String
+    model soft_skill {
+    id   Int    @id @default(autoincrement()) @db.UnsignedInt
+    nome String
 }
 
 model usuario {
-  id               String     @id
-  email            String     @unique
-  senha            String
-  tipo             String
-  email_verificado Boolean    @default(false)
-  created_at       DateTime   @default(now())
-  googleId         String?    @unique(map: "googleId")
-  avatarUrl        String?
-  nome             String?    @db.VarChar(255)
-  sobrenome        String?    @db.VarChar(255)
-  uuid             String?    @unique @db.VarChar(36)
-  candidato        candidato?
-  empresa          empresa?
+    id               String     @id
+    uuid             String?    @unique @db.VarChar(36)
+    email            String     @unique
+    senha            String
+    tipo             String
+    email_verificado Boolean    @default(false)
+    created_at       DateTime   @default(now())
+    googleId         String?    @unique(map: "googleId")
+    avatarUrl        String?
+    nome             String?    @db.VarChar(255)
+    sobrenome        String?    @db.VarChar(255)
+    candidato        candidato?
+    empresa          empresa?
 }
 
 model vaga {
-  id                   String                     @id
-  empresa_id           String
-  cargo                String
-  tipo_local_trabalho  vaga_tipo_local_trabalho
-  escala_trabalho      String
-  dias_presenciais     Int?
-  dias_home_office     Int?
-  salario              Decimal?                   @db.Decimal(10, 2)
-  moeda                String?                    @db.VarChar(5)
-  descricao            String                     @db.Text
-  beneficio            String?                    @db.Text
-  pergunta             String?                    @db.Text
-  opcao                String?                    @db.Text
-  created_at           DateTime                   @default(now())
-  vinculo_empregaticio vaga_vinculo_empregaticio?
-  uuid                 String?                    @unique @db.VarChar(36)
+    id                   String                     @id
+    uuid                 String?                    @unique @db.VarChar(36)
+    empresa_id           String
+    cargo                String
+    tipo_local_trabalho  vaga_tipo_local_trabalho
+    escala_trabalho      String
+    dias_presenciais     Int?
+    dias_home_office     Int?
+    salario              Decimal?                   @db.Decimal(10, 2)
+    moeda                String?                    @db.VarChar(5)
+    descricao            String                     @db.Text
+    beneficio            String?                    @db.Text
+    pergunta             String?                    @db.Text
+    opcao                String?                    @db.Text
+    created_at           DateTime                   @default(now())
+    vinculo_empregaticio vaga_vinculo_empregaticio?
 }
 
 model vaga_area {
-  vaga_id           String
-  area_interesse_id Int
+    vaga_id           String
+    area_interesse_id Int
 
-  @@id([vaga_id, area_interesse_id])
+    @@id([vaga_id, area_interesse_id])
 }
 
 model vaga_avaliacao {
-  id           String   @id
-  vaga_id      String
-  candidato_id String
-  score        Int
-  resposta     String?
-  breakdown    String?  @db.LongText
-  created_at   DateTime @default(now())
-  updated_at   DateTime
-  uuid         String?  @unique @db.VarChar(36)
+    id           String   @id
+    uuid         String?  @unique @db.VarChar(36)
+    vaga_id      String
+    candidato_id String
+    score        Int
+    resposta     String?
+    breakdown    String?  @db.LongText
+    created_at   DateTime @default(now())
+    updated_at   DateTime
 
-  @@unique([vaga_id, candidato_id])
+    @@unique([vaga_id, candidato_id])
 }
 
 model vaga_soft_skill {
-  soft_skill_id Int
-  vaga_id       String
+    soft_skill_id Int
+    vaga_id       String
 
-  @@id([soft_skill_id, vaga_id])
+    @@id([soft_skill_id, vaga_id])
 }
 
 model vaga_status {
-  id        String   @id
-  vaga_id   String
-  situacao  String   @db.VarChar(10)
-  criado_em DateTime @default(now())
-  uuid      String?  @unique @db.VarChar(36)
+    id        String   @id
+    uuid      String?  @unique @db.VarChar(36)
+    vaga_id   String
+    situacao  String   @db.VarChar(10)
+    criado_em DateTime @default(now())
 }
 
 model vaga_arquivo {
-  id       String   @id
-  vaga_id  String
-  nome     String   @db.VarChar(255)
-  mime     String   @db.VarChar(100)
-  tamanho  Int
-  url      String   @db.Text
-  criadoEm DateTime @default(now())
-  uuid     String?  @unique @db.VarChar(36)
+    id       String   @id
+    uuid     String?  @unique @db.VarChar(36)
+    vaga_id  String
+    nome     String   @db.VarChar(255)
+    mime     String   @db.VarChar(100)
+    tamanho  Int
+    url      String   @db.Text
+    criadoEm DateTime @default(now())
 }
 
 model vaga_link {
-  id       String   @id
-  vaga_id  String
-  titulo   String   @db.VarChar(120)
-  url      String   @db.VarChar(1024)
-  ordem    Int      @default(1)
-  criadoEm DateTime @default(now())
-  uuid     String?  @unique @db.VarChar(36)
+    id       String   @id
+    uuid     String?  @unique @db.VarChar(36)
+    vaga_id  String
+    titulo   String   @db.VarChar(120)
+    url      String   @db.VarChar(1024)
+    ordem    Int      @default(1)
+    criadoEm DateTime @default(now())
 }
 
 enum vaga_tipo_local_trabalho {
-  Presencial
-  Home_Office @map("Home Office")
-  H_brido     @map("Híbrido")
+    Presencial
+    Home_Office @map("Home Office")
+    H_brido     @map("Híbrido")
 }
 
 enum vaga_vinculo_empregaticio {
-  Estagio
-  CLT_Tempo_Integral
-  CLT_Meio_Periodo
-  Trainee
-  Aprendiz
-  PJ
-  Freelancer_Autonomo
-  Temporario
+    Estagio
+    CLT_Tempo_Integral
+    CLT_Meio_Periodo
+    Trainee
+    Aprendiz
+    PJ
+    Freelancer_Autonomo
+    Temporario
 }
