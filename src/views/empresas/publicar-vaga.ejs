@@ -280,7 +280,7 @@
           <% }) %>
         </div>
         
-        <input type="hidden" name="habilidadesSelecionadas" id="skills-input" value="[]">
+        <input type="hidden" id="habilidadesSelecionadasInput" name="habilidadesSelecionadas" value="[]">
       </div>
       <div class="text-center mt-4">
         <a href="<%= backUrl %>" class="btn btn-outline-danger px-5 me-2">Cancelar</a>
@@ -516,15 +516,17 @@ window.selecionarOuCriarSkill = function(nome) {
       // Cria o botão se não existir
       const novoBtn = document.createElement('button');
       novoBtn.type = 'button';
-      novoBtn.className = 'btn btn-primary skill-btn'; // Removido btn-sm para manter padrão da imagem
-      novoBtn.setAttribute('data-id', idParaSalvar);
+      novoBtn.className = 'btn btn-primary skill-btn'; 
+      novoBtn.setAttribute('data-id', idParaSalvar);    // Para a busca
+      novoBtn.setAttribute('data-value', idParaSalvar); // Para o salvarVaga
       novoBtn.textContent = nomeLimpo;
       container.appendChild(novoBtn);
     }
 
     // Chama a função que atualiza o input hidden final
-    if (typeof atualizarValorHabilidades === 'function') {
-      atualizarValorHabilidades();
+    if (typeof window.atualizarInputsHiddens === 'function') {
+      // Passa os IDs corretos: container, id do input hidden, e classe do botão
+      window.atualizarInputsHiddens('skill-container', 'habilidadesSelecionadasInput', 'skill-btn');
     }
 };
 
@@ -668,14 +670,12 @@ window.selecionarOuCriarSkill = function(nome) {
       const input = document.getElementById(inputId);
       if (!container || !input) return;
 
-      // Pegamos o data-value de todos os botões que estão com a classe 'btn-primary' (azuis)
+      // Busca botões que tenham a classe 'btn-primary' (selecionados)
       const selecionados = Array.from(container.querySelectorAll(`.${classeBotao}.btn-primary`))
-                                .map(btn => btn.getAttribute('data-value'))
+                                .map(btn => btn.getAttribute('data-id') || btn.getAttribute('data-value'))
                                 .filter(val => val !== null && val !== "");
       
-      // Salva como string JSON: ["1", "5", "10"]
       input.value = JSON.stringify(selecionados);
-      console.log(`Input ${inputId} atualizado:`, input.value);
     }
 
     // Listener para Áreas (Mantém como está)
@@ -697,12 +697,9 @@ window.selecionarOuCriarSkill = function(nome) {
       skillContainer.addEventListener('click', e => {
         const btn = e.target.closest('.skill-btn');
         if (btn) {
-          // Muda a cor
           btn.classList.toggle('btn-outline-primary');
           btn.classList.toggle('btn-primary');
-
-          // IMPORTANTE: Força a atualização do input hidden toda vez que clicar
-          atualizarInputsHiddens('skill-container', 'skills-input', 'skill-btn');
+          atualizarInputsHiddens('skill-container', 'habilidadesSelecionadasInput', 'skill-btn');
         }
       });
     }

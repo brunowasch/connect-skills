@@ -752,21 +752,22 @@ exports.salvarVaga = async (req, res) => {
     let rawSkills = req.body.habilidadesSelecionadas;
 
     if (rawSkills) {
-        if (Array.isArray(rawSkills)) {
-            rawSkills = rawSkills.find(item => item && item !== '[]') || "";
-        }
+        try {
+            // Se vier como array (comum em formulários complexos), pega o que não for vazio
+            let skillString = Array.isArray(rawSkills) 
+                ? rawSkills.find(s => s && s !== '[]') 
+                : rawSkills;
 
-      try {
-        if (typeof rawSkills === 'string' && rawSkills.trim() !== "") {
-            const parsed = JSON.parse(rawSkills);
-            // Converte para número e remove o que não for ID válido
-            softSkillIds = parsed
-                .map(val => parseInt(String(val).replace(/["']/g, "").trim(), 10))
-                .filter(n => !isNaN(n));
+            if (skillString && skillString !== '[]') {
+                const parsed = JSON.parse(skillString);
+                // Mapeia garantindo que são números válidos
+                softSkillIds = [...new Set(parsed)] // Remove duplicados
+                    .map(val => parseInt(String(val).replace(/["']/g, "").trim(), 10))
+                    .filter(n => !isNaN(n));
+            }
+        } catch (e) {
+            console.error("Erro no parse de habilidadesSelecionadas:", e);
         }
-    } catch (e) {
-        console.error("Erro no parse de habilidadesSelecionadas:", e);
-    }
     }
     console.log("Habilidades identificadas para salvar (AGORA VAI):", softSkillIds);
 
@@ -831,7 +832,7 @@ exports.salvarVaga = async (req, res) => {
       if (limitIds.length) {
         await tx.vaga_area.createMany({
           data: limitIds.map((areaId) => ({
-            vaga_id: vaga.id, // O ID que acabamos de gerar
+            vaga_id: vaga.id,
             area_interesse_id: areaId,
           })),
           skipDuplicates: true,
@@ -841,9 +842,9 @@ exports.salvarVaga = async (req, res) => {
       // Relaciona SOFT SKILLS selecionadas (se houver)
       if (softSkillIds.length) {
         await tx.vaga_soft_skill.createMany({
-          data: softSkillIds.map((id) => ({
+          data: softSkillIds.map((sId) => ({ 
             vaga_id: vaga.id,
-            soft_skill_id: id,
+            soft_skill_id: sId,
           })),
           skipDuplicates: true,
         });
@@ -861,10 +862,9 @@ exports.salvarVaga = async (req, res) => {
     }
 
     // --- Links auxiliares (opcional) ---
-    const titulos = Array.isArray(req.body.linksTitulo)
-      ? req.body.linksTitulo
-      : [];
+    const titulos = Array.isArray(req.body.linksTitulo) ? req.body.linksTitulo : [];
     const urls = Array.isArray(req.body.linksUrl) ? req.body.linksUrl : [];
+    
     const toHttp = (u) => {
       if (!u) return "";
       const s = String(u).trim();
@@ -875,8 +875,11 @@ exports.salvarVaga = async (req, res) => {
     for (let i = 0; i < Math.max(titulos.length, urls.length); i++) {
       const titulo = String(titulos[i] || "").trim();
       const url = toHttp(urls[i] || "");
-      if (!titulo || !url) continue;
+      
+      if (!titulo || !url || url === "https://") continue;
+
       linksData.push({
+        id: crypto.randomUUID(), // GERA O ID MANUALMENTE AQUI
         vaga_id: vagaCriada.id,
         titulo: titulo.slice(0, 120),
         url: url.slice(0, 1024),
@@ -885,6 +888,7 @@ exports.salvarVaga = async (req, res) => {
     }
 
     if (linksData.length) {
+      // Agora o createMany funcionará porque o campo 'id' está preenchido
       await prisma.vaga_link.createMany({ data: linksData });
     }
 
@@ -1428,8 +1432,8 @@ exports.telaVagaDetalhe = async (req, res) => {
     console.log("- idBusca final:", idBusca);
 
     // Busca a vaga
-    const vaga = await prisma.vaga.findFirst({
-      where: { id: idBusca }
+    const vaga = await prisma.vaga.findUnique({
+      where: { id: String(idBusca) },
     });
 
     if (!vaga) {

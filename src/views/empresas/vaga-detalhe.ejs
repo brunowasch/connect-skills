@@ -199,15 +199,11 @@
           <h6 class="fw-bold mb-2">Habilidades comportamentais</h6>
           <div class="d-flex flex-wrap gap-2">
             <% if (vaga.vaga_soft_skill && vaga.vaga_soft_skill.length > 0) { %>
-              <% vaga.vaga_soft_skill.forEach(rel => { %>
-                <% if (rel.soft_skill) { %>
-                  <span class="badge rounded-pill bg-light text-dark border px-3 py-2" style="font-size: 0.85rem; font-weight: 500;">
-                    <%= rel.soft_skill.nome %>
-                  </span>
-                <% } %>
+              <% vaga.vaga_soft_skill.forEach(item => { %>
+                <span class="badge badge-skill"><%= item.soft_skill.nome %></span>
               <% }) %>
             <% } else { %>
-              <p class="text-muted small mb-0">Não informado</p>
+              <p>Não informado</p>
             <% } %>
           </div>
         </div>
@@ -243,7 +239,7 @@
         <ul class="list-unstyled mb-0">
           <% vaga.vaga_arquivo.forEach(ax => { %>
             <li class="mb-2">
-              <a href="/empresa/public/vaga/anexos/<%= encodeId(ax.id) %>/abrir" target="_blank" rel="noopener">
+              <a href="/empresa/public/vaga/anexos/<%= ax.id %>/abrir" target="_blank" rel="noopener">
                 <i class="bi bi-paperclip me-1"></i> <%= ax.nome %>
               </a>
             </li>
