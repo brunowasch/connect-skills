@@ -8,6 +8,7 @@ const { ensureUsuarioCandidato, ensureCandidato } = require('../middlewares/auth
 const withEncodedParam = require('../middlewares/withEncodedParam');
 const vagaController = require('../controllers/vagaController');
 
+router.get('/vaga-publica/:id', candidatoController.vagaDetalhes);
 // Fluxo de cadastro
 router.get('/cadastro/nome', ensureCandidato, candidatoController.telaNomeCandidato);
 router.post('/cadastro/nome', ensureCandidato,candidatoController.salvarNomeCandidato);
