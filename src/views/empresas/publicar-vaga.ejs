@@ -280,7 +280,7 @@
           <% }) %>
         </div>
         
-        <input type="hidden" name="habilidadesSelecionadas" id="skills-input">
+        <input type="hidden" name="habilidadesSelecionadas" id="skills-input" value="[]">
       </div>
       <div class="text-center mt-4">
         <a href="<%= backUrl %>" class="btn btn-outline-danger px-5 me-2">Cancelar</a>
@@ -484,53 +484,50 @@
 
   window.selecionarOuCriarSkill = function(nome) {
     const container = document.getElementById('skill-container');
-    if (!container) return;
+    const body = document.body;
+    // Aqui pegamos a lista completa de objetos {id, nome} que deve estar no seu data-todas-skills
+    const listaCompletaObjetos = JSON.parse(body.dataset.todasSkills || '[]');
 
     const nomeLimpo = nome.trim();
-    const termoBusca = nomeLimpo.toLowerCase();
+    const skillNoBanco = listaCompletaObjetos.find(s => s.nome.toLowerCase() === nomeLimpo.toLowerCase());
+
+    // Se a skill não existe no seu banco de dados (lista completa), 
+    // e o seu sistema não permite criar soft skills novas "on the fly", ela não terá ID.
+    if (!skillNoBanco) return; 
+
+    const idParaSalvar = skillNoBanco.id;
 
     const botoes = Array.from(container.querySelectorAll('.skill-btn'));
-    let btnExistente = botoes.find(b => b.textContent.trim().toLowerCase() === termoBusca);
+    let btnExistente = botoes.find(b => b.getAttribute('data-value') == idParaSalvar);
 
     if (btnExistente) {
-      // Se achou e está branco, clica para ficar azul
-      if (!btnExistente.classList.contains('btn-primary')) {
-        btnExistente.classList.remove('btn-outline-primary');
-        btnExistente.classList.add('btn-primary');
-      }
+      btnExistente.classList.remove('btn-outline-primary');
+      btnExistente.classList.add('btn-primary');
     } else {
-      // 2. Se não existe, cria o botão azul na hora
+      // Cria o botão com o ID correto no data-value
       const novoBtn = document.createElement('button');
       novoBtn.type = 'button';
       novoBtn.className = 'btn btn-sm btn-primary skill-btn m-1';
-      novoBtn.setAttribute('data-value', nomeLimpo);
+      novoBtn.setAttribute('data-value', idParaSalvar);
       novoBtn.textContent = nomeLimpo;
-      
-      // IMPORTANTE: Adicione o evento de clique ao botão novo para que 
-      // o usuário possa DESELECIONAR ele depois se quiser
+
+      // ADICIONE ESTA PARTE PARA PERMITIR DESELECIONAR:
       novoBtn.addEventListener('click', function() {
-          this.classList.toggle('btn-primary');
-          this.classList.toggle('btn-outline-primary');
-          if (typeof atualizarInputsHiddens === 'function') {
-              atualizarInputsHiddens('skill-container', 'skills-input', 'skill-btn');
-          }
+        this.classList.toggle('btn-primary');
+        this.classList.toggle('btn-outline-primary');
+        if (typeof window.atualizarInputsHiddens === 'function') {
+          window.atualizarInputsHiddens('skill-container', 'skills-input', 'skill-btn');
+        }
       });
 
       container.appendChild(novoBtn);
     }
 
-    // AJUSTE: A atualização deve rodar fora do else também, 
-    // para capturar quando um botão existente mudou para azul.
-    if (typeof atualizarInputsHiddens === 'function') {
-      atualizarInputsHiddens('skill-container', 'skills-input', 'skill-btn');
+    // Atualiza o input hidden
+    if (typeof window.atualizarInputsHiddens === 'function') {
+      window.atualizarInputsHiddens('skill-container', 'skills-input', 'skill-btn');
     }
-
-    // Proteção para não dar erro se o campo de busca não existir no momento
-    const inputBusca = document.getElementById('busca-soft-skill');
-    const listaSugestoes = document.getElementById('lista-sugestoes-skill');
-    if (inputBusca) inputBusca.value = '';
-    if (listaSugestoes) listaSugestoes.classList.add('d-none');
-  }
+  };
 
   // Fecha o dropdown se clicar fora
   document.addEventListener('click', (e) => {
@@ -666,50 +663,53 @@
 
 <script>
   (function() {
-    // Função para atualizar os inputs hidden baseada nos botões selecionados
+    // Função unificada para atualizar os inputs
     function atualizarInputsHiddens(containerId, inputId, classeBotao) {
       const container = document.getElementById(containerId);
       const input = document.getElementById(inputId);
       if (!container || !input) return;
 
-      // Mapeia os IDs para um array de números ou strings
+      // Pegamos o data-value de todos os botões que estão com a classe 'btn-primary' (azuis)
       const selecionados = Array.from(container.querySelectorAll(`.${classeBotao}.btn-primary`))
-                                .map(btn => btn.getAttribute('data-value'));
+                                .map(btn => btn.getAttribute('data-value'))
+                                .filter(val => val !== null && val !== "");
       
-      // IMPORTANTE: Salva como STRING JSON para o seu Controller conseguir dar o JSON.parse
+      // Salva como string JSON: ["1", "5", "10"]
       input.value = JSON.stringify(selecionados);
+      console.log(`Input ${inputId} atualizado:`, input.value);
     }
 
-    // Listener para Áreas de Atuação
+    // Listener para Áreas (Mantém como está)
     const areaContainer = document.getElementById('area-container');
     if (areaContainer) {
       areaContainer.addEventListener('click', e => {
         const btn = e.target.closest('.area-btn');
         if (btn) {
-          // Toggle de cores do Bootstrap
           btn.classList.toggle('btn-outline-primary');
           btn.classList.toggle('btn-primary');
-          
-          // Atualiza o input hidden 'areas'
           atualizarInputsHiddens('area-container', 'areas-input', 'area-btn');
         }
       });
     }
 
-    // Listener para Habilidades (Soft Skills)
+    // Listener para Soft Skills (CORRIGIDO)
     const skillContainer = document.getElementById('skill-container');
     if (skillContainer) {
       skillContainer.addEventListener('click', e => {
         const btn = e.target.closest('.skill-btn');
         if (btn) {
+          // Muda a cor
           btn.classList.toggle('btn-outline-primary');
           btn.classList.toggle('btn-primary');
 
-          // Atualiza o input hidden 'skills'
+          // IMPORTANTE: Força a atualização do input hidden toda vez que clicar
           atualizarInputsHiddens('skill-container', 'skills-input', 'skill-btn');
         }
       });
     }
+    
+    // Torna a função global para ser chamada pela função selecionarOuCriarSkill
+    window.atualizarInputsHiddens = atualizarInputsHiddens;
   })();
 </script>
 
@@ -727,6 +727,8 @@
 
     // Nova versão que lida com Tags (Áreas) e Botões (Skills)
 function selecionarSugestoesIA(tipo, listaSugestoesIA) {
+  console.log(`[IA DEBUG] Recebido ${tipo}:`, listaSugestoesIA);
+  
   if (!listaSugestoesIA || !Array.isArray(listaSugestoesIA)) return;
 
   if (tipo === 'area') {
@@ -739,7 +741,6 @@ function selecionarSugestoesIA(tipo, listaSugestoesIA) {
     // Tratamento de Skills
     listaSugestoesIA.forEach(sugestao => {
       if (typeof sugestao === 'string' && sugestao.trim() !== "") {
-        // Chama a função que criamos acima para acender ou criar o botão
         if (window.selecionarOuCriarSkill) {
           window.selecionarOuCriarSkill(sugestao.trim());
         }
@@ -764,12 +765,14 @@ function selecionarSugestoesIA(tipo, listaSugestoesIA) {
     });
 
     // Ação ao clicar em "Gerar Texto"
-applyBtn.addEventListener('click', async () => {
+// Localize o applyBtn.addEventListener no final do seu EJS e substitua por este:
+
+    applyBtn.addEventListener('click', async () => {
       const contexto = promptInput.value.trim();
       if (!contexto) return alert('Digite um contexto.');
 
       applyBtn.disabled = true;
-      applyBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Gerando...';
+      applyBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Gerando (isso pode levar 1 min)...';
 
       try {
         const response = await fetch('/empresa/vaga/gerar-ia', {
@@ -778,57 +781,32 @@ applyBtn.addEventListener('click', async () => {
           body: JSON.stringify({ shortdesc: contexto })
         });
         
+        // Se der erro de timeout no servidor (504 ou 500)
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.erro || 'A IA demorou muito para responder. Tente novamente.');
+        }
+
         const data = await response.json();
 
-        if (response.ok && data.sucesso) {
-          // 1. Preenche o Cargo sugerido pela IA no campo principal
-          const campoCargo = document.getElementById('cargo');
-          if (campoCargo && data.cargoSugerido) {
-            campoCargo.value = data.cargoSugerido;
-          }
+        if (data.sucesso) {
+          // Preenchimento de texto
+          if (document.getElementById('cargo')) document.getElementById('cargo').value = data.cargoSugerido || '';
+          if (document.getElementById('descricao')) document.getElementById('descricao').value = data.longDescription || '';
+          if (document.getElementById('pergunta')) document.getElementById('pergunta').value = data.questions?.join('\n') || '';
+          if (document.getElementById('opcao')) document.getElementById('opcao').value = data.bestCandidate || '';
 
-          // 2. Localiza o elemento alvo (onde o usuário clicou para abrir o modal)
-          const currentTarget = document.getElementById(activeTargetId);
-
-          // 3. Distribuição dos dados baseada no alvo
-          if (activeTargetId === 'descricao') {
-            // Se o alvo é a descrição, preenchemos TUDO (descrição, perfil e perguntas)
-            if (currentTarget) currentTarget.value = data.longDescription || '';
-            
-            const campoPerguntas = document.getElementById('pergunta');
-            const campoPerfil = document.getElementById('opcao');
-            
-            if (campoPerguntas) {
-              campoPerguntas.value = Array.isArray(data.questions) 
-                ? data.questions.join('\n') 
-                : (data.questions || '');
-            }
-            if (campoPerfil) campoPerfil.value = data.bestCandidate || '';
-
-            // Seleção automática de áreas e skills
-            selecionarSugestoesIA('area', data.areas);
-            selecionarSugestoesIA('skill', data.skills);
-
-          } else if (activeTargetId === 'pergunta') {
-            // Se o usuário clicou especificamente no botão de perguntas
-            if (currentTarget) {
-              currentTarget.value = Array.isArray(data.questions) 
-                ? data.questions.join('\n') 
-                : (data.questions || '');
-            }
-          } else if (activeTargetId === 'opcao') {
-            // Se o usuário clicou especificamente no botão de perfil ideal
-            if (currentTarget) currentTarget.value = data.bestCandidate || '';
-          }
+          // DISPARO DAS SKILLS E ÁREAS
+          selecionarSugestoesIA('area', data.areas);
+          selecionarSugestoesIA('skill', data.skills);
 
           modal.hide();
         } else {
-          // Exibe o erro vindo do backend (ex: falta de contexto)
-          alert(data.erro || 'Erro desconhecido na IA');
+          alert(data.erro || 'Erro ao processar dados da IA');
         }
       } catch (error) {
-        console.error('Erro na requisição IA:', error);
-        alert('Erro de conexão com o servidor local.');
+        console.error('Erro detalhado:', error);
+        alert('Erro: ' + error.message); // Exibe o erro real vindo do backend
       } finally {
         applyBtn.disabled = false;
         applyBtn.innerHTML = 'Gerar Texto';

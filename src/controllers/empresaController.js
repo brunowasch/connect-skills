@@ -605,7 +605,7 @@ exports.telaPublicarVaga = async (req, res) => {
       empresa,
       areas,
       softSkills, // Estas são as skills do banco (para gerar os botões)
-      skillsLista: skillsLista, // Esta é a lista de 250 nomes (para limpeza/IA)
+      skillsLista: softSkills, // Esta é a lista de 250 nomes (para limpeza/IA)
       backUrl: '/empresas/home'
     });
   } catch (error) {
@@ -1519,9 +1519,11 @@ exports.telaVagaDetalhe = async (req, res) => {
     });
     // Para cada relação, buscamos o objeto da soft skill
     vaga.vaga_soft_skill = await Promise.all(relacoesSkill.map(async (rel) => {
+      console.log(`Buscando Skill ID: ${rel.soft_skill_id}`);
       const skill = await prisma.soft_skill.findUnique({
         where: { id: rel.soft_skill_id }
       });
+      console.log(`Resultado encontrado:`, skill ? skill.nome : "NULO");
       return { ...rel, soft_skill: skill };
     }));
 
@@ -2551,7 +2553,7 @@ exports.gerarDescricaoIA = async (req, res) => {
       softSkills: listaParaIA
     };
 
-    const response = await axios.post(process.env.IA_GEN_DESC, payload, { timeout: 40000 });
+    const response = await axios.post(process.env.IA_GEN_DESC, payload, { timeout: 90000 });
     
     let dadosIA = response.data;
     if (dadosIA.response) {
@@ -2565,8 +2567,8 @@ exports.gerarDescricaoIA = async (req, res) => {
       bestCandidate: dadosIA.bestCandidate || '',
       questions: dadosIA.questions || [],
       areas: dadosIA.requiredSkills || [],
-      skills: dadosIA.behaviouralSkills || dadosIA.skills || dadosIA.softSkills || []
-    });
+      skills: dadosIA.behaviouralSkills || dadosIA.softSkills || dadosIA.skills || []
+      });
 
   } catch (error) {
     console.error('--- ERRO NA IA ---', error.message);
