@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const skillsLista = require('../utils/softSkills');
+const crypto = require('crypto');
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
@@ -1515,114 +1516,107 @@ exports.telaVagaDetalhe = async (req, res) => {
 };
 
 exports.fecharVaga = async (req, res) => {
-  // Aceita ID codificado ou numérico cru
-  const raw = String(req.params.id || "");
-  const dec = decodeId(raw);
-  const vagaId = Number.isFinite(dec)
-    ? dec
-    : /^\d+$/.test(raw)
-    ? Number(raw)
-    : NaN;
+  const vagaId = req.params.id;
 
   try {
-    if (!Number.isFinite(vagaId)) {
-      req.session.erro = "Vaga inválida.";
-      return res.redirect("/empresa/meu-perfil");
-    }
-
-    const empresaId = await getEmpresaIdDaSessao(req);
+    const empresaId = req.session?.empresa?.id;
     if (!empresaId) {
       req.session.erro = "Sessão expirada. Faça login novamente.";
       return res.redirect("/empresa/login");
     }
 
-    // Confere se a vaga existe e pertence à empresa logada
+    if (!vagaId || vagaId === "undefined") {
+      req.session.erro = "Vaga inválida.";
+      return res.redirect("/empresa/meu-perfil");
+    }
+
+    // 2. Confere se a vaga existe e pertence à empresa
     const vaga = await prisma.vaga.findFirst({
       where: { id: vagaId, empresa_id: empresaId },
       select: { id: true },
     });
+
     if (!vaga) {
-      req.session.erro = "Vaga não encontrada ou não pertence a esta empresa.";
+      req.session.erro = "Vaga não encontrada.";
       return res.redirect("/empresa/meu-perfil");
     }
 
-    // Se já está fechada, só redireciona
-    const statusAtual = await obterStatusDaVaga(vagaId);
-    const enc = encodeId(vagaId);
-    if (statusAtual === "fechada") {
-      return res.redirect(`/empresa/vaga/${enc}`);
-    }
-
-    // Grava evento "fechada"
-    await prisma.vaga_status.create({
-      data: { vaga_id: vagaId, situacao: "fechada" },
+    // 3. Verifica o status atual
+    const ultimoStatus = await prisma.vaga_status.findFirst({
+      where: { vaga_id: vagaId },
+      orderBy: { criado_em: 'desc' }
     });
 
-    return res.redirect(`/empresa/vaga/${enc}`);
-  } catch (err) {
-    console.error("Erro fecharVaga:", err?.message || err);
-    req.session.erro = "Não foi possível fechar a vaga.";
-    if (Number.isFinite(vagaId)) {
-      const enc = encodeId(vagaId);
-      return res.redirect(`/empresa/vaga/${enc}`);
+    if (ultimoStatus?.situacao === "fechada") {
+      return res.redirect(`/empresa/vaga/${vagaId}`);
     }
+
+    // 4. Grava evento "fechada" gerando o ID manualmente
+    await prisma.vaga_status.create({
+      data: { 
+        id: crypto.randomUUID(), // GERA O ID QUE O PRISMA ESTÁ PEDINDO
+        vaga_id: vagaId, 
+        situacao: "fechada" 
+      },
+    });
+
+    req.session.sucessoVaga = "Vaga fechada com sucesso!";
+    return res.redirect(`/empresa/vaga/${vagaId}`);
+
+  } catch (err) {
+    console.error("Erro fecharVaga:", err);
+    req.session.erro = "Não foi possível fechar a vaga.";
     return res.redirect("/empresa/meu-perfil");
   }
 };
 
 exports.reabrirVaga = async (req, res) => {
-  // Decodifica o ID (aceita codificado ou numérico cru)
-  const raw = String(req.params.id || "");
-  const dec = decodeId(raw);
-  const vagaId = Number.isFinite(dec)
-    ? dec
-    : /^\d+$/.test(raw)
-    ? Number(raw)
-    : NaN;
+  const vagaId = req.params.id; // Recebe o UUID direto da URL
 
   try {
-    if (!Number.isFinite(vagaId)) {
-      req.session.erro = "Vaga inválida.";
-      return res.redirect("/empresa/meu-perfil");
-    }
-
-    const empresaId = await getEmpresaIdDaSessao(req);
+    const empresaId = req.session?.empresa?.id;
     if (!empresaId) {
-      req.session.erro = "Sessão expirada. Faça login novamente.";
+      req.session.erro = "Sessão expirada.";
       return res.redirect("/empresa/login");
     }
 
-    // Confere se a vaga pertence à empresa logada
+    if (!vagaId || vagaId === "undefined") {
+      req.session.erro = "Identificação da vaga inválida.";
+      return res.redirect("/empresa/meu-perfil");
+    }
+
+    // Verifica se a vaga pertence à empresa
     const vaga = await prisma.vaga.findFirst({
       where: { id: vagaId, empresa_id: empresaId },
       select: { id: true },
     });
+
     if (!vaga) {
-      req.session.erro = "Vaga não encontrada ou não pertence a esta empresa.";
+      req.session.erro = "Acesso negado.";
       return res.redirect("/empresa/meu-perfil");
     }
 
-    const statusAtual = await obterStatusDaVaga(vagaId);
-    const enc = encodeId(vagaId);
+    // Verifica o último status
+    const ultimoStatus = await prisma.vaga_status.findFirst({
+      where: { vaga_id: vagaId },
+      orderBy: { criado_em: 'desc' }
+    });
 
-    if (statusAtual === "aberta") {
-      // Já está aberta
-      return res.redirect(`/empresa/vaga/${enc}`);
+    if (ultimoStatus?.situacao === "aberta") {
+      return res.redirect(`/empresa/vaga/${vagaId}`);
     }
 
+    // Cria o novo evento de status
     await prisma.vaga_status.create({
-      data: { vaga_id: vagaId, situacao: "aberta" },
+      data: { id: crypto.randomUUID(), vaga_id: vagaId, situacao: "aberta" },
     });
 
     req.session.sucessoVaga = "Vaga reaberta com sucesso!";
-    return res.redirect(`/empresa/vaga/${enc}`);
+    return res.redirect(`/empresa/vaga/${vagaId}`);
+
   } catch (err) {
-    console.error("Erro reabrirVaga:", err?.message || err);
-    req.session.erro = "Não foi possível reabrir a vaga.";
-    if (Number.isFinite(vagaId)) {
-      const enc = encodeId(vagaId);
-      return res.redirect(`/empresa/vaga/${enc}`);
-    }
+    console.error("Erro reabrirVaga:", err);
+    req.session.erro = "Erro ao reabrir vaga.";
     return res.redirect("/empresa/meu-perfil");
   }
 };
