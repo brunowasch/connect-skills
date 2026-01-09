@@ -1,4 +1,4 @@
-// models/usuarioModel.js
+const { v4: uuidv4 } = require('uuid');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -13,6 +13,7 @@ const prisma = new PrismaClient();
 exports.cadastrar = async ({ email, senha, tipo }) => {
   return await prisma.usuario.create({
     data: {
+      id: uuidv4(),
       email,
       senha,
       tipo,
@@ -48,24 +49,31 @@ exports.buscarPorEmail = async (email) => {
 
 /**
  * Marca o e-mail como verificado.
- * @param {number} usuario_id
+ * @param {string} usuario_id
  * @returns {Promise<void>}
  */
 exports.marcarEmailComoVerificado = async (usuario_id) => {
-  await prisma.usuario.update({
-    where: { id: usuario_id },
-    data: { email_verificado: true }
-  });
+  const idFormatado = String(usuario_id);
+  
+  try {
+    await prisma.usuario.update({
+      where: { id: idFormatado },
+      data: { email_verificado: true }
+    });
+  } catch (error) {
+    console.error(`Erro ao marcar e-mail como verificado para o ID ${usuario_id}:`, error.message);
+    throw error;
+  }
 };
 
 /**
  * Busca um usuário pelo ID.
- * @param {number} id
+ * @param {string} id
  * @returns {Promise<Object|null>}
  */
 exports.buscarPorId = async (id) => {
   return await prisma.usuario.findUnique({
-    where: { id }
+    where: { id:String(id) }
   });
 };
 
@@ -73,13 +81,13 @@ exports.buscarPorId = async (id) => {
  * Atualiza os dados de um usuário existente.
  * Usado para atualizar senha ou tipo, se o e-mail ainda não foi verificado.
  * 
- * @param {number} id - ID do usuário
+ * @param {string} id - ID do usuário
  * @param {Object} dados - Dados a serem atualizados
  * @returns {Promise<Object>}
  */
 exports.atualizarUsuario = async (id, dados) => {
   return await prisma.usuario.update({
-    where: { id },
+    where: { id: String(id) }, 
     data: dados
   });
 };

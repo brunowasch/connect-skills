@@ -1,3 +1,4 @@
+const { v4: uuidv4 } = require('uuid');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { cloudinary } = require('../config/cloudinary');
@@ -17,26 +18,28 @@ function safeFilenameHeader(name) {
 }
 
 async function getCandidatoBySession(req) {
-  const usuario = req.session?.usuario;
-  const sessCand = req.session?.candidato;
+  const usuario = req.session?.usuario;
+  const sessCand = req.session?.candidato;
 
-  if (usuario?.tipo === 'candidato' && sessCand?.id) {
-    const candidato = await prisma.candidato.findUnique({
-      where: { id: Number(sessCand.id) },
-    });
-    if (!candidato) throw new Error('Candidato não encontrado para este usuário (sessão).');
-    return candidato;
-  }
+  // 1. Tenta pelo ID do candidato na sessão
+  if (usuario?.tipo === 'candidato' && sessCand?.id) {
+    const candidato = await prisma.candidato.findUnique({
+      where: { id: String(sessCand.id) }, // Usar String
+    });
+    if (!candidato) throw new Error('Candidato não encontrado na sessão.');
+    return candidato;
+  }
 
-  if (!usuario || usuario.tipo !== 'candidato') {
-    throw new Error('Acesso negado: usuário não autenticado como candidato.');
-  }
+  if (!usuario || usuario.tipo !== 'candidato') {
+    throw new Error('Acesso negado: usuário não autenticado.');
+  }
 
-  const candidato = await prisma.candidato.findUnique({
-    where: { usuario_id: Number(usuario.id) },
-  });
-  if (!candidato) throw new Error('Candidato não encontrado para este usuário.');
-  return candidato;
+  // 2. Fallback: Busca pelo ID do usuário
+  const candidato = await prisma.candidato.findUnique({
+    where: { usuario_id: String(usuario.id) }, // Usar String
+  });
+  if (!candidato) throw new Error('Candidato não encontrado para este usuário.');
+  return candidato;
 }
 
 function humanFileSize(bytes) {
@@ -124,15 +127,16 @@ exports.uploadAnexos = async (req, res) => {
         stream.end(file.buffer);
       });
 
-      await prisma.candidato_arquivo.create({
-        data: {
-          candidato_id: candidato.id, // <-- Perfeito (seguro)
-          nome: finalName,
-          url: uploadResult.secure_url,
-          mime: file.mimetype,
-          tamanho: file.size,
-        },
-      });
+    await prisma.candidato_arquivo.create({
+        data: {
+            id: uuidv4(), 
+            candidato_id: candidato.id,
+            nome: finalName, // CORREÇÃO: Usar finalName em vez de nome
+            url: uploadResult.secure_url, // CORREÇÃO: Usar uploadResult.secure_url em vez de url
+            mime: isPDF ? 'application/pdf' : file.mimetype,
+            tamanho: file.size || 0,
+        },
+    });
 
       count++;
     }
@@ -175,15 +179,16 @@ exports.salvarLink = async (req, res) => {
 
     const nome = fixMojibake(String(label || 'Link').trim());
 
-    await prisma.candidato_arquivo.create({
-      data: {
-        candidato_id: candidato.id, // <-- Perfeito (seguro)
-        nome,
-        url,
-        mime: 'text/uri-list',
-        tamanho: 0,
-      },
-    });
+    await prisma.candidato_arquivo.create({
+        data: {
+            id: uuidv4(), // Gerar ID manual para o novo arquivo/link
+            candidato_id: candidato.id,
+            nome,
+            url,
+            mime: isPDF ? 'application/pdf' : file.mimetype,
+            tamanho: file.size || 0,
+        },
+    });
 
     req.flash?.('msg', 'Link adicionado com sucesso.');
     res.redirect(back);
@@ -201,7 +206,7 @@ exports.deletarAnexo = async (req, res) => {
     const { id } = req.params; // <-- Recebe ID numérico (ex: 123)
 
     // (Sua lógica de segurança aqui é 10/10)
-    const anexo = await prisma.candidato_arquivo.findUnique({ where: { id: Number(id) } });
+    const anexo = await prisma.candidato_arquivo.findUnique({ where: { id: String(id) } });
     if (!anexo || anexo.candidato_id !== candidato.id) { // <-- Verificação de propriedade
       req.flash?.('erro', 'Anexo não encontrado.');
       return res.redirect(back);
@@ -231,99 +236,79 @@ exports.deletarAnexo = async (req, res) => {
 };
 
 exports.abrirAnexo = async (req, res) => {
-  try {
-    const candidato = await getCandidatoBySession(req); // <-- Perfeito (seguro)
+  try {
+    const candidato = await getCandidatoBySession(req);
+    const realId = String(req.params.id);
 
-    const raw = String(req.params.id || '');
-    const dec = decodeId(raw);
-    const realId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
-    if (!Number.isFinite(realId) || realId <= 0) return res.status(400).send('ID inválido.');
-    // ❌ Linha desnecessária: const { id } = req.params;
+    const anexo = await prisma.candidato_arquivo.findUnique({ 
+      where: { id: realId } 
+    });
 
-    // (Sua lógica de segurança aqui é 10/10)
-    const anexo = await prisma.candidato_arquivo.findUnique({ where: { id: realId } });
-    if (!anexo || anexo.candidato_id !== candidato.id) { // <-- Verificação de propriedade
-      return res.status(404).send('Anexo não encontrado.');
-  T }
+    if (!anexo || anexo.candidato_id !== candidato.id) {
+      return res.status(404).send('Anexo não encontrado ou acesso negado.');
+    }
 
-    // (Sua lógica de streaming de proxy do Cloudinary está excelente)
-    const url  = anexo.url; 
-    const nome = (anexo.nome || 'arquivo.pdf').replace(/"/g, '');
-    const mime = (anexo.mime || '').toLowerCase();
+    const url = anexo.url;
+    const nome = (anexo.nome || 'arquivo.pdf').replace(/"/g, '');
+    
+    // 1. Busca o arquivo no Cloudinary
+    const upstream = await axios.get(url, { responseType: 'stream' });
 
-    const upstream = await axios.get(url, {
-      responseType: 'stream',
-      // ... (headers)
-    });
+    // 2. Define o Content-Type explicitamente
+    // Se o mime no banco for PDF ou a URL terminar em .pdf, força application/pdf
+    const mimeType = (anexo.mime && anexo.mime !== 'raw') ? anexo.mime : 'application/pdf';
+    
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(nome)}"`);
 
-    // ... (toda a lógica de streaming)
-    res.status(upstream.status === 206 ? 206 : 200);
-    res.removeHeader('X-Content-Type-Options');
-    if (mime === 'application/pdf') {
-      res.setHeader('Content-Type', 'application/pdf');
-    } else if (upstream.headers['content-type']) {
-      res.setHeader('Content-Type', upstream.headers['content-type']);
-    } else {
-      res.setHeader('Content-Type', 'application/pdf');
-    }
-    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
-    if (upstream.headers['content-range'])  res.setHeader('Content-Range',  upstream.headers['content-range']);
-    if (upstream.headers['accept-ranges'])  res.setHeader('Accept-Ranges',  upstream.headers['accept-ranges']);
-    if (upstream.headers['last-modified'])  res.setHeader('Last-Modified',  upstream.headers['last-modified']);
-    if (upstream.headers['etag'])           res.setHeader('ETag',           upstream.headers['etag']);
-    if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
-    res.setHeader('Content-Disposition', `inline; filename="${safeFilenameHeader(nome)}`);
-    upstream.data.on('error', (e) => {
-      console.error('Stream upstream error:', e?.message || e);
-      if (!res.headersSent) res.status(502);
-      res.end();
-    });
-    upstream.data.pipe(res);
-  } catch (err) {
-    console.error('abrirAnexo erro:', err?.message || err);
-    if (!res.headersSent) res.status(500).send('Falha ao abrir o anexo.');
-  }
+    // 3. Repassa os outros headers importantes do Cloudinary
+    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+    
+    // 4. Envia o fluxo de dados para o navegador
+    upstream.data.pipe(res);
+
+  } catch (err) {
+    console.error('Erro ao abrir anexo:', err);
+    if (!res.headersSent) res.status(500).send('Erro ao processar o arquivo.');
+  }
 };
 
 exports.abrirAnexoPublico = async (req, res) => {
-  try {
-    // (Sua lógica de decodificação de ID aqui está perfeita)
-    const raw = String(req.params.id || '');
-    const dec = decodeId(raw);
-    const realId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
-    if (!Number.isFinite(realId) || realId <= 0) return res.status(400).send('ID inválido.');
+  try {
+    // CORREÇÃO: Decodificar o ID criptografado da URL para o UUID real
+    const encodedId = req.params.id;
+    const realId = decodeId(encodedId); // <--- ESSENCIAL PARA IDs "U2FsdGVkX1..."
 
-    // (Sua lógica de NÃO checar a sessão está perfeita, pois é pública)
-    const anexo = await prisma.candidato_arquivo.findUnique({ where: { id: realId } });
-    if (!anexo) return res.status(404).send('Anexo não encontrado.');
+    if (!realId) {
+      return res.status(400).send('ID de anexo inválido ou corrompido.');
+    }
 
-    // (Sua lógica de streaming de proxy do Cloudinary está excelente)
-    const url  = anexo.url;
-    const nome = (anexo.nome || 'arquivo.pdf').replace(/"/g, '');
-    const mime = (anexo.mime || '').toLowerCase();
+    // Busca pública usando o UUID real
+    const anexo = await prisma.candidato_arquivo.findUnique({ 
+      where: { id: String(realId) } 
+    });
 
-    const upstream = await axios.get(url, {
-      responseType: 'stream',
-      // ... (headers)
-    });
+    if (!anexo) {
+      console.error(`[ERRO] Arquivo não encontrado no banco para o UUID: ${realId}`);
+      return res.status(404).send('Anexo não encontrado.');
+    }
 
-    // ... (toda a lógica de streaming)
-    res.status(upstream.status === 206 ? 206 : 200);
-    res.removeHeader('X-Content-Type-Options');
-    if (mime) res.setHeader('Content-Type', mime);
-    else if (upstream.headers['content-type']) res.setHeader('Content-Type', upstream.headers['content-type']);
-    else res.setHeader('Content-Type', 'application/pdf');
-    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
-    if (upstream.headers['content-range'])  res.setHeader('Content-Range', upstream.headers['content-range']);
-    if (upstream.headers['accept-ranges'])  res.setHeader('Accept-Ranges', upstream.headers['accept-ranges']);
-    if (upstream.headers['last-modified'])  res.setHeader('Last-Modified', upstream.headers['last-modified']);
-    if (upstream.headers['etag'])           res.setHeader('ETag',           upstream.headers['etag']);
-    if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
-    res.setHeader('Content-Disposition', `inline; filename="${safeFilenameHeader(nome)}`);
-    upstream.data.on('error', () => { if (!res.headersSent) res.status(502); res.end(); });
-    upstream.data.pipe(res);
-  } catch (err) {
-    console.error('abrirAnexoPublico erro:', err?.message || err);
-    if (!res.headersSent) res.status(500).send('Falha ao abrir o anexo.');
-  }
+    // Lógica de Streaming para o Cloudinary (Mantida e otimizada)
+    const url = anexo.url;
+    const nome = (anexo.nome || 'arquivo.pdf').replace(/"/g, '');
+    const mime = (anexo.mime && anexo.mime !== 'raw') ? anexo.mime.toLowerCase() : 'application/pdf';
+
+    const upstream = await axios.get(url, { responseType: 'stream' });
+
+    res.setHeader('Content-Type', mime);
+    // Usar a função safeFilenameHeader que você já tem no topo do arquivo para evitar erros de acentuação
+    res.setHeader('Content-Disposition', `inline; filename="${safeFilenameHeader(nome)}"`);
+    
+    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+
+    upstream.data.pipe(res);
+  } catch (err) {
+    console.error('abrirAnexoPublico erro:', err?.message || err);
+    if (!res.headersSent) res.status(500).send('Falha ao abrir o anexo.');
+  }
 };

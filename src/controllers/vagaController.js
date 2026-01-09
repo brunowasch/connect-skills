@@ -1,8 +1,9 @@
-const vagaModel = require('../models/vagaModel');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const vagaModel = require('../models/vagaModel');
 const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
 const { decodeId } = require('../utils/idEncoder');
+
 
 exports.salvarVaga = async (req, res) => {
   try {
@@ -49,60 +50,100 @@ exports.salvarVaga = async (req, res) => {
 };
 
 exports.apiPerguntasDISC = async (req, res) => {
-  try {
-    const vagaId = Number(req.params.id); 
-    if (!vagaId || vagaId <= 0) {
-      return res.status(400).json({ ok: false, error: 'vaga_id inválido' });
-    }
+  try {
+    const vagaId = req.params.id;
+
+    // 1. Buscar a vaga e as relações de soft skills
+    const vaga = await prisma.vaga.findUnique({
+      where: { id: vagaId },
+      include: {
+        // Se o seu include não funcionar por falta de relação no schema, 
+        // usaremos a busca manual abaixo
+      }
+    });
+
+    // 2. Buscar os nomes das Soft Skills (importante para o gerador DISC)
+    const relacoes = await prisma.vaga_soft_skill.findMany({
+      where: { vaga_id: vagaId }
+    });
     
-    const statusMaisRecente = await prisma.vaga_status.findFirst({
-      where: { vaga_id: vagaId },
-      orderBy: { criado_em: 'desc' },
-      select: { situacao: true }
-    });
+    // Extraímos os IDs das skills cadastradas na vaga
+    const skillIds = relacoes.map(r => r.soft_skill_id);
 
-    const situacaoAtual = statusMaisRecente?.situacao || 'aberta';
-
-    if (situacaoAtual !== 'aberta') {
-      return res.status(404).json({ ok: false, error: 'Vaga não encontrada ou não está aberta' });
-    }
+    // Buscamos os nomes dessas skills na tabela soft_skill
+    const skillsCadastradas = await prisma.soft_skill.findMany({
+      where: { id: { in: skillIds } }
+    });
     
-    const vaga = await prisma.vaga.findUnique({
-      where: { id: vagaId }, 
-      include: {
-        vaga_soft_skill: { include: { soft_skill: true } },
-      }
-    });
+    let skillNames = skillsCadastradas.map(s => s.nome);
 
-    if (!vaga) {
-      return res.status(404).json({ ok: false, error: 'Vaga não encontrada' });
-    }
+    // --- ESTRATÉGIA PARA GARANTIR PERGUNTAS ---
+    // Se a vaga tiver poucas skills, adicionamos skills "padrão" para 
+    // garantir que o banco de questões DISC retorne mais perguntas.
+    if (skillNames.length < 3) {
+      skillNames = [...skillNames, "Comunicação", "Trabalho em Equipe", "Resiliência"];
+    }
 
-    const skillNames = (vaga.vaga_soft_skill || [])
-      .map(vs => vs.soft_skill?.nome)
-      .filter(Boolean);
+    // 3. Gerar perguntas DISC baseadas nas skills (reais + padrões)
+    const discQs = getDiscQuestionsForSkills(skillNames);
 
-    const discQs = getDiscQuestionsForSkills(skillNames);
+    // 4. Pegar as perguntas extras manuais da vaga
+    const extraQs = (() => {
+      const raw = String(vaga.pergunta ?? '').trim();
+      if (!raw) return [];
+      return raw.replace(/\\n/g, '\n').split('\n').map(s => s.trim()).filter(Boolean);
+    })();
 
-     const extraQs = (() => {
-      const raw = String(vaga.pergunta ?? '').trim();
-      if (!raw) return [];
-      const normalized = raw
-        .replace(/\r\n/g, '\n')
-        .replace(/\\r\\n/g, '\n')
-        .replace(/\\n/g, '\n')    
-        .replace(/\r/g, '\n');    
-      return normalized
-        .split('\n')              
-        .map(s => s.trim())
-        .filter(Boolean);
-    })();
+    // 5. Unir e limitar (ou expandir)
+    // Se você quer EXATAMENTE 22, pode usar um slice ou garantir que o discQs tenha o suficiente
+    let questions = [...discQs, ...extraQs];
+    
+    // Se ainda assim tiver poucas, você pode concatenar perguntas gerais
+    if (questions.length < 20) {
+       const gerais = ["Como você lida com prazos apertados?", "Descreva um desafio que superou."];
+       questions = [...questions, ...gerais];
+    }
 
-    const questions = [...discQs, ...extraQs].slice(0, 50); 
-    return res.json({ ok: true, vagaId, questions });
+    return res.json({ ok: true, vagaId, questions: questions.slice(0, 30) });
 
-  } catch (err) {
-    console.error('[apiPerguntasDISC] erro:', err);
-    return res.status(500).json({ ok: false, error: 'Falha ao montar as perguntas' });
-  }
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ ok: false, error: 'Erro ao carregar perguntas' });
+  }
+};
+
+exports.abrirAnexoVaga = async (req, res) => {
+  try {
+    const idEncodado = req.params.id;
+    // Decodifica o ID (U2FsdGVk...) para o UUID real
+    const realId = decodeId(idEncodado);
+
+    if (!realId) {
+      return res.status(400).send('ID de anexo inválido.');
+    }
+
+    // Busca manual na tabela de arquivos da vaga (vaga_arquivo)
+    const arquivo = await prisma.vaga_arquivo.findUnique({
+      where: { id: String(realId) }
+    });
+
+    if (!arquivo) {
+      return res.status(404).send('Arquivo não encontrado.');
+    }
+
+    // Stream do Cloudinary via Axios
+    const axios = require('axios'); // Garanta que o axios esteja instalado
+    const upstream = await axios.get(arquivo.url, { responseType: 'stream' });
+    
+    // Define o tipo de arquivo (PDF ou imagem)
+    const mime = (arquivo.mime && arquivo.mime !== 'raw') ? arquivo.mime : 'application/pdf';
+    
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(arquivo.nome)}"`);
+    
+    upstream.data.pipe(res);
+  } catch (err) {
+    console.error('Erro ao abrir anexo da vaga:', err);
+    if (!res.headersSent) res.status(500).send('Erro ao processar arquivo.');
+  }
 };

@@ -8,6 +8,7 @@ const { ensureUsuarioCandidato, ensureCandidato } = require('../middlewares/auth
 const withEncodedParam = require('../middlewares/withEncodedParam');
 const vagaController = require('../controllers/vagaController');
 
+router.get('/vaga-publica/:id', candidatoController.vagaDetalhes);
 // Fluxo de cadastro
 router.get('/cadastro/nome', ensureCandidato, candidatoController.telaNomeCandidato);
 router.post('/cadastro/nome', ensureCandidato,candidatoController.salvarNomeCandidato);
@@ -28,16 +29,17 @@ router.post('/complementar', ensureUsuarioCandidato, candidatoController.complem
 router.get('/cadastro/areas', ensureCandidato, candidatoController.telaCadastroAreas);
 router.post('/cadastro/areas', ensureCandidato, candidatoController.salvarCadastroAreas);
 
-router.get('/perfil/:id', withEncodedParam('id'), candidatoController.perfilPublicoCandidato);
+router.get('/perfil/:id', candidatoController.perfilPublicoCandidato);
 
 // Rotas autenticadas
 router.get('/home', ensureCandidato, candidatoController.telaHomeCandidato);
 router.get('/meu-perfil', ensureCandidato, candidatoController.renderMeuPerfil);
-router.get('/vagas', ensureCandidato, candidatoController.mostrarVagas);
 router.get('/vagas/historico', ensureCandidato, candidatoController.historicoAplicacoes);
-router.get('/vagas/:id', ensureCandidato, withEncodedParam('id'), candidatoController.vagaDetalhes);
+router.get('/vagas/:id', ensureCandidato, candidatoController.vagaDetalhes);
 router.get('/vagas/:id/perguntas-disc', ensureCandidato, vagaController.apiPerguntasDISC);
 router.post('/vagas/:id/aplicar', ensureCandidato, candidatoController.aplicarVaga);
+router.get('/vagas', ensureCandidato, candidatoController.mostrarVagas);
+router.get('/vagas/anexo/:id', vagaController.abrirAnexoVaga);
 
 // Edição de perfil
 router.get('/editar-perfil', ensureCandidato, candidatoController.telaEditarPerfil);

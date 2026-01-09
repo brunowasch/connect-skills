@@ -1,3 +1,4 @@
+const { v4: uuidv4 } = require('uuid');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { cloudinary } = require('../config/cloudinary');
@@ -26,163 +27,144 @@ function fixMojibake(str) {
 }
 
 exports.uploadAnexos = async (req, res) => {
-  try {
-    const emp = req.session?.empresa;
-    if (!emp?.id) {
-      if (req.flash) req.flash('erro', 'Faça login para enviar anexos.');
-      return res.redirect('/login');
-    }
+  try {
+    const emp = req.session?.empresa;
+    // O ID aqui já deve ser a String (UUID)
+    if (!emp?.id) {
+      if (req.flash) req.flash('erro', 'Faça login para enviar anexos.');
+      return res.redirect('/login');
+    }
 
-    const files = Array.isArray(req.files) ? req.files : [];
-    if (!files.length) {
-      if (req.flash) req.flash('erro', 'Selecione ao menos um arquivo.');
-      return res.redirect('/empresa/editar-empresa');
-    }
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (!files.length) {
+      if (req.flash) req.flash('erro', 'Selecione ao menos um arquivo.');
+      return res.redirect('/empresa/editar-empresa');
+    }
 
-    if (!cloudinary?.uploader) {
-      if (req.flash) req.flash('erro', 'Storage não configurado (Cloudinary).');
-      return res.redirect('/empresa/editar-empresa');
-    }
+    if (!cloudinary?.uploader) {
+      if (req.flash) req.flash('erro', 'Storage não configurado (Cloudinary).');
+      return res.redirect('/empresa/editar-empresa');
+    }
 
-    let enviados = 0;
-    for (const f of files) {
-      // (Sua lógica de upload para o Cloudinary está ótima)
-      const dataUri = `data:${f.mimetype};base64,${f.buffer.toString('base64')}`;
-      const isImage = /^image\//i.test(f.mimetype);
-      const isPDF   = f.mimetype === 'application/pdf';
-      const resourceType = isPDF ? 'raw' : (isImage ? 'image' : 'auto');
+    let enviados = 0;
+    for (const f of files) {
+      const dataUri = `data:${f.mimetype};base64,${f.buffer.toString('base64')}`;
+      const isImage = /^image\//i.test(f.mimetype);
+      const isPDF   = f.mimetype === 'application/pdf';
+      const resourceType = isPDF ? 'raw' : (isImage ? 'image' : 'auto');
 
-      const up = await cloudinary.uploader.upload(dataUri, {
-        folder: 'connect-skills/empresa/anexos',
-        resource_type: resourceType,
-        use_filename: true
-      });
+      const up = await cloudinary.uploader.upload(dataUri, {
+        folder: 'connect-skills/empresa/anexos',
+        resource_type: resourceType,
+        use_filename: true
+      });
 
-      const url = up?.secure_url || up?.url || null;
-      if (!url) throw new Error('Falha ao obter secure_url do Cloudinary.');
+      const url = up?.secure_url || up?.url || null;
+      if (!url) throw new Error('Falha ao obter secure_url do Cloudinary.');
 
-      const originalNameRaw = f.originalname || 'arquivo';
-      const parsed = path.parse(originalNameRaw);
-      const fixedBase = fixMojibake(parsed.name);
-      const finalName = (fixedBase + (parsed.ext || '')).slice(0, 255);
+      const originalNameRaw = f.originalname || 'arquivo';
+      const parsed = path.parse(originalNameRaw);
+      const fixedBase = fixMojibake(parsed.name);
+      const finalName = (fixedBase + (parsed.ext || '')).slice(0, 255);
 
-      await prisma.empresa_arquivo.create({
-        data: {
-          empresa_id: Number(emp.id),
-          nome: finalName, 
-          mime: String(f.mimetype || 'application/octet-stream').slice(0, 100),
-          tamanho: Number(f.size || up.bytes || 0),
-          url
-        }
-      });
+      // --- CORREÇÃO AQUI ---
+      await prisma.empresa_arquivo.create({
+        data: {
+          id: uuidv4(), // Gerando ID manual para o arquivo
+          empresa_id: String(emp.id), // Convertendo para String para garantir UUID, nunca Number()
+          nome: finalName, 
+          mime: String(f.mimetype || 'application/octet-stream').slice(0, 100),
+          tamanho: Number(f.size || up.bytes || 0),
+          url: url
+        }
+      });
 
-      enviados++;
-    }
+      enviados++;
+    }
 
-    if (req.flash) req.flash('sucesso', `${enviados} arquivo(s) enviado(s) com sucesso.`);
-    return res.redirect('/empresa/editar-empresa');
-  } catch (e) {
-    console.error('[empresaArquivoController.uploadAnexos] erro:', e);
-    if (req.flash) req.flash('erro', 'Falha ao enviar anexos. Tente novamente.');
-    return res.redirect('/empresa/editar-empresa');
-  }
+    if (req.flash) req.flash('sucesso', `${enviados} arquivo(s) enviado(s) com sucesso.`);
+    return res.redirect('/empresa/editar-empresa');
+  } catch (e) {
+    console.error('[empresaArquivoController.uploadAnexos] erro:', e);
+    if (req.flash) req.flash('erro', 'Falha ao enviar anexos. Tente novamente.');
+    return res.redirect('/empresa/editar-empresa');
+  }
 };
 
 exports.abrirAnexo = async (req, res) => {
-  try {
-    const emp = req.session?.empresa;
-    if (!emp?.id) return res.redirect('/login');
+  try {
+    const realId = String(req.params.id || '');
 
-    const raw = String(req.params.id || '');
-    const dec = decodeId(raw);
-    const realId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
-    if (!Number.isFinite(realId) || realId <= 0) return res.status(400).send('ID inválido.');
+    // 1. Busca o arquivo sem travar pelo ID da empresa na sessão, 
+    // já que o acesso ao perfil público é livre.
+    const anexo = await prisma.empresa_arquivo.findUnique({
+      where: { id: realId }
+    });
 
-    const ax = await prisma.empresa_arquivo.findFirst({
-      where: { id: realId, empresa_id: Number(emp.id) },
-      select: { url: true, nome: true, mime: true }
-    });
+    if (!anexo || !anexo.url) {
+      return res.status(404).send('Arquivo não encontrado.');
+    }
 
-    if (!ax || !ax.url) {
-      req.flash?.('erro', 'Arquivo sem URL válida.');
-      return res.redirect('/empresa/editar-empresa');
-    }
-    
-    const url  = String(ax.url).trim();
-    if (!/^https?:\/\//i.test(url)) {
-      req.flash?.('erro', 'URL do anexo inválida. Reenvie o arquivo.');
-      return res.redirect('/empresa/editar-empresa');
-    }
+    // 2. Faz o stream do Cloudinary para o navegador (mesma lógica de antes)
+    const response = await axios({
+      method: 'get',
+      url: anexo.url,
+      responseType: 'stream'
+    });
 
-    const nome = (ax.nome || 'arquivo.pdf').replace(/"/g, '');
-    const mime = (ax.mime || '').toLowerCase();
+    res.setHeader('Content-Type', anexo.mime || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${anexo.nome}"`);
 
-    const upstream = await axios.get(url, {
-      responseType: 'stream',
-    });
+    return response.data.pipe(res);
 
-    res.status(upstream.status === 206 ? 206 : 200);
-    res.removeHeader('X-Content-Type-Options');
-    if (mime === 'application/pdf') {
-      res.setHeader('Content-Type', 'application/pdf');
-    } else if (upstream.headers['content-type']) {
-      res.setHeader('Content-Type', upstream.headers['content-type']);
-    } else {
-      res.setHeader('Content-Type', 'application/pdf');
-    }
-    if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
-    if (upstream.headers['content-range'])  res.setHeader('Content-Range',  upstream.headers['content-range']);
-    if (upstream.headers['accept-ranges'])  res.setHeader('Accept-Ranges',  upstream.headers['accept-ranges']);
-    if (upstream.headers['last-modified'])  res.setHeader('Last-Modified',  upstream.headers['last-modified']);
-    if (upstream.headers['etag'])           res.setHeader('ETag',           upstream.headers['etag']);
-    if (upstream.headers['cache-control'])  res.setHeader('Cache-Control',  upstream.headers['cache-control']);
-
-    res.setHeader('Content-Disposition', `inline; filename="${safeFilenameHeader(nome)}`);
-    upstream.data.on('error', (e) => { console.error('Stream upstream error:', e?.message || e); if (!res.headersSent) res.status(502); res.end(); });
-    upstream.data.pipe(res);
-  } catch (e) {
-    console.error('[empresaArquivoController.abrirAnexo] erro:', e);
-    if (!res.headersSent) {
-      req.flash?.('erro', 'Falha ao abrir o anexo.');
-      return res.redirect('/empresa/editar-empresa');
-    }
-  }
+  } catch (e) {
+    console.error('[abrirAnexo] erro:', e);
+    return res.status(500).send('Erro ao abrir o arquivo.');
+  }
 };
 
 exports.deletarAnexo = async (req, res) => {
-  try {
-    const emp = req.session?.empresa;
-    if (!emp?.id) return res.redirect('/login');
+  try {
+    const emp = req.session?.empresa;
+    if (!emp?.id) return res.redirect('/login');
 
-    const raw = String(req.params.id || '');
-    const dec = decodeId(raw);
-    const realId = Number.isFinite(dec) ? dec : (/^\d+$/.test(raw) ? Number(raw) : NaN);
-    if (!Number.isFinite(realId) || realId <= 0) {
+    // 1. O ID vindo da URL agora é o UUID puro (String)
+    const realId = String(req.params.id || '');
+
+    if (!realId || realId.length < 30) {
       if (req.flash) req.flash('erro', 'ID de anexo inválido.');
       return res.redirect('/empresa/editar-empresa');
     }
 
-    const anexo = await prisma.empresa_arquivo.findFirst({
-      where: { 
+    // 2. Busca o anexo para verificar a propriedade antes de deletar
+    const anexo = await prisma.empresa_arquivo.findFirst({
+      where: { 
           id: realId, 
-          empresa_id: Number(emp.id)
+          empresa_id: String(emp.id) // Usando UUID da empresa como String
       } 
-    });
+    });
 
-    if (!anexo) {
-      if (req.flash) req.flash('erro', 'Anexo não encontrado ou acesso negado.');
-      return res.redirect('/empresa/editar-empresa');
-    }
+    if (!anexo) {
+      if (req.flash) req.flash('erro', 'Anexo não encontrado ou acesso negado.');
+      return res.redirect('/empresa/editar-empresa');
+    }
 
-    await prisma.empresa_arquivo.delete({ where: { id: anexo.id } });
+    // 3. Exclusão no banco de dados
+    await prisma.empresa_arquivo.delete({ 
+      where: { id: anexo.id } // anexo.id já é o UUID correto
+    });
 
-    if (req.flash) req.flash('sucesso', 'Anexo excluído.');
-    return res.redirect('/empresa/editar-empresa');
-  } catch (e) {
-    console.error('[empresaArquivoController.deletarAnexo] erro:', e);
-    if (req.flash) req.flash('erro', 'Falha ao excluir o anexo.');
-    return res.redirect('/empresa/editar-empresa');
-  }
+    // Opcional: Aqui você poderia adicionar a lógica para deletar 
+    // o arquivo físico no Cloudinary usando a URL salva.
+
+    if (req.flash) req.flash('sucesso', 'Anexo excluído com sucesso.');
+    return res.redirect('/empresa/editar-empresa');
+
+  } catch (e) {
+    console.error('[empresaArquivoController.deletarAnexo] erro:', e);
+    if (req.flash) req.flash('erro', 'Falha ao excluir o anexo.');
+    return res.redirect('/empresa/editar-empresa');
+  }
 };
 
 exports.salvarLink = async (req, res) => {

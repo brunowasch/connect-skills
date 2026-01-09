@@ -91,11 +91,11 @@
       <% } else { %>
         <div class="vstack gap-2">
           <% anexosArr.forEach(function(f){ 
-               const url = (f?.url || '').trim();
-               if (!url) return;
-               const nome = (f?.nome || 'Arquivo');
-               const mime = (f?.mime || '');
-               const tam  = (typeof f?.tamanho === 'number' ? f.tamanho : null);
+              const url = (f?.url || '').trim();
+              if (!url) return;
+              const nome = (f?.nome || 'Arquivo');
+              const mime = (f?.mime || '');
+              const tam  = (typeof f?.tamanho === 'number' ? f.tamanho : null);
           %>
             <div class="file-row p-2 border rounded">
               <div class="d-flex align-items-center gap-2">
@@ -107,7 +107,7 @@
                   </div>
                 </div>
               </div>
-              <a href="/public/empresa/anexos/<%= encodeId(f.id) %>/abrir" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+              <a href="/empresa/public/anexos/<%= f.id %>/abrir" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
                 Abrir
               </a>
             </div>

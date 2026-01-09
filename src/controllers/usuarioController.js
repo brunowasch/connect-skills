@@ -133,21 +133,21 @@ async function enviarEmailConfirmacaoAcao(email, usuario_id, tipo) {
 }
 
 function isCandidatoIncompleto(c) {
-  if (!c) return true;
-  const faltandoNome = !c.nome || !c.sobrenome;
-  const faltandoData = !c.data_nascimento;
-  const faltandoLocal = !c.cidade || !c.pais;
-  const faltandoTelefone = !c.telefone;
-  const faltandoFoto = !c.foto_perfil || c.foto_perfil.trim() === '';
-  const faltandoAreas = !c.candidato_area || c.candidato_area.length < 3;
-  return (
-    faltandoNome ||
-    faltandoData ||
-    faltandoLocal ||
-    faltandoTelefone ||
-    faltandoFoto ||
-    faltandoAreas
-  );
+  if (!c) return true;
+  const faltandoNome = !c.nome || !c.sobrenome;
+  const faltandoData = !c.data_nascimento;
+  const faltandoLocal = !c.cidade || !c.pais;
+  const faltandoTelefone = !c.telefone;
+  
+  const faltandoAreas = !c.candidato_area || c.candidato_area.length === 0; 
+  
+  return (
+    faltandoNome ||
+    faltandoData ||
+    faltandoLocal ||
+    faltandoTelefone ||
+    faltandoAreas
+  );
 }
 
 function isEmpresaIncompleto(e) {
@@ -160,31 +160,30 @@ function isEmpresaIncompleto(e) {
 }
 
 async function redirecionarFluxoCandidato(usuarioId, res) {
-  const candidato = await candidatoModel.obterCandidatoPorUsuarioId(Number(usuarioId));
+  // 1. CORREÇÃO: Usar String para UUID. O Number() gerava o erro "não fornecido".
+  const candidato = await candidatoModel.obterCandidatoPorUsuarioId(String(usuarioId));
 
-  if (!candidato) {
-    return res.redirect(`/candidatos/cadastro/nome`);
-  }
-  if (!candidato.nome || !candidato.sobrenome) {
-    return res.redirect(`/candidatos/cadastro/nome`);
-  }
-  if (!candidato.data_nascimento) {
-    return res.redirect(`/candidatos/data-nascimento`);
-  }
-  if (!candidato.cidade || !candidato.pais) {
-    return res.redirect(`/candidatos/localizacao`);
-  }
-  if (!candidato.telefone) {
-    return res.redirect(`/candidatos/telefone`);
-  }
-  if (!candidato.foto_perfil || candidato.foto_perfil.trim() === '') {
-    return res.redirect(`/candidatos/cadastro/foto-perfil`);
-  }
-  const areasQtd = (candidato.candidato_area || []).length;
-  if (areasQtd !== 3) {
-    return res.redirect(`/candidatos/cadastro/areas`);
-  }
-  return res.redirect('/candidatos/home');
+  // 2. Se o registro do candidato nem existe no banco, vai para a tela de Nome/Data
+  if (!candidato) {
+    return res.redirect(`/candidatos/cadastro/nome`);
+  }
+
+  // 3. PASSO: Nome, Sobrenome e Data de Nascimento
+  // Se faltar qualquer um desses, manda para a tela inicial de dados pessoais
+  if (!candidato.nome || !candidato.sobrenome || !candidato.data_nascimento) {
+    return res.redirect(`/candidatos/cadastro/nome`);
+  }
+
+  // 4. PASSO: Áreas de Atuação
+  // Verifica se o candidato tem áreas vinculadas (ajuste a quantidade se necessário)
+  const areasQtd = (candidato.candidato_area || []).length;
+  if (areasQtd < 1) { 
+    return res.redirect(`/candidatos/cadastro/areas`);
+  }
+
+  // 5. FINAL: Home dos Candidatos
+  // Se passou por todos os filtros acima, o cadastro está pronto para a Home
+  return res.redirect('/candidatos/home');
 }
 
 async function redirecionarFluxoEmpresa(usuarioId, res) {
@@ -252,7 +251,7 @@ exports.criarUsuario = async (req, res) => {
 
     if (usuarioExistente) {
       if (usuarioExistente.email_verificado) {
-        const usuarioId = usuarioExistente.id;
+        const usuarioId = String(usuarioExistente.id);
 
         const cand = await candidatoModel.obterCandidatoPorUsuarioId(usuarioId);
         const emp  = await empresaModel.obterEmpresaPorUsuarioId(usuarioId);
@@ -425,39 +424,48 @@ exports.login = async (req, res) => {
       }
 
       if (usuario.tipo === 'candidato') {
-        // (Lógica do candidato que já corrigimos)
-        const candidato = await candidatoModel.obterCandidatoPorUsuarioId(usuario.id);
-        const localidade = [candidato?.cidade, candidato?.estado, candidato?.pais]
-          .filter(Boolean).join(', ');
+        console.log("Iniciando busca de candidato para Usuario ID:", usuario.id);
 
-        req.session.candidato = {
-          id: candidato?.id ?? null,
-          usuario_id: usuario.id,
-          nome: candidato?.nome || '',
-          sobrenome: candidato?.sobrenome || '',
-          email: usuario.email,
-          tipo: 'candidato',
-          telefone: candidato?.telefone || '',
-          dataNascimento: candidato?.data_nascimento || null,
-          foto_perfil: candidato?.foto_perfil || '',
-          localidade,
-          areas: candidato?.candidato_area?.map(r => r.area_interesse.nome) || []
-        };
-        req.session.usuario = {
-          id: usuario.id,
-          tipo: 'candidato',
-          nome: candidato?.nome || '',
-          sobrenome: candidato?.sobrenome || '',
-          skipCadastro: false,
-        };
+        if (!usuario.id) {
+            console.error("ERRO FATAL: Objeto usuário sem ID no login.");
+            req.session.erro = 'Erro interno ao identificar perfil.';
+            return res.redirect('/login');
+        }
 
-        if (!candidato || isCandidatoIncompleto(candidato)) {
-          return redirecionarFluxoCandidato(usuario.id, res);
-        }
+        const candidato = await candidatoModel.obterCandidatoPorUsuarioId(String(usuario.id));
+        console.log("Candidato encontrado no BD:", candidato ? "Sim" : "Não");
+        const localidade = [candidato?.cidade, candidato?.estado, candidato?.pais]
+          .filter(Boolean).join(', ');
 
-        const destino = req.session.returnTo || '/candidatos/home';
-        delete req.session.returnTo;
-        return req.session.save(() => res.redirect(destino));
+        req.session.candidato = {
+          id: candidato?.id ?? null,
+          usuario_id: usuario.id,
+          nome: candidato?.nome || '',
+          sobrenome: candidato?.sobrenome || '',
+          email: usuario.email,
+          tipo: 'candidato',
+          telefone: candidato?.telefone || '',
+          dataNascimento: candidato?.data_nascimento || null,
+          foto_perfil: candidato?.foto_perfil || '',
+          localidade,
+          areas: candidato?.candidato_area?.map(r => r.area_interesse.nome) || []
+        };
+        req.session.usuario = {
+          id: usuario.id,
+          tipo: 'candidato',
+          nome: candidato?.nome || '',
+          sobrenome: candidato?.sobrenome || '',
+          skipCadastro: false,
+        };
+
+        if (!candidato || isCandidatoIncompleto(candidato)) {
+          console.log("Candidato incompleto ou inexistente, redirecionando para cadastro...");
+          return redirecionarFluxoCandidato(usuario.id, res);
+        }
+
+        const destino = req.session.returnTo || '/candidatos/home';
+        delete req.session.returnTo;
+        return req.session.save(() => res.redirect(destino));
       }
 
       return res.redirect('/cadastro');

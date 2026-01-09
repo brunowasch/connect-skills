@@ -1,10 +1,11 @@
+const { v4: uuidv4 } = require('uuid');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 /**
  * Cria uma nova empresa vinculada a um usuário.
  * @param {Object} dados
- * @param {number} dados.usuario_id
+ * @param {string} dados.usuario_id 
  * @param {string} dados.nome_empresa
  * @param {string} dados.descricao
  * @returns {Promise<Object>}
@@ -12,9 +13,10 @@ const prisma = new PrismaClient();
 exports.criarEmpresa = async ({ usuario_id, nome_empresa, descricao, foto_perfil }) => {
   return await prisma.empresa.create({
     data: {
-      usuario_id: Number(usuario_id),
+      id: uuidv4(),          
+      usuario_id: usuario_id, 
       nome_empresa,
-      descricao,
+      descricao: descricao || '',
       telefone: '',
       pais: '',
       estado: '',
@@ -75,8 +77,10 @@ exports.atualizarFotoPerfil = async ({ foto_perfil, usuario_id }) => {
  * @returns {Promise<Object|null>}
  */
 exports.obterEmpresaPorUsuarioId = async (usuario_id) => {
+  if (!usuario_id) return null;
+
   return await prisma.empresa.findUnique({
-    where: { usuario_id: Number(usuario_id) }
+    where: { usuario_id: String(usuario_id) }
   });
 };
 

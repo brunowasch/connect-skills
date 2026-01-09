@@ -23,28 +23,82 @@
       .btn-group-actions{flex-direction:column;align-items:stretch;}
       .btn-group-actions .btn{width:100%;}
     }
+    /* Reduz o tamanho do título da seção */
+    .vaga-secao h3 {
+        font-size: 1.1rem !important; /* Tamanho menor e mais discreto */
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: #333;
+    }
+
+    /* Estilo do container de skills */
+    .skills-container {
+        margin-top: 8px;
+    }
+
+    /* Estilo dos badges (as tags) */
+    .badge-skill {
+        background-color: #f1f5f9; /* Azul acinzentado bem claro */
+        color: #475569;            /* Texto grafite */
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-size: 0.85rem;        /* Texto menor para as habilidades */
+        font-weight: 500;
+        border: 1px solid #e2e8f0;
+        display: inline-block;
+        white-space: nowrap;
+    }
+
+    /* Ajuste para o texto "Não informado" */
+    .text-muted {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
   </style>
 </head>
 <body data-vaga-id="<%= vaga?.id %>" data-share-url="<%= shareUrl || '' %>">
   <%- include('../partials/header-empresa') %>
 
   <main id="content-main" class="container pb-5">
-    <div class="page-actions border-bottom py-2 mb-3">
-      <div class="d-flex align-items-center justify-content-between">
-        <div class="d-flex align-items-center gap-2">
-          <a href="/empresa/meu-perfil" class="btn btn-link text-decoration-none px-0">
-            <i class="bi bi-chevron-left"></i> Meu perfil
-          </a>
-          <span class="text-muted">/</span>
-          <span class="fw-semibold"><%= vaga?.cargo || 'Vaga' %></span>
-        </div>
-        <div class="d-flex gap-2">
-          <button id="btnCopiarLink" class="btn btn-outline-secondary btn-sm" title="Copiar link público da vaga">
-            <i class="bi bi-link-45deg me-1"></i> Copiar link
-          </button>
-        </div>
+  <div class="page-actions border-bottom py-2 mb-3">
+    <div class="d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <a href="/empresa/meu-perfil" class="btn btn-link text-decoration-none px-0">
+          <i class="bi bi-chevron-left"></i> Meu perfil
+        </a>
+        <span class="text-muted">/</span>
+        <span class="fw-semibold"><%= vaga?.cargo || 'Vaga' %></span>
+      </div>
+      <div class="d-flex gap-2">
+        <button id="btnCopiarLink" 
+                class="btn btn-outline-secondary btn-sm" 
+                title="Copiar link público da vaga"
+                data-vaga-id="<%= vaga.id %>">
+          <i class="bi bi-link-45deg me-1"></i> Copiar link
+        </button>
       </div>
     </div>
+  </div>
+
+<script>
+  document.getElementById('btnCopiarLink')?.addEventListener('click', function() {
+    const vagaId = this.getAttribute('data-vaga-id');
+    
+    // Usamos a nova rota pública que criamos acima
+    const urlPublica = window.location.origin + '/candidatos/vaga-publica/' + vagaId;
+
+    navigator.clipboard.writeText(urlPublica).then(() => {
+      const btn = this;
+      btn.classList.replace('btn-outline-secondary', 'btn-success');
+      btn.innerHTML = '<i class="bi bi-check2 me-1"></i> Copiado!';
+      
+      setTimeout(() => {
+        btn.classList.replace('btn-success', 'btn-outline-secondary');
+        btn.innerHTML = '<i class="bi bi-link-45deg me-1"></i> Copiar link';
+      }, 2000);
+    });
+  });
+</script>
     <section class="card border-0 shadow-sm p-3 p-md-4 mb-4">
       <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
         <div>
@@ -164,16 +218,17 @@
           </div>
         </div>
 
-        <div class="col-12 col-lg-4">
-          <h6>Habilidades comportamentais</h6>
-          <ul class="list-inline gap-2">
-            <% const softs = (vaga?.vaga_soft_skill || []).map(s => s?.soft_skill?.nome).filter(Boolean); %>
-            <% if (!softs.length) { %>
-              <li class="text-muted">Não informado</li>
-            <% } else { softs.forEach(n => { %>
-              <li class="list-inline-item badge text-bg-success"><%= n %></li>
-            <% }) } %>
-          </ul>
+        <div class="mt-4">
+          <h6 class="fw-bold mb-2">Habilidades comportamentais</h6>
+          <div class="d-flex flex-wrap gap-2">
+            <% if (vaga.vaga_soft_skill && vaga.vaga_soft_skill.length > 0) { %>
+              <% vaga.vaga_soft_skill.forEach(item => { %>
+                <span class="badge badge-skill"><%= item.soft_skill.nome %></span>
+              <% }) %>
+            <% } else { %>
+              <p>Não informado</p>
+            <% } %>
+          </div>
         </div>
       </div>
     </section>
@@ -207,7 +262,7 @@
         <ul class="list-unstyled mb-0">
           <% vaga.vaga_arquivo.forEach(ax => { %>
             <li class="mb-2">
-              <a href="/empresa/public/vaga/anexos/<%= encodeId(ax.id) %>/abrir" target="_blank" rel="noopener">
+              <a href="/empresa/public/vaga/anexos/<%= ax.id %>/abrir" target="_blank" rel="noopener">
                 <i class="bi bi-paperclip me-1"></i> <%= ax.nome %>
               </a>
             </li>
@@ -315,28 +370,6 @@
       window.addEventListener('resize', setHeaderOffset);
       document.addEventListener('shown.bs.collapse', setHeaderOffset);
       document.addEventListener('hidden.bs.collapse', setHeaderOffset);
-    })();
-
-    (function(){
-      const btn = document.getElementById('btnCopiarLink');
-      const toastEl = document.getElementById('toastCopy');
-      const body = document.body;
-      if (!btn) return;
-
-      btn.addEventListener('click', async () => {
-        const publicUrl = document.body.getAttribute('data-share-url') || window.location.href;
-
-        try {
-          await navigator.clipboard.writeText(publicUrl);
-          if (toastEl) {
-            const t = new bootstrap.Toast(toastEl);
-            toastEl.style.display = 'block';
-            t.show();
-          }
-        } catch {
-          alert('Não foi possível copiar automaticamente. Copie: ' + publicUrl);
-        }
-      });
     })();
 
     (function(){

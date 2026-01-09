@@ -123,34 +123,47 @@ exports.buscarVagasPorUsuarioId = async (usuario_id) => {
 * @param {number} candidato_id
  */
 exports.buscarVagasPorInteresseDoCandidato = async (candidato_id) => {
-  const candidato = await prisma.candidato.findUnique({
-    where: { id: Number(candidato_id) },
-    include: { candidato_area: true },
-  });
+  if (!candidato_id) return [];
 
-  if (!candidato || candidato.candidato_area.length === 0) {
-    return []; // Sem áreas escolhidas
-  }
+  // 1. Busca áreas do candidato
+  const candidatoAreas = await prisma.candidato_area.findMany({
+    where: { candidato_id: String(candidato_id) }
+  });
 
-  const areaIds = candidato.candidato_area.map(rel => rel.area_interesse_id);
+  if (candidatoAreas.length === 0) return [];
 
-  return await prisma.vaga.findMany({
-    where: {
-      vaga_area: {
-        some: {
-          area_interesse_id: { in: areaIds },
-        },
-      },
-    },
-    include: {
-      empresa: true,
-      vaga_area: { include: { area_interesse: true } },
-      vaga_soft_skill: { include: { soft_skill: true } },
-      vaga_arquivo: true,
-      vaga_link: true,
-    },
-  });
-};
+  const areaIds = candidatoAreas.map(rel => rel.area_interesse_id);
+
+  // 2. Busca IDs de vagas que possuem essas áreas
+  const vinculosVagas = await prisma.vaga_area.findMany({
+    where: { area_interesse_id: { in: areaIds } },
+    select: { vaga_id: true }
+  });
+
+  const vagaIds = [...new Set(vinculosVagas.map(v => v.vaga_id))];
+  if (vagaIds.length === 0) return [];
+
+  const vagas = await prisma.vaga.findMany({
+      where: { id: { in: vagaIds } },
+      orderBy: { created_at: 'desc' }
+    });
+
+    if (vagas.length === 0) return [];
+
+    // 4. Busca MANUAL das empresas (Contorno para a falta de relação no Prisma)
+    const empresaIds = [...new Set(vagas.map(v => v.empresa_id))];
+    const empresas = await prisma.empresa.findMany({
+      where: { id: { in: empresaIds } }
+    });
+
+    // 5. Mescla os dados: coloca o objeto empresa dentro de cada vaga
+    return vagas.map(vaga => {
+      return {
+        ...vaga,
+        empresa: empresas.find(e => e.id === vaga.empresa_id) || null
+      };
+    });
+  };
 
 /**
  * Retorna todas as vagas de uma empresa com suas áreas e soft skills.
@@ -234,21 +247,32 @@ exports.atualizarVaga = async ({
  * @param {number|string} id — ID da vaga a ser excluída
  * @returns {Promise<Object>}
  */
+// src/models/vagaModel.js
+
 exports.excluirVaga = async (id) => {
-  const vagaId = Number(id);
+  // REMOVA esta linha ou comente-a: const vagaId = Number(id);
+  // Use o id diretamente como String (UUID)
+  const vagaId = String(id); 
 
-  // 1) Remove todos os vínculos na tabela pivô vaga_area
-  await prisma.vaga_area.deleteMany({
-    where: { vaga_id: vagaId }
-  });
+  // 1) Remove todos os vínculos na tabela pivô vaga_area
+  await prisma.vaga_area.deleteMany({
+    where: { vaga_id: vagaId }
+  });
 
-  // 2) Remove todos os vínculos na tabela pivô vaga_soft_skill
-  await prisma.vaga_soft_skill.deleteMany({
-    where: { vaga_id: vagaId }
-  });
+  // 2) Remove todos os vínculos na tabela pivô vaga_soft_skill
+  await prisma.vaga_soft_skill.deleteMany({
+    where: { vaga_id: vagaId }
+  });
 
-  // 3) Finalmente, apaga a vaga
-  return await prisma.vaga.delete({
-    where: { id: vagaId }
-  });
+  // 3) Remove arquivos e links (se existirem no seu banco)
+  await prisma.vaga_arquivo.deleteMany({ where: { vaga_id: vagaId } });
+  await prisma.vaga_link.deleteMany({ where: { vaga_id: vagaId } });
+  
+  // 4) Remove avaliações/candidaturas (essencial para não dar erro de chave estrangeira)
+  await prisma.vaga_avaliacao.deleteMany({ where: { vaga_id: vagaId } });
+
+  // 5) Por fim, remove a vaga
+  return await prisma.vaga.delete({
+    where: { id: vagaId }
+  });
 };

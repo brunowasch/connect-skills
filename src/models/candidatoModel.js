@@ -1,3 +1,4 @@
+const { v4: uuidv4 } = require('uuid');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -12,15 +13,17 @@ const prisma = new PrismaClient();
 exports.criarCandidato = async ({ usuario_id, nome, sobrenome, data_nascimento }) => {
   return await prisma.candidato.create({
     data: {
-      usuario_id,
-      nome,
-      sobrenome,
-      data_nascimento,
-      pais: '',
-      estado: '',
-      cidade: '',
-      telefone: '',
-      foto_perfil: ''
+      id: uuidv4(), 
+      usuario_id: String(usuario_id), 
+
+      nome: nome,
+      sobrenome: sobrenome,
+      data_nascimento: data_nascimento ? new Date(data_nascimento) : null,
+      pais: "",
+      estado: "",
+      cidade: "",
+      telefone: "",
+      foto_perfil: ""
     }
   });
 };
@@ -56,49 +59,54 @@ exports.atualizarTelefone = async ({ usuario_id, telefone }) => {
 /**
  * Atualiza a foto de perfil do candidato.
  * @param {Object} dados
- * @param {number} dados.usuario_id
+ * @param {string} dados.candidato_id  
  * @param {string} dados.foto_perfil
  */
 exports.atualizarFotoPerfil = async ({
   candidato_id,
   foto_perfil
 }) => {
-  return prisma.candidato.update({
-    where: { id: Number(candidato_id) },
-    data: { foto_perfil }
+  return await prisma.candidato.update({
+    where: { 
+      id: String(candidato_id) 
+    },
+    data: { 
+      foto_perfil: foto_perfil 
+    }
   });
 };
 
 
 /**
  * Busca candidato pelo usuário_id com suas áreas de interesse.
- * @param {number} usuario_id 
+ * @param {string} usuario_id 
  */
 exports.obterCandidatoPorUsuarioId = async (usuario_id) => {
-  const candidato = await prisma.candidato.findUnique({
-    where: { 
-      usuario_id: Number(usuario_id) 
-    },
-    include: {
-      usuario: {
-        select: {
-          email: true
-        }
-      },
-      candidato_area: {
-        include: {
-          area_interesse: true
-        }
-      }
-    }
-  });
-
-  if (!candidato) {
-    console.warn(`Nenhum candidato encontrado com usuario_id=${usuario_id}`);
+  if (!usuario_id) {
+    console.error("obterCandidatoPorUsuarioId: usuario_id não fornecido");
     return null;
   }
 
-  return candidato;
+  try {
+    const candidato = await prisma.candidato.findFirst({
+      where: {
+        usuario_id: String(usuario_id)
+      },
+      include: {
+        usuario: { select: { email: true } },
+        candidato_area: { include: { area_interesse: true } }
+      }
+    });
+
+    if (!candidato) {
+      console.warn(`[obterCandidatoPorUsuarioId] Nenhum candidato encontrado para o usuario_id: ${usuario_id}`);
+    }
+
+    return candidato;
+  } catch (error) {
+    console.error("Erro ao buscar candidato:", error);
+    throw error;
+  }
 };
 
 
@@ -281,13 +289,16 @@ exports.listarLinksDoCandidato = async (candidato_id) => {
 
 
 exports.substituirLinksDoCandidato = async (candidato_id, links) => {
-  await prisma.candidato_link.deleteMany({ where: { candidato_id: Number(candidato_id) } });
+  await prisma.candidato_link.deleteMany({ 
+    where: { candidato_id: String(candidato_id) } 
+  });
 
   if (!Array.isArray(links) || links.length === 0) return;
 
   await prisma.candidato_link.createMany({
     data: links.map((l, i) => ({
-      candidato_id: Number(candidato_id),
+      id: uuidv4(), 
+      candidato_id: String(candidato_id),
       label: String(l.label || '').slice(0, 50),
       url: String(l.url || '').slice(0, 255),
       ordem: Number.isFinite(l.ordem) ? l.ordem : i
