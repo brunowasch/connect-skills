@@ -84,3 +84,33 @@ exports.abrirAnexoPublico = async (req, res) => {
     res.status(500).send('Erro ao processar o arquivo.');
   }
 };
+
+exports.abrirAnexoVaga = async (req, res) => {
+  try {
+    const idEncodado = req.params.id;
+    const realId = decodeId(idEncodado); // Transforma U2FsdGVk... no UUID real
+
+    if (!realId) return res.status(400).send('ID de anexo inválido.');
+
+    // Busca direta na tabela de arquivos da vaga
+    const arquivo = await prisma.vaga_arquivo.findUnique({
+      where: { id: String(realId) }
+    });
+
+    if (!arquivo) return res.status(404).send('O arquivo solicitado não foi encontrado.');
+
+    // Stream do Cloudinary
+    const upstream = await axios.get(arquivo.url, { responseType: 'stream' });
+    
+    // Força o navegador a entender que é um PDF ou o tipo correto
+    const mime = (arquivo.mime && arquivo.mime !== 'raw') ? arquivo.mime : 'application/pdf';
+    
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(arquivo.nome)}"`);
+    
+    upstream.data.pipe(res);
+  } catch (err) {
+    console.error('Erro ao abrir anexo da vaga:', err);
+    res.status(500).send('Erro ao processar arquivo.');
+  }
+};

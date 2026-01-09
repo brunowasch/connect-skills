@@ -4,6 +4,7 @@ const vagaModel = require('../models/vagaModel');
 const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
 const { decodeId } = require('../utils/idEncoder');
 
+
 exports.salvarVaga = async (req, res) => {
   try {
     if (!req.session.empresa) return res.redirect('/login');
@@ -108,5 +109,41 @@ exports.apiPerguntasDISC = async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ ok: false, error: 'Erro ao carregar perguntas' });
+  }
+};
+
+exports.abrirAnexoVaga = async (req, res) => {
+  try {
+    const idEncodado = req.params.id;
+    // Decodifica o ID (U2FsdGVk...) para o UUID real
+    const realId = decodeId(idEncodado);
+
+    if (!realId) {
+      return res.status(400).send('ID de anexo inválido.');
+    }
+
+    // Busca manual na tabela de arquivos da vaga (vaga_arquivo)
+    const arquivo = await prisma.vaga_arquivo.findUnique({
+      where: { id: String(realId) }
+    });
+
+    if (!arquivo) {
+      return res.status(404).send('Arquivo não encontrado.');
+    }
+
+    // Stream do Cloudinary via Axios
+    const axios = require('axios'); // Garanta que o axios esteja instalado
+    const upstream = await axios.get(arquivo.url, { responseType: 'stream' });
+    
+    // Define o tipo de arquivo (PDF ou imagem)
+    const mime = (arquivo.mime && arquivo.mime !== 'raw') ? arquivo.mime : 'application/pdf';
+    
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(arquivo.nome)}"`);
+    
+    upstream.data.pipe(res);
+  } catch (err) {
+    console.error('Erro ao abrir anexo da vaga:', err);
+    if (!res.headersSent) res.status(500).send('Erro ao processar arquivo.');
   }
 };

@@ -1205,12 +1205,13 @@ exports.telaEditarAreas = async (req, res) => {
 exports.salvarEditarAreas = async (req, res) => {
   const sess = req.session.candidato;
   if (!sess) return res.redirect('/login');
-  const candidato_id = Number(sess.id);
+
+  // CORREÇÃO 1: Remover o Number(). O ID agora é UUID (String)
+  const candidato_id = String(sess.id); 
 
   let nomesSelecionados;
 
   try {
-    // O frontend agora envia uma string JSON de nomes
     nomesSelecionados = typeof req.body.areasSelecionadas === 'string' 
       ? JSON.parse(req.body.areasSelecionadas) 
       : req.body.areasSelecionadas;
@@ -1219,12 +1220,10 @@ exports.salvarEditarAreas = async (req, res) => {
     return res.redirect('/candidatos/editar-areas');
   }
 
-  // 1. Verificação básica (se vazio)
   if (!Array.isArray(nomesSelecionados) || nomesSelecionados.length === 0) {
     req.session.erro = 'Selecione ao menos uma área.';
     return res.redirect('/candidatos/editar-areas');
   }
-
 
   try {
     const nomesUnicos = [...new Set(nomesSelecionados)];
@@ -1240,17 +1239,15 @@ exports.salvarEditarAreas = async (req, res) => {
       return res.redirect('/candidatos/editar-areas');
     }
 
-    // 4. Transação para limpar e salvar as novas áreas
+    // CORREÇÃO 2: Garantir que o candidato_id seja String em todas as etapas da transação
     await prisma.$transaction([
-      // Deleta as áreas antigas do candidato
       prisma.candidato_area.deleteMany({ 
-        where: { candidato_id } 
+        where: { candidato_id: candidato_id } 
       }),
-      // Cria as novas relações
       prisma.candidato_area.createMany({
         data: areasEncontradas.map(area => ({
-          candidato_id: candidato_id,
-          area_interesse_id: area.id
+          candidato_id: candidato_id, // String (UUID)
+          area_interesse_id: area.id   // Este continua Int, conforme seu schema
         })),
         skipDuplicates: true
       })
@@ -1819,7 +1816,10 @@ exports.vagaDetalhes = async (req, res) => {
     const vagaFormatada = {
       ...vaga,
       empresa,
-      vaga_arquivo: arquivos,
+      vaga_arquivo: arquivos.map(arq => ({
+        ...arq,
+        id_enc: encodeId(arq.id) 
+      })),
       vaga_link: links,
       // Simulando a estrutura que o EJS espera
       vaga_area: relacoesArea.map(ra => ({

@@ -38,6 +38,7 @@ router.get('/vagas/:id', ensureCandidato, candidatoController.vagaDetalhes);
 router.get('/vagas/:id/perguntas-disc', ensureCandidato, vagaController.apiPerguntasDISC);
 router.post('/vagas/:id/aplicar', ensureCandidato, candidatoController.aplicarVaga);
 router.get('/vagas', ensureCandidato, candidatoController.mostrarVagas);
+router.get('/vagas/anexo/:id', vagaController.abrirAnexoVaga);
 
 // Edição de perfil
 router.get('/editar-perfil', ensureCandidato, candidatoController.telaEditarPerfil);

@@ -134,22 +134,36 @@ exports.buscarVagasPorInteresseDoCandidato = async (candidato_id) => {
 
   const areaIds = candidatoAreas.map(rel => rel.area_interesse_id);
 
-  // 2. Busca IDs de vagas que possuem essas áreas na tabela vaga_area
+  // 2. Busca IDs de vagas que possuem essas áreas
   const vinculosVagas = await prisma.vaga_area.findMany({
     where: { area_interesse_id: { in: areaIds } },
     select: { vaga_id: true }
   });
 
   const vagaIds = [...new Set(vinculosVagas.map(v => v.vaga_id))];
-
   if (vagaIds.length === 0) return [];
 
-  // 3. Busca as vagas (Sem usar includes de relação que não existem no prisma)
-  return await prisma.vaga.findMany({
-    where: { id: { in: vagaIds } },
-    orderBy: { created_at: 'desc' }
-  });
-};
+  const vagas = await prisma.vaga.findMany({
+      where: { id: { in: vagaIds } },
+      orderBy: { created_at: 'desc' }
+    });
+
+    if (vagas.length === 0) return [];
+
+    // 4. Busca MANUAL das empresas (Contorno para a falta de relação no Prisma)
+    const empresaIds = [...new Set(vagas.map(v => v.empresa_id))];
+    const empresas = await prisma.empresa.findMany({
+      where: { id: { in: empresaIds } }
+    });
+
+    // 5. Mescla os dados: coloca o objeto empresa dentro de cada vaga
+    return vagas.map(vaga => {
+      return {
+        ...vaga,
+        empresa: empresas.find(e => e.id === vaga.empresa_id) || null
+      };
+    });
+  };
 
 /**
  * Retorna todas as vagas de uma empresa com suas áreas e soft skills.

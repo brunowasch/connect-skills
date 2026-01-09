@@ -275,37 +275,36 @@ exports.abrirAnexo = async (req, res) => {
 
 exports.abrirAnexoPublico = async (req, res) => {
   try {
-    // CORREÇÃO: Pegar o UUID diretamente como String
-    const realId = String(req.params.id || '');
-    
-    if (!realId || realId.length < 10) {
-      return res.status(400).send('ID de anexo inválido.');
+    // CORREÇÃO: Decodificar o ID criptografado da URL para o UUID real
+    const encodedId = req.params.id;
+    const realId = decodeId(encodedId); // <--- ESSENCIAL PARA IDs "U2FsdGVkX1..."
+
+    if (!realId) {
+      return res.status(400).send('ID de anexo inválido ou corrompido.');
     }
 
-    // Busca pública (sem checar sessão de candidato)
+    // Busca pública usando o UUID real
     const anexo = await prisma.candidato_arquivo.findUnique({ 
-      where: { id: realId } 
+      where: { id: String(realId) } 
     });
 
-    if (!anexo) return res.status(404).send('Anexo não encontrado.');
+    if (!anexo) {
+      console.error(`[ERRO] Arquivo não encontrado no banco para o UUID: ${realId}`);
+      return res.status(404).send('Anexo não encontrado.');
+    }
 
-    // Lógica de Streaming (mantida conforme sua versão funcional)
+    // Lógica de Streaming para o Cloudinary (Mantida e otimizada)
     const url = anexo.url;
     const nome = (anexo.nome || 'arquivo.pdf').replace(/"/g, '');
-    
-    // Forçar application/pdf se for um arquivo 'raw' do Cloudinary que sabemos ser PDF
     const mime = (anexo.mime && anexo.mime !== 'raw') ? anexo.mime.toLowerCase() : 'application/pdf';
 
     const upstream = await axios.get(url, { responseType: 'stream' });
 
-    res.status(upstream.status === 206 ? 206 : 200);
     res.setHeader('Content-Type', mime);
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(nome)}"`);
+    // Usar a função safeFilenameHeader que você já tem no topo do arquivo para evitar erros de acentuação
+    res.setHeader('Content-Disposition', `inline; filename="${safeFilenameHeader(nome)}"`);
     
-    // Repasse de headers de performance
     if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
-    if (upstream.headers['accept-ranges']) res.setHeader('Accept-Ranges', upstream.headers['accept-ranges']);
-    if (upstream.headers['etag']) res.setHeader('ETag', upstream.headers['etag']);
 
     upstream.data.pipe(res);
   } catch (err) {
