@@ -248,16 +248,13 @@
       const inputHidden = document.getElementById('habilidadesSelecionadas');
 
       function atualizarValorHabilidades() {
-        // Seleciona todos os botões que estão com a cor azul (selecionados)
+        // Captura os IDs dos botões que possuem a classe 'btn-primary'
         const selecionados = Array.from(document.querySelectorAll('.skill-btn.btn-primary'))
-                                  .map(b => {
-                                    const id = b.getAttribute('data-id');
-                                    return id ? Number(id) : null;
-                                  })
-                                  .filter(id => id !== null);
+                                  .map(b => b.getAttribute('data-id'))
+                                  .filter(id => id !== null && id !== "")
+                                  .map(id => Number(id)); 
         
         inputHidden.value = JSON.stringify(selecionados);
-        console.log("Habilidades prontas para salvar:", inputHidden.value);
       }
 
       container.addEventListener('click', function(e) {
@@ -269,8 +266,6 @@
         }
       });
 
-      // Executa ao carregar para garantir que o estado inicial do banco seja enviado se nada for clicado
-      atualizarValorHabilidades();
     })();
     </script>
   </main>

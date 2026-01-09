@@ -1163,11 +1163,11 @@ exports.salvarEditarVaga = async (req, res) => {
       ] : []),
 
       // 4. Recria relações de Skills
-      ...(skillIds.length > 0 ? [
+    ...(skillIds.length > 0 ? [
         prisma.vaga_soft_skill.createMany({
-          data: [...new Set(skillIds)].map(id => ({ 
-            vaga_id: vagaId, 
-            soft_skill_id: id 
+          data: skillIds.map(sId => ({ 
+            vaga_id: vagaId,        // String (UUID)
+            soft_skill_id: sId     // Number
           }))
         })
       ] : [])
@@ -2437,30 +2437,34 @@ exports.abrirAnexoEmpresa = async (req, res) => {
   }
 };
 
-exports.excluirAnexoEmpresa = async (req, res) => {
-  const sess = req.session?.empresa;
-  if (!sess?.id) return res.redirect("/login");
+exports.excluirAnexoVaga = async (req, res) => {
+  const empresaId = req.session?.empresa?.id;
+  if (!empresaId) return res.redirect("/empresa/login");
 
-  const id = Number(req.params.id);
-  if (!Number.isFinite(id)) return res.status(400).send("ID inválido.");
+  // Removido o Number() - ID agora é String (UUID)
+  const idAnexo = req.params.id; 
 
   try {
-    const ax = await prisma.empresa_arquivo.findFirst({
-      where: { id, empresa_id: Number(sess.id) },
-      select: { id: true },
+    // 1. Busca o anexo para verificar se pertence a uma vaga desta empresa
+    const ax = await prisma.vaga_arquivo.findFirst({
+      where: { id: idAnexo },
+      include: { vaga: true }
     });
-    if (!ax) {
-      req.session.erro = "Anexo não encontrado.";
-      return res.redirect("/empresa/editar-empresa");
+
+    if (!ax || String(ax.vaga.empresa_id) !== String(empresaId)) {
+      req.session.erro = "Anexo não encontrado ou acesso negado.";
+      return res.redirect("back");
     }
 
-    await prisma.empresa_arquivo.delete({ where: { id: ax.id } });
-    req.session.sucessoCadastro = "Anexo excluído.";
-    return res.redirect("/empresa/editar-empresa");
+    // 2. Deleta do banco de dados
+    await prisma.vaga_arquivo.delete({ where: { id: idAnexo } });
+
+    req.session.sucessoVaga = "Anexo excluído com sucesso.";
+    return res.redirect("back");
   } catch (e) {
-    console.error("excluirAnexoEmpresa erro:", e);
+    console.error("Erro ao excluir anexo da vaga:", e);
     req.session.erro = "Falha ao excluir o anexo.";
-    return res.redirect("/empresa/editar-empresa");
+    return res.redirect("back");
   }
 };
 
