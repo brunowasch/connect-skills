@@ -1668,19 +1668,14 @@ exports.excluirVaga = async (req, res) => {
 };
 
 exports.perfilPublico = async (req, res) => {
-  // 1) O ID agora é tratado diretamente como String (UUID)
   const empresaId = String(req.params.id || "");
 
-  console.log("ROTA ATINGIDA: /perfil/" + empresaId);
-
-  // Validação básica de UUID
   if (!empresaId || empresaId.length < 30) {
     req.session.erro = "ID de empresa inválido.";
     return res.redirect("/");
   }
 
   try {
-    // 2) Busca a empresa pura (Sem include para não quebrar no Prisma)
     const empresa = await prisma.empresa.findUnique({
       where: { id: empresaId },
     });
@@ -1690,37 +1685,30 @@ exports.perfilPublico = async (req, res) => {
       return res.redirect("/");
     }
 
-    // 3) Busca Manual de Links e Anexos da Empresa
-    const links = await prisma.empresa_link.findMany({
-      where: { empresa_id: empresaId },
-      orderBy: { ordem: "asc" }
-    });
+    const [links, arquivos, vagasRaw] = await Promise.all([
+      prisma.empresa_link.findMany({ where: { empresa_id: empresaId }, orderBy: { ordem: "asc" } }),
+      prisma.empresa_arquivo.findMany({ where: { empresa_id: empresaId }, orderBy: { criadoEm: "desc" } }),
+      prisma.vaga.findMany({ where: { empresa_id: empresaId } })
+    ]);
 
-    const arquivos = await prisma.empresa_arquivo.findMany({
-      where: { empresa_id: empresaId },
-      orderBy: { criadoEm: "desc" }
-    });
-
-    // 4) Carrega vagas puras da empresa
-    const vagasRaw = await prisma.vaga.findMany({
-      where: { empresa_id: empresaId }
-    });
-
-    // 5) Enriquece as vagas manualmente (Áreas, Links e Status)
-    // Usamos Promise.all para processar todas as vagas em paralelo
+    // 5) Enriquece as vagas manualmente SEM usar include
     const vagasEnriquecidas = await Promise.all(vagasRaw.map(async (vaga) => {
-      // Busca áreas da vaga manualmente
-      const areas = await prisma.vaga_area.findMany({
-        where: { vaga_id: vaga.id },
-        include: { area_interesse: true } // Se area_interesse tiver @relation funciona, senão remova o include
+      
+      // --- BUSCA MANUAL DE ÁREAS (Substituindo o include quebrado) ---
+      const relacoesArea = await prisma.vaga_area.findMany({
+        where: { vaga_id: vaga.id }
       });
+      
+      const areaIds = relacoesArea.map(r => r.area_interesse_id);
+      const nomesAreas = await prisma.area_interesse.findMany({
+        where: { id: { in: areaIds } }
+      });
+      // -------------------------------------------------------------
 
-      // Busca links da vaga
       const linksVaga = await prisma.vaga_link.findMany({
         where: { vaga_id: vaga.id }
       });
 
-      // Busca o status mais recente desta vaga
       const statusRecente = await prisma.vaga_status.findFirst({
         where: { vaga_id: vaga.id },
         orderBy: { criado_em: 'desc' },
@@ -1729,16 +1717,17 @@ exports.perfilPublico = async (req, res) => {
 
       return {
         ...vaga,
-        vaga_area: areas,
+        // Formatamos para o EJS encontrar a estrutura vaga_area[].area_interesse.nome
+        vaga_area: relacoesArea.map(ra => ({
+          area_interesse: nomesAreas.find(na => na.id === ra.area_interesse_id)
+        })),
         vaga_link: linksVaga,
         situacao: (statusRecente?.situacao || 'aberta').toLowerCase()
       };
     }));
 
-    // 6) Filtra para exibir apenas vagas que não estão "fechadas"
     const vagasPublicadas = vagasEnriquecidas.filter(v => v.situacao !== 'fechada');
 
-    // 7) Verificação de Candidato Logado para status de aplicação
     const podeTestar = !!req.session?.candidato;
     const somentePreview = !podeTestar;
 
@@ -1755,19 +1744,15 @@ exports.perfilPublico = async (req, res) => {
       });
 
       const appliedSet = new Set(aplicacoes.map(a => a.vaga_id));
-      
-      vagasPublicadas.forEach(v => {
-        v.ja_aplicou = appliedSet.has(v.id);
-      });
+      vagasPublicadas.forEach(v => { v.ja_aplicou = appliedSet.has(v.id); });
     }
 
-    // 8) Renderiza a view
     return res.render("empresas/perfil-publico", {
       empresa,
       vagasPublicadas, 
       somentePreview,
       podeTestar,
-      links: links,
+      links,
       anexos: arquivos,
     });
 
