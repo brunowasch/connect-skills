@@ -34,7 +34,12 @@
   }
   .btn-remover-tag:hover { color: #dc3545; }
 </style>
-<body>
+<body 
+  data-todas-areas='<%- JSON.stringify(areas || []) %>'
+  data-todas-skills='<%- JSON.stringify(skills || []) %>'
+  data-selecionadas-areas='<%- JSON.stringify(selectedAreas || []) %>'
+  data-selecionadas-skills='<%- JSON.stringify(selectedSkills || []) %>'
+>
   <%- include('../partials/header-empresa') %>
   <% const moedaMap = { BRL:'R$', USD:'US$', EUR:'€', GBP:'£', JPY:'¥', ARS:'AR$', CAD:'C$', AUD:'A$', CHF:'CHF', CNY:'¥', INR:'₹', MXN:'MX$', ZAR:'R', KRW:'₩', SEK:'kr', RUB:'₽' }; %>
   <%- include('../partials/flash-messages') %>
@@ -212,16 +217,25 @@
       <input type="hidden" name="areasSelecionadas" id="areas-input">
     </div>
 
-      <div class="mb-4">
-        <h5 class="fw-bold text-center">Habilidades comportamentais que mais se encaixam à vaga:</h5>
-        <div class="d-flex flex-wrap gap-2 justify-content-center">
-          <% skills.forEach(s => { %>
-            <button type="button" class="btn <%= selectedSkills.includes(s.id)?'btn-primary':'btn-outline-primary' %> skill-btn" data-id="<%=s.id%>"><%=s.nome%></button>
-          <% }) %>
-        </div>
-        <input type="hidden" name="habilidadesSelecionadas" id="habilidadesSelecionadas" value='<%= JSON.stringify(selectedSkills) %>'>
-        <div id="erroHabilidades" class="text-danger small mt-1"></div>
+    <div class="mt-3 mb-5">
+      <h5 class="fw-bold text-center">Habilidades comportamentais que mais se encaixam à vaga:</h5>
+      <div id="skill-container" class="d-flex flex-wrap gap-2 justify-content-center">
+        <% skills.forEach(s => { %>
+          <% 
+            // Compara IDs garantindo que ambos sejam tratados como String
+            const isSelected = selectedSkills.some(id => String(id) === String(s.id)); 
+          %>
+          <button type="button" 
+                  class="btn <%= isSelected ? 'btn-primary' : 'btn-outline-primary' %> skill-btn" 
+                  data-id="<%= s.id %>">
+            <%= s.nome %>
+          </button>
+        <% }) %>
       </div>
+      
+      <input type="hidden" name="habilidadesSelecionadas" id="habilidadesSelecionadas" value='<%= JSON.stringify(selectedSkills) %>'>
+      <div id="erroHabilidades" class="text-danger small mt-1"></div>
+    </div>
 
       <div class="text-center mt-4">
         <a href="/empresa/meu-perfil" class="btn btn-outline-danger">Cancelar</a>
@@ -233,21 +247,30 @@
       const container = document.querySelector('#formEditarVaga');
       const inputHidden = document.getElementById('habilidadesSelecionadas');
 
+      function atualizarValorHabilidades() {
+        // Seleciona todos os botões que estão com a cor azul (selecionados)
+        const selecionados = Array.from(document.querySelectorAll('.skill-btn.btn-primary'))
+                                  .map(b => {
+                                    const id = b.getAttribute('data-id');
+                                    return id ? Number(id) : null;
+                                  })
+                                  .filter(id => id !== null);
+        
+        inputHidden.value = JSON.stringify(selecionados);
+        console.log("Habilidades prontas para salvar:", inputHidden.value);
+      }
+
       container.addEventListener('click', function(e) {
-        if (e.target.classList.contains('skill-btn')) {
-          const btn = e.target;
-          
-          // Toggle das cores
+        const btn = e.target.closest('.skill-btn');
+        if (btn) {
           btn.classList.toggle('btn-outline-primary');
           btn.classList.toggle('btn-primary');
-
-          // Atualiza o input hidden
-          const selecionados = Array.from(document.querySelectorAll('.skill-btn.btn-primary'))
-                                    .map(b => b.getAttribute('data-id'));
-          
-          inputHidden.value = JSON.stringify(selecionados);
+          atualizarValorHabilidades();
         }
       });
+
+      // Executa ao carregar para garantir que o estado inicial do banco seja enviado se nada for clicado
+      atualizarValorHabilidades();
     })();
     </script>
   </main>
@@ -318,7 +341,7 @@
   };
 
   window.removerArea = function(id) {
-    selecionadas = selecionadas.filter(a => a.id !== id);
+    selecionadas = selecionadas.filter(a => a.id != id); // Use != para comparar string/number
     renderizarTags();
   };
 

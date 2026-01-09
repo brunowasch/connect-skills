@@ -482,52 +482,51 @@
     }
   });
 
-  window.selecionarOuCriarSkill = function(nome) {
+window.selecionarOuCriarSkill = function(nome) {
+    // TRAVA ANTI-ARRAY: Se o nome começar com [ ou for um array, ignora para não criar botões feios
+    if (!nome || typeof nome !== 'string' || nome.startsWith('[')) return; 
+
     const container = document.getElementById('skill-container');
     const body = document.body;
-    // Aqui pegamos a lista completa de objetos {id, nome} que deve estar no seu data-todas-skills
+    
+    // Pega a lista completa do dataset do body
     const listaCompletaObjetos = JSON.parse(body.dataset.todasSkills || '[]');
-
     const nomeLimpo = nome.trim();
-    const skillNoBanco = listaCompletaObjetos.find(s => s.nome.toLowerCase() === nomeLimpo.toLowerCase());
+    
+    // Busca a skill real no banco pelo nome
+    const skillNoBanco = listaCompletaObjetos.find(s => 
+        s && s.nome && s.nome.toLowerCase() === nomeLimpo.toLowerCase()
+    );
 
-    // Se a skill não existe no seu banco de dados (lista completa), 
-    // e o seu sistema não permite criar soft skills novas "on the fly", ela não terá ID.
     if (!skillNoBanco) return; 
 
     const idParaSalvar = skillNoBanco.id;
-
+    // Atenção: na edição você usa 'data-id', na publicação usa 'data-value'. 
+    // Vamos padronizar para procurar pelos dois.
     const botoes = Array.from(container.querySelectorAll('.skill-btn'));
-    let btnExistente = botoes.find(b => b.getAttribute('data-value') == idParaSalvar);
+    let btnExistente = botoes.find(b => 
+        String(b.getAttribute('data-id')) === String(idParaSalvar) || 
+        String(b.getAttribute('data-value')) === String(idParaSalvar)
+    );
 
     if (btnExistente) {
       btnExistente.classList.remove('btn-outline-primary');
       btnExistente.classList.add('btn-primary');
     } else {
-      // Cria o botão com o ID correto no data-value
+      // Cria o botão se não existir
       const novoBtn = document.createElement('button');
       novoBtn.type = 'button';
-      novoBtn.className = 'btn btn-sm btn-primary skill-btn m-1';
-      novoBtn.setAttribute('data-value', idParaSalvar);
+      novoBtn.className = 'btn btn-primary skill-btn'; // Removido btn-sm para manter padrão da imagem
+      novoBtn.setAttribute('data-id', idParaSalvar);
       novoBtn.textContent = nomeLimpo;
-
-      // ADICIONE ESTA PARTE PARA PERMITIR DESELECIONAR:
-      novoBtn.addEventListener('click', function() {
-        this.classList.toggle('btn-primary');
-        this.classList.toggle('btn-outline-primary');
-        if (typeof window.atualizarInputsHiddens === 'function') {
-          window.atualizarInputsHiddens('skill-container', 'skills-input', 'skill-btn');
-        }
-      });
-
       container.appendChild(novoBtn);
     }
 
-    // Atualiza o input hidden
-    if (typeof window.atualizarInputsHiddens === 'function') {
-      window.atualizarInputsHiddens('skill-container', 'skills-input', 'skill-btn');
+    // Chama a função que atualiza o input hidden final
+    if (typeof atualizarValorHabilidades === 'function') {
+      atualizarValorHabilidades();
     }
-  };
+};
 
   // Fecha o dropdown se clicar fora
   document.addEventListener('click', (e) => {
