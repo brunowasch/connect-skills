@@ -3,6 +3,7 @@ const prisma = new PrismaClient();
 const vagaModel = require('../models/vagaModel');
 const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
 const { decodeId } = require('../utils/idEncoder');
+const nodemailer = require('nodemailer');
 
 
 exports.salvarVaga = async (req, res) => {
@@ -146,4 +147,67 @@ exports.abrirAnexoVaga = async (req, res) => {
     console.error('Erro ao abrir anexo da vaga:', err);
     if (!res.headersSent) res.status(500).send('Erro ao processar arquivo.');
   }
+};
+
+exports.solicitarVideoCandidato = async (req, res) => {
+    const { emailCandidato, nomeCandidato, nomeVaga, idVaga } = req.body;
+
+    // Configuração do transporte usando suas variáveis do cPanel
+    const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT),
+        secure: false, // 587 usa STARTTLS
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+        }
+    });
+
+    // URL base configurada no seu ambiente
+    const linkVaga = `${process.env.APP_URL}/vagas/${idVaga}`;
+
+    const mailOptions = {
+        from: process.env.EMAIL_FROM, //
+        to: emailCandidato,
+        subject: `🎥 Vídeo solicitado: ${nomeVaga} - Connect Skills`,
+        html: `
+            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; padding: 30px; border-radius: 12px;">
+                <h2 style="color: #6200ee;">Olá, ${nomeCandidato}!</h2>
+                <p style="font-size: 16px; line-height: 1.5;">A empresa da vaga <strong>${nomeVaga}</strong> analisou seu perfil e agora gostaria de te conhecer melhor através de um vídeo de apresentação.</p>
+                
+                <div style="background-color: #f3e5f5; padding: 15px; border-left: 5px solid #6200ee; margin: 20px 0;">
+                    <strong>Requisitos do vídeo:</strong>
+                    <ul style="margin: 10px 0;">
+                        <li>Duração máxima: 3 minutos.</li>
+                        <li>Fale sobre suas principais habilidades.</li>
+                        <li>Conte por que você quer essa vaga.</li>
+                    </ul>
+                </div>
+
+                <div style="text-align: center; margin: 35px 0;">
+                    <a href="${linkVaga}" style="background-color: #6200ee; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                        Fazer Login e Subir Vídeo
+                    </a>
+                </div>
+
+                <p style="font-size: 12px; color: #999; text-align: center;">
+                    Este é um e-mail automático enviado pela plataforma Connect Skills.
+                </p>
+            </div>
+        `
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        return res.status(200).json({ 
+            success: true, 
+            message: 'E-mail enviado com sucesso para o candidato!' 
+        });
+    } catch (error) {
+        console.error('Erro ao enviar e-mail via cPanel:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Erro ao processar envio de e-mail.' 
+        });
+    }
 };

@@ -155,6 +155,12 @@
                         data-bs-target="#<%= modalId %>">
                   Ver respostas
                 </button>
+                <% if (r.email) { %>
+                  <button type="button" class="btn btn-outline-warning btn-sm" 
+                          onclick="enviarPedidoVideo('<%= r.email %>', '<%= r.nome %>', '<%= vaga.cargo %>', '<%= vaga.id %>')">
+                    <i class="bi bi-camera-video"></i> Requisitar Vídeo
+                  </button>
+                <% } %>
 
                 <!-- (novo) botão Análise geral da IA -->
                 <% if (r.explanation || typeof r.score_D !== 'undefined') { %>
@@ -338,6 +344,34 @@
         <% } %>
 
       <% }) %>
+
+      <script>
+          async function enviarPedidoVideo(email, nomeCand, cargoVaga, vagaId) {
+              if(!confirm(`Deseja enviar um e-mail para ${nomeCand} solicitando o vídeo?`)) return;
+
+              try {
+                  const response = await fetch('/solicitar-video', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ 
+                          emailCandidato: email, 
+                          nomeCandidato: nomeCand, 
+                          nomeVaga: cargoVaga, 
+                          idVaga: vagaId 
+                      })
+                  });
+                  
+                  const data = await response.json();
+                  if (data.success) {
+                      alert('E-mail enviado com sucesso!');
+                  } else {
+                      alert('Erro ao enviar: ' + data.message);
+                  }
+              } catch (err) {
+                  alert('Erro na conexão com o servidor.');
+              }
+          }
+          </script>
     </div>
 
     <% } %>

@@ -11,6 +11,7 @@ const helmet = require('helmet');
 const nodemailer = require('nodemailer');
 const cookieParser = require('cookie-parser');
 const { encodeId, decodeId } = require('./utils/idEncoder');
+const vagaController = require('./controllers/vagaController');
 
 // Configs e utils
 require('./config/passportGoogle');
