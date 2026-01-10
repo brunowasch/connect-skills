@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -13,7 +14,7 @@ const prisma = new PrismaClient();
 exports.cadastrar = async ({ email, senha, tipo }) => {
   return await prisma.usuario.create({
     data: {
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       email,
       senha,
       tipo,

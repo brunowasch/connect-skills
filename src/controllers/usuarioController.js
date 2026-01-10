@@ -332,7 +332,7 @@ exports.criarUsuario = async (req, res) => {
       tipo
     });
 
-    const usuario_id = resultado.id || resultado.insertId;
+    const usuario_id = String(resultado.id || resultado.insertId);
     await enviarEmailVerificacao(emailNormalizado, usuario_id);
 
     req.session.emailParaVerificacao = emailNormalizado;
