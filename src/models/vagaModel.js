@@ -24,7 +24,7 @@ exports.criarVaga = async ({
     
     const vaga = await tx.vaga.create({
       data: {
-        empresa_id: Number(empresa_id),
+        empresa_id: String(empresa_id),
         cargo: cargo || '',
         tipo_local_trabalho: tipo_local_trabalho || '',
         escala_trabalho: escala_trabalho || '',
@@ -86,7 +86,7 @@ exports.buscarSoftSkills = async () => {
 exports.buscarVagasPorUsuarioId = async (usuario_id) => {
   const candidato = await prisma.candidato.findUnique({
     where: {
-      usuario_id: Number(usuario_id),
+      usuario_id: String(usuario_id),
     },
     include: {
       candidato_area: true,
@@ -173,7 +173,7 @@ exports.buscarVagasPorInteresseDoCandidato = async (candidato_id) => {
 exports.buscarVagasPorEmpresaId = async (empresa_id) => {
   try {
     return await prisma.vaga.findMany({
-      where: { empresa_id: Number(empresa_id) },
+      where: { empresa_id: String(empresa_id) },
       include: {
         empresa: true,
         vaga_area: {
@@ -206,7 +206,7 @@ exports.atualizarVaga = async ({
   areas_ids,
   soft_skills_ids
 }) => {
-  const vagaId = Number(id);
+  const vagaId = String(id);
 
   // 1) garante que só a própria empresa atualize
   // (optionally, você pode verificar antes no controller)

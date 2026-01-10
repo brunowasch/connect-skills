@@ -909,13 +909,13 @@ exports.pularCadastro = async (req, res) => {
       const prisma = new PrismaClient();
 
       let cand = await prisma.candidato.findUnique({
-        where: { usuario_id: Number(usuario_id) }
+        where: { usuario_id: String(usuario_id) }
       });
 
       if (!cand) {
         cand = await prisma.candidato.create({
           data: {
-            usuario_id: Number(usuario_id), 
+            usuario_id: String(usuario_id),
             nome: '',
             sobrenome: '',
             data_nascimento: null,
@@ -928,7 +928,7 @@ exports.pularCadastro = async (req, res) => {
         });
       }
       req.session.candidato = {
-        id: Number(cand.id),
+        id: String(cand.id),
         skipCadastro: true
       };
     }
