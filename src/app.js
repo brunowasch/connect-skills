@@ -12,6 +12,9 @@ const nodemailer = require('nodemailer');
 const cookieParser = require('cookie-parser');
 const { encodeId, decodeId } = require('./utils/idEncoder');
 const vagaController = require('./controllers/vagaController');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const multer = require('multer');
 
 // Configs e utils
 require('./config/passportGoogle');
@@ -38,6 +41,27 @@ const fromAddress =
     ? `Connect Skills <${process.env.SMTP_USER}>`
     : 'Connect Skills <no-reply@connectskills.com.br>');
 
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_KEY,
+  api_secret: process.env.CLOUDINARY_SECRET
+});
+
+
+const videoStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'videos-vagas', 
+    resource_type: 'video',      
+    allowed_formats: ['mp4', 'mov', 'avi', 'webm', 'mkv'],
+  },
+});
+
+
+const uploadVideo = multer({ 
+  storage: videoStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
 
 function createTransporter() {
   const host = process.env.SMTP_HOST || 'mail.connectskills.com.br';
@@ -69,8 +93,8 @@ app.use(compression({
   }
 }));
 
-app.use(express.urlencoded({ extended: true, limit: '5mb' }));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
 app.set('view engine', 'ejs');
@@ -140,6 +164,10 @@ app.use((req, res, next) => {
   delete req.session.sucessoContato;
   delete req.session.erroContato;
 
+  if (!req.isAuthenticated() && req.path.startsWith('/vagas/')) {
+    req.session.returnTo = req.originalUrl;
+  }
+
   res.locals.candidato = req.session.candidato || null;
   res.locals.empresa   = req.session.empresa || null;
   res.locals.usuario   = req.session.usuario || res.locals.candidato || res.locals.empresa || null;
@@ -149,6 +177,18 @@ app.use((req, res, next) => {
   res.locals.decodeId = decodeId;
   next();
 });
+
+app.post('/vagas/enviar-video', 
+  (req, res, next) => {
+    // Middleware de segurança (exemplo)
+    if (!req.session.candidato) return res.redirect('/login');
+    next();
+  },
+  uploadVideo.single('video'), // <--- AQUI ESTAVA O SEGREDO (deve ser 'video')
+  vagaController.uploadVideoCandidato
+);
+
+app.post('/solicitar-video', vagaController.solicitarVideoCandidato);
 
 app.use('/', mainRoutes);
 app.use('/', authRoutes);
@@ -254,8 +294,9 @@ app.use((err, req, res, _next) => {
 });
 
 const server = http.createServer(app);
-server.keepAliveTimeout = 65_000;
-server.headersTimeout = 66_000;
+server.timeout = 300000;          
+server.keepAliveTimeout = 300000; 
+server.headersTimeout = 301000;
 
 server.listen(port, () => {
   console.log(`Servidor rodando em http://localhost:${port}`);

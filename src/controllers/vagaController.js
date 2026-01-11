@@ -5,6 +5,17 @@ const { getDiscQuestionsForSkills } = require('../utils/discQuestionBank');
 const { decodeId } = require('../utils/idEncoder');
 const nodemailer = require('nodemailer');
 
+const createTransporter = () => {
+    return nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT || 587),
+        secure: Number(process.env.SMTP_PORT) === 465,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+    });
+};
 
 exports.salvarVaga = async (req, res) => {
   try {
@@ -150,64 +161,69 @@ exports.abrirAnexoVaga = async (req, res) => {
 };
 
 exports.solicitarVideoCandidato = async (req, res) => {
-    const { emailCandidato, nomeCandidato, nomeVaga, idVaga } = req.body;
-
-    // Configuração do transporte usando suas variáveis do cPanel
-    const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT),
-        secure: false, // 587 usa STARTTLS
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
-        }
-    });
-
-    // URL base configurada no seu ambiente
-    const linkVaga = `${process.env.APP_URL}/vagas/${idVaga}`;
-
-    const mailOptions = {
-        from: process.env.EMAIL_FROM, //
-        to: emailCandidato,
-        subject: `🎥 Vídeo solicitado: ${nomeVaga} - Connect Skills`,
-        html: `
-            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; padding: 30px; border-radius: 12px;">
-                <h2 style="color: #6200ee;">Olá, ${nomeCandidato}!</h2>
-                <p style="font-size: 16px; line-height: 1.5;">A empresa da vaga <strong>${nomeVaga}</strong> analisou seu perfil e agora gostaria de te conhecer melhor através de um vídeo de apresentação.</p>
-                
-                <div style="background-color: #f3e5f5; padding: 15px; border-left: 5px solid #6200ee; margin: 20px 0;">
-                    <strong>Requisitos do vídeo:</strong>
-                    <ul style="margin: 10px 0;">
-                        <li>Duração máxima: 3 minutos.</li>
-                        <li>Fale sobre suas principais habilidades.</li>
-                        <li>Conte por que você quer essa vaga.</li>
-                    </ul>
-                </div>
-
-                <div style="text-align: center; margin: 35px 0;">
-                    <a href="${linkVaga}" style="background-color: #6200ee; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-                        Fazer Login e Subir Vídeo
-                    </a>
-                </div>
-
-                <p style="font-size: 12px; color: #999; text-align: center;">
-                    Este é um e-mail automático enviado pela plataforma Connect Skills.
-                </p>
-            </div>
-        `
-    };
-
     try {
-        await transporter.sendMail(mailOptions);
-        return res.status(200).json({ 
-            success: true, 
-            message: 'E-mail enviado com sucesso para o candidato!' 
+        const { idVaga, emailCandidato, nomeCandidato, nomeVaga } = req.body;
+        const transporter = createTransporter();
+        const linkVaga = `${process.env.APP_URL || 'http://localhost:3000'}/vagas/${idVaga}`;
+        
+        await transporter.sendMail({
+            from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+            to: emailCandidato,
+            subject: `🎥 Gravação de Vídeo: ${nomeVaga}`,
+            html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                <div style="background-color: #0d6efd; padding: 20px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Connect Skills</h1>
+                </div>
+                <div style="padding: 30px; color: #333333; line-height: 1.6;">
+                    <h2 style="color: #0d6efd;">Olá, ${nomeCandidato}!</h2>
+                    <p>A empresa responsável pela vaga <strong>${nomeVaga}</strong> solicitou um vídeo de apresentação para te conhecer melhor.</p>
+                    <p>Esta é uma etapa importante do processo seletivo. Clique no botão abaixo para acessar a vaga e realizar o upload do seu vídeo:</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${linkVaga}" style="background-color: #0d6efd; color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Enviar meu Vídeo</a>
+                    </div>
+                    <p style="font-size: 12px; color: #777777;">Se o botão não funcionar, copie e cole este link: <br> ${linkVaga}</p>
+                </div>
+                <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #999999;">
+                    © 2026 Connect Skills - Todos os direitos reservados.
+                </div>
+            </div>
+            `
         });
+
+        return res.status(200).json({ success: true, message: 'E-mail enviado!' });
     } catch (error) {
-        console.error('Erro ao enviar e-mail via cPanel:', error);
-        return res.status(500).json({ 
-            success: false, 
-            message: 'Erro ao processar envio de e-mail.' 
-        });
+        console.error('Erro ao enviar e-mail:', error);
+        return res.status(500).json({ success: false });
+    }
+};
+
+// Função para processar o upload do vídeo enviado pelo candidato
+exports.uploadVideoCandidato = async (req, res) => {
+    try {
+        const { vagaId } = req.body;
+        const arquivo = req.file;
+
+        if (!vagaId) {
+             console.error('[VIDEO] Erro: vagaId não recebido.');
+             req.session.erro = 'Erro ao identificar a vaga.';
+             return res.redirect('/candidato/dashboard'); // Ou rota apropriada
+        }
+
+        if (!req.file) {
+            req.session.erro = 'Falha ao carregar o arquivo de vídeo ou formato inválido.';
+            return res.redirect(`/vagas/${vagaId}`);
+        }
+
+        console.log(`[VIDEO] Upload realizado com sucesso: ${req.file.path}`);
+
+        req.session.sucesso = 'Vídeo de apresentação enviado com sucesso! A empresa já pode visualizá-lo.';
+        
+        return res.redirect(`/vagas/${vagaId}`);
+    } catch (err) {
+        console.error('[VIDEO] Erro no controller:', err);
+        req.session.erro = 'Erro interno ao processar vídeo.';
+        const redirectUrl = req.body.vagaId ? `/vagas/${req.body.vagaId}` : '/';
+        return res.redirect(redirectUrl);
     }
 };

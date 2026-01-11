@@ -8,15 +8,13 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <link rel="stylesheet" href="/css/shared/style.css">
   <link rel="icon" type="image/png" href="/img/CONNECT.png?v=2">
-  <style>
-  :root { --nav-h: 0px !important; }
-  body#home { padding-top: 0 !important; }
+<style>
+    :root { --nav-h: 0px !important; }
+    body#home { padding-top: 0 !important; }
     .avatar-col { width: 72px; }
-    .btn-ver-perfil {
-      font-size: .8rem;
-      padding: .15rem .4rem;
-      line-height: 1.1;
-    }
+    .btn-ver-perfil { font-size: .8rem; padding: .15rem .4rem; line-height: 1.1; }
+    .cand-row { transition: background-color 0.2s; }
+    .cand-row:hover { background-color: #f8f9fa; }
   </style>
 </head>
 <body class="bg-light">
@@ -155,12 +153,36 @@
                         data-bs-target="#<%= modalId %>">
                   Ver respostas
                 </button>
+                <div class="d-flex flex-wrap gap-3 small mt-1">
+                  
                 <% if (r.email) { %>
-                  <button type="button" class="btn btn-outline-warning btn-sm" 
-                          onclick="enviarPedidoVideo('<%= r.email %>', '<%= r.nome %>', '<%= vaga.cargo %>', '<%= vaga.id %>')">
-                    <i class="bi bi-camera-video"></i> Requisitar Vídeo
+                  <button type="button" class="btn btn-outline-primary btn-sm" 
+                          onclick="prepararSolicitacao('<%= vaga.id %>', '<%= r.email %>', '<%= r.nome %>', '<%= vaga.cargo %>')">
+                    <i class="bi bi-camera-video"></i> Solicitar Vídeo
                   </button>
                 <% } %>
+
+                <% if (r.temVideo) { %>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="abrirVideoCandidato('<%= vaga.id %>', '<%= cid %>')">
+                    <i class="bi bi-play-circle"></i> Assistir Vídeo
+                  </button>
+                <% } %>
+                  
+                </div>
+
+                <script>
+                  function abrirVideoCandidato(vagaId, candidatoId) {
+                    
+                    // IMPORTANTE: Substitua 'SEU_CLOUD_NAME' pelo seu nome do Cloudinary (ex: dffxxyz)
+                    const cloudName = 'dmjzmau2b'; 
+                    const publicId = `video_${vagaId}_${candidatoId}`;
+                    const videoUrl = `https://res.cloudinary.com/${cloudName}/video/upload/vagas_videos/${publicId}.mp4`;
+
+                    // Tentamos abrir o vídeo em uma nova aba
+                    // Se o vídeo não existir, o Cloudinary retornará 404
+                    window.open(videoUrl, '_blank');
+                }
+                </script>
 
                 <!-- (novo) botão Análise geral da IA -->
                 <% if (r.explanation || typeof r.score_D !== 'undefined') { %>
@@ -377,6 +399,96 @@
     <% } %>
   </main>
 
+  <div class="modal fade" id="modalSolicitarVideo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="bi bi-envelope-paper me-2"></i>Enviar Solicitação</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center py-4">
+          <div class="mb-3">
+            <i class="bi bi-camera-reels text-primary" style="font-size: 3rem;"></i>
+          </div>
+          <p class="mb-1">Você deseja solicitar um vídeo de apresentação para:</p>
+          <h4 id="modalNomeCandidato" class="text-dark fw-bold"></h4>
+          <p class="text-muted small px-3">O candidato receberá um e-mail profissional com instruções e o link seguro para realizar o upload.</p>
+        </div>
+        <div class="modal-footer border-0 justify-content-center pb-4">
+          <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Agora não</button>
+          <button type="button" id="btnConfirmarSolicitacao" class="btn btn-primary px-4 fw-bold">
+            <span id="btnSpinner" class="spinner-border spinner-border-sm d-none me-2"></span>
+            Sim, enviar e-mail
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const modalElement = document.getElementById('modalSolicitarVideo');
+      const bsModal = new bootstrap.Modal(modalElement);
+      let dadosParaEnvio = null;
+
+      window.prepararSolicitacao = function(idVaga, email, nomeCandidato, nomeVaga) {
+        dadosParaEnvio = { idVaga, emailCandidato: email, nomeCandidato, nomeVaga };
+        document.getElementById('modalNomeCandidato').textContent = nomeCandidato;
+        bsModal.show();
+      };
+
+      document.getElementById('btnConfirmarSolicitacao').addEventListener('click', async function() {
+        const btn = this;
+        const spinner = document.getElementById('btnSpinner');
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+
+        try {
+          const response = await fetch('/solicitar-video', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dadosParaEnvio)
+          });
+          const result = await response.json();
+          if (result.success) {
+            bsModal.hide();
+            Swal.fire({ icon: 'success', title: 'Enviado!', text: 'Solicitação enviada com sucesso.', confirmButtonColor: '#0d6efd' });
+          } else { throw new Error(result.message); }
+        } catch (error) {
+          Swal.fire('Erro', 'Não foi possível enviar o e-mail: ' + error.message, 'error');
+        } finally {
+          btn.disabled = false;
+          spinner.classList.add('d-none');
+        }
+      });
+
+      // Lógica de Ordenação
+      const select = document.getElementById('ordenarPor');
+      const container = document.getElementById('ranking-list');
+      if (select && container) {
+        function getRows() { return Array.from(container.querySelectorAll('.cand-row')); }
+        function sortBy(key) {
+          const rows = getRows();
+          rows.sort((a, b) => Number(b.dataset[key.replace('score_','').toLowerCase()] || b.dataset.score) - Number(a.dataset[key.replace('score_','').toLowerCase()] || a.dataset.score));
+          rows.forEach(r => {
+            const val = r.dataset[key === 'score' ? 'score' : key.replace('score_','').toLowerCase()];
+            r.querySelector('.js-metric-bar').style.width = val + '%';
+            r.querySelector('.js-metric-value').textContent = val;
+            container.appendChild(r);
+          });
+        }
+        select.addEventListener('change', (e) => sortBy(e.target.value));
+        sortBy('score');
+      }
+    });
+
+    function abrirVideoCandidato(vagaId, candidatoId) {
+      const cloudName = 'dmjzmau2b'; 
+      const videoUrl = `https://res.cloudinary.com/${cloudName}/video/upload/vagas_videos/video_${vagaId}_${candidatoId}.mp4`;
+      window.open(videoUrl, '_blank');
+    }
+  </script>
+  
   <script>
     // largura inicial das barras (compatível com o markup original)
     document.querySelectorAll('.progress-bar').forEach(el => {
@@ -444,5 +556,6 @@
 
   <%- include('../partials/footer') %>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </body>
 </html>

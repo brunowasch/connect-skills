@@ -7,12 +7,12 @@ const axios = require("axios");
 const empresaModel = require("../models/empresaModel");
 const vagaModel = require("../models/vagaModel");
 const vagaAvaliacaoModel = require("../models/vagaAvaliacaoModel");
-const { cloudinary } = require("../config/cloudinary");
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const vagaArquivoController = require("./vagaArquivoController");
 const { discQuestionBank } = require("../utils/discQuestionBank");
 const { encodeId, decodeId } = require("../utils/idEncoder");
+const cloudinary = require('cloudinary').v2;
 
 function getEmpresaFromSession(req) {
   const s = req.session || {};
@@ -1204,94 +1204,51 @@ exports.salvarEditarVaga = async (req, res) => {
 };
 
 // Ranking
-
 exports.rankingCandidatos = async (req, res) => {
   try {
-    // 1) Captura o ID da URL. 
-    // Usamos rawId para evitar confusão com o antigo 'raw'
     const rawId = String(req.params.vagaId || "");
-    
-    console.log("SESSÃO ATUAL:", req.session.empresa);
-
     let dec = decodeId(rawId);
     let vagaId = (dec && !isNaN(dec)) ? dec : rawId;
 
     const empresaId = req.session.empresa?.id;
-    console.log("ID DA EMPRESA IDENTIFICADO:", empresaId);
     if (!empresaId) {
       req.session.erro = "Faça login como empresa para ver o ranking.";
       return res.redirect("/login");
     }
 
     const vaga = await prisma.vaga.findFirst({
-      where: { 
-        id: String(vagaId), 
-        empresa_id: String(empresaId) 
-      },
+      where: { id: String(vagaId), empresa_id: String(empresaId) },
     });
 
     if (!vaga) {
-      console.error("[rankingCandidatos] Vaga não encontrada ou ID inválido:", vagaId);
       req.session.erro = "Vaga não encontrada ou não pertence a esta empresa.";
       return res.redirect("/empresa/vagas");
     }
 
-    vaga.empresa = {
-      nome_empresa: req.session.empresa.nome_empresa
-    };
+    vaga.empresa = { nome_empresa: req.session.empresa.nome_empresa };
 
-    // 3) Busca as avaliações
-    const avaliacoes = await vagaAvaliacaoModel.listarPorVaga({
-      vaga_id: String(vagaId),
-    });
+    const avaliacoes = await vagaAvaliacaoModel.listarPorVaga({ vaga_id: String(vagaId) });
 
-    const tryParseJSON = (s) => {
-      try { return JSON.parse(s); } catch (_) { return null; }
-    };
+    const tryParseJSON = (s) => { try { return JSON.parse(s); } catch (_) { return null; } };
+    const ensureQmark = (str) => String(str || "").trim().replace(/\s*([?.!…:])?\s*$/, "?");
+    const toLine = ({ question, answer }) => `${ensureQmark(question)} ${String(answer || "").trim() || "—"}`;
 
-    const ensureQmark = (str) => {
-      const t = String(str || "").trim();
-      if (!t) return "";
-      return t.replace(/\s*([?.!…:])?\s*$/, "?");
-    };
-
-    const toLine = ({ question, answer }) => {
-      const q = ensureQmark(String(question || ""));
-      const a = String(answer || "").trim() || "—";
-      return [q, a].join(" ");
-    };
-
-    // 4) Processamento dos candidatos
-    const rows = avaliacoes.map((a, idx) => {
+    // 4) Processamento dos candidatos com verificação de vídeo
+    const rowsRaw = avaliacoes.map((a, idx) => {
       const c = a.candidato || {};
       const u = c.usuario || {};
-
-      const nome = [c.nome, c.sobrenome].filter(Boolean).join(" ").trim() ||
-                   u.nome || u.email || `Candidato #${c.id || ""}`.trim();
-
+      const nome = [c.nome, c.sobrenome].filter(Boolean).join(" ").trim() || u.nome || u.email || "Candidato";
       const local = [c.cidade, c.estado, c.pais].filter(Boolean).join(", ") || "—";
-      
-      const breakdown = typeof a.breakdown === "string" 
-        ? tryParseJSON(a.breakdown) || {} 
-        : a.breakdown || {};
+      const breakdown = typeof a.breakdown === "string" ? tryParseJSON(a.breakdown) || {} : a.breakdown || {};
 
       let lines = [];
-      if (breakdown && typeof breakdown === "object") {
-        const qa = Array.isArray(breakdown.qa) ? breakdown.qa : [];
-        const da = Array.isArray(breakdown.da) ? breakdown.da : [];
-        if (da.length) lines = lines.concat(da.filter((x) => x?.question).map(toLine));
-        if (qa.length) lines = lines.concat(qa.filter((x) => x?.question).map(toLine));
-      }
-
-      let questions = lines.length ? lines.join("\n") : (typeof a.resposta === "string" ? a.resposta.trim() : "");
+      if (breakdown?.qa) lines = lines.concat(breakdown.qa.filter(x => x?.question).map(toLine));
+      if (breakdown?.da) lines = lines.concat(breakdown.da.filter(x => x?.question).map(toLine));
 
       return {
-        pos: idx + 1,
         candidato_id: c.id || null,
-        nome,
-        local,
+        nome, local, email: u.email || "",
         telefone: c.telefone || "—",
-        email: u.email || "",
         foto_perfil: c.foto_perfil || "/img/avatar.png",
         score: Number(a.score) || 0,
         score_D: Number(breakdown?.score_D) || 0,
@@ -1299,16 +1256,32 @@ exports.rankingCandidatos = async (req, res) => {
         score_S: Number(breakdown?.score_S) || 0,
         score_C: Number(breakdown?.score_C) || 0,
         explanation: breakdown?.explanation || "",
-        suggestions: Array.isArray(breakdown?.suggestions) ? breakdown.suggestions : [],
-        matchedSkills: Array.isArray(breakdown?.matchedSkills) ? breakdown.matchedSkills : [],
-        questions,
+        suggestions: breakdown?.suggestions || [],
+        matchedSkills: breakdown?.matchedSkills || [],
+        questions: lines.length ? lines.join("\n") : (a.resposta || "").trim(),
       };
     });
 
-    // Ordena por score decrescente
-    rows.sort((a, b) => (b.score || 0) - (a.score || 0));
+    // VERIFICAÇÃO DE VÍDEO NO CLOUDINARY
+    // Usamos Promise.all para verificar todos simultaneamente e ganhar tempo
+    const rows = await Promise.all(rowsRaw.map(async (r) => {
+      let temVideo = false;
+      if (r.candidato_id) {
+        try {
+          // O public_id deve ser EXATAMENTE o mesmo que definimos no storage do app.js
+          const publicId = `vagas_videos/video_${vaga.id}_${r.candidato_id}`;
+          await cloudinary.api.resource(publicId, { resource_type: 'video' });
+          temVideo = true;
+        } catch (err) {
+          temVideo = false; // Se der 404, não tem vídeo
+        }
+      }
+      return { ...r, temVideo };
+    }));
 
-    // Retorna para a view com o ID original da URL (rawId)
+    rows.sort((a, b) => b.score - a.score);
+    rows.forEach((r, i) => r.pos = i + 1); // Reajusta posições após sort
+
     return res.render("empresas/ranking-candidatos", {
       vaga,
       rows,
@@ -1317,7 +1290,7 @@ exports.rankingCandidatos = async (req, res) => {
     });
 
   } catch (err) {
-    console.error("[rankingCandidatos] erro:", err);
+    console.error("[rankingCandidatos] erro crítico:", err);
     req.session.erro = "Não foi possível carregar o ranking.";
     return res.redirect("/empresa/vagas");
   }

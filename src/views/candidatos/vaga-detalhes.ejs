@@ -171,16 +171,40 @@
           </div>
           <% } %>
 
-          <% if (typeof jaAplicou !== 'undefined' && jaAplicou) { %>
-            <div class="alert alert-info d-flex align-items-center justify-content-between">
-              <span><i class="bi bi-info-circle me-2"></i>Você já se candidatou a esta vaga. A entrevista com IA está desabilitada.</span>
+        <% if (typeof jaAplicou !== 'undefined' && jaAplicou) { %>
+            <div class="alert alert-info d-flex align-items-center justify-content-between mb-3">
+              <span><i class="bi bi-info-circle me-2"></i>Você já se candidatou a esta vaga.</span>
               <a href="/candidatos/vagas/historico" class="btn btn-outline-primary btn-sm">Ver histórico</a>
             </div>
 
+            <div class="card border-primary mb-4 shadow-sm">
+              <div class="card-body">
+                <h6 class="card-title text-primary fw-bold">
+                  <i class="bi bi-camera-video-fill"></i> Vídeo de Apresentação
+                </h6>
+                <p class="small text-muted mb-3">
+                  Se a empresa solicitou, envie aqui seu vídeo de até 3 minutos apresentando suas habilidades.
+                </p>
+                
+                <form action="/vagas/enviar-video" method="POST" enctype="multipart/form-data" id="formVideo">
+                  <input type="hidden" name="vagaId" value="<%= vaga.id %>">
+                  <div class="input-group">
+                    <input type="file" name="video" class="form-control form-control-sm" id="inputVideo" accept="video/*" required>
+                    <button class="btn btn-primary btn-sm" type="submit" id="btnSubirVideo">
+                      <i class="bi bi-cloud-arrow-up"></i> Enviar
+                    </button>
+                  </div>
+                  <div id="uploadStatus" class="mt-2 small" style="display:none;">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <span class="ms-2">Enviando vídeo... aguarde, isso pode levar alguns minutos.</span>
+                  </div>
+                </form>
+              </div>
+            </div>
             <button class="btn btn-secondary" type="button" disabled title="Você já aplicou a esta vaga">
-              <i class="bi bi-robot"></i>  Iniciar entrevista com IA
+              <i class="bi bi-robot"></i> Iniciar entrevista com IA
             </button>
-          <% } else { %>
+        <% } else { %>
             <% if (somentePreview) { %>
               <!-- Visitante / não logado como candidato: botão cinza e sem questionário -->
               <button class="btn btn-secondary" type="button" disabled
@@ -274,6 +298,19 @@
 
   <%- include('../partials/footer') %>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script>
+      document.getElementById('formVideo')?.addEventListener('submit', function() {
+          Swal.fire({
+              title: 'Enviando vídeo...',
+              html: 'Aguarde enquanto processamos seu arquivo.',
+              allowOutsideClick: false,
+              didOpen: () => {
+                  Swal.showLoading();
+              }
+          });
+      });
+  </script>
   <script>
     (function(){
       const bloco = document.getElementById('bloco-ia');
