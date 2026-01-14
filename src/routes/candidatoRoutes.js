@@ -8,6 +8,8 @@ const { ensureUsuarioCandidato, ensureCandidato } = require('../middlewares/auth
 const withEncodedParam = require('../middlewares/withEncodedParam');
 const vagaController = require('../controllers/vagaController');
 
+console.log("-> candidatoRoutes.js carregado com sucesso");
+
 router.get('/vaga-publica/:id', candidatoController.vagaDetalhes);
 // Fluxo de cadastro
 router.get('/cadastro/nome', ensureCandidato, candidatoController.telaNomeCandidato);
@@ -52,5 +54,13 @@ router.post('/vagas/:id/avaliar', ensureCandidato, candidatoController.avaliarCo
 router.post('/excluir-conta', ensureCandidato, candidatoController.excluirConta);
 
 router.get('/pular-cadastro', candidatoController.pularCadastroCandidato);
+
+// A URL final será: /candidatos/vagas/:id/etapa-video
+router.get('/vagas/:id/etapa-video', ensureCandidato, (req, res, next) => {
+    console.log(`[DEBUG] Acessando rota de vídeo para a vaga: ${req.params.id}`);
+    next();
+}, vagaController.exibirTelaUploadVideo);
+
+router.post('/vagas/upload-video', ensureCandidato, vagaController.uploadVideoCandidato);
 
 module.exports = router;

@@ -23,6 +23,7 @@ router.get('/', (req, res) => {
 router.use('/', authRoutes); 
 router.use('/usuarios', usuarioRoutes); 
 
+router.use('/candidatos', candidatoRoutes);
 router.use('/candidato', candidatoRoutes);
 router.use('/empresa', empresaRoutes);
 

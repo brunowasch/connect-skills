@@ -30,6 +30,7 @@ const empresaRoutes = require('./routes/empresaRoutes');
 const mainRoutes = require('./routes/index');
 const candidatoArquivosRoutes = require('./routes/candidatoArquivosRoutes');
 const empresaArquivoRoutes = require('./routes/empresaArquivoRoutes');
+const { ensureCandidato } = require('./middlewares/auth');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -175,18 +176,9 @@ app.use((req, res, next) => {
 
   res.locals.encodeId = encodeId;
   res.locals.decodeId = decodeId;
+  console.log(`[DEBUG] Requisição recebida: ${req.method} ${req.url}`);
   next();
 });
-
-app.post('/vagas/enviar-video', 
-  (req, res, next) => {
-    // Middleware de segurança (exemplo)
-    if (!req.session.candidato) return res.redirect('/login');
-    next();
-  },
-  uploadVideo.single('video'), // <--- AQUI ESTAVA O SEGREDO (deve ser 'video')
-  vagaController.uploadVideoCandidato
-);
 
 app.post('/solicitar-video', vagaController.solicitarVideoCandidato);
 

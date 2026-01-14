@@ -14,21 +14,25 @@ function ensureEmpresa(req, res, next) {
 }
 
 function ensureCandidato(req, res, next) {
-  if (!req.session?.candidato) {
-    if (wantsJSON(req)) {
-      return res.status(401).json({ ok: false, error: 'Acesso negado. Faça login como Candidato.' });
-    }
-    return res.redirect('/login');
+  if (req.session?.candidato) {
+    return next();
   }
-  next();
+  if (wantsJSON(req)) {
+    return res.status(401).json({ ok: false, error: 'Acesso negado.' });
+  }
+  req.session.returnTo = req.originalUrl; 
+  
+  res.redirect('/login');
 }
 
 function ensureUsuarioCandidato(req, res, next) {
   if (req.session?.usuario?.tipo === 'candidato') return next();
   if (wantsJSON(req)) {
-    return res.status(401).json({ ok: false, error: 'Acesso negado. Faça login como Candidato.' });
+    return res.status(401).json({ ok: false, error: 'Acesso negado.' });
   }
-  return res.redirect('/login');
+
+  req.session.returnTo = req.originalUrl; 
+  res.redirect('/login');
 }
 
 function ensureUsuarioEmpresa(req, res, next) {

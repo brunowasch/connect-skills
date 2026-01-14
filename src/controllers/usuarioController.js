@@ -371,12 +371,16 @@ exports.login = async (req, res) => {
       return res.redirect(`/usuarios/aguardando-verificacao`);
     }
 
+    const destinoSalvoAntesDeApagar = req.session.returnTo;
+
     req.session.regenerate(async (err) => {
       if (err) {
         console.error('Erro ao regenerar sessão:', err);
         req.session.erro = 'Erro ao iniciar sessão.';
         return res.redirect('/login');
       }
+
+      const destinoFinal = destinoSalvoAntesDeApagar || (usuario.tipo === 'empresa' ? '/empresas/home' : '/candidatos/home');
 
       const keep = remember === 'on';
       req.session.remember = keep;
@@ -461,14 +465,21 @@ exports.login = async (req, res) => {
           skipCadastro: false,
         };
 
+        const destinoFinal = req.session.returnTo || '/candidatos/home';
+
         if (!candidato || isCandidatoIncompleto(candidato)) {
-          console.log("Candidato incompleto ou inexistente, redirecionando para cadastro...");
-          return redirecionarFluxoCandidato(usuario.id, res);
+
+            if (destinoSalvoAntesDeApagar && destinoSalvoAntesDeApagar.includes('etapa-video')) {
+                console.log("Candidato incompleto, mas liberando acesso à etapa de vídeo.");
+                return req.session.save(() => res.redirect(destinoFinal));
+            }
+            console.log("Candidato incompleto, redirecionando para fluxo de cadastro.");
+            return redirecionarFluxoCandidato(usuario.id, res);
         }
 
         const destino = req.session.returnTo || '/candidatos/home';
         delete req.session.returnTo;
-        return req.session.save(() => res.redirect(destino));
+        return req.session.save(() => res.redirect(destinoFinal));
       }
 
       return res.redirect('/cadastro');

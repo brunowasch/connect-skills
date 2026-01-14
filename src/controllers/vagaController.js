@@ -1,3 +1,4 @@
+const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const vagaModel = require('../models/vagaModel');
@@ -164,7 +165,7 @@ exports.solicitarVideoCandidato = async (req, res) => {
     try {
         const { idVaga, emailCandidato, nomeCandidato, nomeVaga } = req.body;
         const transporter = createTransporter();
-        const linkVaga = `${process.env.APP_URL || 'http://localhost:3000'}/vagas/${idVaga}`;
+        const linkVaga = `${process.env.APP_URL || 'http://localhost:3000'}/candidatos/vagas/${idVaga}/etapa-video`;
         
         await transporter.sendMail({
             from: process.env.EMAIL_FROM || process.env.SMTP_USER,
@@ -207,23 +208,82 @@ exports.uploadVideoCandidato = async (req, res) => {
         if (!vagaId) {
              console.error('[VIDEO] Erro: vagaId não recebido.');
              req.session.erro = 'Erro ao identificar a vaga.';
-             return res.redirect('/candidato/dashboard'); // Ou rota apropriada
+             return res.redirect('/candidatos/home'); // Ou rota apropriada
         }
 
         if (!req.file) {
             req.session.erro = 'Falha ao carregar o arquivo de vídeo ou formato inválido.';
-            return res.redirect(`/vagas/${vagaId}`);
+            return res.redirect(`/candidatos/vagas/${vagaId}/etapa-video`);
         }
+
+        await prisma.vaga_avaliacao.updateMany({
+            where: {
+                vaga_id: vagaId,
+                candidato_id: req.session.usuario.id
+            },
+            data: {
+                video_url: req.file.path, // URL que vem do Cloudinary
+                updated_at: new Date()
+            }
+        });
 
         console.log(`[VIDEO] Upload realizado com sucesso: ${req.file.path}`);
 
         req.session.sucesso = 'Vídeo de apresentação enviado com sucesso! A empresa já pode visualizá-lo.';
         
-        return res.redirect(`/vagas/${vagaId}`);
+        return res.redirect(`/candidatos/vagas/${vagaId}`);
     } catch (err) {
         console.error('[VIDEO] Erro no controller:', err);
         req.session.erro = 'Erro interno ao processar vídeo.';
         const redirectUrl = req.body.vagaId ? `/vagas/${req.body.vagaId}` : '/';
         return res.redirect(redirectUrl);
+    }
+};
+
+exports.exibirTelaUploadVideo = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const usuarioId = req.session.usuario.id;
+
+        // 1. Busca a vaga e a avaliação do candidato (onde está a data do convite)
+        const avaliacao = await prisma.vaga_avaliacao.findFirst({
+            where: {
+                vaga_id: String(id),
+                candidato_id: usuarioId
+            }
+        });
+
+        if (!avaliacao) {
+            req.session.erro = 'Você não tem permissão para acessar esta etapa.';
+            return res.redirect('/candidatos/home');
+        }
+
+        // 2. LÓGICA DE 3 DIAS
+        // Verificamos o campo 'updated_at' (ou 'criado_em') de quando ele foi movido para essa etapa
+        const dataConvite = new Date(avaliacao.updated_at);
+        const agora = new Date();
+        const diferencaDias = Math.floor((agora - dataConvite) / (1000 * 60 * 60 * 24));
+
+        if (diferencaDias > 3) {
+            return res.render('candidatos/etapa-video-expirado', {
+                vagaTitulo: "Esta oportunidade expirou",
+                mensagem: "O prazo de 3 dias para envio do vídeo de apresentação encerrou."
+            });
+        }
+
+        const vaga = await prisma.vaga.findUnique({
+            where: { id: String(id) },
+            include: { empresa: true }
+        });
+
+        res.render('candidatos/etapa-video', {
+            vaga,
+            msgErro: req.session.erro,
+            msgSucesso: req.session.sucesso
+        });
+
+    } catch (error) {
+        console.error('Erro ao validar etapa de vídeo:', error);
+        res.redirect('/candidatos/home');
     }
 };

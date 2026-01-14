@@ -1,0 +1,42 @@
+<%- include('../shared/header') %>
+
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3>Etapa de Vídeo: <%= vaga.titulo %></h3>
+        </div>
+        <div class="card-body">
+            <p><strong>Empresa:</strong> <%= vaga.empresa.nome_fantasia || vaga.empresa.nome_empresa %></p>
+            
+            <div class="alert alert-warning">
+                <i class="fas fa-clock"></i> Você tem <strong>3 dias</strong> para enviar este vídeo.
+            </div>
+
+            <% if (msgErro) { %>
+                <div class="alert alert-danger"><%= msgErro %></div>
+            <% } %>
+            <% if (msgSucesso) { %>
+                <div class="alert alert-success"><%= msgSucesso %></div>
+            <% } %>
+
+            <form action="/candidatos/vagas/upload-video" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="vagaId" value="<%= vaga.id %>">
+
+                <div class="mb-4">
+                    <label class="form-label">Grave ou selecione um vídeo de apresentação (Máx 3 min)</label>
+                    <input type="file" name="video" class="form-control" accept="video/*" required>
+                    <div class="form-text">Formatos aceitos: MP4, WEBM, MOV.</div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-success">Enviar Vídeo</button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="alert('Funcionalidade de gravar na hora será ativada em breve!')">
+                        <i class="fas fa-video"></i> Gravar Agora
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<%- include('../shared/footer') %>
