@@ -165,9 +165,10 @@ app.use((req, res, next) => {
   delete req.session.sucessoContato;
   delete req.session.erroContato;
 
-  if (!req.isAuthenticated() && req.path.startsWith('/vagas/')) {
-    req.session.returnTo = req.originalUrl;
-  }
+  if (!req.isAuthenticated() && (req.path.startsWith('/vagas/') || req.path.startsWith('/candidatos/vagas/'))) {
+      req.session.returnTo = req.originalUrl;
+      console.log(`[SESSION] URL salva para retorno: ${req.session.returnTo}`); // Log para debug
+    }
 
   res.locals.candidato = req.session.candidato || null;
   res.locals.empresa   = req.session.empresa || null;

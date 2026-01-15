@@ -7,6 +7,7 @@ const uploadCandidato = require('../middlewares/upload');
 const { ensureUsuarioCandidato, ensureCandidato } = require('../middlewares/auth');
 const withEncodedParam = require('../middlewares/withEncodedParam');
 const vagaController = require('../controllers/vagaController');
+const { uploadVideo } = require('../middlewares/uploadVideo');
 
 console.log("-> candidatoRoutes.js carregado com sucesso");
 
@@ -61,6 +62,9 @@ router.get('/vagas/:id/etapa-video', ensureCandidato, (req, res, next) => {
     next();
 }, vagaController.exibirTelaUploadVideo);
 
-router.post('/vagas/upload-video', ensureCandidato, vagaController.uploadVideoCandidato);
-
+router.post('/vagas/upload-video', 
+    ensureCandidato, 
+    uploadVideo.single('video'), 
+    vagaController.uploadVideoCandidato
+);
 module.exports = router;

@@ -1245,6 +1245,18 @@ exports.rankingCandidatos = async (req, res) => {
       if (breakdown?.qa) lines = lines.concat(breakdown.qa.filter(x => x?.question).map(toLine));
       if (breakdown?.da) lines = lines.concat(breakdown.da.filter(x => x?.question).map(toLine));
 
+      const dataEnvioVideo = a.updated_at ? new Date(a.updated_at) : null;
+        const agora = new Date();
+        let prazoEmpresaExpirado = false;
+        let diasRestantesEmpresa = 0;
+      
+      if (a.video_url && dataEnvioVideo) {
+          const diffTime = Math.abs(agora - dataEnvioVideo);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          diasRestantesEmpresa = 7 - diffDays;
+          if (diffDays > 7) prazoEmpresaExpirado = true;
+      }
+
       return {
         candidato_id: c.id || null,
         nome, local, email: u.email || "",
@@ -1259,6 +1271,11 @@ exports.rankingCandidatos = async (req, res) => {
         suggestions: breakdown?.suggestions || [],
         matchedSkills: breakdown?.matchedSkills || [],
         questions: lines.length ? lines.join("\n") : (a.resposta || "").trim(),
+        video_url: a.video_url,
+        data_video: dataEnvioVideo,
+        prazoEmpresaExpirado,
+        diasRestantesEmpresa,
+        temFeedback: !!a.feedback_empresa,
       };
     });
 
