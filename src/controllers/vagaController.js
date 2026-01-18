@@ -203,78 +203,124 @@ exports.solicitarVideoCandidato = async (req, res) => {
 exports.uploadVideoCandidato = async (req, res) => {
     try {
         const { vagaId } = req.body;
-        const arquivo = req.file;
+        const usuarioLogado = req.session.usuario;
 
-        if (!vagaId) {
-             console.error('[VIDEO] Erro: vagaId não recebido.');
-             req.session.erro = 'Erro ao identificar a vaga.';
-             return res.redirect('/candidatos/home'); // Ou rota apropriada
+        // Validação básica de segurança
+        if (!vagaId || !usuarioLogado) {
+            req.session.erro = 'Sessão expirada ou vaga não identificada.';
+            return res.redirect('/login');
         }
 
-        if (!req.file) {
-            req.session.erro = 'Falha ao carregar o arquivo de vídeo ou formato inválido.';
+        // Verifica se o arquivo chegou (Multer + Cloudinary)
+        if (!req.file || !req.file.path) {
+            req.session.erro = 'Por favor, selecione um arquivo de vídeo válido.';
             return res.redirect(`/candidatos/vagas/${vagaId}/etapa-video`);
         }
 
-        await prisma.vaga_avaliacao.updateMany({
+        // 1. Buscamos o perfil do candidato vinculado ao usuário (para pegar o ID técnico se necessário)
+        const perfilCandidato = await prisma.candidato.findUnique({
+            where: { usuario_id: usuarioLogado.id }
+        });
+
+        // 2. Tenta encontrar a avaliação por qualquer um dos IDs (Usuario ou Candidato)
+        // Isso é crucial porque se a empresa enviou o convite usando o ID do candidato, 
+        // e você está logado com o ID do usuário, o updateMany precisa encontrar o registro certo.
+        const avaliacaoExistente = await prisma.vaga_avaliacao.findFirst({
             where: {
-                vaga_id: vagaId,
-                candidato_id: req.session.usuario.id
-            },
+                vaga_id: String(vagaId),
+                OR: [
+                    { candidato_id: usuarioLogado.id },
+                    { candidato_id: perfilCandidato ? perfilCandidato.id : 'nao-encontrado' }
+                ]
+            }
+        });
+
+        if (!avaliacaoExistente) {
+            console.error(`[VIDEO_UPLOAD] Registro de avaliação não encontrado para Vaga ${vagaId}`);
+            req.session.erro = 'Erro ao vincular vídeo à sua candidatura. Tente novamente.';
+            return res.redirect('/candidatos/home');
+        }
+
+        // 3. Executa a atualização no ID específico encontrado
+        await prisma.vaga_avaliacao.update({
+            where: { id: avaliacaoExistente.id },
             data: {
-                video_url: req.file.path, // URL que vem do Cloudinary
+                video_url: req.file.path, // URL gerada pelo Cloudinary
                 updated_at: new Date()
             }
         });
 
-        console.log(`[VIDEO] Upload realizado com sucesso: ${req.file.path}`);
+        console.log(`[VIDEO_UPLOAD] Sucesso! URL: ${req.file.path} para Vaga: ${vagaId}`);
 
         req.session.sucesso = 'Vídeo de apresentação enviado com sucesso! A empresa já pode visualizá-lo.';
         
+        // Redireciona de volta para os detalhes da vaga
         return res.redirect(`/candidatos/vagas/${vagaId}`);
+
     } catch (err) {
-        console.error('[VIDEO] Erro no controller:', err);
-        req.session.erro = 'Erro interno ao processar vídeo.';
-        const redirectUrl = req.body.vagaId ? `/vagas/${req.body.vagaId}` : '/';
-        return res.redirect(redirectUrl);
+        console.error('[VIDEO_UPLOAD] Erro crítico no processo:', err);
+        req.session.erro = 'Houve um erro interno ao processar seu vídeo. Por favor, tente novamente.';
+        return res.redirect('/candidatos/home');
     }
 };
 
 exports.exibirTelaUploadVideo = async (req, res) => {
     try {
         const { id } = req.params;
-        const usuarioId = req.session.usuario.id;
+        const usuarioLogado = req.session.usuario;
 
-        // 1. Busca a vaga e a avaliação do candidato (onde está a data do convite)
+        if (!usuarioLogado) return res.redirect('/login');
+
+        // 1. Buscamos o registro do candidato vinculado a esse usuário no banco
+        const perfilCandidato = await prisma.candidato.findUnique({
+            where: { usuario_id: usuarioLogado.id }
+        });
+
+        // 2. Agora buscamos a avaliação tentando os DOIS IDs (o do usuário e o do candidato)
+        // Isso garante que independente de como a empresa salvou, nós vamos achar.
         const avaliacao = await prisma.vaga_avaliacao.findFirst({
             where: {
                 vaga_id: String(id),
-                candidato_id: usuarioId
+                OR: [
+                    { candidato_id: usuarioLogado.id },
+                    { candidato_id: perfilCandidato ? perfilCandidato.id : 'nao-existe' }
+                ]
             }
         });
 
         if (!avaliacao) {
+            console.error(`[VIDEO] Bloqueio: Registro não encontrado na vaga_avaliacao.`);
             req.session.erro = 'Você não tem permissão para acessar esta etapa.';
             return res.redirect('/candidatos/home');
         }
 
-        // 2. LÓGICA DE 3 DIAS
-        // Verificamos o campo 'updated_at' (ou 'criado_em') de quando ele foi movido para essa etapa
-        const dataConvite = new Date(avaliacao.updated_at);
+        // 3. Verificação de validade de 3 dias
+        const dataConvite = new Date(avaliacao.updated_at || avaliacao.created_at);
         const agora = new Date();
-        const diferencaDias = Math.floor((agora - dataConvite) / (1000 * 60 * 60 * 24));
+        const tresDiasEmMs = 3 * 24 * 60 * 60 * 1000;
 
-        if (diferencaDias > 3) {
+        if (agora - dataConvite > tresDiasEmMs) {
             return res.render('candidatos/etapa-video-expirado', {
-                vagaTitulo: "Esta oportunidade expirou",
-                mensagem: "O prazo de 3 dias para envio do vídeo de apresentação encerrou."
+                vagaTitulo: "Link Expirado",
+                mensagem: "O prazo para envio do vídeo terminou."
             });
         }
 
         const vaga = await prisma.vaga.findUnique({
-            where: { id: String(id) },
-            include: { empresa: true }
+            where: { id: String(id) }
         });
+
+        if (!vaga) {
+            req.session.erro = 'Vaga não encontrada.';
+            return res.redirect('/candidatos/home');
+        }
+
+        // 4. Como o include: { empresa: true } falhou, buscamos a empresa manualmente pelo id
+        const empresa = await prisma.empresa.findUnique({
+            where: { id: vaga.empresa_id }
+        });
+
+        vaga.empresa = empresa;
 
         res.render('candidatos/etapa-video', {
             vaga,
@@ -283,7 +329,7 @@ exports.exibirTelaUploadVideo = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Erro ao validar etapa de vídeo:', error);
+        console.error('Erro crítico na rota de vídeo:', error);
         res.redirect('/candidatos/home');
     }
 };

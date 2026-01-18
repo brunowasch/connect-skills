@@ -14,15 +14,35 @@ function ensureEmpresa(req, res, next) {
 }
 
 function ensureCandidato(req, res, next) {
-  if (req.session?.candidato) {
+  // 1. Verifica se o usuário está logado e se é do tipo candidato
+  if (!req.session?.usuario || req.session.usuario.tipo !== 'candidato') {
+    if (wantsJSON(req)) {
+      return res.status(401).json({ ok: false, error: 'Sessão expirada ou acesso negado.' });
+    }
+    req.session.returnTo = req.originalUrl; 
+    return res.redirect('/login');
+  }
+
+  // 2. EXCEÇÃO DE OURO: Se a URL contém 'etapa-video', permite o acesso
+  // mesmo que o objeto 'candidato' na sessão ainda não esteja totalmente populado.
+  if (req.originalUrl.includes('etapa-video')) {
+    console.log(`[AUTH] Permitindo acesso direto à etapa de vídeo: ${req.originalUrl}`);
     return next();
   }
-  if (wantsJSON(req)) {
-    return res.status(401).json({ ok: false, error: 'Acesso negado.' });
+
+  // 3. Verificação padrão para as demais rotas (Home, Vagas, etc)
+  // Exige que o perfil do candidato já tenha sido criado/identificado
+  if (!req.session?.candidato || !req.session.candidato.id) {
+    console.log("[AUTH] Candidato sem perfil completo acessando rota restrita. Redirecionando...");
+    return res.redirect('/candidatos/cadastro/nome');
   }
-  req.session.returnTo = req.originalUrl; 
-  
-  res.redirect('/login');
+
+  return next();
+}
+
+// Função auxiliar (caso não tenha aí)
+function wantsJSON(req) {
+  return req.xhr || (req.headers.accept && req.headers.accept.includes('json'));
 }
 
 function ensureUsuarioCandidato(req, res, next) {

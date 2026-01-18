@@ -346,101 +346,77 @@ exports.criarUsuario = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-  const { email, senha, remember } = req.body;
-  if (!email || !senha) {
-    req.session.erro = 'Preencha todos os campos.';
-    return res.redirect('/login');
-  }
+  const { email, senha, remember } = req.body;
 
-  try {
-    const emailNormalizado = email.trim().toLowerCase();
-    const usuario = await usuarioModel.buscarPorEmail(emailNormalizado);
-    if (!usuario) {
-      req.session.erro = 'Usuário não encontrado.';
-      return res.redirect('/login');
-    }
+  if (!email || !senha) {
+    req.session.erro = 'Preencha todos os campos.';
+    return res.redirect('/login');
+  }
 
-    const senhaCorreta = await bcrypt.compare(senha, usuario.senha);
-    if (!senhaCorreta) {
-      req.session.erro = 'Senha incorreta.';
-      return res.redirect('/login');
-    }
+  try {
+    const emailNormalizado = email.trim().toLowerCase();
+    const usuario = await usuarioModel.buscarPorEmail(emailNormalizado);
 
-    if (!usuario.email_verificado) {
-      req.session.emailParaVerificacao = usuario.email;
-      return res.redirect(`/usuarios/aguardando-verificacao`);
-    }
+    if (!usuario) {
+      req.session.erro = 'Usuário não encontrado.';
+      return res.redirect('/login');
+    }
 
-    const destinoSalvoAntesDeApagar = req.session.returnTo;
+    const senhaCorreta = await bcrypt.compare(senha, usuario.senha);
+    if (!senhaCorreta) {
+      req.session.erro = 'Senha incorreta.';
+      return res.redirect('/login');
+    }
 
-    req.session.regenerate(async (err) => {
-      if (err) {
-        console.error('Erro ao regenerar sessão:', err);
-        req.session.erro = 'Erro ao iniciar sessão.';
-        return res.redirect('/login');
-      }
+    if (!usuario.email_verificado) {
+      req.session.emailParaVerificacao = usuario.email;
+      return res.redirect(`/usuarios/aguardando-verificacao`);
+    }
 
-      const destinoFinal = destinoSalvoAntesDeApagar || (usuario.tipo === 'empresa' ? '/empresas/home' : '/candidatos/home');
+    // 1. SALVA O DESTINO ANTES DE REGENERAR
+    const destinoSalvo = req.session.returnTo;
 
-      const keep = remember === 'on';
-      req.session.remember = keep;
+    req.session.regenerate(async (err) => {
+      if (err) {
+        console.error('Erro ao regenerar sessão:', err);
+        req.session.erro = 'Erro ao iniciar sessão.';
+        return res.redirect('/login');
+      }
 
-      if (remember === 'on') {
-        const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
-        req.session.cookie.maxAge = THIRTY_DAYS;
-        req.session.cookie.expires = new Date(Date.now() + THIRTY_DAYS);
-      } else {
-        if ('maxAge' in req.session.cookie) delete req.session.cookie.maxAge;
-        req.session.cookie.expires = undefined;
-      }
+      const keep = remember === 'on';
+      req.session.remember = keep;
 
-      if (usuario.tipo === 'empresa') {
-        const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario.id);
+      if (keep) {
+        const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
+        req.session.cookie.maxAge = THIRTY_DAYS;
+        req.session.cookie.expires = new Date(Date.now() + THIRTY_DAYS);
+      }
 
-        req.session.empresa = {
-          id: empresa?.id ?? null,
-          usuario_id: usuario.id,
-          nome_empresa: empresa?.nome_empresa || '',
-          descricao: empresa?.descricao || '',
-          telefone: empresa?.telefone || '',
-          cidade: empresa?.cidade || '',
-          estado: empresa?.estado || '',
-          pais: empresa?.pais || '',
-          // A foto é salva como a URL real, ou uma string vazia se não existir.
-          foto_perfil: (empresa?.foto_perfil && String(empresa.foto_perfil).trim() !== '')
-            ? empresa.foto_perfil
-            : '', // Salva como string vazia
-          email: usuario.email
-        };
-
-        req.session.usuario = {
-          id: usuario.id,
-          tipo: 'empresa',
-          nome: empresa?.nome_empresa || '',
-          email: usuario.email,
-          skipCadastro: false,
-        };
+      // --- LÓGICA EMPRESA ---
+      if (usuario.tipo === 'empresa') {
+        const empresa = await empresaModel.obterEmpresaPorUsuarioId(usuario.id);
         
-        if (!empresa || isEmpresaIncompleto(empresa)) {
-          return redirecionarFluxoEmpresa(usuario.id, res);
-        }
+        req.session.empresa = {
+          id: empresa?.id ?? null,
+          usuario_id: usuario.id,
+          nome_empresa: empresa?.nome_empresa || '',
+          email: usuario.email
+        };
 
-        const destino = req.session.returnTo || '/empresas/home';
-        delete req.session.returnTo;
-        return req.session.save(() => res.redirect(destino));
-      }
+        req.session.usuario = { id: usuario.id, tipo: 'empresa', skipCadastro: false };
 
-      if (usuario.tipo === 'candidato') {
-        console.log("Iniciando busca de candidato para Usuario ID:", usuario.id);
-
-        if (!usuario.id) {
-            console.error("ERRO FATAL: Objeto usuário sem ID no login.");
-            req.session.erro = 'Erro interno ao identificar perfil.';
-            return res.redirect('/login');
+        if (!empresa || isEmpresaIncompleto(empresa)) {
+          return redirecionarFluxoEmpresa(usuario.id, res);
         }
 
+        const destinoFinal = destinoSalvo || '/empresas/home';
+        return req.session.save(() => res.redirect(destinoFinal));
+      }
+
+      // --- LÓGICA CANDIDATO ---
+      if (usuario.tipo === 'candidato') {
         const candidato = await candidatoModel.obterCandidatoPorUsuarioId(String(usuario.id));
-        console.log("Candidato encontrado no BD:", candidato ? "Sim" : "Não");
+        
         const localidade = [candidato?.cidade, candidato?.estado, candidato?.pais]
           .filter(Boolean).join(', ');
 
@@ -451,12 +427,11 @@ exports.login = async (req, res) => {
           sobrenome: candidato?.sobrenome || '',
           email: usuario.email,
           tipo: 'candidato',
-          telefone: candidato?.telefone || '',
-          dataNascimento: candidato?.data_nascimento || null,
           foto_perfil: candidato?.foto_perfil || '',
           localidade,
           areas: candidato?.candidato_area?.map(r => r.area_interesse.nome) || []
         };
+        
         req.session.usuario = {
           id: usuario.id,
           tipo: 'candidato',
@@ -465,31 +440,33 @@ exports.login = async (req, res) => {
           skipCadastro: false,
         };
 
-        const destinoFinal = req.session.returnTo || '/candidatos/home';
+        // DEFINIÇÃO DO DESTINO
+        let urlDestino = destinoSalvo || '/candidatos/home';
 
-        if (!candidato || isCandidatoIncompleto(candidato)) {
+        // LIMPEZA DA SESSÃO
+        delete req.session.returnTo;
 
-            if (destinoSalvoAntesDeApagar && destinoSalvoAntesDeApagar.includes('etapa-video')) {
-                console.log("Candidato incompleto, mas liberando acesso à etapa de vídeo.");
-                return req.session.save(() => res.redirect(destinoFinal));
-            }
+        // REGRA DE OURO: Se for vídeo, ignora cadastro incompleto e vai direto
+        if (urlDestino.includes('etapa-video')) {
+            console.log(`[LOGIN] Prioridade de vídeo detectada. Pulando validação de fluxo.`);
+        }
+        // Se NÃO for vídeo e o cadastro estiver incompleto, aí sim redireciona para o fluxo
+        else if (!candidato || isCandidatoIncompleto(candidato)) {
             console.log("Candidato incompleto, redirecionando para fluxo de cadastro.");
-            return redirecionarFluxoCandidato(usuario.id, res);
+            return redirecionarFluxoCandidato(usuario.id, res); // Aqui ela entra em ação
         }
 
-        const destino = req.session.returnTo || '/candidatos/home';
-        delete req.session.returnTo;
-        return req.session.save(() => res.redirect(destinoFinal));
-      }
+        // SALVAMENTO SEGURO
+        return req.session.save(() => res.redirect(urlDestino));
+      }
 
-      return res.redirect('/cadastro');
-    });
+      return res.redirect('/cadastro');
+    });
 
-  } catch (err) {
-    console.error('Erro ao realizar login:', err);
-    req.session.erro = 'Erro ao realizar login.';
-    return res.redirect('/login');
-  }
+  } catch (err) {
+    console.error('Erro ao realizar login:', err);
+    return res.redirect('/login');
+  }
 };
 
 exports.verificarEmail = async (req, res) => {

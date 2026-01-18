@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ranking de Candidatos | Connect Skills</title>
+  <title>Connect Skills</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <link rel="stylesheet" href="/css/shared/style.css">
@@ -15,8 +15,6 @@
     .btn-ver-perfil { font-size: .8rem; padding: .15rem .4rem; line-height: 1.1; }
     .cand-row { transition: background-color 0.2s; }
     .cand-row:hover { background-color: #f8f9fa; }
-    /* Estilo para garantir que os botões fiquem alinhados */
-    .actions-gap { gap: 0.5rem; }
   </style>
 </head>
 <body class="bg-light">
@@ -25,27 +23,27 @@
 
   <main class="container py-5 mt-4">
     <div class="d-flex align-items-center gap-3 mb-4">
-      <a href="/empresas/vagas" class="text-decoration-none" title="Voltar para Vagas">
+      <a href="/empresa/vagas" class="text-decoration-none" title="Voltar">
         <i class="bi bi-arrow-left fs-4"></i>
       </a>
       <div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
           <h3 class="mb-0">Ranqueamento de candidatos</h3>
           <span class="badge rounded-pill border text-primary bg-primary-subtle d-inline-flex align-items-center px-3 py-2">
-            <i class="bi bi-people me-2"></i><%= rows.length %> candidatos
+            <i class="bi bi-people me-2"></i><%= rows.length %> candidatos encontrados
           </span>
         </div>
         <div class="text-muted mt-1">
           Cargo: <strong><%= vaga.cargo %></strong> · Empresa: <strong><%= vaga.empresa?.nome_empresa %></strong>
         </div>
         <div class="text-muted small">
-          Ordenação baseada na compatibilidade IA. Empates seguem a ordem de chegada.
+          Os candidatos estão ranqueados com base na compatibilidade (0–100) calculada pela nossa IA a partir das respostas. Em caso de empate, são ranqueados em ordem de chegada.
         </div>
       </div>
 
       <div class="ms-auto d-flex align-items-center gap-2">
-        <label for="ordenarPor" class="form-label mb-0 fw-bold text-secondary">Ordenar por:</label>
-        <select id="ordenarPor" class="form-select form-select-sm border-secondary" style="width:auto">
+        <label for="ordenarPor" class="form-label mb-0">Ordenar por</label>
+        <select id="ordenarPor" class="form-select form-select-sm" style="width:auto">
           <option value="score">Score Geral</option>
           <option value="score_D">Dominância (D)</option>
           <option value="score_I">Influência (I)</option>
@@ -56,9 +54,9 @@
     </div>
 
     <% if (!rows.length) { %>
-      <div class="alert alert-light border d-flex align-items-center gap-2 py-4 justify-content-center text-muted">
-        <i class="bi bi-info-circle fs-4"></i>
-        <span>Nenhum candidato aplicou para esta vaga ainda.</span>
+      <div class="alert alert-light d-flex align-items-center gap-2">
+        <i class="bi bi-info-circle"></i>
+        <span>Nenhum candidato aplicou para esta vaga.</span>
       </div>
     <% } else { %>
 
@@ -66,10 +64,8 @@
       <% rows.forEach((r, idx) => { 
           const modalId = `modal-respostas-${r.candidato_id || idx}`;
           const modalIaId = `modal-ia-${r.candidato_id || idx}`;
-          // Normaliza IDs para garantir funcionamento
           const cid = r.candidato_id || r.candidatoId || r.id_candidato || r.id || null;
-          
-          // Lógica de parser de perguntas (mantida do original)
+
           const fonte = String(r.questions || '').trim();
           const linhasFonte = (fonte ? fonte : String(vaga.pergunta || ''))
             .split(/\r?\n/).map(s => s.trim()).filter(Boolean);
@@ -96,110 +92,140 @@
              data-s="<%= Number(r.score_S)||0 %>"
              data-c="<%= Number(r.score_C)||0 %>">
 
-          <div class="fs-5 fw-bold text-secondary" style="width: 2.5rem; text-align: right;">
+          <div class="fs-5 fw-bold" style="width: 2.5rem; text-align: right;">
             <%= r.pos %>º
           </div>
 
-          <div class="d-flex align-items-center gap-3 flex-grow-1 ms-3">
-            
+          <div class="d-flex align-items-center gap-3 flex-grow-1">
             <div class="avatar-col d-flex flex-column align-items-center">
               <% if (cid) { %>
-                <a href="/candidatos/perfil/<%= cid %>" target="_blank" rel="noopener" title="Ver Perfil Público">
+                <a href="/candidatos/perfil/<%= cid %>" target="_blank" rel="noopener" title="Abrir perfil público">
                   <img src="<%= r.foto_perfil || '/img/avatar.png' %>"
-                       alt="Foto"
-                       class="rounded-circle border"
-                       style="width: 52px; height: 52px; object-fit: cover;">
+                       alt="Foto do candidato"
+                       class="rounded-circle"
+                       style="width: 48px; height: 48px; object-fit: cover; cursor: pointer;">
+                </a>
+                <a href="/candidatos/perfil/<%= cid %>" target="_blank" rel="noopener"
+                   class="btn btn-outline-primary btn-sm btn-ver-perfil mt-2 w-100">
+                  <i class="bi bi-box-arrow-up-right"></i>
                 </a>
               <% } else { %>
                 <img src="<%= r.foto_perfil || '/img/avatar.png' %>"
-                     class="rounded-circle border"
-                     style="width: 52px; height: 52px; object-fit: cover;">
+                     alt="Foto"
+                     class="rounded-circle"
+                     style="width: 48px; height: 48px; object-fit: cover;">
               <% } %>
             </div>
 
             <div>
-              <div class="d-flex align-items-center gap-2">
-                <h5 class="mb-0 fw-bold text-dark"><%= r.nome %></h5>
-                <% if(r.temVideo) { %>
-                  <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.65rem;">
-                    <i class="bi bi-camera-video-fill"></i> Vídeo Recebido
-                  </span>
+              <div class="fw-semibold"><%= r.nome %></div>
+              <div class="text-muted small"><%= r.local %></div>
+
+              <div class="d-flex flex-wrap gap-3 small mt-1">
+                <% 
+                  const telBruto = String(r.telefone || '');
+                  const telLimpo = telBruto.replace(/\+?undefined-?/gi, '').trim();
+                %>
+                <% if (telLimpo) { %>
+                  <a href="tel:<%= telLimpo.replace(/\D/g,'') %>" class="text-decoration-none">
+                    <i class="bi bi-telephone"></i> <%= telLimpo %>
+                  </a>
                 <% } %>
-              </div>
-              <div class="text-muted small mb-2"><i class="bi bi-geo-alt-fill"></i> <%= r.local %></div>
-
-              <div class="d-flex flex-wrap align-items-center actions-gap">
-                
-                <button type="button" class="btn btn-light btn-sm border" data-bs-toggle="modal" data-bs-target="#<%= modalId %>">
-                  <i class="bi bi-card-text"></i> Respostas
-                </button>
-
-                <% if (r.explanation || typeof r.score_D !== 'undefined') { %>
-                  <button type="button" class="btn btn-light btn-sm border" data-bs-toggle="modal" data-bs-target="#<%= modalIaId %>">
-                    <i class="bi bi-robot"></i> Análise IA
-                  </button>
-                <% } %>
-                
-                <div class="vr mx-1"></div>
-
-                <% if (r.temVideo) { %>
-                  <button type="button" class="btn btn-primary btn-sm fw-semibold" 
-                          onclick="abrirVideoCandidato('<%= vaga.id %>', '<%= cid %>')">
-                    <i class="bi bi-play-circle-fill me-1"></i> Assistir Vídeo
-                  </button>
-                <% } else if (r.email) { %>
-                  <button type="button" class="btn btn-outline-secondary btn-sm" 
-                          onclick="prepararSolicitacao('<%= vaga.id %>', '<%= r.email %>', '<%= r.nome %>', '<%= vaga.cargo %>', '<%= cid %>')">
-                    <i class="bi bi-envelope-plus me-1"></i> Solicitar Vídeo
-                  </button>
-                <% } %>
-
-                <% if (cid) { %>
-                  <a href="/candidatos/perfil/<%= cid %>" target="_blank" class="btn btn-link btn-sm text-decoration-none p-0 ms-1" title="Abrir perfil em nova aba">
-                    <i class="bi bi-box-arrow-up-right"></i>
+                <% if (r.email) { %>
+                  <a href="mailto:<%= r.email %>" class="text-decoration-none">
+                    <i class="bi bi-envelope"></i> <%= r.email %>
                   </a>
                 <% } %>
 
+                <button type="button"
+                        class="btn btn-outline-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#<%= modalId %>">
+                  Ver respostas
+                </button>
+                
+                <% if (r.temVideo) { %>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="abrirVideoCandidato('<%= vaga.id %>', '<%= cid %>')">
+                    <i class="bi bi-play-circle"></i> Assistir Vídeo
+                  </button>
+                <% } else if (r.email) { %>
+                   <button type="button" class="btn btn-outline-primary btn-sm" 
+                          onclick="prepararSolicitacao('<%= vaga.id %>', '<%= r.email %>', '<%= r.nome %>', '<%= vaga.cargo %>', '<%= cid %>')">
+                    <i class="bi bi-camera-video"></i> Solicitar Vídeo
+                  </button>
+                <% } %>
+
+                <% if (r.explanation || typeof r.score_D !== 'undefined') { %>
+                  <button type="button"
+                          class="btn btn-outline-secondary btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#<%= modalIaId %>">
+                    Análise geral da IA
+                  </button>
+                <% } %>
               </div>
             </div>
           </div>
 
-          <div class="text-end ps-3" style="min-width: 190px;">
-            <div class="fw-bold fs-5 text-primary">
+          <div class="text-end" style="min-width: 190px;">
+            <div class="fw-semibold">
               <span class="js-metric-value"><%= Number(r.score)||0 %></span>%
             </div>
-            <div class="progress bg-secondary-subtle" style="height: 10px; width: 150px; margin-left: auto;">
-              <div class="progress-bar js-metric-bar bg-primary" role="progressbar"
+            <div class="progress" style="height: 8px; width: 180px;">
+              <div class="progress-bar js-metric-bar" role="progressbar"
                    data-score="<%= Number(r.score)||0 %>"
                    data-d="<%= Number(r.score_D)||0 %>"
                    data-i="<%= Number(r.score_I)||0 %>"
                    data-s="<%= Number(r.score_S)||0 %>"
                    data-c="<%= Number(r.score_C)||0 %>"
+                   aria-valuenow="<%= Number(r.score)||0 %>"
+                   aria-valuemin="0" aria-valuemax="100"
                    style="width:<%= Number(r.score)||0 %>%"></div>
             </div>
-            <small class="text-muted d-block mt-1 js-metric-label" style="font-size: 0.75rem;">Score Geral</small>
           </div>
-
         </div>
+        
         <div class="modal fade" id="<%= modalId %>" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
-              <div class="modal-header bg-light">
-                <h5 class="modal-title">Respostas: <strong><%= r.nome %></strong></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              <div class="modal-header">
+                <div>
+                  <h5 class="modal-title">Respostas do candidato</h5>
+                  <div class="text-muted small">
+                    <strong><%= r.nome %></strong> · Compatibilidade: <strong><%= r.score %>%</strong>
+                  </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
               </div>
+
               <div class="modal-body">
+                <% if (perguntas.length) { %>
+                  <div class="mb-4">
+                    <div class="alert alert-secondary py-1 px-2 mb-3 small">
+                      <strong>Questionário da vaga</strong>
+                    </div>
+                    <% perguntas.forEach((q, i) => { %>
+                      <div class="mb-3">
+                        <label class="form-label"><%= (i + 1) + '. ' + q %></label>
+                        <input type="text" class="form-control"
+                               value="<%= (respostas[i] || '') %>" readonly>
+                      </div>
+                    <% }) %>
+                  </div>
+                <% } %>
+                
                 <% if (temAlguma = pares.some(p => p.pergunta || p.resposta)) { %>
-                  <ul class="list-group list-group-flush">
-                    <% pares.forEach((p, i) => { %>
-                      <li class="list-group-item px-0">
-                        <div class="fw-bold mb-1 text-primary"><%= (i+1) %>. <%= p.pergunta || 'Pergunta' %></div>
-                        <div class="text-dark"><%= p.resposta || '—' %></div>
+                  <div class="mb-2 fw-semibold">Perguntas e respostas (texto):</div>
+                  <ol class="list-group list-group-numbered">
+                    <% pares.forEach(p => { %>
+                      <li class="list-group-item">
+                        <div class="fw-semibold"><%= p.pergunta || 'Pergunta' %></div>
+                        <div class="text-muted"><%= p.resposta || '—' %></div>
                       </li>
                     <% }) %>
-                  </ul>
+                  </ol>
                 <% } else { %>
-                  <p class="text-muted text-center py-3">Nenhuma resposta de texto registrada.</p>
+                  <div class="alert alert-light mb-0">Nenhuma resposta registrada.</div>
                 <% } %>
               </div>
               <div class="modal-footer">
@@ -213,51 +239,76 @@
           <div class="modal fade" id="<%= modalIaId %>" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-lg modal-dialog-scrollable">
               <div class="modal-content">
-                <div class="modal-header bg-light">
-                  <h5 class="modal-title"><i class="bi bi-robot me-2"></i>Análise IA: <strong><%= r.nome %></strong></h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-header">
+                  <div>
+                    <h5 class="modal-title">Análise geral da IA</h5>
+                    <div class="text-muted small"><strong><%= r.nome %></strong></div>
+                  </div>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
+
                 <div class="modal-body">
                    <% if (typeof r.score_D !== 'undefined') { %>
-                      <div class="row g-3 mb-4">
-                         <% 
-                           const _discPairs = [
-                             {k:'Dominância (D)', v:Number(r.score_D)||0, c:'danger'},
-                             {k:'Influência (I)', v:Number(r.score_I)||0, c:'warning'},
-                             {k:'Estabilidade (S)', v:Number(r.score_S)||0, c:'success'},
-                             {k:'Conformidade (C)', v:Number(r.score_C)||0, c:'info'}
-                           ]; 
-                         %>
-                         <% _discPairs.forEach(p => { %>
-                           <div class="col-6 col-md-3 text-center">
-                             <div class="small fw-bold mb-1"><%= p.k %></div>
-                             <div class="progress" style="height: 8px;">
-                               <div class="progress-bar bg-<%= p.c %>" style="width:<%= p.v %>%"></div>
-                             </div>
-                             <div class="h5 mt-1 mb-0"><%= p.v %>%</div>
-                           </div>
-                         <% }) %>
+                      <div class="mb-3">
+                        <div class="small text-muted mb-1">Score geral do candidato</div>
+                        <% if (typeof r.score !== 'undefined') { %>
+                          <div class="d-flex justify-content-between small mb-2">
+                            <span><strong>Score Geral</strong></span>
+                            <span><strong><%= Number(r.score) || 0 %>%</strong></span>
+                          </div>
+                          <div class="progress mb-3" style="height: 6px;">
+                            <div class="progress-bar" role="progressbar"
+                                style="width:<%= Number(r.score) || 0 %>%"></div>
+                          </div>
+                        <% } %>
+                        <div class="small text-muted mb-1">Perfil DISC</div>
+                        <% const _discPairs = [
+                             {k:'Dominância (D)', v:Number(r.score_D)||0},
+                             {k:'Influência (I)', v:Number(r.score_I)||0},
+                             {k:'Estabilidade (S)', v:Number(r.score_S)||0},
+                             {k:'Conformidade (C)', v:Number(r.score_C)||0},
+                           ]; %>
+                        <% _discPairs.forEach(p => { %>
+                          <div class="d-flex justify-content-between small">
+                            <span><%= p.k %></span><span><strong><%= p.v %>%</strong></span>
+                          </div>
+                          <div class="progress mb-2" style="height: 6px;">
+                            <div class="progress-bar" role="progressbar" style="width:<%= p.v %>%"></div>
+                          </div>
+                        <% }) %>
                       </div>
                   <% } %>
 
+                  <% if (Array.isArray(r.matchedSkills) && r.matchedSkills.length) { %>
+                    <div class="mb-3">
+                      <div class="small text-muted mb-1">Habilidades compatíveis</div>
+                      <div class="d-flex flex-wrap gap-2">
+                        <% r.matchedSkills.forEach(s => { %>
+                          <span class="badge text-bg-secondary"><%= s %></span>
+                        <% }) %>
+                      </div>
+                    </div>
+                  <% } %>
+
                   <% if (r.explanation) { %>
-                    <div class="alert alert-light border">
-                      <h6 class="alert-heading fw-bold"><i class="bi bi-chat-quote-fill me-2 text-secondary"></i>Comentário da IA</h6>
-                      <p class="mb-0 text-secondary"><%= r.explanation %></p>
+                    <div class="mb-3">
+                      <div class="small text-muted mb-1">Comentário da IA</div>
+                      <p class="mb-0"><%= r.explanation %></p>
                     </div>
                   <% } %>
 
                   <% if (Array.isArray(r.suggestions) && r.suggestions.length) { %>
-                    <div class="card card-body bg-light border-0">
-                      <h6 class="fw-bold mb-2">Pontos de Atenção / Sugestões</h6>
-                      <ul class="mb-0 ps-3">
+                    <div class="mb-2">
+                      <div class="small text-muted mb-1">Sugestões</div>
+                      <ul class="mb-0">
                         <% r.suggestions.forEach(sg => { %>
-                          <li class="mb-1"><%= sg %></li>
+                          <li><%= sg %></li>
                         <% }) %>
                       </ul>
                     </div>
                   <% } %>
                 </div>
+
                 <div class="modal-footer">
                   <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                 </div>
@@ -279,24 +330,18 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body text-center py-4">
-          <div class="mb-3 text-primary">
-            <i class="bi bi-camera-reels" style="font-size: 3.5rem;"></i>
+          <div class="mb-3">
+            <i class="bi bi-camera-reels text-primary" style="font-size: 3rem;"></i>
           </div>
-          <h5 class="fw-bold mb-2">Solicitar Vídeo de Apresentação</h5>
-          <p class="text-muted mb-4">
-            Você enviará um e-mail para <strong id="modalNomeCandidato" class="text-dark"></strong>.<br>
-            O candidato terá <strong>3 dias</strong> para gravar e enviar o vídeo.
-          </p>
-          <div class="alert alert-warning d-inline-block text-start small">
-            <i class="bi bi-exclamation-triangle-fill me-1"></i>
-            Certifique-se que o e-mail do candidato está correto.
-          </div>
+          <p class="mb-1">Você deseja solicitar um vídeo de apresentação para:</p>
+          <h4 id="modalNomeCandidato" class="text-dark fw-bold"></h4>
+          <p class="text-muted small px-3">O candidato receberá um e-mail com o link para envio. Prazo: 3 dias.</p>
         </div>
-        <div class="modal-footer justify-content-center pb-4 border-0">
+        <div class="modal-footer border-0 justify-content-center pb-4">
           <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancelar</button>
           <button type="button" id="btnConfirmarSolicitacao" class="btn btn-primary px-4 fw-bold">
             <span id="btnSpinner" class="spinner-border spinner-border-sm d-none me-2"></span>
-            Enviar Solicitação
+            Enviar e-mail
           </button>
         </div>
       </div>
@@ -304,29 +349,25 @@
   </div>
 
   <%- include('../partials/footer') %>
-  
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <script>
+    // 1. LÓGICA DO MODAL E ENVIO
     document.addEventListener('DOMContentLoaded', function() {
-      // 1. LÓGICA DO MODAL DE SOLICITAÇÃO
       const modalElement = document.getElementById('modalSolicitarVideo');
       const bsModal = new bootstrap.Modal(modalElement);
       let dadosParaEnvio = null;
 
-      // Função global chamada pelo botão na lista
       window.prepararSolicitacao = function(idVaga, email, nomeCandidato, nomeVaga, candidatoId) {
         dadosParaEnvio = { idVaga, emailCandidato: email, nomeCandidato, nomeVaga, candidatoId };
         document.getElementById('modalNomeCandidato').textContent = nomeCandidato;
         bsModal.show();
       };
 
-      // Ação do botão "Confirmar" dentro do modal
       document.getElementById('btnConfirmarSolicitacao').addEventListener('click', async function() {
         const btn = this;
         const spinner = document.getElementById('btnSpinner');
-        
         btn.disabled = true;
         spinner.classList.remove('d-none');
 
@@ -336,93 +377,62 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(dadosParaEnvio)
           });
-          
           const result = await response.json();
-          
           if (result.success) {
             bsModal.hide();
-            Swal.fire({ 
-              icon: 'success', 
-              title: 'Solicitação Enviada!', 
-              text: 'O candidato foi notificado por e-mail.',
-              confirmButtonColor: '#0d6efd' 
-            });
-          } else { 
-            throw new Error(result.message || 'Erro desconhecido'); 
-          }
+            Swal.fire({ icon: 'success', title: 'Enviado!', text: 'Solicitação enviada.', confirmButtonColor: '#0d6efd' });
+          } else { throw new Error(result.message); }
         } catch (error) {
-          Swal.fire('Erro', 'Não foi possível enviar: ' + error.message, 'error');
+          Swal.fire('Erro', 'Não foi possível enviar o e-mail: ' + error.message, 'error');
         } finally {
           btn.disabled = false;
           spinner.classList.add('d-none');
         }
       });
-
-      // 2. LÓGICA DE ORDENAÇÃO (SCORE / DISC)
+      
+      // 2. LÓGICA DE ORDENAÇÃO (Mantida)
       const select = document.getElementById('ordenarPor');
       const container = document.getElementById('ranking-list');
-
       if (select && container) {
-        function getRows() {
-          return Array.from(container.querySelectorAll('.cand-row'));
-        }
-
+        function getRows() { return Array.from(container.querySelectorAll('.cand-row')); }
         function valueFromRow(row, key) {
           switch (key) {
             case 'score_D': return Number(row.dataset.d || 0);
             case 'score_I': return Number(row.dataset.i || 0);
             case 'score_S': return Number(row.dataset.s || 0);
             case 'score_C': return Number(row.dataset.c || 0);
-            default:        return Number(row.dataset.score || 0); // Geral
+            default:        return Number(row.dataset.score || 0);
           }
         }
-
         function sortBy(key) {
           const rows = getRows();
-          
-          // Ordena
           rows.sort((a, b) => valueFromRow(b, key) - valueFromRow(a, key));
-
-          // Atualiza DOM e Barras Visuais
           rows.forEach((r, idx) => {
-            // Atualiza posição (1º, 2º...)
-            const posEl = r.querySelector('.fs-5.fw-bold');
-            if (posEl) posEl.textContent = (idx + 1) + 'º';
-
-            // Atualiza Barra e Texto
-            const val = valueFromRow(r, key);
-            const bar = r.querySelector('.js-metric-bar');
-            const num = r.querySelector('.js-metric-value');
-            const lbl = r.querySelector('.js-metric-label');
-
-            if (bar) {
-              bar.style.width = val + '%';
-              // Muda cor da barra dependendo do filtro (visual flair)
-              bar.className = 'progress-bar js-metric-bar ' + (key === 'score' ? 'bg-primary' : 'bg-info');
-            }
-            if (num) num.textContent = String(val);
-            if (lbl) lbl.textContent = select.options[select.selectedIndex].text;
-
-            container.appendChild(r); // Move elemento no DOM
+             // Atualiza número na tela
+             const posEl = r.querySelector('.fs-5.fw-bold');
+             if(posEl) posEl.textContent = (idx + 1) + 'º';
+             
+             // Atualiza barra
+             const val = valueFromRow(r, key);
+             const bar = r.querySelector('.js-metric-bar');
+             const num = r.querySelector('.js-metric-value');
+             if (bar) {
+                bar.style.width = val + '%';
+                bar.setAttribute('aria-valuenow', String(val));
+             }
+             if (num) num.textContent = String(val);
+             container.appendChild(r);
           });
         }
-
         select.addEventListener('change', (e) => sortBy(e.target.value));
-        
-        // Inicializa ordenação (Score padrão)
         sortBy('score');
       }
     });
 
     // 3. ABRIR VÍDEO NO CLOUDINARY
     function abrirVideoCandidato(vagaId, candidatoId) {
-      // Nome da Cloud configurado no backend (dmjzmau2b conforme fornecido)
       const cloudName = 'dmjzmau2b'; 
-      // Public ID deve bater com o padrão salvo no backend
-      const publicId = `video_${vagaId}_${candidatoId}`;
-      const videoUrl = `https://res.cloudinary.com/${cloudName}/video/upload/vagas_videos/${publicId}.mp4`;
-
-      // Abre em nova aba
+      const videoUrl = `https://res.cloudinary.com/${cloudName}/video/upload/vagas_videos/video_${vagaId}_${candidatoId}.mp4`;
       window.open(videoUrl, '_blank');
     }
   </script>
