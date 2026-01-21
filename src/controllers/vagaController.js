@@ -245,7 +245,7 @@ exports.uploadVideoCandidato = async (req, res) => {
         await prisma.vaga_avaliacao.update({
             where: { id: avaliacaoExistente.id },
             data: {
-                video_url: req.file.path, // URL gerada pelo Cloudinary
+                resposta: req.file.path, // URL gerada pelo Cloudinary
                 updated_at: new Date()
             }
         });

@@ -1226,36 +1226,42 @@ exports.rankingCandidatos = async (req, res) => {
     }
 
     vaga.empresa = { nome_empresa: req.session.empresa.nome_empresa };
-
     const avaliacoes = await vagaAvaliacaoModel.listarPorVaga({ vaga_id: String(vagaId) });
 
     const tryParseJSON = (s) => { try { return JSON.parse(s); } catch (_) { return null; } };
     const ensureQmark = (str) => String(str || "").trim().replace(/\s*([?.!…:])?\s*$/, "?");
     const toLine = ({ question, answer }) => `${ensureQmark(question)} ${String(answer || "").trim() || "—"}`;
 
-    // 4) Processamento dos candidatos com verificação de vídeo
-    const rowsRaw = avaliacoes.map((a, idx) => {
+    // Processamento em um único MAP para evitar erros de referência
+    const rows = avaliacoes.map((a, idx) => {
       const c = a.candidato || {};
       const u = c.usuario || {};
       const nome = [c.nome, c.sobrenome].filter(Boolean).join(" ").trim() || u.nome || u.email || "Candidato";
       const local = [c.cidade, c.estado, c.pais].filter(Boolean).join(", ") || "—";
       const breakdown = typeof a.breakdown === "string" ? tryParseJSON(a.breakdown) || {} : a.breakdown || {};
 
+      // Lógica de detecção de vídeo (Como não temos a coluna, checamos a 'resposta')
+      const conteudoResposta = String(a.resposta || "");
+      const ehVideo = conteudoResposta.includes("cloudinary.com");
+      const videoUrl = ehVideo ? conteudoResposta : null;
+
       let lines = [];
       if (breakdown?.qa) lines = lines.concat(breakdown.qa.filter(x => x?.question).map(toLine));
       if (breakdown?.da) lines = lines.concat(breakdown.da.filter(x => x?.question).map(toLine));
 
       const dataEnvioVideo = a.updated_at ? new Date(a.updated_at) : null;
-        const agora = new Date();
-        let prazoEmpresaExpirado = false;
-        let diasRestantesEmpresa = 0;
+      const agora = new Date();
+      let prazoEmpresaExpirado = false;
+      let diasRestantesEmpresa = 0;
       
-      if (a.video_url && dataEnvioVideo) {
+      if (ehVideo && dataEnvioVideo) {
           const diffTime = Math.abs(agora - dataEnvioVideo);
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
           diasRestantesEmpresa = 7 - diffDays;
           if (diffDays > 7) prazoEmpresaExpirado = true;
       }
+
+      console.log(`DEBUG RANKING -> Candidato: ${nome} | Possui Vídeo: ${ehVideo}`);
 
       return {
         candidato_id: c.id || null,
@@ -1270,8 +1276,9 @@ exports.rankingCandidatos = async (req, res) => {
         explanation: breakdown?.explanation || "",
         suggestions: breakdown?.suggestions || [],
         matchedSkills: breakdown?.matchedSkills || [],
-        questions: lines.length ? lines.join("\n") : (a.resposta || "").trim(),
-        video_url: a.video_url,
+        questions: lines.length ? lines.join("\n") : (ehVideo ? "Vídeo de apresentação enviado." : conteudoResposta),
+        video_url: videoUrl,
+        temVideo: ehVideo,
         data_video: dataEnvioVideo,
         prazoEmpresaExpirado,
         diasRestantesEmpresa,
@@ -1279,25 +1286,8 @@ exports.rankingCandidatos = async (req, res) => {
       };
     });
 
-    // VERIFICAÇÃO DE VÍDEO NO CLOUDINARY
-    // Usamos Promise.all para verificar todos simultaneamente e ganhar tempo
-    const rows = await Promise.all(rowsRaw.map(async (r) => {
-      let temVideo = false;
-      if (r.candidato_id) {
-        try {
-          // O public_id deve ser EXATAMENTE o mesmo que definimos no storage do app.js
-          const publicId = `vagas_videos/video_${vaga.id}_${r.candidato_id}`;
-          await cloudinary.api.resource(publicId, { resource_type: 'video' });
-          temVideo = true;
-        } catch (err) {
-          temVideo = false; // Se der 404, não tem vídeo
-        }
-      }
-      return { ...r, temVideo };
-    }));
-
     rows.sort((a, b) => b.score - a.score);
-    rows.forEach((r, i) => r.pos = i + 1); // Reajusta posições após sort
+    rows.forEach((r, i) => r.pos = i + 1);
 
     return res.render("empresas/ranking-candidatos", {
       vaga,
