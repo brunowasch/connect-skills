@@ -1855,13 +1855,17 @@ exports.vagaDetalhes = async (req, res) => {
 
     // 7. Verificação de Aplicação
     const candId = req.session?.candidato?.id;
+    let avaliacao = null; // Criamos a variável aqui fora
     let jaAplicou = false;
+
     if (candId) {
-      const avaliacao = await prisma.vaga_avaliacao.findFirst({
+      avaliacao = await prisma.vaga_avaliacao.findFirst({
         where: { candidato_id: candId, vaga_id: id }
       });
       jaAplicou = !!avaliacao;
     }
+
+    if(avaliacao) console.log("Dados da avaliação carregados:", avaliacao.resposta);
 
     return res.render('candidatos/vaga-detalhes', {
       tituloPagina: 'Detalhes da vaga',
@@ -1871,6 +1875,7 @@ exports.vagaDetalhes = async (req, res) => {
       areas,
       skills,
       jaAplicou,
+      avaliacao,
       diasPresenciais: vagaFormatada.dias_presenciais || '',
       diasHomeOffice: vagaFormatada.dias_home_office || '',
       perguntasLista: [],

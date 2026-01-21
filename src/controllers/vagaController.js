@@ -333,3 +333,47 @@ exports.exibirTelaUploadVideo = async (req, res) => {
         res.redirect('/candidatos/home');
     }
 };
+
+exports.removerVideoCandidato = async (req, res) => {
+    try {
+        const vagaId = req.params.id;
+        const usuarioLogado = req.session.usuario;
+
+        if (!usuarioLogado) return res.redirect('/login');
+
+        // Busca candidato
+        const candidato = await prisma.candidato.findUnique({
+            where: { usuario_id: usuarioLogado.id }
+        });
+
+        if (!candidato) {
+             return res.redirect(`/candidatos/vagas/${vagaId}`);
+        }
+
+        // Busca a avaliação
+        const avaliacao = await prisma.vaga_avaliacao.findFirst({
+            where: {
+                vaga_id: String(vagaId),
+                candidato_id: String(candidato.id)
+            }
+        });
+
+        if (avaliacao) {
+            await prisma.vaga_avaliacao.update({
+                where: { id: avaliacao.id },
+                data: { 
+                    resposta: null, // Remove o link do vídeo
+                    updated_at: new Date()
+                }
+            });
+            console.log(`[VIDEO] Vídeo removido pelo candidato ${candidato.nome}`);
+        }
+
+        return res.redirect(`/candidatos/vagas/${vagaId}`);
+
+    } catch (err) {
+        console.error('Erro ao remover vídeo:', err);
+        req.session.erro = "Não foi possível remover o vídeo.";
+        return res.redirect(`/candidatos/vagas/${vagaId}`);
+    }
+};

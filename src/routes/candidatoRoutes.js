@@ -67,4 +67,7 @@ router.post('/vagas/upload-video',
     uploadVideo.single('video'), 
     vagaController.uploadVideoCandidato
 );
+
+router.post('/vagas/:id/remover-video', ensureCandidato, vagaController.removerVideoCandidato);
+
 module.exports = router;

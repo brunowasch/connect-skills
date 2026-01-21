@@ -28,6 +28,14 @@
     .sticky-actions { position: sticky; bottom: 0; background: #fff; padding: 12px; border-top: 1px solid #e9ecef; display: flex; gap: 8px; justify-content: flex-end; }
     @media (max-width: 576px) { .sticky-actions { position: static; } }
     .bloco-ia { display: none; }
+    #modalConfirmarRemocao .modal-content {
+    border-radius: 15px;
+    }
+    #modalConfirmarRemocao .modal-header {
+        border-top-left-radius: 15px;
+        border-top-right-radius: 15px;
+        background: linear-gradient(135deg, #dc3545 0%, #a71d2a 100%); /* Degradê vermelho para alerta */
+    }
   </style>
 </head>
 <body class="bg-light">
@@ -176,31 +184,54 @@
               <span><i class="bi bi-info-circle me-2"></i>Você já se candidatou a esta vaga.</span>
               <a href="/candidatos/vagas/historico" class="btn btn-outline-primary btn-sm">Ver histórico</a>
             </div>
+            
+            <% 
+              const videoUrl = (avaliacao && avaliacao.resposta && avaliacao.resposta.includes('cloudinary')) ? avaliacao.resposta : null;
+            %>
 
-            <div class="card border-primary mb-4 shadow-sm">
-              <div class="card-body">
-                <h6 class="card-title text-primary fw-bold">
-                  <i class="bi bi-camera-video-fill"></i> Vídeo de Apresentação
-                </h6>
-                <p class="small text-muted mb-3">
-                  Se a empresa solicitou, envie aqui seu vídeo de até 3 minutos apresentando suas habilidades.
-                </p>
-                
-                <form action="/vagas/enviar-video" method="POST" enctype="multipart/form-data" id="formVideo">
-                  <input type="hidden" name="vagaId" value="<%= vaga.id %>">
-                  <div class="input-group">
-                    <input type="file" name="video" class="form-control form-control-sm" id="inputVideo" accept="video/*" required>
-                    <button class="btn btn-primary btn-sm" type="submit" id="btnSubirVideo">
-                      <i class="bi bi-cloud-arrow-up"></i> Enviar
-                    </button>
+            <% if (videoUrl) { %>
+              <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body p-4" style="border: 2px solid #6a11cb; border-radius: 15px;">
+                  <h5 class="card-title text-primary fw-bold mb-3">
+                    <i class="bi bi-camera-video me-2"></i>Seu Vídeo de Apresentação
+                  </h5>
+
+                  <div class="row">
+                    <div class="col-md-7">
+                      <div class="ratio ratio-16x9 rounded overflow-hidden shadow-sm bg-black">
+                        <video controls>
+                          <source src="<%= videoUrl %>" type="video/mp4">
+                          Seu navegador não suporta a tag de vídeo.
+                        </video>
+                      </div>
+                    </div>
+                    <div class="col-md-5 d-flex flex-column justify-content-center mt-3 mt-md-0">
+                        <h6 class="fw-bold">Alterar apresentação</h6>
+                        <p class="text-muted small">
+                          Deseja enviar um vídeo diferente? Remova o atual primeiro.
+                        </p>
+                        
+                        <button type="button" class="btn btn-outline-danger w-100" data-bs-toggle="modal" data-bs-target="#modalConfirmarRemocao">
+                          <i class="bi bi-trash me-2"></i>Remover Vídeo
+                        </button>
+                    </div>
                   </div>
-                  <div id="uploadStatus" class="mt-2 small" style="display:none;">
-                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                    <span class="ms-2">Enviando vídeo... aguarde, isso pode levar alguns minutos.</span>
-                  </div>
-                </form>
+                </div>
               </div>
-            </div>
+            <% } else { %>
+              <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
+                  <h5 class="card-title text-primary fw-bold mb-3">Enviar Vídeo de Apresentação</h5>
+                  <form action="/candidatos/vagas/upload-video" method="POST" enctype="multipart/form-data" id="formVideo">
+                    <input type="hidden" name="vagaId" value="<%= vaga.id %>">
+                    <div class="input-group">
+                      <input type="file" class="form-control" name="video" accept="video/*" required>
+                      <button class="btn btn-primary" type="submit">Enviar</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            <% } %>
             <button class="btn btn-secondary" type="button" disabled title="Você já aplicou a esta vaga">
               <i class="bi bi-robot"></i> Iniciar entrevista com IA
             </button>
@@ -296,6 +327,34 @@
          data-skills="<%- encodeURIComponent(JSON.stringify(skills || [])) %>"></div>
   </main>
 
+  <div class="modal fade" id="modalConfirmarRemocao" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Remover Vídeo</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <div class="mb-3">
+          <i class="bi bi-trash text-danger" style="font-size: 3rem;"></i>
+        </div>
+        <p class="mb-1">Você tem certeza que deseja remover sua apresentação?</p>
+        <p class="text-muted small px-3">
+          Ao remover, a empresa não poderá mais assistir seu vídeo no ranking até que você envie um novo.
+        </p>
+      </div>
+      <div class="modal-footer border-0 justify-content-center pb-4">
+        <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancelar</button>
+        <form action="/candidatos/vagas/<%= vaga.id %>/remover-video" method="POST" id="formRemoverVideo">
+          <button type="submit" class="btn btn-danger px-4 fw-bold">
+            Sim, remover vídeo
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
   <%- include('../partials/footer') %>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -384,6 +443,13 @@
         }
       });
     })();
+  </script>
+  <script>
+    document.getElementById('formRemoverVideo')?.addEventListener('submit', function() {
+    const btn = this.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Removendo...';
+    });
   </script>
 </body>
 </html>
