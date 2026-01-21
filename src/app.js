@@ -42,11 +42,11 @@ const fromAddress =
     ? `Connect Skills <${process.env.SMTP_USER}>`
     : 'Connect Skills <no-reply@connectskills.com.br>');
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_NAME,
-  api_key: process.env.CLOUDINARY_KEY,
-  api_secret: process.env.CLOUDINARY_SECRET
-});
+//cloudinary.config({
+//  cloud_name: process.env.CLOUDINARY_NAME,
+//  api_key: process.env.CLOUDINARY_KEY,
+//  api_secret: process.env.CLOUDINARY_SECRET
+//});
 
 
 const videoStorage = new CloudinaryStorage({

@@ -1,20 +1,15 @@
-const multer = require('multer')
-const { CloudinaryStorage } = require('multer-storage-cloudinary')
-const { cloudinary } = require('./cloudinary')
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('./cloudinary'); 
 
 const storage = new CloudinaryStorage({
-  cloudinary,
+  cloudinary: cloudinary,
   params: {
-    folder: 'connect-skills/empresas',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-    transformation: [{ width: 300, height: 300, crop: 'fill', gravity: 'faces' }],
-    public_id: (req, file) => `empresa_${req.session?.empresa?.id || 'anon'}_foto_perfil`,
-    overwrite: true,
-    resource_type: 'image'
-  }
-})
+    folder: 'empresas',
+    allowed_formats: ['jpg', 'jpeg', 'png'],
+  },
+});
 
-const uploadEmpresa = multer({ storage })
+const uploadEmpresa = multer({ storage: storage });
 
-module.exports = uploadEmpresa
-module.exports.uploadEmpresa = uploadEmpresa
+module.exports = uploadEmpresa;
