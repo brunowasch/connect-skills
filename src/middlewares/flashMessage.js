@@ -1,12 +1,18 @@
 module.exports = (req, res, next) => {
-  // Se a sessão ainda não foi criada, segue o fluxo sem tentar acessar
-  if (!req.session) return next();
+    const rotasIgnoradas = ['/_leave', '/usuarios/_leave', '/api/'];
 
-  res.locals.sucesso = req.session.sucesso || null;
-  res.locals.erro = req.session.erro || null;
+    if (rotasIgnoradas.some(rota => req.url.includes(rota))) {
+        // Se for uma rota de "saída" ou API, apenas passa adiante sem tocar no flash
+        return next();
+    }
 
-  delete req.session.sucesso;
-  delete req.session.erro;
+    // Lógica normal do seu flash
+    res.locals.sucesso = req.session.sucesso || null;
+    res.locals.erro = req.session.erro || null;
 
-  next();
+    // Limpa apenas se não for uma rota ignorada
+    delete req.session.sucesso;
+    delete req.session.erro;
+
+    next();
 };

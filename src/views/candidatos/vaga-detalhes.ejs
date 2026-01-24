@@ -179,39 +179,72 @@
           </div>
           <% } %>
 
-        <% if (typeof jaAplicou !== 'undefined' && jaAplicou) { %>
+          <% if (typeof jaAplicou !== 'undefined' && jaAplicou) { %>
             <div class="alert alert-info d-flex align-items-center justify-content-between mb-3">
               <span><i class="bi bi-info-circle me-2"></i>Você já se candidatou a esta vaga.</span>
               <a href="/candidatos/vagas/historico" class="btn btn-outline-primary btn-sm">Ver histórico</a>
             </div>
             
             <% 
-              const videoUrl = (avaliacao && avaliacao.resposta && avaliacao.resposta.includes('cloudinary')) ? avaliacao.resposta : null;
+              // LÓGICA DE SEPARAÇÃO (VIDEO ||| TEXTO)
+              let videoUrl = null;
+              let feedbackTexto = null;
+              const rawResp = (avaliacao && avaliacao.resposta) ? avaliacao.resposta : '';
+
+              if (rawResp) {
+                if (rawResp.includes('|||')) {
+                    // Formato Novo: LINK ||| FEEDBACK
+                    const partes = rawResp.split('|||');
+                    videoUrl = partes[0].trim();      // Esquerda
+                    feedbackTexto = partes[1].trim(); // Direita
+                    if (videoUrl === '') videoUrl = null;
+                } else if (rawResp.includes('http')) {
+                    // Formato Antigo: Apenas LINK
+                    videoUrl = rawResp;
+                } else {
+                    // Formato Texto Puro (Raro, mas previne erro)
+                    feedbackTexto = rawResp;
+                }
+              }
             %>
+            
+            <% if (feedbackTexto) { %>
+              <div class="card border-0 shadow-sm mb-4" style="border-left: 5px solid #6a11cb !important; background-color: #f8f9fa;">
+                <div class="card-body p-4">
+                  <div class="d-flex align-items-center mb-2">
+                    <div class="bg-white rounded-circle p-2 shadow-sm me-3 text-primary">
+                        <i class="bi bi-chat-quote-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="card-title text-primary fw-bold mb-0">Feedback da Empresa</h5>
+                        <small class="text-muted"><%= new Date(avaliacao.updated_at).toLocaleDateString('pt-BR') %></small>
+                    </div>
+                  </div>
+                  <hr class="opacity-10 my-2">
+                  <p class="mb-0 text-dark fst-italic fs-6" style="line-height: 1.6;">
+                    "<%= feedbackTexto %>"
+                  </p>
+                </div>
+              </div>
+            <% } %>
 
             <% if (videoUrl) { %>
               <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body p-4" style="border: 2px solid #6a11cb; border-radius: 15px;">
                   <h5 class="card-title text-primary fw-bold mb-3">
-                    <i class="bi bi-camera-video me-2"></i>Seu Vídeo de Apresentação
+                    <i class="bi bi-camera-video me-2"></i>Seu Vídeo
                   </h5>
-
                   <div class="row">
-                    <div class="col-md-7">
+                    <div class="col-md-8">
                       <div class="ratio ratio-16x9 rounded overflow-hidden shadow-sm bg-black">
                         <video controls>
                           <source src="<%= videoUrl %>" type="video/mp4">
-                          Seu navegador não suporta a tag de vídeo.
                         </video>
                       </div>
                     </div>
-                    <div class="col-md-5 d-flex flex-column justify-content-center mt-3 mt-md-0">
-                        <h6 class="fw-bold">Alterar apresentação</h6>
-                        <p class="text-muted small">
-                          Deseja enviar um vídeo diferente? Remova o atual primeiro.
-                        </p>
-                        
-                        <button type="button" class="btn btn-outline-danger w-100" data-bs-toggle="modal" data-bs-target="#modalConfirmarRemocao">
+                    <div class="col-md-4 d-flex flex-column justify-content-center mt-3 mt-md-0">
+                        <p class="text-muted small">Deseja alterar?</p>
+                        <button class="btn btn-outline-danger w-100" data-bs-toggle="modal" data-bs-target="#modalConfirmarRemocao">
                           <i class="bi bi-trash me-2"></i>Remover Vídeo
                         </button>
                     </div>
@@ -220,18 +253,19 @@
               </div>
             <% } else { %>
               <div class="card border-0 shadow-sm mb-4">
-                <div class="card-body p-4">
-                  <h5 class="card-title text-primary fw-bold mb-3">Enviar Vídeo de Apresentação</h5>
-                  <form action="/candidatos/vagas/upload-video" method="POST" enctype="multipart/form-data" id="formVideo">
-                    <input type="hidden" name="vagaId" value="<%= vaga.id %>">
-                    <div class="input-group">
-                      <input type="file" class="form-control" name="video" accept="video/*" required>
-                      <button class="btn btn-primary" type="submit">Enviar</button>
-                    </div>
-                  </form>
-                </div>
+                  <div class="card-body p-4">
+                    <h5 class="card-title text-primary fw-bold mb-3">Enviar Vídeo</h5>
+                    <form action="/candidatos/vagas/upload-video" method="POST" enctype="multipart/form-data" id="formVideo">
+                      <input type="hidden" name="vagaId" value="<%= vaga.id %>">
+                      <div class="input-group">
+                        <input type="file" class="form-control" name="video" accept="video/*" required>
+                        <button class="btn btn-primary" type="submit">Enviar</button>
+                      </div>
+                    </form>
+                  </div>
               </div>
             <% } %>
+
             <button class="btn btn-secondary" type="button" disabled title="Você já aplicou a esta vaga">
               <i class="bi bi-robot"></i> Iniciar entrevista com IA
             </button>
@@ -240,7 +274,8 @@
               <!-- Visitante / não logado como candidato: botão cinza e sem questionário -->
               <button class="btn btn-secondary" type="button" disabled
                 title="Faça login como candidato para iniciar a entrevista">
-                <i class="bi bi-robot"></i>  Iniciar entrevista com 
+                <i class="bi bi-robot"></i>  Iniciar entrevista com IA
+              </button> 
               </button>
               <small class="mt-2 text-center">Faça login como candidato para iniciar a entrevista</small>
             <% } else { %>

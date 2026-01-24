@@ -377,3 +377,108 @@ exports.removerVideoCandidato = async (req, res) => {
         return res.redirect(`/candidatos/vagas/${vagaId}`);
     }
 };
+
+// Adicione esta função para salvar o feedback
+exports.salvarFeedbackCandidato = async (req, res) => {
+    try {
+        const { avaliacaoId, feedbackTexto } = req.body;
+        const empresaSessao = req.session.empresa;
+
+        // 1. Busca a avaliação para pegar IDs de vaga e candidato
+        const avaliacaoAtual = await prisma.vaga_avaliacao.findUnique({
+            where: { id: String(avaliacaoId) }
+        });
+        
+        if (!avaliacaoAtual) {
+            req.session.erro = "Avaliação não encontrada.";
+            return res.redirect('/empresas/home');
+        }
+
+        console.log("Avaliação Encontrada:", avaliacaoAtual);
+        console.log("Tentando buscar Candidato ID:", avaliacaoAtual.candidato_id);
+
+        // 2. Busca dados necessários para o e-mail
+        const [candidatoRelacionado, vaga] = await Promise.all([
+            prisma.candidato.findUnique({
+                where: { id: avaliacaoAtual.candidato_id },
+                include: { usuario: true } 
+            }),
+            prisma.vaga.findUnique({
+                where: { id: avaliacaoAtual.vaga_id }
+            })
+        ]);
+
+        const dadosUsuario = candidatoRelacionado?.usuario;
+        const nomeExibicao = candidatoRelacionado?.nome || dadosUsuario?.nome || "Candidato";
+
+        console.log('[DEBUG] Candidato encontrado:', candidatoRelacionado ? 'SIM' : 'NÃO');
+        console.log('[DEBUG] Email para envio:', dadosUsuario?.email);
+
+        // 3. Preserva o vídeo atual e anexa o novo feedback
+        let videoLink = '';
+        const respostaOriginal = avaliacaoAtual.resposta || '';
+        if (respostaOriginal.includes('|||')) {
+            videoLink = respostaOriginal.split('|||')[0].trim();
+        } else if (respostaOriginal.startsWith('http')) {
+            videoLink = respostaOriginal.trim();
+        }
+        const novoConteudo = videoLink ? `${videoLink} ||| ${feedbackTexto}` : `||| ${feedbackTexto}`;
+
+        // 4. Atualiza o banco
+        await prisma.vaga_avaliacao.update({
+            where: { id: String(avaliacaoId) },
+            data: { 
+                resposta: novoConteudo,
+                updated_at: new Date()
+            }
+        });
+        
+        console.log('[DEBUG DADOS USUARIO]', dadosUsuario);
+
+        // 5. Envio do E-mail com link direto para a vaga
+        if (dadosUsuario?.email) {
+            console.log(`[SMTP] Preparando envio para: ${dadosUsuario.email}`);
+            try {
+                const transporter = createTransporter();
+                const nomeEmpresa = empresaSessao?.nome_empresa || 'Connect Skills - Empresa';
+                const linkVaga = `${process.env.APP_URL || 'http://localhost:3000'}/candidatos/vagas/${vaga.id}`;
+
+                const info = await transporter.sendMail({
+                    from: `"Connect Skills" <${process.env.SMTP_USER}>`,
+                    to: dadosUsuario.email,
+                    subject: `Novo feedback de ${nomeEmpresa}`,
+                    html: `
+                        <div style="font-family: sans-serif; max-width: 600px; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                            <h2 style="color: #6a11cb;">Olá, ${nomeExibicao}!</h2>
+                            <p>Você recebeu um feedback da empresa <strong>${nomeEmpresa}</strong> sobre a vaga de <strong>${vaga.cargo}</strong>.</p>
+                            <div style="background: #f4f4f4; padding: 15px; border-left: 4px solid #6a11cb; margin: 20px 0;">
+                                <em>"${feedbackTexto}"</em>
+                            </div>
+                            <p>Para ver mais detalhes e o status da sua candidatura, clique no botão abaixo:</p>
+                            <a href="${linkVaga}" style="background: #2575fc; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Ver Detalhes da Vaga</a>
+                        </div>
+                    `
+                });
+                console.log("[SMTP] Sucesso para:", dadosUsuario.email);
+            } catch (mailError) {
+                console.error("[SMTP ERROR]:", mailError.message);
+            }
+        } else {
+            console.log("[SMTP] Usuário não possui e-mail cadastrado.");
+        }
+
+        req.session.sucesso = "Feedback enviado com sucesso!";
+        console.log(`[CONTROLLER] Salvando sessão no ID: ${req.sessionID}`);
+        const idParaRedirecionar = avaliacaoAtual.vaga_id || vaga.id;
+
+        return req.session.save((err) => {
+            if (err) console.error('Erro ao salvar sessão:', err);
+            res.redirect(`/empresa/ranking-candidatos/${idParaRedirecionar}?feedback=success`);
+        });
+
+    } catch (err) {
+        console.error('Erro no feedback:', err);
+        req.session.erro = "Erro ao processar feedback.";
+        return res.redirect('/empresas/home');
+    }
+};

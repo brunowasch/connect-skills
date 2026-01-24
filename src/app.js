@@ -154,16 +154,25 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-passport.serializeUser((user, done) => done(null, { id: user.id, tipo: user.tipo }));
-passport.deserializeUser((payload, done) => done(null, payload));
-
-app.use(flashMessage);
-
 app.use((req, res, next) => {
-  res.locals.sucesso = req.session.sucessoContato || false;
-  res.locals.erro    = req.session.erroContato || false;
-  delete req.session.sucessoContato;
-  delete req.session.erroContato;
+    console.log(`[MIDDLEWARE FLASH] Rota: ${req.path} | Sucesso na Sessão: ${req.session?.sucesso}`);
+    
+    if (req.path.includes('.') || req.path.startsWith('/img/') || req.path.startsWith('/css/')) {
+        return next();
+    }
+
+    // 2. DEBUG DE SESSÃO: Isso vai nos dizer se o ID mudou (O culpado nº 1)
+    console.log(`[DEBUG SESSION] URL: ${req.path} | ID: ${req.sessionID} | Tem Sucesso? ${!!req.session.sucesso}`);
+
+    res.locals.sucesso = req.session.sucesso || false;
+    res.locals.erro    = req.session.erro || false;
+
+    if (req.method === 'GET') {
+        req.session.sucesso = null; 
+        req.session.erro = null;
+        // Não usamos delete aqui para garantir que a propriedade exista, apenas nula
+    }
+  console.log(`[DEBUG MIDDLEWARE] Rota: ${req.path} | Sucesso: ${res.locals.sucesso}`);
 
   if (!req.isAuthenticated() && (req.path.startsWith('/vagas/') || req.path.startsWith('/candidatos/vagas/'))) {
       req.session.returnTo = req.originalUrl;
@@ -180,6 +189,11 @@ app.use((req, res, next) => {
   console.log(`[DEBUG] Requisição recebida: ${req.method} ${req.url}`);
   next();
 });
+
+passport.serializeUser((user, done) => done(null, { id: user.id, tipo: user.tipo }));
+passport.deserializeUser((payload, done) => done(null, payload));
+
+app.use(flashMessage);
 
 app.post('/solicitar-video', vagaController.solicitarVideoCandidato);
 

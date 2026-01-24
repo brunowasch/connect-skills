@@ -1860,12 +1860,23 @@ exports.vagaDetalhes = async (req, res) => {
 
     if (candId) {
       avaliacao = await prisma.vaga_avaliacao.findFirst({
-        where: { candidato_id: candId, vaga_id: id }
+        where: 
+        { 
+          candidato_id: candId, 
+          vaga_id: id 
+        }
       });
-      jaAplicou = !!avaliacao;
     }
 
-    if(avaliacao) console.log("Dados da avaliação carregados:", avaliacao.resposta);
+    if(avaliacao) {
+      console.log("=== DEBUG AVALIAÇÃO ===");
+      console.log("ID da Avaliação:", avaliacao.id);
+      console.log("Campo video_url:", avaliacao.video_url); // O link deve aparecer aqui
+      console.log("Campo resposta:", avaliacao.resposta);  // O feedback deve aparecer aqui
+      console.log("========================");
+    }
+
+    jaAplicou = !!avaliacao;
 
     return res.render('candidatos/vaga-detalhes', {
       tituloPagina: 'Detalhes da vaga',

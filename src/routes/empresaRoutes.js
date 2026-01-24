@@ -10,6 +10,7 @@ const prisma = new PrismaClient();
 const withEncodedParam = require('../middlewares/withEncodedParam');
 const candidatoController = require('../controllers/candidatoController');
 const empresaArquivoController = require('../controllers/empresaArquivoController');
+const vagaController = require('../controllers/vagaController');
 
 let ensureEmpresa = null;
 let ensureUsuarioEmpresa = null;
@@ -171,6 +172,12 @@ router.post('/vaga/anexos/:id/delete', ensureEmpresa,  withEncodedParam('id'), 
     return res.redirect('/empresas/meu-perfil');
   }
 });
+
+router.post(
+  '/vaga/feedback-geral', 
+  ensureEmpresa,           
+  vagaController.salvarFeedbackCandidato
+);
 
 router.post('/vaga/gerar-ia', ensureEmpresa, empresaController.gerarDescricaoIA);
 

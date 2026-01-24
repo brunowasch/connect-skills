@@ -1282,6 +1282,7 @@ exports.rankingCandidatos = async (req, res) => {
         data_video: dataEnvioVideo,
         prazoEmpresaExpirado,
         diasRestantesEmpresa,
+        avaliacao_id: a.id,
         temFeedback: !!a.feedback_empresa,
       };
     });

@@ -53,9 +53,15 @@
     }
   </style>
 </head>
+<% 
+  const flashSucesso = locals.sucesso || ''; 
+  const flashErro = locals.erro || '';
+%>
 <body class="bg-light">
+  <input type="hidden" id="sucesso-valor" value="<%= locals.sucesso || '' %>">
+  <input type="hidden" id="erro-valor" value="<%= locals.erro || '' %>">
+
   <%- include('../partials/header-empresa') %>
-  <%- include('../partials/flash-messages') %>
 
   <main class="container py-5 mt-4">
     <div class="d-flex align-items-center gap-3 mb-4">
@@ -190,6 +196,10 @@
                     <i class="bi bi-camera-video"></i> Solicitar Vídeo
                   </button>
                 <% } %>
+
+                <button class="btn btn-dark btn-sm" onclick="abrirModalFeedback('<%= r.avaliacao_id %>', '<%= r.nome %>')">
+                  <i class="bi bi-chat-left-text"></i> Feedback
+                </button>
 
                 <% if (r.explanation || typeof r.score_D !== 'undefined') { %>
                   <button type="button"
@@ -406,24 +416,120 @@
     </div>
   </div>
 
+  <div class="modal fade" id="modalFeedback" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form method="POST" action="/empresa/vaga/feedback-geral">
+          <div class="modal-header bg-dark text-white">
+            <h5 class="modal-title"><i class="bi bi-chat-square-text me-2"></i> Enviar Feedback</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" name="avaliacaoId" id="avaliacaoId">
+            <p class="text-muted">Feedback para: <strong id="nomeCandidatoFeedback"></strong></p>
+            <textarea class="form-control" name="feedbackTexto" id="feedbackTexto" rows="4" required placeholder="Escreva aqui o feedback para o candidato..."></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-dark" id="btnEnviarFeedback">
+              <span class="spinner-border spinner-border-sm d-none" id="spinnerFeedback" role="status" aria-hidden="true"></span>
+              <i class="bi bi-send" id="iconFeedback"></i> 
+              <span id="textoFeedback">Enviar Feedback</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <%- include('../partials/footer') %>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-  <script>
-    // 1. LÓGICA DO MODAL E ENVIO
+<script>
+    // TUDO DENTRO DE UM ÚNICO DOMCONTENTLOADED PARA EVITAR ERROS
     document.addEventListener('DOMContentLoaded', function() {
-      const modalElement = document.getElementById('modalSolicitarVideo');
-      const bsModal = new bootstrap.Modal(modalElement);
+      
+    const urlParams = new URLSearchParams(window.location.search);
+    const feedbackStatus = urlParams.get('feedback');
+    
+    // Fallback para EJS caso a URL falhe
+    const msgSucesso = feedbackStatus === 'success' ? 'Feedback enviado com sucesso!' : "<%= locals.sucesso || '' %>";
+    const msgErro = "<%= locals.erro || '' %>";
+
+    if (msgSucesso && msgSucesso !== 'undefined' && msgSucesso !== '') {
+        Swal.fire({
+            icon: 'success',
+            title: 'Enviado!',
+            text: msgSucesso,
+            confirmButtonColor: '#2575fc'
+        });
+        // Limpa a URL para não repetir o alerta no refresh
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+      if (msgErro && msgErro !== 'undefined' && msgErro !== '') {
+        Swal.fire({
+          icon: 'error',
+          title: 'Ops!',
+          text: msgErro,
+          confirmButtonColor: '#6a11cb'
+        });
+      }
+
+      // 2. FUNÇÕES DO PLAYER DE VÍDEO
+      const videoPlayer = document.getElementById('videoPlayer');
+      const videoModalEl = document.getElementById('modalPlayerVideo');
+      const bsVideoModal = new bootstrap.Modal(videoModalEl);
+
+      window.assistirVideo = function(url, nome) {
+        if (!url) return;
+        document.getElementById('videoModalLabel').textContent = 'Apresentação: ' + nome;
+        videoPlayer.src = url;
+        videoPlayer.load();
+        bsVideoModal.show();
+        videoPlayer.play().catch(e => console.log("Autoplay bloqueado"));
+      };
+
+      window.pararVideo = function() {
+        if(videoPlayer) {
+          videoPlayer.pause();
+          videoPlayer.src = "";
+        }
+      };
+
+      videoModalEl.addEventListener('hidden.bs.modal', pararVideo);
+
+      // 3. FUNÇÕES DE FEEDBACK
+      window.abrirModalFeedback = function(id, nome) {
+        document.getElementById('avaliacaoId').value = id;
+        document.getElementById('nomeCandidatoFeedback').innerText = nome;
+        document.getElementById('feedbackTexto').value = ''; 
+        const feedbackModal = new bootstrap.Modal(document.getElementById('modalFeedback'));
+        feedbackModal.show();
+      };
+
+      const formFeedback = document.querySelector('form[action="/empresa/vaga/feedback-geral"]');
+      if (formFeedback) {
+        formFeedback.addEventListener('submit', function() {
+          document.getElementById('btnEnviarFeedback').disabled = true;
+          document.getElementById('spinnerFeedback').classList.remove('d-none');
+          document.getElementById('iconFeedback').classList.add('d-none');
+          document.getElementById('textoFeedback').innerText = "Enviando...";
+        });
+      }
+
+      // 4. SOLICITAÇÃO DE VÍDEO
       let dadosParaEnvio = null;
+      const modalSolicitar = new bootstrap.Modal(document.getElementById('modalSolicitarVideo'));
 
       window.prepararSolicitacao = function(idVaga, email, nomeCandidato, nomeVaga, candidatoId) {
         dadosParaEnvio = { idVaga, emailCandidato: email, nomeCandidato, nomeVaga, candidatoId };
         document.getElementById('modalNomeCandidato').textContent = nomeCandidato;
-        bsModal.show();
+        modalSolicitar.show();
       };
 
-      document.getElementById('btnConfirmarSolicitacao').addEventListener('click', async function() {
+      document.getElementById('btnConfirmarSolicitacao')?.addEventListener('click', async function() {
         const btn = this;
         const spinner = document.getElementById('btnSpinner');
         btn.disabled = true;
@@ -437,87 +543,35 @@
           });
           const result = await response.json();
           if (result.success) {
-            bsModal.hide();
-            Swal.fire({ icon: 'success', title: 'Enviado!', text: 'Solicitação enviada.', confirmButtonColor: '#0d6efd' });
+            modalSolicitar.hide();
+            Swal.fire({ icon: 'success', title: 'Solicitado!', text: 'E-mail enviado ao candidato.', confirmButtonColor: '#2575fc' });
           } else { throw new Error(result.message); }
         } catch (error) {
-          Swal.fire('Erro', 'Não foi possível enviar o e-mail: ' + error.message, 'error');
+          Swal.fire('Erro', error.message, 'error');
         } finally {
           btn.disabled = false;
           spinner.classList.add('d-none');
         }
       });
-      
-      // 2. LÓGICA DE ORDENAÇÃO (Mantida)
-      const select = document.getElementById('ordenarPor');
-      const container = document.getElementById('ranking-list');
-      if (select && container) {
-        function getRows() { return Array.from(container.querySelectorAll('.cand-row')); }
-        function valueFromRow(row, key) {
-          switch (key) {
-            case 'score_D': return Number(row.dataset.d || 0);
-            case 'score_I': return Number(row.dataset.i || 0);
-            case 'score_S': return Number(row.dataset.s || 0);
-            case 'score_C': return Number(row.dataset.c || 0);
-            default:        return Number(row.dataset.score || 0);
-          }
-        }
-        function sortBy(key) {
-          const rows = getRows();
-          rows.sort((a, b) => valueFromRow(b, key) - valueFromRow(a, key));
-          rows.forEach((r, idx) => {
-             // Atualiza número na tela
-             const posEl = r.querySelector('.fs-5.fw-bold');
-             if(posEl) posEl.textContent = (idx + 1) + 'º';
-             
-             // Atualiza barra
-             const val = valueFromRow(r, key);
-             const bar = r.querySelector('.js-metric-bar');
-             const num = r.querySelector('.js-metric-value');
-             if (bar) {
-                bar.style.width = val + '%';
-                bar.setAttribute('aria-valuenow', String(val));
-             }
-             if (num) num.textContent = String(val);
-             container.appendChild(r);
+
+      // 5. LÓGICA DE ORDENAÇÃO
+      const selectSort = document.getElementById('ordenarPor');
+      const listContainer = document.getElementById('ranking-list');
+      if (selectSort && listContainer) {
+        const sortBy = (key) => {
+          const rows = Array.from(listContainer.querySelectorAll('.cand-row'));
+          rows.sort((a, b) => {
+            const valA = Number(a.dataset[key.toLowerCase().replace('score_', '')] || a.dataset.score);
+            const valB = Number(b.dataset[key.toLowerCase().replace('score_', '')] || b.dataset.score);
+            return valB - valA;
           });
-        }
-        select.addEventListener('change', (e) => sortBy(e.target.value));
-        sortBy('score');
+          rows.forEach((r, idx) => {
+            r.querySelector('.fs-5.fw-bold').textContent = (idx + 1) + 'º';
+            listContainer.appendChild(r);
+          });
+        };
+        selectSort.addEventListener('change', (e) => sortBy(e.target.value));
       }
-    });
-
-    // Funções para o Player de Vídeo em Modal
-    // Funções para o Player de Vídeo em Modal
-    const videoModalElement = document.getElementById('modalPlayerVideo');
-    const bsVideoModal = new bootstrap.Modal(videoModalElement);
-    const player = document.getElementById('videoPlayer');
-
-    window.assistirVideo = function(url, nome) {
-      if (!url) return;
-      
-      // Atualiza o título com o nome do candidato
-      document.getElementById('videoModalLabel').textContent = 'Apresentação: ' + nome;
-      
-      // Carrega o vídeo
-      player.src = url;
-      player.load();
-      
-      bsVideoModal.show();
-      
-      // Tenta dar o play automático após abrir
-      player.play().catch(error => console.log("Autoplay bloqueado pelo navegador"));
-    };
-
-    window.pararVideo = function() {
-      player.pause();
-      player.currentTime = 0;
-      player.src = ""; // Limpa a fonte para liberar memória e parar o áudio
-    };
-
-    // Listener de segurança caso fechem pelo ESC ou clicando fora
-    videoModalElement.addEventListener('hidden.bs.modal', function () {
-      pararVideo();
     });
   </script>
 </body>
