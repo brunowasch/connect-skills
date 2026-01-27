@@ -1243,7 +1243,10 @@ exports.rankingCandidatos = async (req, res) => {
       // Lógica de detecção de vídeo (Como não temos a coluna, checamos a 'resposta')
       const conteudoResposta = String(a.resposta || "");
       const ehVideo = conteudoResposta.includes("cloudinary.com");
-      const videoUrl = ehVideo ? conteudoResposta : null;
+      const videoUrl = ehVideo ? conteudoResposta.split('|||')[0].trim() : (conteudoResposta.startsWith('http') ? conteudoResposta : null);
+
+      const partesFeedback = conteudoResposta.split('|||');
+      const jaRecebeuFeedback = partesFeedback.length > 1 && partesFeedback[1].trim().length > 0;
 
       let lines = [];
       if (breakdown?.qa) lines = lines.concat(breakdown.qa.filter(x => x?.question).map(toLine));
@@ -1284,6 +1287,7 @@ exports.rankingCandidatos = async (req, res) => {
         diasRestantesEmpresa,
         avaliacao_id: a.id,
         temFeedback: !!a.feedback_empresa,
+        jaRecebeuFeedback: jaRecebeuFeedback,
       };
     });
 

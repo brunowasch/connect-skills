@@ -187,8 +187,9 @@
                 </button>
                 
                 <% if (r.video_url && r.video_url.length > 5) { %>
-                <button type="button" class="btn btn-primary btn-sm" onclick="assistirVideo('<%= r.video_url %>', '<%= r.nome %>')">
-                  <i class="bi bi-play-circle"></i> Assistir Vídeo
+                <button class="btn btn-outline-danger btn-sm" 
+                        onclick="assistirVideo('<%= r.video_url %>', '<%= r.nome %>', '<%= r.avaliacao_id %>')">
+                    <i class="bi bi-play-circle"></i> Assistir Vídeo
                 </button>
                 <% } else if (r.email) { %>
                   <button type="button" class="btn btn-outline-primary btn-sm" 
@@ -197,9 +198,23 @@
                   </button>
                 <% } %>
 
-                <button class="btn btn-dark btn-sm" onclick="abrirModalFeedback('<%= r.avaliacao_id %>', '<%= r.nome %>')">
-                  <i class="bi bi-chat-left-text"></i> Feedback
-                </button>
+                <div class="d-flex gap-2">
+                    <% if (r.jaRecebeuFeedback) { %>
+                        <button class="btn btn-success btn-sm" disabled style="cursor: not-allowed; opacity: 0.8;" title="Feedback já enviado">
+                            <i class="bi bi-check-circle-fill"></i> Enviado
+                        </button>
+                    <% } else { %>
+                        <button id="btn-feedback-<%= r.avaliacao_id %>" 
+                                class="btn btn-dark btn-sm d-none" 
+                                onclick="abrirModalFeedback('<%= r.avaliacao_id %>', '<%= r.nome %>')">
+                            <i class="bi bi-chat-left-text"></i> Enviar Feedback Obrigatório
+                        </button>
+                        
+                        <span id="aviso-video-<%= r.avaliacao_id %>" class="badge bg-light text-dark border align-self-center">
+                            <i class="bi bi-lock-fill"></i> Assista ao vídeo para liberar
+                        </span>
+                    <% } %>
+                </div>
 
                 <% if (r.explanation || typeof r.score_D !== 'undefined') { %>
                   <button type="button"
@@ -404,13 +419,21 @@
           </div>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="pararVideo()"></button>
         </div>
-        <div class="modal-body p-0">
-          <div class="ratio ratio-16x9 bg-black">
-            <video id="videoPlayer" controls>
-              <source src="" type="video/mp4">
-              Seu navegador não suporta vídeos.
-            </video>
-          </div>
+        <div class="modal-body p-0 position-relative" style="background: black;">
+            <video id="videoPlayer" controls class="w-100" style="max-height: 70vh; display: block;"></video>
+            
+            <div class="p-3 bg-white border-top">
+                <div class="alert alert-warning border-warning d-flex align-items-center mb-0 shadow-sm" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill fs-3 me-3 text-warning"></i>
+                    <div>
+                        <h6 class="alert-heading fw-bold mb-1">Atenção, Recrutador!</h6>
+                        <p class="mb-0 small text-secondary">
+                            Ao visualizar este vídeo, você concorda que é <strong>obrigatório</strong> enviar um feedback para este candidato. 
+                            O botão de feedback aparecerá assim que você fechar esta janela.
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
       </div>
     </div>
@@ -481,15 +504,58 @@
       const videoPlayer = document.getElementById('videoPlayer');
       const videoModalEl = document.getElementById('modalPlayerVideo');
       const bsVideoModal = new bootstrap.Modal(videoModalEl);
+      let avaliacaoIdAtual = null;
 
-      window.assistirVideo = function(url, nome) {
-        if (!url) return;
-        document.getElementById('videoModalLabel').textContent = 'Apresentação: ' + nome;
-        videoPlayer.src = url;
-        videoPlayer.load();
-        bsVideoModal.show();
-        videoPlayer.play().catch(e => console.log("Autoplay bloqueado"));
+      window.assistirVideo = function(url, nome, idAvaliacao) {
+          avaliacaoIdAtual = idAvaliacao; 
+
+          const videoPlayer = document.getElementById('videoPlayer');
+          if (videoPlayer) {
+              document.getElementById('videoModalLabel').textContent = 'Apresentação: ' + nome;
+              videoPlayer.src = url;
+              
+              const modalEl = document.getElementById('modalPlayerVideo');
+              const modal = new bootstrap.Modal(modalEl);
+              modal.show();
+              
+              videoPlayer.play().catch(() => console.log("Autoplay bloqueado pelo navegador"));
+          }
       };
+
+      const modalVideoEl = document.getElementById('modalPlayerVideo');
+      if (modalVideoEl) {
+          modalVideoEl.addEventListener('hidden.bs.modal', function () {
+              const videoPlayer = document.getElementById('videoPlayer');
+              if (videoPlayer) videoPlayer.pause(); // Para o som
+
+              // Se tínhamos um ID salvo, libera o botão
+              if (avaliacaoIdAtual) {
+                  const btnFeedback = document.getElementById('btn-feedback-' + avaliacaoIdAtual);
+                  const badgeAviso = document.getElementById('aviso-video-' + avaliacaoIdAtual);
+
+                  if (btnFeedback) {
+                      // Remove a classe que esconde e adiciona uma animação
+                      btnFeedback.classList.remove('d-none');
+                      btnFeedback.classList.add('animate__animated', 'animate__fadeIn'); // Opcional se usar animate.css
+                      
+                      // Esconde o badge de aviso ("Assista para liberar")
+                      if(badgeAviso) badgeAviso.classList.add('d-none');
+
+                      // Opcional: Mostra um pequeno Toast/Alerta avisando que liberou
+                      const Toast = Swal.mixin({
+                          toast: true,
+                          position: 'top-end',
+                          showConfirmButton: false,
+                          timer: 3000
+                      });
+                      Toast.fire({
+                          icon: 'info',
+                          title: 'Botão de Feedback desbloqueado!'
+                      });
+                  }
+              }
+          });
+      }
 
       window.pararVideo = function() {
         if(videoPlayer) {
