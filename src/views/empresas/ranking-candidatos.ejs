@@ -475,6 +475,17 @@
       
     const urlParams = new URLSearchParams(window.location.search);
     const feedbackStatus = urlParams.get('feedback');
+    document.addEventListener('DOMContentLoaded', function() {
+    // Busca todos os botões de feedback escondidos
+    const botoesEscondidos = document.querySelectorAll('[id^="btn-feedback-"]');
+    
+    botoesEscondidos.forEach(btn => {
+      const id = btn.id.replace('btn-feedback-', '');
+      // Se tiver marcado no LocalStorage como visto, libera!
+      if (localStorage.getItem('video_visto_' + id) === 'true') {
+        liberarBotaoVisualmente(id);
+      }
+    });
     
     // Fallback para EJS caso a URL falhe
     const msgSucesso = feedbackStatus === 'success' ? 'Feedback enviado com sucesso!' : "<%= locals.sucesso || '' %>";
@@ -506,20 +517,27 @@
       const bsVideoModal = new bootstrap.Modal(videoModalEl);
       let avaliacaoIdAtual = null;
 
-      window.assistirVideo = function(url, nome, idAvaliacao) {
-          avaliacaoIdAtual = idAvaliacao; 
+      function liberarBotaoVisualmente(id) {
+        const btnFeedback = document.getElementById('btn-feedback-' + id);
+        const badgeAviso = document.getElementById('aviso-video-' + id);
 
-          const videoPlayer = document.getElementById('videoPlayer');
-          if (videoPlayer) {
-              document.getElementById('videoModalLabel').textContent = 'Apresentação: ' + nome;
-              videoPlayer.src = url;
-              
-              const modalEl = document.getElementById('modalPlayerVideo');
-              const modal = new bootstrap.Modal(modalEl);
-              modal.show();
-              
-              videoPlayer.play().catch(() => console.log("Autoplay bloqueado pelo navegador"));
-          }
+        if (btnFeedback) {
+          btnFeedback.classList.remove('d-none');
+          btnFeedback.classList.add('animate__animated', 'animate__fadeIn');
+          if (badgeAviso) badgeAviso.classList.add('d-none');
+        }
+      }
+
+      window.assistirVideo = function(url, nome, idAvaliacao) {
+        avaliacaoIdAtual = idAvaliacao; // Guarda quem estamos vendo agora
+        const videoPlayer = document.getElementById('videoPlayer');
+        if (videoPlayer) {
+          document.getElementById('videoModalLabel').textContent = 'Apresentação: ' + nome;
+          videoPlayer.src = url;
+          const modal = new bootstrap.Modal(document.getElementById('modalPlayerVideo'));
+          modal.show();
+          videoPlayer.play().catch(() => console.log("Autoplay bloqueado"));
+        }
       };
 
       const modalVideoEl = document.getElementById('modalPlayerVideo');
@@ -530,6 +548,8 @@
 
               // Se tínhamos um ID salvo, libera o botão
               if (avaliacaoIdAtual) {
+                  localStorage.setItem('video_visto_' + avaliacaoIdAtual, 'true');
+                  liberarBotaoVisualmente(avaliacaoIdAtual);
                   const btnFeedback = document.getElementById('btn-feedback-' + avaliacaoIdAtual);
                   const badgeAviso = document.getElementById('aviso-video-' + avaliacaoIdAtual);
 
