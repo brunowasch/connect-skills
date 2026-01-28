@@ -381,7 +381,7 @@ exports.removerVideoCandidato = async (req, res) => {
 // Adicione esta função para salvar o feedback
 exports.salvarFeedbackCandidato = async (req, res) => {
     try {
-        const { avaliacaoId, feedbackTexto } = req.body;
+        const { avaliacaoId, feedbackTexto, vagaId } = req.body;
         const empresaSessao = req.session.empresa;
 
         // 1. Busca a avaliação para pegar IDs de vaga e candidato
@@ -389,24 +389,25 @@ exports.salvarFeedbackCandidato = async (req, res) => {
             where: { id: String(avaliacaoId) }
         });
         
-        if (!avaliacaoAtual) {
+        if (!avaliacaoId || !avaliacaoAtual || !feedbackTexto.trim()) {
             req.session.erro = "Avaliação não encontrada.";
             return res.redirect('/empresas/home');
         }
 
-        console.log("Avaliação Encontrada:", avaliacaoAtual);
-        console.log("Tentando buscar Candidato ID:", avaliacaoAtual.candidato_id);
-
-        // 2. Busca dados necessários para o e-mail
         const [candidatoRelacionado, vaga] = await Promise.all([
             prisma.candidato.findUnique({
                 where: { id: avaliacaoAtual.candidato_id },
-                include: { usuario: true } 
+                include: { usuario: true }
             }),
             prisma.vaga.findUnique({
                 where: { id: avaliacaoAtual.vaga_id }
             })
         ]);
+
+        const idDaVaga = avaliacaoAtual.vaga_id || vagaId;
+
+        console.log("Avaliação Encontrada:", avaliacaoAtual);
+        console.log("Tentando buscar Candidato ID:", avaliacaoAtual.candidato_id);
 
         const dadosUsuario = candidatoRelacionado?.usuario;
         const nomeExibicao = candidatoRelacionado?.nome || dadosUsuario?.nome || "Candidato";
@@ -417,21 +418,48 @@ exports.salvarFeedbackCandidato = async (req, res) => {
         // 3. Preserva o vídeo atual e anexa o novo feedback
         let videoLink = '';
         const respostaOriginal = avaliacaoAtual.resposta || '';
+
         if (respostaOriginal.includes('|||')) {
             videoLink = respostaOriginal.split('|||')[0].trim();
         } else if (respostaOriginal.startsWith('http')) {
             videoLink = respostaOriginal.trim();
         }
+        
+        const safeVideoLink = videoLink.substring(0, 90); 
+        const safeFeedbackTexto = feedbackTexto.substring(0, 160);
+
         const novoConteudo = videoLink ? `${videoLink} ||| ${feedbackTexto}` : `||| ${feedbackTexto}`;
 
         // 4. Atualiza o banco
-        await prisma.vaga_avaliacao.update({
-            where: { id: String(avaliacaoId) },
-            data: { 
-                resposta: novoConteudo,
-                updated_at: new Date()
-            }
-        });
+        try {
+            console.log("[DEBUG] Tentando salvar texto completo no breakdown...");
+            
+            // TENTATIVA A: Tenta salvar o texto INTEIRO no campo breakdown (Se o banco suportar)
+            await prisma.vaga_avaliacao.update({
+                where: { id: String(avaliacaoId) },
+                data: { 
+                    resposta: safeVideoLink, 
+                    breakdown: feedbackTexto, // Tenta salvar o texto completo aqui
+                    updated_at: new Date()
+                }
+            });
+
+        } catch (innerError) {
+            console.error(">>>> Falha no campo breakdown, ativando Plano B (Compacto)...");
+            
+            // TENTATIVA B (FALLBACK): Se der erro acima, salva versão resumida no campo resposta
+            // O formato será: LINK ||| TEXTO CURTO
+            const conteudoCompacto = `${safeVideoLink}|||${safeFeedbackTexto}...`;
+
+            await prisma.vaga_avaliacao.update({
+                where: { id: String(avaliacaoId) },
+                data: { 
+                    resposta: conteudoCompacto,
+                    // Não enviamos o breakdown aqui para não gerar erro novamente
+                    updated_at: new Date()
+                }
+            });
+        }
         
         console.log('[DEBUG DADOS USUARIO]', dadosUsuario);
 

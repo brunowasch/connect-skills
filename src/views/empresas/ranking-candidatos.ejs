@@ -203,17 +203,18 @@
                         <button class="btn btn-success btn-sm" disabled style="cursor: not-allowed; opacity: 0.8;" title="Feedback já enviado">
                             <i class="bi bi-check-circle-fill"></i> Enviado
                         </button>
-                    <% } else { %>
-                        <button id="btn-feedback-<%= r.avaliacao_id %>" 
-                                class="btn btn-dark btn-sm d-none" 
-                                onclick="abrirModalFeedback('<%= r.avaliacao_id %>', '<%= r.nome %>')">
-                            <i class="bi bi-chat-left-text"></i> Enviar Feedback Obrigatório
-                        </button>
-                        
-                        <span id="aviso-video-<%= r.avaliacao_id %>" class="badge bg-light text-dark border align-self-center">
-                            <i class="bi bi-lock-fill"></i> Assista ao vídeo para liberar
-                        </span>
-                    <% } %>
+                        <% } else { %>
+                            <button id="btn-feedback-<%= r.avaliacao_id %>" 
+                                    class="btn btn-dark btn-sm d-none" 
+                                    data-sugestao="<%= r.suggestions.map(s => '• ' + s).join('\n') %>"
+                                    onclick="abrirModalFeedback('<%= r.avaliacao_id %>', '<%= r.nome %>', this.getAttribute('data-sugestao'))">
+                                <i class="bi bi-chat-left-text"></i> Enviar Feedback
+                            </button>
+                            
+                            <span id="aviso-video-<%= r.avaliacao_id %>" class="badge bg-light text-dark border align-self-center">
+                                <i class="bi bi-lock-fill"></i> Assista ao vídeo para liberar
+                            </span>
+                        <% } %>
                 </div>
 
                 <% if (r.explanation || typeof r.score_D !== 'undefined') { %>
@@ -442,20 +443,36 @@
   <div class="modal fade" id="modalFeedback" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
-        <form method="POST" action="/empresa/vaga/feedback-geral">
-          <div class="modal-header bg-dark text-white">
-            <h5 class="modal-title"><i class="bi bi-chat-square-text me-2"></i> Enviar Feedback</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-          </div>
+        <div class="modal-header">
+          <h5 class="modal-title">Enviar Feedback</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        
+        <form id="formFeedback" method="POST" action="/empresa/vaga/feedback-geral">
           <div class="modal-body">
             <input type="hidden" name="avaliacaoId" id="avaliacaoId">
-            <p class="text-muted">Feedback para: <strong id="nomeCandidatoFeedback"></strong></p>
-            <textarea class="form-control" name="feedbackTexto" id="feedbackTexto" rows="4" required placeholder="Escreva aqui o feedback para o candidato..."></textarea>
+            <input type="hidden" name="vagaId" value="<%= vaga.id %>">
+            
+            <p class="text-muted mb-3">Feedback para: <strong id="nomeCandidatoFeedback"></strong></p>
+
+            <div class="mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label for="feedbackTexto" class="form-label mb-0 fw-bold">Sua mensagem:</label>
+                
+                <button type="button" id="btnUsarSugestao" class="btn btn-outline-primary btn-sm" style="font-size: 0.8rem;">
+                  <i class="bi bi-robot"></i> Usar Sugestão da IA
+                </button>
+              </div>
+              
+              <textarea class="form-control" id="feedbackTexto" name="feedbackTexto" rows="6" required 
+                placeholder="Digite o feedback para o candidato aqui..."></textarea>
+            </div>
           </div>
+
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
             <button type="submit" class="btn btn-dark" id="btnEnviarFeedback">
-              <span class="spinner-border spinner-border-sm d-none" id="spinnerFeedback" role="status" aria-hidden="true"></span>
+              <span class="spinner-border spinner-border-sm d-none" id="spinnerFeedback" role="status"></span>
               <i class="bi bi-send" id="iconFeedback"></i> 
               <span id="textoFeedback">Enviar Feedback</span>
             </button>
@@ -475,7 +492,6 @@
       
     const urlParams = new URLSearchParams(window.location.search);
     const feedbackStatus = urlParams.get('feedback');
-    document.addEventListener('DOMContentLoaded', function() {
     // Busca todos os botões de feedback escondidos
     const botoesEscondidos = document.querySelectorAll('[id^="btn-feedback-"]');
     
@@ -497,9 +513,9 @@
             title: 'Enviado!',
             text: msgSucesso,
             confirmButtonColor: '#2575fc'
+        }).then(() => {
+            window.history.replaceState({}, document.title, window.location.pathname);
         });
-        // Limpa a URL para não repetir o alerta no refresh
-        window.history.replaceState({}, document.title, window.location.pathname);
     }
 
       if (msgErro && msgErro !== 'undefined' && msgErro !== '') {
@@ -587,15 +603,45 @@
       videoModalEl.addEventListener('hidden.bs.modal', pararVideo);
 
       // 3. FUNÇÕES DE FEEDBACK
-      window.abrirModalFeedback = function(id, nome) {
-        document.getElementById('avaliacaoId').value = id;
-        document.getElementById('nomeCandidatoFeedback').innerText = nome;
-        document.getElementById('feedbackTexto').value = ''; 
-        const feedbackModal = new bootstrap.Modal(document.getElementById('modalFeedback'));
-        feedbackModal.show();
+      window.abrirModalFeedback = function(id, nome, sugestaoIA) {
+          const avaliacaoInput = document.getElementById('avaliacaoId');
+          const feedbackTexto = document.getElementById('feedbackTexto');
+          const btnUsarSugestao = document.getElementById('btnUsarSugestao');
+
+          if (avaliacaoInput) {
+              avaliacaoInput.value = id;
+              document.getElementById('nomeCandidatoFeedback').innerText = nome;
+              feedbackTexto.value = ''; 
+
+              if (btnUsarSugestao) {
+                  const novoBotao = btnUsarSugestao.cloneNode(true);
+                  btnUsarSugestao.parentNode.replaceChild(novoBotao, btnUsarSugestao);
+
+                  // Se houver sugestões (mesmo que seja apenas uma), mostra o botão
+                  if (sugestaoIA && sugestaoIA.trim().length > 0) {
+                      novoBotao.classList.remove('d-none');
+                      novoBotao.onclick = function() {
+                          // Adiciona um cabeçalho educado antes das sugestões da IA
+                          const textoFormatado = "Olá " + nome + ",\n\nCom base na nossa análise, aqui estão algumas sugestões para o seu desenvolvimento:\n\n" + sugestaoIA;
+                          
+                          feedbackTexto.value = textoFormatado;
+                          
+                          novoBotao.innerHTML = '<i class="bi bi-check-lg"></i> Sugestões Adicionadas!';
+                          setTimeout(() => {
+                              novoBotao.innerHTML = '<i class="bi bi-robot"></i> Usar Sugestão da IA';
+                          }, 2000);
+                      };
+                  } else {
+                      novoBotao.classList.add('d-none');
+                  }
+              }
+
+              const feedbackModal = new bootstrap.Modal(document.getElementById('modalFeedback'));
+              feedbackModal.show();
+          }
       };
 
-      const formFeedback = document.querySelector('form[action="/empresa/vaga/feedback-geral"]');
+      const formFeedback = document.getElementById('formFeedback');
       if (formFeedback) {
         formFeedback.addEventListener('submit', function() {
           document.getElementById('btnEnviarFeedback').disabled = true;
